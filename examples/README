@@ -1,0 +1,8 @@
+server-example.c - an example of a server listening to connections,
+                   accepting them and processing requests from 
+                   clients
+
+client-example.c - an example of something connecting to a process, 
+                   reading requests and sending replies. Probably
+                   a less common application than server-example.c
+

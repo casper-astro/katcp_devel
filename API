@@ -1,0 +1,63 @@
+
+To use the api include <katcp.h> and link against -lkatcp. You
+may need to set the include search path with -I and library
+search path with -L
+
+The makefile only generates a static library (.a), but shared
+libraries could also be built (but do remember the -fPIC
+compiler flag)
+
+The katcp API has several "layers"
+
+ - A top level where the service main loop is implemented 
+   inside an API function. Examples using this are the 
+   examples/client-example.c and examples/server-example.c code. 
+
+   At this level, the user only provides function and sensor
+   callbacks. The mainloop is implemented by the library,
+   as is the logic to handle network connections.
+
+   The API consists of the following functions:
+   
+   * A user of this API initialises the system using 
+     startup_katcp. 
+   
+   * Command callbacks are registered using the 
+     register_katcp call. 
+     
+   * To register sensors, use one of the 
+     register_*_sensor_katcp functions. 
+   
+   * After all callbacks are registered, the main loop is started with
+     run_server_katcp, run_multi_server_katcp and run_client_katcp.
+   
+   * After the main loop completes, final clean ups are done
+     by invoking the shutdown_katcp function.
+
+   Inside a command function (the one passed to
+   register_katcp), users can call arg_*_katcp
+   to access parameters and append_*_katcp, send_katcp
+   and log_message_katcp to generate output. 
+
+   Internally the katcp library implements these 
+   functions in loop.c and netc.c.
+
+ - An intermediate level, where the user implements his
+   or her own main loop (probably using some select
+   variant), but still uses a katcp_dispatch structure
+   to register functions, dispatch them, etc. The
+   internals of a command function remain similar to
+   the higher level case (arg_*_katcp, append_*_katcp, etc).
+
+   This logic is implemented inside dispatch.c, but loop.c
+   may be helpful as a starting point for a users own 
+   main loop.
+
+ - A lower level where only the protocol parsing logic of
+   the library is used. Here the programmer implements
+   his or her own main loop and dispatch logic. The functions
+   used to parse the protocol are defined in line.c and
+   are distinguished by a *_katcl (*not* a *_katcp) suffix. Thus
+   it is sufficient to include only katcl.h
+
+

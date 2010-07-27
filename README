@@ -1,0 +1,45 @@
+KATCP: KAT control protocol
+---------------------------
+
+Type
+
+  make
+
+to build
+
+Type 
+
+  make install
+
+to install the library into /usr/local/
+
+Type
+
+  make prefix=/some/where/else install
+
+to pick a different install path. The subdirectories include/
+and lib/ will be created in this directory.
+
+API 
+
+  described in the file API
+
+Example code:
+
+  examples/client-example.c  - high level api example which connects to server
+  examples/server-example    - high level api example which runs a server
+
+Test code:
+
+  in tests/                  - should be improved
+
+Useful executable:
+
+  utils/katcpcmd             - commandline utility with some options. 
+                               But telnet or socat will do as well.
+
+Other implementations:
+
+  There are pure Python and Java implementations of the katcp protocol
+  available in at https://katfs.kat.ac.za/svnCONRAD/Common/katcp-python and
+  https://katfs.kat.ac.za/svnCONRAD/Common/katcp-java.

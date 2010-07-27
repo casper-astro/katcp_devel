@@ -1,0 +1,150 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.7	//
+KATCP_ARGS_INC	katpriv.h	57;"	d
+KATCP_BUFFER_INC	katpriv.h	56;"	d
+KATCP_EXIT_ABORT	katpriv.h	40;"	d
+KATCP_EXIT_HALT	katpriv.h	41;"	d
+KATCP_EXIT_RESTART	katpriv.h	42;"	d
+KATCP_FAIL	katcp.h	16;"	d
+KATCP_FLAG_BUFFER	katcp.h	33;"	d
+KATCP_FLAG_FIRST	katcp.h	27;"	d
+KATCP_FLAG_LAST	katcp.h	28;"	d
+KATCP_FLAG_MORE	katcp.h	29;"	d
+KATCP_FLAG_STRING	katcp.h	31;"	d
+KATCP_FLAG_ULONG	katcp.h	32;"	d
+KATCP_INFORM	katcp.h	13;"	d
+KATCP_INVALID	katcp.h	17;"	d
+KATCP_LEVEL_CRITICAL	katcp.h	24;"	d
+KATCP_LEVEL_DEBUG	katcp.h	20;"	d
+KATCP_LEVEL_ERROR	katcp.h	23;"	d
+KATCP_LEVEL_INFO	katcp.h	21;"	d
+KATCP_LEVEL_TRACE	katcp.h	19;"	d
+KATCP_LEVEL_WARN	katcp.h	22;"	d
+KATCP_MAX_LEVELS	katcp.h	25;"	d
+KATCP_OK	katcp.h	15;"	d
+KATCP_ORDER_FLAGS	katcp.h	36;"	d
+KATCP_READY_MAGIC	dispatch.c	18;"	d	file:
+KATCP_REPLY	katcp.h	12;"	d
+KATCP_REQUEST	katcp.h	11;"	d
+KATCP_TYPE_FLAGS	katcp.h	35;"	d
+NETC_H_	netc.h	2;"	d
+STATE_INTOKEN	line.c	151;"	d	file:
+STATE_POSTOKEN	line.c	152;"	d	file:
+STATE_PRETOKEN	line.c	150;"	d	file:
+TMP_BUFFER	line.c	449;"	d	file:
+TMP_BUFFER	line.c	459;"	d	file:
+_KATCP_H_	katcp.h	2;"	d
+_KATPRIV_H_	katpriv.h	2;"	d
+a_begin	katpriv.h	/^  unsigned int a_begin;$/;"	m	struct:katcl_larg
+a_end	katpriv.h	/^  unsigned int a_end;$/;"	m	struct:katcl_larg
+append_args_katcl	line.c	/^int append_args_katcl(struct katcl_line *l, int flags, char *fmt, ...)$/;"	f
+append_args_katcp	dispatch.c	/^int append_args_katcp(struct katcp_dispatch *d, int flags, char *fmt, ...)$/;"	f
+append_buffer_katcl	line.c	/^int append_buffer_katcl(struct katcl_line *l, int flags, void *buffer, int len)$/;"	f
+append_buffer_katcp	dispatch.c	/^int append_buffer_katcp(struct katcp_dispatch *d, int flags, void *buffer, int len)$/;"	f
+append_string_katcl	line.c	/^int append_string_katcl(struct katcl_line *l, int flags, void *buffer)$/;"	f
+append_string_katcp	dispatch.c	/^int append_string_katcp(struct katcp_dispatch *d, int flags, char *buffer)$/;"	f
+append_unsigned_long_katcl	line.c	/^int append_unsigned_long_katcl(struct katcl_line *l, int flags, unsigned long v)$/;"	f
+append_unsigned_long_katcp	dispatch.c	/^int append_unsigned_long_katcp(struct katcp_dispatch *d, int flags, unsigned long v)$/;"	f
+append_vargs_katcl	line.c	/^int append_vargs_katcl(struct katcl_line *l, int flags, char *fmt, va_list args)$/;"	f
+append_vargs_katcp	dispatch.c	/^int append_vargs_katcp(struct katcp_dispatch *d, int flags, char *fmt, va_list args)$/;"	f
+arg_buffer_katcl	line.c	/^unsigned int arg_buffer_katcl(struct katcl_line *l, unsigned int index, void *buffer, unsigned int size)$/;"	f
+arg_buffer_katcp	dispatch.c	/^unsigned int arg_buffer_katcp(struct katcp_dispatch *d, unsigned int index, void *buffer, unsigned int size)$/;"	f
+arg_copy_string_katcl	line.c	/^char *arg_copy_string_katcl(struct katcl_line *l, unsigned int index)$/;"	f
+arg_copy_string_katcp	dispatch.c	/^char *arg_copy_string_katcp(struct katcp_dispatch *d, unsigned int index)$/;"	f
+arg_count_katcl	line.c	/^unsigned int arg_count_katcl(struct katcl_line *l)$/;"	f
+arg_inform_katcl	line.c	/^int arg_inform_katcl(struct katcl_line *l)$/;"	f
+arg_inform_katcp	dispatch.c	/^int arg_inform_katcp(struct katcp_dispatch *d)$/;"	f
+arg_reply_katcl	line.c	/^int arg_reply_katcl(struct katcl_line *l)$/;"	f
+arg_reply_katcp	dispatch.c	/^int arg_reply_katcp(struct katcp_dispatch *d)$/;"	f
+arg_request_katcl	line.c	/^int arg_request_katcl(struct katcl_line *l)$/;"	f
+arg_request_katcp	dispatch.c	/^int arg_request_katcp(struct katcp_dispatch *d)$/;"	f
+arg_string_katcl	line.c	/^char *arg_string_katcl(struct katcl_line *l, unsigned int index)$/;"	f
+arg_string_katcp	dispatch.c	/^char *arg_string_katcp(struct katcp_dispatch *d, unsigned int index)$/;"	f
+arg_type_katcl	line.c	/^static int arg_type_katcl(struct katcl_line *l, char mode)$/;"	f	file:
+arg_unsigned_long_katcl	line.c	/^unsigned long arg_unsigned_long_katcl(struct katcl_line *l, unsigned int index)$/;"	f
+arg_unsigned_long_katcp	dispatch.c	/^unsigned long arg_unsigned_long_katcp(struct katcp_dispatch *d, unsigned int index)$/;"	f
+basic_response_katcp	dispatch.c	/^int basic_response_katcp(struct katcp_dispatch *d, int code)$/;"	f
+c_call	katpriv.h	/^  int (*c_call)(struct katcp_dispatch *d, int argc);$/;"	m	struct:katcp_cmd
+c_help	katpriv.h	/^  char *c_help;$/;"	m	struct:katcp_cmd
+c_name	katpriv.h	/^  char *c_name;$/;"	m	struct:katcp_cmd
+c_next	katpriv.h	/^  struct katcp_cmd *c_next;$/;"	m	struct:katcp_cmd	typeref:struct:katcp_cmd::katcp_cmd
+clone_katcp	dispatch.c	/^struct katcp_dispatch *clone_katcp(struct katcp_dispatch *cd)$/;"	f
+create_katcl	line.c	/^struct katcl_line *create_katcl(int fd)$/;"	f
+d_commands	katpriv.h	/^  struct katcp_cmd *d_commands;$/;"	m	struct:katcp_dispatch	typeref:struct:katcp_dispatch::katcp_cmd
+d_current	katpriv.h	/^  struct katcp_cmd *d_current;$/;"	m	struct:katcp_dispatch	typeref:struct:katcp_dispatch::katcp_cmd
+d_exit	katpriv.h	/^  int d_exit;$/;"	m	struct:katcp_dispatch
+d_level	katpriv.h	/^  int d_level;$/;"	m	struct:katcp_dispatch
+d_line	katpriv.h	/^  struct katcl_line *d_line;$/;"	m	struct:katcp_dispatch	typeref:struct:katcp_dispatch::katcl_line
+d_ready	katpriv.h	/^  int d_ready;$/;"	m	struct:katcp_dispatch
+d_run	katpriv.h	/^  int d_run;$/;"	m	struct:katcp_dispatch
+d_state	katpriv.h	/^  void *d_state;$/;"	m	struct:katcp_dispatch
+destroy_katcl	line.c	/^void destroy_katcl(struct katcl_line *l, int mode)$/;"	f
+dispatch_katcp	dispatch.c	/^int dispatch_katcp(struct katcp_dispatch *d)$/;"	f
+dump_katcl	line.c	/^void dump_katcl(struct katcl_line *l, FILE *fp)$/;"	f
+error_katcl	line.c	/^int error_katcl(struct katcl_line *l)$/;"	f
+error_katcp	dispatch.c	/^int error_katcp(struct katcp_dispatch *d)$/;"	f
+exchange_katcl	line.c	/^void exchange_katcl(struct katcl_line *l, int fd)$/;"	f
+extract_katcl	line.c	/^static int extract_katcl(struct katcl_line *l)$/;"	f	file:
+fileno_katcl	line.c	/^int fileno_katcl(struct katcl_line *l)$/;"	f
+fileno_katcp	dispatch.c	/^int fileno_katcp(struct katcp_dispatch *d)$/;"	f
+flush_katcp	dispatch.c	/^int flush_katcp(struct katcp_dispatch *d)$/;"	f
+flushing_katcl	line.c	/^int flushing_katcl(struct katcl_line *l)$/;"	f
+flushing_katcp	dispatch.c	/^int flushing_katcp(struct katcp_dispatch *d)$/;"	f
+get_state_katcp	dispatch.c	/^void *get_state_katcp(struct katcp_dispatch *d)$/;"	f
+halt_cmd_katcp	dispatch.c	/^int halt_cmd_katcp(struct katcp_dispatch *d, int argc)$/;"	f
+have_katcl	line.c	/^int have_katcl(struct katcl_line *l)$/;"	f
+have_katcp	dispatch.c	/^int have_katcp(struct katcp_dispatch *d)$/;"	f
+help_cmd_katcp	dispatch.c	/^int help_cmd_katcp(struct katcp_dispatch *d, int argc)$/;"	f
+katcl_larg	katpriv.h	/^struct katcl_larg{$/;"	s
+katcl_line	katpriv.h	/^struct katcl_line{$/;"	s
+katcp_cmd	katpriv.h	/^struct katcp_cmd{$/;"	s
+katcp_dispatch	katpriv.h	/^struct katcp_dispatch{$/;"	s
+katcp_log_levels	dispatch.c	/^static char *katcp_log_levels[KATCP_MAX_LEVELS] = {$/;"	v	file:
+l_ahave	katpriv.h	/^  unsigned int l_ahave;$/;"	m	struct:katcl_line
+l_args	katpriv.h	/^  struct katcl_larg *l_args;$/;"	m	struct:katcl_line	typeref:struct:katcl_line::katcl_larg
+l_asize	katpriv.h	/^  unsigned int l_asize;$/;"	m	struct:katcl_line
+l_error	katpriv.h	/^  int l_error;$/;"	m	struct:katcl_line
+l_fd	katpriv.h	/^  int l_fd;$/;"	m	struct:katcl_line
+l_ihave	katpriv.h	/^  unsigned int l_ihave;$/;"	m	struct:katcl_line
+l_input	katpriv.h	/^  char *l_input;$/;"	m	struct:katcl_line
+l_isize	katpriv.h	/^  unsigned int l_isize;$/;"	m	struct:katcl_line
+l_iused	katpriv.h	/^  unsigned int l_iused;$/;"	m	struct:katcl_line
+l_odone	katpriv.h	/^  unsigned int l_odone;$/;"	m	struct:katcl_line
+l_osize	katpriv.h	/^  unsigned int l_osize;$/;"	m	struct:katcl_line
+l_output	katpriv.h	/^  char *l_output;$/;"	m	struct:katcl_line
+l_owant	katpriv.h	/^  unsigned int l_owant;$/;"	m	struct:katcl_line
+l_problem	katpriv.h	/^  int l_problem;$/;"	m	struct:katcl_line
+log_level_cmd_katcp	dispatch.c	/^int log_level_cmd_katcp(struct katcp_dispatch *d, int argc)$/;"	f
+log_message_katcp	dispatch.c	/^int log_message_katcp(struct katcp_dispatch *d, int level, char *name, char *fmt, ...)$/;"	f
+main	dispatch.c	/^int main(int argc, char **argv)$/;"	f
+main	line.c	/^int main()$/;"	f
+main	netc.c	/^int main(int argc, char **argv)$/;"	f
+motd_katcp	loop.c	/^static void motd_katcp(struct katcp_dispatch *d)$/;"	f	file:
+net_connect	netc.c	/^int net_connect(char *name, int port, int verbose)$/;"	f
+net_listen	netc.c	/^int net_listen(char *name, int port, int verbose)$/;"	f
+print_katcl	line.c	/^int print_katcl(struct katcl_line *l, int full, char *fmt, ...)$/;"	f
+problem_katcl	line.c	/^int problem_katcl(struct katcl_line *l)$/;"	f
+read_katcl	line.c	/^int read_katcl(struct katcl_line *l)$/;"	f
+read_katcp	dispatch.c	/^int read_katcp(struct katcp_dispatch *d)$/;"	f
+register_katcp	dispatch.c	/^int register_katcp(struct katcp_dispatch *d, char *match, char *help, int (*call)(struct katcp_dispatch *d, int argc))$/;"	f
+restart_cmd_katcp	dispatch.c	/^int restart_cmd_katcp(struct katcp_dispatch *d, int argc)$/;"	f
+run_client_katcp	loop.c	/^int run_client_katcp(struct katcp_dispatch *d, char *host, int port)$/;"	f
+run_katcp	loop.c	/^int run_katcp(struct katcp_dispatch *d, int server, char *host, int port)$/;"	f
+run_server_katcp	loop.c	/^int run_server_katcp(struct katcp_dispatch *d, char *host, int port)$/;"	f
+sane_katcp	dispatch.c	/^static void sane_katcp(struct katcp_dispatch *d)$/;"	f	file:
+sane_katcp	dispatch.c	286;"	d	file:
+send_katcp	dispatch.c	/^int send_katcp(struct katcp_dispatch *d, ...)$/;"	f
+set_state_katcp	dispatch.c	/^void set_state_katcp(struct katcp_dispatch *d, void *p)$/;"	f
+setup_katcp	dispatch.c	/^struct katcp_dispatch *setup_katcp(int fd)$/;"	f
+shutdown_cmd_katcp	dispatch.c	/^static void shutdown_cmd_katcp(struct katcp_cmd *c)$/;"	f	file:
+shutdown_katcp	dispatch.c	/^void shutdown_katcp(struct katcp_dispatch *d)$/;"	f
+startup_katcp	dispatch.c	/^struct katcp_dispatch *startup_katcp()$/;"	f
+vprint_katcl	line.c	/^int vprint_katcl(struct katcl_line *l, int full, char *fmt, va_list args)$/;"	f
+vsend_katcp	dispatch.c	/^int vsend_katcp(struct katcp_dispatch *d, va_list ap)$/;"	f
+watchdog_cmd_katcp	dispatch.c	/^int watchdog_cmd_katcp(struct katcp_dispatch *d, int argc)$/;"	f
+write_katcl	line.c	/^int write_katcl(struct katcl_line *l)$/;"	f
+write_katcp	dispatch.c	/^int write_katcp(struct katcp_dispatch *d)$/;"	f
