@@ -159,6 +159,9 @@ int startup_shared_katcp(struct katcp_dispatch *d)
   s->s_queue = NULL;
   s->s_length = 0;
 
+  s->s_notices = NULL;
+  s->s_pending = 0;
+
   s->s_build_state = NULL;
   s->s_build_items = 0;
 
@@ -242,6 +245,7 @@ void shutdown_shared_katcp(struct katcp_dispatch *d)
   }
 
   /* clear modes only once, when we clear the template */
+  /* modes want callbacks, so we invoke them before operating on internals */
   if(d->d_clone < 0){
     for(i = 0; i < s->s_size; i++){
       s->s_mode = i; /* be nice to the clear function, get current mode works */
@@ -292,6 +296,7 @@ void shutdown_shared_katcp(struct katcp_dispatch *d)
   }
 #endif
 
+  destroy_notices_katcp(d);
   destroy_sensors_katcp(d);
 
   while(s->s_count > 0){

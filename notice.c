@@ -15,11 +15,11 @@ void unlink_notices_katcp(struct katcp_dispatch *d)
     n = d->d_notices[i];
     j = 0;
     while(j < n->n_count){
-      if(n->n_vector[j].i_client == d){
+      if(n->n_vector[j].v_client == d){
         n->n_count--;
         if(j < n->n_count){
-          n->n_vector[j].i_client = n->n_vector[n->n_count].i_client;
-          n->n_vector[j].i_call   = n->n_vector[n->n_count].i_call;
+          n->n_vector[j].v_client = n->n_vector[n->n_count].v_client;
+          n->n_vector[j].v_call   = n->n_vector[n->n_count].v_call;
         }
       } else {
         j++;
@@ -60,7 +60,7 @@ static void deallocate_notice_katcp(struct katcp_dispatch *d, struct katcp_notic
   }
 }
 
-void destroy_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
+static void destroy_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
 {
   int i, found;
   struct katcp_shared *s;
@@ -157,7 +157,99 @@ struct katcp_notice *create_notice_katcp(struct katcp_dispatch *d)
   return n;
 }
 
-int add_notice_katcp(struct katcp_notice *n, struct katcp_dispatch *d, int (*call)(struct katcp_dispatch *d, void *data))
+int add_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n))
 {
+  struct katcp_invoke *v;
+
+  v = realloc(n->n_vector, sizeof(struct katcp_invoke) * (n->n_count + 1));
+  if(v == NULL){
+    return -1;
+  }
+
+  n->n_vector = v;
+
+  v = &(n->n_vector[n->n_count]);
+  v->v_client = d;
+  v->v_call = call;
+
+  n->n_count++;
+
+  return 0;
+}
+
+struct katcp_notice *register_notice_katcp(struct katcp_dispatch *d, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n))
+{
+  struct katcp_notice *n;
+
+  n = create_notice_katcp(d);
+  if(n == NULL){
+    return NULL;
+  }
+
+  if(add_notice_katcp(d, n, call) < 0){
+    destroy_notice_katcp(d, n);
+    return NULL;
+  }
+
+  return n;
+}
+
+void trigger_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
+{
+  n->n_trigger = 1;
+}
+
+int run_notices_katcp(struct katcp_dispatch *d)
+{
+  struct katcp_shared *s;
+  struct katcp_notice *n;
+  struct katcp_invoke *v;
+  int i, j;
+
+  s = d->d_shared;
+  i = 0;
+
+  while(i < s->s_pending){
+    n = s->s_notices[i];
+    if(n->n_trigger){
+      for(j = 0; j < n->n_count; j++){
+        v = &(n->n_vector[j]);
+        (*(v->v_call))(v->v_client, n);
+      }
+      n->n_trigger = 0;
+
+      deallocate_notice_katcp(d, n);
+
+      s->s_pending--;
+      if(i < s->s_pending){
+        s->s_notices[i] = s->s_notices[s->s_pending];
+      }
+
+    } else {
+      i++;
+    }
+  }
+
+  return 0;
+}
+
+void wake_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
+{
+  n->n_trigger = 1;
+}
+
+int dump_notices_katcp(struct katcp_dispatch *d)
+{
+  struct katcp_shared *s;
+  int i;
+
+  s = d->d_shared;
+
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "%d notices", s->s_pending);
+
+  for(i = 0; i < s->s_pending; i++){
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "notice %p with %d subscribers", s->s_notices[i], s->s_notices[i]->n_count);
+  }
+
   return 0;
 }

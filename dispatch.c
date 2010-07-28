@@ -68,8 +68,9 @@ static struct katcp_dispatch *setup_internal_katcp(int fd)
   d->d_current = NULL;
   d->d_ready = 0;
 
-  d->d_exit = KATCP_EXIT_ABORT;
   d->d_run = 1;
+  d->d_exit = KATCP_EXIT_ABORT;
+  d->d_pause = 0;
 
   d->d_level = KATCP_LEVEL_INFO;
 
@@ -81,6 +82,9 @@ static struct katcp_dispatch *setup_internal_katcp(int fd)
 
   d->d_nonsense = NULL;
   d->d_size = 0;
+
+  d->d_notices = NULL;
+  d->d_count = 0;
 
   d->d_clone = (-1);
 
@@ -163,6 +167,7 @@ struct katcp_dispatch *clone_katcp(struct katcp_dispatch *cd)
   /* d_ready */
   /* d_run */
   /* d_exit */
+  /* d_pause */
   /* d_line */
 
   if(link_shared_katcp(d, cd) < 0){
@@ -201,6 +206,8 @@ void shutdown_katcp(struct katcp_dispatch *d)
   }
 
   destroy_nonsensors_katcp(d);
+
+  unlink_notices_katcp(d);
 
   shutdown_shared_katcp(d);
 
@@ -679,6 +686,10 @@ int dispatch_katcp(struct katcp_dispatch *d)
 {
   int r;
 
+  if(d->d_pause > 0){
+    return 0;
+  }
+
   while((r = lookup_katcp(d)) > 0){
     call_katcp(d);
   }
@@ -793,6 +804,16 @@ int error_katcp(struct katcp_dispatch *d)
   return EINVAL;
 }
 
+void pause_katcp(struct katcp_dispatch *d)
+{
+  d->d_pause = 1;
+}
+
+void resume_katcp(struct katcp_dispatch *d)
+{
+  d->d_pause = 0;
+}
+
 int exited_katcp(struct katcp_dispatch *d)
 {
   if(d == NULL){
@@ -824,7 +845,7 @@ int terminate_katcp(struct katcp_dispatch *d, int code)
     return -1;
   }
 
-  d->d_run = -1;
+  d->d_run = (-1);
 
   if(code < 0){
 #ifdef DEBUG
@@ -861,8 +882,12 @@ void reset_katcp(struct katcp_dispatch *d, int fd)
 
   destroy_nonsensors_katcp(d);
 
+  unlink_notices_katcp(d);
+
   d->d_run = 1;
   d->d_exit = KATCP_EXIT_ABORT; /* assume the worst */
+  d->d_pause = 0;
+
   d->d_level = KATCP_LEVEL_INFO; /* back to default */
 
   if(d->d_line){

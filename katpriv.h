@@ -214,6 +214,20 @@ struct katcp_time{
   int (*t_call)(struct katcp_dispatch *d, void *data);
 };
 
+struct katcp_notice;
+
+struct katcp_invoke{
+  struct katcp_dispatch *v_client;
+  int (*v_call)(struct katcp_dispatch *d, struct katcp_notice *n);
+};
+
+struct katcp_notice{
+  struct katcp_invoke *n_vector;
+  unsigned int n_count;
+
+  int n_trigger;
+};
+
 struct katcp_shared{
   unsigned int s_magic;
   struct katcp_entry *s_vector;
@@ -237,6 +251,9 @@ struct katcp_shared{
   struct katcp_time **s_queue;
   unsigned int s_length;
 
+  struct katcp_notice **s_notices;
+  unsigned int s_pending;
+
 #if 0
   int s_version_major;
   int s_version_minor;
@@ -259,6 +276,7 @@ struct katcp_dispatch{
   int d_ready;
   int d_run; /* 1 if up, -1 if shutting down, 0 if shut down */
   int d_exit; /* exit code, reason for shutting down */
+  int d_pause; /* waiting for a notice */
   struct katcl_line *d_line;
 
   int (*d_current)(struct katcp_dispatch *d, int argc);
@@ -267,6 +285,9 @@ struct katcp_dispatch{
 
   struct katcp_nonsense **d_nonsense;
   unsigned int d_size;
+
+  struct katcp_notice **d_notices;
+  unsigned int d_count;
 
   int d_clone;
 
@@ -317,5 +338,13 @@ int reap_children_shared_katcp(struct katcp_dispatch *d, pid_t pid, int force);
 int saw_child_shared_katcp(struct katcp_shared *s);
 int init_signals_shared_katcp(struct katcp_shared *s);
 int undo_signals_shared_katcp(struct katcp_shared *s);
+
+/* pausing stuff */
+void pause_katcp(struct katcp_dispatch *d);
+void resume_katcp(struct katcp_dispatch *d);
+
+/* notice logic */
+void unlink_notices_katcp(struct katcp_dispatch *d);
+void destroy_notices_katcp(struct katcp_dispatch *d);
 
 #endif

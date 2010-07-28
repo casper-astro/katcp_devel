@@ -112,15 +112,38 @@ static int client_list_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   struct katcp_shared *s;
   struct katcp_dispatch *dx;
-  unsigned int count;
+  unsigned int count, detail;
+  char *ptr, *level;
 
   s = d->d_shared;
   count = 0;
+  detail = 0;
+
+  if(argc > 1){
+    ptr = arg_string_katcp(d, 1);
+    if(ptr && !strcmp(ptr, "detail")){
+      detail = 1;
+    }
+  }
 
   if(s != NULL){
     while(count < s->s_used){
       dx = s->s_clients[count];
-      send_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#client-list", KATCP_FLAG_LAST | KATCP_FLAG_STRING, dx->d_name);
+      if(detail){
+
+        prepend_inform_katcp(d);
+
+        append_string_katcp(d, KATCP_FLAG_STRING, dx->d_name);
+
+        level = log_to_string(dx->d_level);
+        append_string_katcp(d, KATCP_FLAG_STRING, level ? level : "unknown");
+
+        level = log_to_string(dx->d_level);
+        append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, dx->d_pause ? "paused" : "parsing");
+
+      } else {
+        send_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#client-list", KATCP_FLAG_LAST | KATCP_FLAG_STRING, dx->d_name);
+      }
       count++;
     }
   }
@@ -349,14 +372,13 @@ int run_multi_server_katcp(struct katcp_dispatch *dl, int count, char *host, int
         }
       }
 
+      /* don't read or process if we are flushing on exit */
       if(exited_katcp(d)){
         if(!flushing_katcp(d)){
           release_clone(d);
         }
         continue;
       }
-
-      /* don't read or process if we are flushing on exit */
 
       if(FD_ISSET(fd, &fsr)){
         if(read_katcp(d)){
