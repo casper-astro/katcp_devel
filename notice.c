@@ -56,6 +56,11 @@ static void deallocate_notice_katcp(struct katcp_dispatch *d, struct katcp_notic
       n->n_count = 0;
     }
 
+    if(n->n_name){
+      free(n->n_name);
+      n->n_name = NULL;
+    }
+
     free(n);
   }
 }
@@ -125,7 +130,9 @@ void destroy_notices_katcp(struct katcp_dispatch *d)
   }
 }
 
-struct katcp_notice *create_notice_katcp(struct katcp_dispatch *d)
+/*******************************************************************************/
+
+struct katcp_notice *create_notice_katcp(struct katcp_dispatch *d, char *name)
 {
   struct katcp_notice *n;
   struct katcp_notice **t;
@@ -135,6 +142,7 @@ struct katcp_notice *create_notice_katcp(struct katcp_dispatch *d)
 
   n = malloc(sizeof(struct katcp_notice));
   if(n == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate %d bytes for notice\n", sizeof(struct katcp_notice));
     return NULL;
   }
 
@@ -143,8 +151,25 @@ struct katcp_notice *create_notice_katcp(struct katcp_dispatch *d)
 
   n->n_trigger = 0;
 
+  if(name){
+    n->n_name = strdup(name);
+    if(n->n_name == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to duplicate name %s", name);
+      free(n);
+      return NULL;
+    }
+  } else {
+    n->n_name = NULL;
+  }
+
+
   t = realloc(s->s_notices, sizeof(struct katcp_notice *) * (s->s_pending + 1));
   if(t == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to insert notice into list");
+    if(n->n_name){
+      free(n->n_name);
+      n->n_name = NULL;
+    }
     free(n);
     return NULL;
   }
@@ -177,11 +202,11 @@ int add_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*cal
   return 0;
 }
 
-struct katcp_notice *register_notice_katcp(struct katcp_dispatch *d, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n))
+struct katcp_notice *register_notice_katcp(struct katcp_dispatch *d, char *name, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n))
 {
   struct katcp_notice *n;
 
-  n = create_notice_katcp(d);
+  n = create_notice_katcp(d, name);
   if(n == NULL){
     return NULL;
   }
@@ -194,10 +219,52 @@ struct katcp_notice *register_notice_katcp(struct katcp_dispatch *d, int (*call)
   return n;
 }
 
-void trigger_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
+/*******************************************************************************/
+
+struct katcp_notice *find_notice_katcp(struct katcp_dispatch *d, char *name)
+{
+  struct katcp_notice *n;
+  struct katcp_shared *s;
+  int i;
+
+  if(name == NULL){
+    return NULL;
+  }
+
+  s = d->d_shared;
+
+  for(i = 0; i < s->s_pending; i++){
+    n = s->s_notices[i];
+    if(n->n_name && (!strcmp(name, n->n_name))){
+      return n;
+    }
+  }
+
+  return NULL;
+}
+
+/*******************************************************************************/
+
+void wake_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
 {
   n->n_trigger = 1;
 }
+
+int wake_name_notice_katcp(struct katcp_dispatch *d, char *name)
+{
+  struct katcp_notice *n;
+
+  n = find_notice_katcp(d, name);
+  if(n == NULL){
+    return -1;
+  }
+
+  wake_notice_katcp(d, n);
+
+  return 0;
+}
+
+/*******************************************************************************/
 
 int run_notices_katcp(struct katcp_dispatch *d)
 {
@@ -233,23 +300,92 @@ int run_notices_katcp(struct katcp_dispatch *d)
   return 0;
 }
 
-void wake_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
+/*******************************************************************************/
+
+int resume_notice(struct katcp_dispatch *d, struct katcp_notice *n)
 {
-  n->n_trigger = 1;
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "resuming after waiting for notice");
+
+  resume_katcp(d);
+
+  return 0;
 }
 
-int dump_notices_katcp(struct katcp_dispatch *d)
+int notice_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   struct katcp_shared *s;
+  struct katcp_notice *n;
+  char *name, *value;
   int i;
 
   s = d->d_shared;
 
-  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "%d notices", s->s_pending);
-
-  for(i = 0; i < s->s_pending; i++){
-    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "notice %p with %d subscribers", s->s_notices[i], s->s_notices[i]->n_count);
+  if(s == NULL){
+    return KATCP_RESULT_FAIL;
   }
 
-  return 0;
+  name = arg_string_katcp(d, 1);
+  if(name == NULL){
+    return KATCP_RESULT_FAIL;
+  } else {
+    if(!strcmp(name, "list")){
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%d notices", s->s_pending);
+
+      for(i = 0; i < s->s_pending; i++){
+        log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s notice at %p with %d subscribers", s->s_notices[i]->n_name ? s->s_notices[i]->n_name : "anonymous", s->s_notices[i], s->s_notices[i]->n_count);
+      }
+      return KATCP_RESULT_OK;
+    } else if(!strcmp(name, "create")){
+      value = arg_string_katcp(d, 2);
+      if(value == NULL){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "require a name to create notice");
+        return KATCP_RESULT_FAIL;
+      }
+      
+      if(create_notice_katcp(d, value) == NULL){
+        return KATCP_RESULT_FAIL;
+      }
+
+      return KATCP_RESULT_OK;
+
+    } else if(!strcmp(name, "watch")){
+
+      value = arg_string_katcp(d, 2);
+      if(value == NULL){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "require a notice to watch");
+        return KATCP_RESULT_FAIL;
+      }
+
+      n = find_notice_katcp(d, value);
+      if(n == NULL){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "notice %s not found", value);
+        return KATCP_RESULT_FAIL;
+      }
+
+      if(add_notice_katcp(d, n, &resume_notice)){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to watch notice %s", value);
+        return KATCP_RESULT_FAIL;
+      }
+
+      return KATCP_RESULT_PAUSE;
+
+    } else if(!strcmp(name, "wake")){
+
+      value = arg_string_katcp(d, 2);
+      if(value == NULL){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "require a notice to watch");
+        return KATCP_RESULT_FAIL;
+      }
+
+      if(wake_name_notice_katcp(d, value) < 0){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "notice %s not found", value);
+        return KATCP_RESULT_FAIL;
+      }
+
+      return KATCP_RESULT_OK;
+
+    } else {
+      return KATCP_RESULT_FAIL;
+    }
+  }
 }

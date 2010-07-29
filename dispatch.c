@@ -653,8 +653,14 @@ int call_katcp(struct katcp_dispatch *d)
     if(r <= 0){
       basic_response_katcp(d, r);
     }
-    if(r != KATCP_RESULT_RESUME){
+    if(r != KATCP_RESULT_YIELD){
       d->d_current = NULL;
+    }
+    if(r == KATCP_RESULT_PAUSE){
+      if(d->d_count <= 0){
+        log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "request %s is pausing task without having notices pending", s);
+      }
+      d->d_pause = 1;
     }
   } else { /* force a fail for unknown commands */
     switch(s[0]){
@@ -804,10 +810,12 @@ int error_katcp(struct katcp_dispatch *d)
   return EINVAL;
 }
 
+#if 0
 void pause_katcp(struct katcp_dispatch *d)
 {
   d->d_pause = 1;
 }
+#endif
 
 void resume_katcp(struct katcp_dispatch *d)
 {

@@ -226,6 +226,7 @@ struct katcp_notice{
   unsigned int n_count;
 
   int n_trigger;
+  char *n_name;
 };
 
 struct katcp_shared{
@@ -339,12 +340,11 @@ int saw_child_shared_katcp(struct katcp_shared *s);
 int init_signals_shared_katcp(struct katcp_shared *s);
 int undo_signals_shared_katcp(struct katcp_shared *s);
 
-/* pausing stuff */
-void pause_katcp(struct katcp_dispatch *d);
-void resume_katcp(struct katcp_dispatch *d);
-
 /* notice logic */
 void unlink_notices_katcp(struct katcp_dispatch *d);
 void destroy_notices_katcp(struct katcp_dispatch *d);
+int notice_cmd_katcp(struct katcp_dispatch *d, int argc);
+
+int run_notices_katcp(struct katcp_dispatch *d);
 
 #endif

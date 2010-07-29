@@ -18,7 +18,8 @@ struct katcp_cmd;
 #define KATCP_FAIL    "fail"
 #define KATCP_INVALID "invalid"
 
-#define KATCP_RESULT_RESUME    2
+#define KATCP_RESULT_PAUSE     3    /* stop, do not parse more until resumed */
+#define KATCP_RESULT_YIELD     2    /* allow others to run, then run again */
 #define KATCP_RESULT_OWN       1
 #define KATCP_RESULT_OK        0
 #define KATCP_RESULT_FAIL    (-1)
@@ -265,6 +266,24 @@ int watch_type_shared_katcp(struct katcp_dispatch *d, char *name, pid_t pid, int
 int end_name_shared_katcp(struct katcp_dispatch *d, char *name, int force);
 int end_pid_shared_katcp(struct katcp_dispatch *d, pid_t pid, int force);
 int end_type_shared_katcp(struct katcp_dispatch *d, int type, int force);
+
+/* notice logic */
+
+struct katcp_notice *create_notice_katcp(struct katcp_dispatch *d, char *name);
+int add_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n));
+struct katcp_notice *register_notice_katcp(struct katcp_dispatch *d, char *name, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n));
+struct katcp_notice *find_notice_katcp(struct katcp_dispatch *d, char *name);
+
+void wake_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
+int wake_name_notice_katcp(struct katcp_dispatch *d, char *name);
+
+
+
+
+
+
+
+void resume_katcp(struct katcp_dispatch *d);
 
 
 #endif

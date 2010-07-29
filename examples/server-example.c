@@ -319,20 +319,41 @@ void fifo_boolean_destroy_sensor(struct fifo_sensor_state *fss)
 
 /* check command 1: generates its own reply, with binary and integer output */
 
-int check1_cmd(struct katcp_dispatch *d, int argc)
+int own_check_cmd(struct katcp_dispatch *d, int argc)
 {
-  send_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "!cmd-check-1", KATCP_FLAG_BUFFER, "\0\n\r ", 4, KATCP_FLAG_LAST | KATCP_FLAG_ULONG, 42UL);
+  send_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "!check-own", KATCP_FLAG_BUFFER, "\0\n\r ", 4, KATCP_FLAG_LAST | KATCP_FLAG_ULONG, 42UL);
 
   return KATCP_RESULT_OWN; /* we send our own return codes */
 }
 
 /* check command 2: has the infrastructure generate its reply */
 
-int check2_cmd(struct katcp_dispatch *d, int argc)
+int ok_check_cmd(struct katcp_dispatch *d, int argc)
 {
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "saw a check 2 message with %d arguments", argc);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "saw ok check with %d arguments", argc);
 
   return KATCP_RESULT_OK; /* have the system send a status message for us */
+}
+
+int fail_check_cmd(struct katcp_dispatch *d, int argc)
+{
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "saw fail check with %d arguments", argc);
+
+  return KATCP_RESULT_FAIL; /* have the system send a status message for us */
+}
+
+int yield_check_cmd(struct katcp_dispatch *d, int argc)
+{
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "ran again check");
+
+  return (rand() % 2) ? KATCP_RESULT_YIELD : KATCP_RESULT_OK;
+}
+
+int pause_check_cmd(struct katcp_dispatch *d, int argc)
+{
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "ran pause check");
+
+  return KATCP_RESULT_PAUSE;
 }
 
 int main(int argc, char **argv)
@@ -342,7 +363,7 @@ int main(int argc, char **argv)
   struct cached_sensor_state local_data;
   struct fifo_sensor_state *fss;
 #endif
-  int status;
+  int status, result;
 
   if(argc <= 1){
     fprintf(stderr, "usage: %s [bind-ip:]listen-port\n", argv[0]);
@@ -404,16 +425,19 @@ int main(int argc, char **argv)
     return 1;
   }
 
+  result = 0;
 
-  if(register_katcp(d, "?cmd-check-1", "test command 1", &check1_cmd)){
-    fprintf(stderr, "server: unable to enroll command\n");
+  result += register_katcp(d, "?check-own",   "return self generated code", &own_check_cmd);
+  result += register_katcp(d, "?check-ok",    "return ok", &ok_check_cmd);
+  result += register_katcp(d, "?check-fail",  "return fail", &fail_check_cmd);
+  result += register_katcp(d, "?check-yield", "return function multiple times", &yield_check_cmd);
+  result += register_katcp(d, "?check-pause", "pauses", &pause_check_cmd);
+
+  if(result < 0){
+    fprintf(stderr, "server: unable to register commands\n");
     return 1;
   }
 
-  if(register_katcp(d, "?cmd-check-2", "test command 2 with log message", &check2_cmd)){
-    fprintf(stderr, "server: unable to enroll command\n");
-    return 1;
-  }
 
 #if 1
   /* alternative - run with more than one client */

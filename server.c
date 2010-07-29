@@ -121,7 +121,7 @@ static int client_list_cmd_katcp(struct katcp_dispatch *d, int argc)
 
   if(argc > 1){
     ptr = arg_string_katcp(d, 1);
-    if(ptr && !strcmp(ptr, "detail")){
+    if(ptr && !strcmp(ptr, "detailed")){
       detail = 1;
     }
   }
@@ -205,6 +205,8 @@ int run_multi_server_katcp(struct katcp_dispatch *dl, int count, char *host, int
 #endif
     return terminate_katcp(dl, KATCP_EXIT_ABORT);
   }
+
+  register_flag_mode_katcp(dl, "?notice",  "notice operations (?notice [list|create|watch|wake])", &notice_cmd_katcp, KATCP_CMD_HIDDEN, 0);
 
   register_katcp(dl, "?sensor-list",       "lists available sensors (?sensor-list [sensor])", &sensor_list_cmd_katcp);
   if(s->s_tally > 0){
@@ -392,6 +394,8 @@ int run_multi_server_katcp(struct katcp_dispatch *dl, int count, char *host, int
         continue;
       }
     }
+
+    run_notices_katcp(dl);
 
     if(FD_ISSET(s->s_lfd, &fsr)){
       if(s->s_used < s->s_count){
