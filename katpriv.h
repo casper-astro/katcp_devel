@@ -195,6 +195,19 @@ struct katcp_process{
   int p_state;
 };
 
+struct katcp_notice;
+
+struct katcp_job{
+  unsigned int j_magic;
+  int j_fd;
+  pid_t j_pid;
+
+  struct katcp_notice *j_halt;
+  struct katcp_notice *j_data; 
+
+  int j_ended;
+};
+
 #if 0
 #define KATCP_TIME_OTHER   0
 #define KATCP_TIME_CURRENT 1
@@ -214,8 +227,6 @@ struct katcp_time{
   int (*t_call)(struct katcp_dispatch *d, void *data);
 };
 
-struct katcp_notice;
-
 struct katcp_invoke{
   struct katcp_dispatch *v_client;
   int (*v_call)(struct katcp_dispatch *d, struct katcp_notice *n);
@@ -227,6 +238,10 @@ struct katcp_notice{
 
   int n_trigger;
   char *n_name;
+
+  int n_tag;
+  void *n_payload;
+  int (*n_release)(struct katcp_dispatch *d, void *payload);
 };
 
 struct katcp_shared{
@@ -246,8 +261,13 @@ struct katcp_shared{
 
   int s_lfd;
 
+  struct katcp_job **s_tasks;
+  unsigned int s_number;
+
+#if 0
   struct katcp_process *s_table;
   int s_entries;
+#endif
 
   struct katcp_time **s_queue;
   unsigned int s_length;

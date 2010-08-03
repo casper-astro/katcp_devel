@@ -15,6 +15,7 @@ static void deallocate_notice_katcp(struct katcp_dispatch *d, struct katcp_notic
     if(n->n_count){
       /* TODO: could kill all dispatch entries, instead of leaving them hung */
       log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "destroying notice with active users");
+      n->n_count = 0;
     }
 
     if(n->n_vector){
@@ -22,10 +23,18 @@ static void deallocate_notice_katcp(struct katcp_dispatch *d, struct katcp_notic
       n->n_vector = NULL;
     }
 
+    if(n->n_release){
+      (*(n->n_release))(d, n->n_payload);
+      n->n_release = NULL;
+    }
+
     if(n->n_name){
       free(n->n_name);
       n->n_name = NULL;
     }
+
+    n->n_tag = (-1);
+    n->n_payload = NULL;
 
     free(n);
   }
@@ -203,7 +212,7 @@ void destroy_notices_katcp(struct katcp_dispatch *d)
 
 /**********************************************************************************/
 
-struct katcp_notice *create_notice_katcp(struct katcp_dispatch *d, char *name)
+struct katcp_notice *create_notice_katcp(struct katcp_dispatch *d, char *name, unsigned int tag)
 {
   struct katcp_notice *n;
   struct katcp_notice **t;
@@ -221,6 +230,10 @@ struct katcp_notice *create_notice_katcp(struct katcp_dispatch *d, char *name)
   n->n_count = 0;
 
   n->n_trigger = 0;
+
+  n->n_tag = tag;
+  n->n_payload = NULL;
+  n->n_release = NULL;
 
   if(name){
     n->n_name = strdup(name);
@@ -325,6 +338,46 @@ struct katcp_notice *find_notice_katcp(struct katcp_dispatch *d, char *name)
   }
 
   return NULL;
+}
+
+/*******************************************************************************/
+
+int cancel_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
+{
+  int i;
+  struct katcp_invoke *v;
+
+  for(i = 0; i < n->n_count; i++){
+    v = &(n->n_vector[i]);
+
+    if(dispatch_compact_notice_katcp(v->v_client, n) == 0){
+      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "no back link from dispatch %p to notice %p\n", v->v_client, n);
+    }
+  }
+
+  n->n_count = 0;
+  if(n->n_vector){
+    free(n->n_vector);
+    n->n_vector = NULL;
+  }
+  
+  destroy_notice_katcp(d, n);
+
+  return 0;
+}
+
+int cancel_name_notice_katcp(struct katcp_dispatch *d, char *name)
+{
+  struct katcp_notice *n;
+
+  n = find_notice_katcp(d, name);
+  if(n == NULL){
+    return -1;
+  }
+
+  cancel_notice_katcp(d, n);
+
+  return 0;
 }
 
 /*******************************************************************************/

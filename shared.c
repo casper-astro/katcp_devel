@@ -153,8 +153,13 @@ int startup_shared_katcp(struct katcp_dispatch *d)
 
   s->s_lfd = (-1);
 
+#if 0
   s->s_table = NULL;
   s->s_entries = 0;
+#endif
+
+  s->s_tasks = NULL;
+  s->s_number = 0;
 
   s->s_queue = NULL;
   s->s_length = 0;
@@ -329,11 +334,21 @@ void shutdown_shared_katcp(struct katcp_dispatch *d)
   }
   s->s_size = 0;
 
+#if 0
   if(s->s_table){
     free(s->s_table);
     s->s_table = NULL;
   }
   s->s_entries = 0;
+#endif
+  for(i = 0; i < s->s_number; i++){
+    /* TODO, maybe have own function */
+  }
+  if(s->s_tasks){
+    free(s->s_tasks);
+    s->s_tasks = NULL;
+  }
+  s->s_number = 0;
 
   if(s->s_build_state){
     for(i = 0; i < s->s_build_items; i++){
@@ -661,6 +676,7 @@ int end_type_shared_katcp(struct katcp_dispatch *d, int type, int force)
   return result;
 }
 
+#if 0
 int end_pid_shared_katcp(struct katcp_dispatch *d, pid_t pid, int force)
 {
   int i, result, value;
@@ -702,6 +718,7 @@ int end_pid_shared_katcp(struct katcp_dispatch *d, pid_t pid, int force)
 
   return result;
 }
+#endif
 
 int end_name_shared_katcp(struct katcp_dispatch *d, char *name, int force)
 {
