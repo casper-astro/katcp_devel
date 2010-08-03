@@ -838,7 +838,7 @@ unsigned int arg_buffer_katcl(struct katcl_line *l, unsigned int index, void *bu
 
 /******************************************************************/
 
-int append_string_katcl(struct katcl_line *l, int flags, void *buffer)
+int append_string_katcl(struct katcl_line *l, int flags, char *buffer)
 {
   return append_buffer_katcl(l, flags, buffer, strlen(buffer));
 }
@@ -925,7 +925,7 @@ int append_buffer_katcl(struct katcl_line *l, int flags, void *buffer, int len)
   }
 
   s = buffer;
-  want = s ? len : 0;
+  want = buffer ? len : 0;
 
   /* extra checks */
   if(flags & KATCP_FLAG_FIRST){

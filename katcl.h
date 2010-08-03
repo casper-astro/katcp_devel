@@ -30,7 +30,7 @@ unsigned int arg_buffer_katcl(struct katcl_line *l, unsigned int index, void *bu
 double arg_double_katcl(struct katcl_line *l, unsigned int index);
 #endif
 
-int append_string_katcl(struct katcl_line *l, int flags, void *buffer);
+int append_string_katcl(struct katcl_line *l, int flags, char *buffer);
 int append_unsigned_long_katcl(struct katcl_line *l, int flags, unsigned long v);
 int append_signed_long_katcl(struct katcl_line *l, int flags, unsigned long v);
 int append_hex_long_katcl(struct katcl_line *l, int flags, unsigned long v);
