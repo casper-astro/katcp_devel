@@ -299,11 +299,11 @@ int add_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*cal
   return 0;
 }
 
-struct katcp_notice *register_notice_katcp(struct katcp_dispatch *d, char *name, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n))
+struct katcp_notice *register_notice_katcp(struct katcp_dispatch *d, char *name, unsigned int tag, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n))
 {
   struct katcp_notice *n;
 
-  n = create_notice_katcp(d, name);
+  n = create_notice_katcp(d, name, tag);
   if(n == NULL){
     return NULL;
   }
@@ -551,7 +551,7 @@ int notice_cmd_katcp(struct katcp_dispatch *d, int argc)
         return KATCP_RESULT_FAIL;
       }
       
-      if(create_notice_katcp(d, value) == NULL){
+      if(create_notice_katcp(d, value, 0) == NULL){
         return KATCP_RESULT_FAIL;
       }
 

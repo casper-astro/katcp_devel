@@ -165,13 +165,15 @@ static int client_list_cmd_katcp(struct katcp_dispatch *d, int argc)
 
 int run_multi_server_katcp(struct katcp_dispatch *dl, int count, char *host, int port)
 {
-  int run, i, nfd, fd, max, result, suspend, status;
+  int run, i, nfd, fd, result, suspend, status;
   unsigned int len;
   struct sockaddr_in sa;
   struct timespec delta;
   struct katcp_dispatch *d;
   struct katcp_shared *s;
+#if 0
   fd_set fsr, fsw;
+#endif
 
   /* used to randomly select a client to displace when a new connection arrives and table is full */
   srand(getpid());
@@ -207,6 +209,7 @@ int run_multi_server_katcp(struct katcp_dispatch *dl, int count, char *host, int
   }
 
   register_flag_mode_katcp(dl, "?notice",  "notice operations (?notice [list|create|watch|wake])", &notice_cmd_katcp, KATCP_CMD_HIDDEN, 0);
+  register_flag_mode_katcp(dl, "?job",     "job operations (?notice [list])", &job_cmd_katcp, KATCP_CMD_HIDDEN, 0);
 
   register_katcp(dl, "?sensor-list",       "lists available sensors (?sensor-list [sensor])", &sensor_list_cmd_katcp);
   if(s->s_tally > 0){
@@ -221,8 +224,8 @@ int run_multi_server_katcp(struct katcp_dispatch *dl, int count, char *host, int
   run = 1;
 
   while(run){
-    FD_ZERO(&fsr);
-    FD_ZERO(&fsw);
+    FD_ZERO(&(s->s_read));
+    FD_ZERO(&(s->s_write));
 
 #if 0
     gettimeofday(&now, NULL);
@@ -230,16 +233,18 @@ int run_multi_server_katcp(struct katcp_dispatch *dl, int count, char *host, int
     future.tv_usec = now.tv_usec;
 #endif
 
-    max = (-1);
+    s->s_max = (-1);
 
     suspend = run_timers_katcp(dl, &delta);
 
     if(run > 0){ /* only bother with new connections if not stopping */
-      FD_SET(s->s_lfd, &fsr);
-      if(s->s_lfd > max){
-        max = s->s_lfd;
+      FD_SET(s->s_lfd, &(s->s_read));
+      if(s->s_lfd > s->s_max){
+        s->s_max = s->s_lfd;
       }
     }
+
+    load_jobs_katcp(dl);
 
     /* WARNING: all clients contiguous */
     for(i = 0; i < s->s_used; i++){
@@ -258,9 +263,9 @@ int run_multi_server_katcp(struct katcp_dispatch *dl, int count, char *host, int
 #endif
       switch(status){
         case KATCP_EXIT_NOTYET : /* still running */
-          FD_SET(fd, &fsr);
-          if(fd > max){
-            max = fd;
+          FD_SET(fd, &(s->s_read));
+          if(fd > s->s_max){
+            s->s_max = fd;
           }
           break;
         case KATCP_EXIT_QUIT : /* only this connection is shutting down */
@@ -284,9 +289,9 @@ int run_multi_server_katcp(struct katcp_dispatch *dl, int count, char *host, int
 #ifdef DEBUG
         fprintf(stderr, "multi[%d]: want to flush data\n", i);
 #endif
-        FD_SET(fd, &fsw);
-        if(fd > max){
-          max = fd;
+        FD_SET(fd, &(s->s_write));
+        if(fd > s->s_max){
+          s->s_max = fd;
         }
       }
     }
@@ -316,7 +321,7 @@ int run_multi_server_katcp(struct katcp_dispatch *dl, int count, char *host, int
       delta.tv_nsec = 0;
 
       suspend = 0;
-      FD_ZERO(&fsr);
+      FD_ZERO(&(s->s_read));
     }
 
 #ifdef DEBUG
@@ -328,7 +333,7 @@ int run_multi_server_katcp(struct katcp_dispatch *dl, int count, char *host, int
 #endif
 
     /* delta now timespec, not timeval */
-    result = pselect(max + 1, &fsr, &fsw, NULL, suspend ? NULL : &delta, &(s->s_mask_current));
+    result = pselect(s->s_max + 1, &(s->s_read), &(s->s_write), NULL, suspend ? NULL : &delta, &(s->s_mask_current));
 #ifdef DEBUG
     fprintf(stderr, "multi: select=%d, used=%d\n", result, s->s_used);
 #endif
@@ -344,14 +349,14 @@ int run_multi_server_katcp(struct katcp_dispatch *dl, int count, char *host, int
           fprintf(stderr, "select failed: %s\n", strerror(errno));
 #endif
           run = 0; 
-          FD_ZERO(&fsr);
-          FD_ZERO(&fsw);
+          FD_ZERO(&(s->s_read));
+          FD_ZERO(&(s->s_write));
           break;
       }
     }
 
-    if(saw_child_shared_katcp(s)){
-      reap_children_shared_katcp(dl, 0, 0);
+    if(child_signal_shared_katcp(s)){
+      wait_jobs_katcp(dl);
     }
 
     if(result <= 0){ /* don't look at connections if no activity */
@@ -367,7 +372,7 @@ int run_multi_server_katcp(struct katcp_dispatch *dl, int count, char *host, int
       fprintf(stderr, "multi[%d/%d]: postselect: location=%p, fd=%d\n", i, s->s_used, d, fd);
 #endif
 
-      if(FD_ISSET(fd, &fsw)){
+      if(FD_ISSET(fd, &(s->s_write))){
         if(write_katcp(d) < 0){
           release_clone(d);
           continue; /* WARNING: after release_clone, d will be invalid, forcing a continue */
@@ -382,7 +387,7 @@ int run_multi_server_katcp(struct katcp_dispatch *dl, int count, char *host, int
         continue;
       }
 
-      if(FD_ISSET(fd, &fsr)){
+      if(FD_ISSET(fd, &(s->s_read))){
         if(read_katcp(d)){
           release_clone(d);
           continue;
@@ -395,9 +400,10 @@ int run_multi_server_katcp(struct katcp_dispatch *dl, int count, char *host, int
       }
     }
 
+    run_jobs_katcp(dl);
     run_notices_katcp(dl);
 
-    if(FD_ISSET(s->s_lfd, &fsr)){
+    if(FD_ISSET(s->s_lfd, &(s->s_read))){
       if(s->s_used < s->s_count){
 
         len = sizeof(struct sockaddr_in);

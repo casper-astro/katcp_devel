@@ -269,9 +269,9 @@ int end_type_shared_katcp(struct katcp_dispatch *d, int type, int force);
 
 /* notice logic */
 
-struct katcp_notice *create_notice_katcp(struct katcp_dispatch *d, char *name);
+struct katcp_notice *create_notice_katcp(struct katcp_dispatch *d, char *name, unsigned int tag);
 int add_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n));
-struct katcp_notice *register_notice_katcp(struct katcp_dispatch *d, char *name, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n));
+struct katcp_notice *register_notice_katcp(struct katcp_dispatch *d, char *name, unsigned int tag, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n));
 struct katcp_notice *find_notice_katcp(struct katcp_dispatch *d, char *name);
 
 void wake_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);

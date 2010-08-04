@@ -75,7 +75,7 @@ static void sane_shared_katcp(struct katcp_dispatch *d)
 #define sane_shared_katcp(d)
 #endif
 
-int saw_child_shared_katcp(struct katcp_shared *s)
+int child_signal_shared_katcp(struct katcp_shared *s)
 {
   if(child_signal_shared <= 0){
     return 0;
@@ -178,6 +178,9 @@ int startup_shared_katcp(struct katcp_dispatch *d)
 
   s->s_sensors = NULL;
   s->s_tally = 0;
+
+  FD_ZERO(&(s->s_read));
+  FD_ZERO(&(s->s_write));
 
   s->s_vector = malloc(sizeof(struct katcp_entry));
   if(s->s_vector == NULL){
@@ -424,6 +427,7 @@ int link_shared_katcp(struct katcp_dispatch *d, struct katcp_dispatch *cd)
 
 /***********************************************************************/
 
+#if 0
 int watch_shared_katcp(struct katcp_dispatch *d, char *name, pid_t pid, void (*call)(struct katcp_dispatch *d, int status))
 {
   return watch_type_shared_katcp(d, name, pid, 0, call);
@@ -675,6 +679,7 @@ int end_type_shared_katcp(struct katcp_dispatch *d, int type, int force)
 
   return result;
 }
+#endif
 
 #if 0
 int end_pid_shared_katcp(struct katcp_dispatch *d, pid_t pid, int force)
@@ -720,6 +725,7 @@ int end_pid_shared_katcp(struct katcp_dispatch *d, pid_t pid, int force)
 }
 #endif
 
+#if 0
 int end_name_shared_katcp(struct katcp_dispatch *d, char *name, int force)
 {
   int i, result, value;
@@ -760,6 +766,7 @@ int end_name_shared_katcp(struct katcp_dispatch *d, char *name, int force)
 
   return result;
 }
+#endif
 
 /*******************************************************************/
 

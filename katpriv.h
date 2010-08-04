@@ -206,6 +206,7 @@ struct katcp_job{
   struct katcp_notice *j_data; 
 
   int j_ended;
+  int j_status;
 };
 
 #if 0
@@ -290,6 +291,9 @@ struct katcp_shared{
   sigset_t s_mask_current, s_mask_previous;
   struct sigaction s_action_current, s_action_previous;
   int s_restore_signals;
+
+  fd_set s_read, s_write;
+  int s_max;
 };
 
 struct katcp_dispatch{
@@ -354,17 +358,24 @@ void forget_nonsense_katcp(struct katcp_dispatch *d, unsigned int index);
 /* how long to sleep between checks in nanoseconds */
 #define KATCP_WAITPID_POLL   250000000UL
 
-int reap_children_shared_katcp(struct katcp_dispatch *d, pid_t pid, int force);
+int child_signal_shared_katcp(struct katcp_shared *s);
 
-int saw_child_shared_katcp(struct katcp_shared *s);
+int reap_children_shared_katcp(struct katcp_dispatch *d, pid_t pid, int force);
 int init_signals_shared_katcp(struct katcp_shared *s);
 int undo_signals_shared_katcp(struct katcp_shared *s);
 
 /* notice logic */
 void unlink_notices_katcp(struct katcp_dispatch *d);
 void destroy_notices_katcp(struct katcp_dispatch *d);
+int run_notices_katcp(struct katcp_dispatch *d);
+
 int notice_cmd_katcp(struct katcp_dispatch *d, int argc);
 
-int run_notices_katcp(struct katcp_dispatch *d);
+/* jobs */
+int load_jobs_katcp(struct katcp_dispatch *d);
+int wait_jobs_katcp(struct katcp_dispatch *d);
+int run_jobs_katcp(struct katcp_dispatch *d);
+
+int job_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 #endif

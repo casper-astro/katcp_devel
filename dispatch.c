@@ -429,6 +429,7 @@ void on_connect_katcp(struct katcp_dispatch *d)
   }
 }
 
+#if 0
 pid_t spawn_child_katcp(struct katcp_dispatch *d, char *name, int (*run)(void *data), void *data, void (*call)(struct katcp_dispatch *d, int status))
 {
   pid_t pid;
@@ -465,6 +466,7 @@ pid_t spawn_child_katcp(struct katcp_dispatch *d, char *name, int (*run)(void *d
   /* NOT REACHED */
   return EX_OK;
 }
+#endif
 
 /* Need a call back for a sensor - unclear how to do this, as
  * sensors can happen over intervals, when values change, etc 
