@@ -5,13 +5,16 @@
 #include <signal.h>
 #include <sched.h>
 #include <errno.h>
+#include <sysexits.h>
 
 #include <sys/wait.h>
 #include <sys/types.h>
+#include <sys/socket.h>
 
 #include <unistd.h>
 
 #include "katcp.h"
+#include "katcl.h"
 #include "katpriv.h"
 #include "katsensor.h"
 #include "netc.h"
@@ -97,6 +100,7 @@ struct katcp_job *create_job_katcp(struct katcp_dispatch *d, pid_t pid, int fd, 
   if(t == NULL){
     return NULL;
   }
+  s->s_tasks = t;
 
   j = malloc(sizeof(struct katcp_job));
   if(j == NULL){
@@ -258,14 +262,82 @@ int run_jobs_katcp(struct katcp_dispatch *d)
   }
 
   return 0;
+}
 
+struct katcp_job *process_create_job_katcp(struct katcp_dispatch *d, char *file, char **argv, struct katcp_notice *halt, struct katcp_notice *data)
+{
+  int fds[2];
+  pid_t pid;
+  int copies;
+  struct katcl_line *xl;
+  struct katcp_job *j;
+
+  if(socketpair(AF_UNIX, SOCK_STREAM, 0, fds) < 0){
+    return NULL;
+  }
+
+  pid = fork();
+  if(pid < 0){
+    close(fds[0]);
+    close(fds[1]);
+    return NULL;
+  }
+
+  if(pid > 0){
+    close(fds[0]);
+    fcntl(fds[1], F_SETFD, FD_CLOEXEC);
+
+    j = create_job_katcp(d, pid, fds[1], halt, data);
+    if(j == NULL){
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "unable to allocate job logic so terminating child process");
+      kill(pid, SIGTERM);
+      close(fds[1]);
+    }
+
+    return j;
+  }
+
+  /* WARNING: now in child, do not call return, use exit */
+
+  xl = create_katcl(fds[0]);
+
+  close(fds[1]);
+
+  copies = 0;
+  if(fds[0] != STDOUT_FILENO){
+    if(dup2(fds[0], STDOUT_FILENO) != STDOUT_FILENO){
+      sync_message_katcl(xl, KATCP_LEVEL_ERROR, NULL, "unable to set up standard output for child process %u (%s)", getpid(), strerror(errno)); 
+      exit(EX_OSERR);
+    }
+    copies++;
+  }
+  if(fds[0] != STDIN_FILENO){
+    if(dup2(fds[0], STDIN_FILENO) != STDIN_FILENO){
+      sync_message_katcl(xl, KATCP_LEVEL_ERROR, NULL, "unable to set up standard input for child process %u (%s)", getpid(), strerror(errno)); 
+      exit(EX_OSERR);
+    }
+    copies++;
+  }
+  if(copies >= 2){
+    fcntl(fds[0], F_SETFD, FD_CLOEXEC);
+  }
+
+  execvp(file, argv);
+  sync_message_katcl(xl, KATCP_LEVEL_ERROR, NULL, "unable to run command %s (%s)", file, strerror(errno)); 
+
+  destroy_katcl(xl, 0);
+
+  exit(EX_OSERR);
+  return NULL;
 }
 
 int job_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   struct katcp_shared *s;
   struct katcp_job *j;
-  char *name;
+  struct katcp_notice *n;
+  char *name, *watch, *cmd;
+  char *vector[2];
   int i;
 
   s = d->d_shared;
@@ -284,6 +356,31 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
         j = s->s_tasks[i];
         log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "job %p is %s", j, j->j_ended ? "ended" : "up");
       }
+      return KATCP_RESULT_OK;
+    } else if(!strcmp(name, "launch")){
+      watch = arg_string_katcp(d, 2);
+      cmd = arg_string_katcp(d, 3);
+
+      if((cmd == NULL) || (watch == NULL)){
+         log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "insufficient parameters for launch");
+         return KATCP_RESULT_FAIL;
+      }
+
+      n = create_notice_katcp(d, watch, 0);
+      if(n == NULL){
+        log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "unable to create notice called %s", watch);
+        return KATCP_RESULT_FAIL;
+      }
+
+      vector[0] = cmd;
+      vector[1] = NULL;
+
+      j = process_create_job_katcp(d, cmd, vector, n, NULL);
+
+      if(j == NULL){
+        return KATCP_RESULT_FAIL;
+      }
+
       return KATCP_RESULT_OK;
     } else {
       return KATCP_RESULT_FAIL;

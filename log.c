@@ -69,10 +69,40 @@ char *log_to_string(int code)
   return log_levels_vector[code];
 }
 
+int sync_message_katcl(struct katcl_line *cl, int level, char *name, char *fmt, ...)
+{
+  va_list args;
+  int result;
+
+  if(cl == NULL){
+    return -1;
+  }
+
+  va_start(args, fmt);
+  result = vlog_message_katcl(cl, level, name, fmt, args);
+  va_end(args);
+
+  if(result < 0){
+    return -1;
+  }
+
+  while((result = write_katcl(cl)) == 0);
+
+  if(result < 0){
+    return -1;
+  }
+
+  return 0;
+}
+
 int log_message_katcl(struct katcl_line *cl, int level, char *name, char *fmt, ...)
 {
   va_list args;
   int result;
+
+  if(cl == NULL){
+    return -1;
+  }
 
   va_start(args, fmt);
   result = vlog_message_katcl(cl, level, name, fmt, args);

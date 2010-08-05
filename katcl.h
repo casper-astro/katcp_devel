@@ -58,6 +58,7 @@ void exchange_katcl(struct katcl_line *l, int fd);
 int   log_to_code(char *name);
 char *log_to_string(int code);
 int   log_message_katcl(struct katcl_line *cl, int level, char *name, char *fmt, ...);
+int   sync_message_katcl(struct katcl_line *cl, int level, char *name, char *fmt, ...);
 int  vlog_message_katcl(struct katcl_line *cl, int level, char *name, char *fmt, va_list args);
 
 int extra_response_katcl(struct katcl_line *cl, int code, char *fmt, ...);
