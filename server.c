@@ -208,8 +208,13 @@ int run_multi_server_katcp(struct katcp_dispatch *dl, int count, char *host, int
     return terminate_katcp(dl, KATCP_EXIT_ABORT);
   }
 
+#if 0
   register_flag_mode_katcp(dl, "?notice",  "notice operations (?notice [list|create|watch|wake])", &notice_cmd_katcp, KATCP_CMD_HIDDEN, 0);
   register_flag_mode_katcp(dl, "?job",     "job operations (?job [list|process notice-name executable-file])", &job_cmd_katcp, KATCP_CMD_HIDDEN, 0);
+#else
+  register_flag_mode_katcp(dl, "?notice",  "notice operations (?notice [list|create|watch|wake])", &notice_cmd_katcp, 0, 0);
+  register_flag_mode_katcp(dl, "?job",     "job operations (?job [list|process notice-name executable-file])", &job_cmd_katcp, 0, 0);
+#endif
 
   register_katcp(dl, "?sensor-list",       "lists available sensors (?sensor-list [sensor])", &sensor_list_cmd_katcp);
   if(s->s_tally > 0){
@@ -363,75 +368,75 @@ int run_multi_server_katcp(struct katcp_dispatch *dl, int count, char *host, int
       wait_jobs_katcp(dl);
     }
 
-    if(result <= 0){ /* don't look at connections if no activity */
-      continue;
-    }
+    if(result > 0){ /* don't look at connections if no activity */
 
-    /* WARNING: all clients contiguous */
-    for(i = 0; i < s->s_used; i++){
-      d = s->s_clients[i];
-      fd = fileno_katcl(d->d_line);
+      /* WARNING: all clients contiguous */
+      for(i = 0; i < s->s_used; i++){
+        d = s->s_clients[i];
+        fd = fileno_katcl(d->d_line);
 
 #ifdef DEBUG
-      fprintf(stderr, "multi[%d/%d]: postselect: location=%p, fd=%d\n", i, s->s_used, d, fd);
+        fprintf(stderr, "multi[%d/%d]: postselect: location=%p, fd=%d\n", i, s->s_used, d, fd);
 #endif
 
-      if(FD_ISSET(fd, &(s->s_write))){
-        if(write_katcp(d) < 0){
-          release_clone(d);
-          continue; /* WARNING: after release_clone, d will be invalid, forcing a continue */
+        if(FD_ISSET(fd, &(s->s_write))){
+          if(write_katcp(d) < 0){
+            release_clone(d);
+            continue; /* WARNING: after release_clone, d will be invalid, forcing a continue */
+          }
         }
-      }
 
-      /* don't read or process if we are flushing on exit */
-      if(exited_katcp(d)){
-        if(!flushing_katcp(d)){
-          release_clone(d);
+        /* don't read or process if we are flushing on exit */
+        if(exited_katcp(d)){
+          if(!flushing_katcp(d)){
+            release_clone(d);
+          }
+          continue;
         }
-        continue;
-      }
 
-      if(FD_ISSET(fd, &(s->s_read))){
-        if(read_katcp(d)){
+        if(FD_ISSET(fd, &(s->s_read))){
+          if(read_katcp(d)){
+            release_clone(d);
+            continue;
+          }
+        }
+
+        if(dispatch_katcp(d) < 0){
           release_clone(d);
           continue;
         }
       }
 
-      if(dispatch_katcp(d) < 0){
-        release_clone(d);
-        continue;
+      if(FD_ISSET(s->s_lfd, &(s->s_read))){
+        if(s->s_used < s->s_count){
+
+          len = sizeof(struct sockaddr_in);
+          nfd = accept(s->s_lfd, (struct sockaddr *) &sa, &len);
+
+          if(nfd >= 0){
+            fcntl(nfd, F_SETFD, FD_CLOEXEC);
+
+            inform_client_connect_katcp(dl); /* do before creation to avoid seeing own creation message */
+
+            d = s->s_clients[s->s_used];
+            s->s_used++;
+            reset_katcp(d, nfd);
+            name_katcp(d, "%s:%d", inet_ntoa(sa.sin_addr), ntohs(sa.sin_port));
+            on_connect_katcp(d);
+          }
+
+        } else {
+          d = s->s_clients[(unsigned int)rand() % s->s_count];
+          terminate_katcp(d, KATCP_EXIT_QUIT);
+          on_disconnect_katcp(d, "displaced by %s:%d", inet_ntoa(sa.sin_addr), ntohs(sa.sin_port));
+          /* WARNING: will run a busy loop, terminating one entry each cycle until space becomes available. We expect an exit to happen quickly, otherwise this could empty out all clients */
+        }
       }
+
     }
 
     run_jobs_katcp(dl);
     run_notices_katcp(dl);
-
-    if(FD_ISSET(s->s_lfd, &(s->s_read))){
-      if(s->s_used < s->s_count){
-
-        len = sizeof(struct sockaddr_in);
-        nfd = accept(s->s_lfd, (struct sockaddr *) &sa, &len);
-
-        if(nfd >= 0){
-          fcntl(nfd, F_SETFD, FD_CLOEXEC);
-
-          inform_client_connect_katcp(dl); /* do before creation to avoid seeing own creation message */
-
-          d = s->s_clients[s->s_used];
-          s->s_used++;
-          reset_katcp(d, nfd);
-          name_katcp(d, "%s:%d", inet_ntoa(sa.sin_addr), ntohs(sa.sin_port));
-          on_connect_katcp(d);
-        }
-
-      } else {
-        d = s->s_clients[(unsigned int)rand() % s->s_count];
-        terminate_katcp(d, KATCP_EXIT_QUIT);
-        on_disconnect_katcp(d, "displaced by %s:%d", inet_ntoa(sa.sin_addr), ntohs(sa.sin_port));
-        /* WARNING: will run a busy loop, terminating one entry each cycle until space becomes available. We expect an exit to happen quickly, otherwise this could empty out all clients */
-      }
-    }
   }
 
 #ifdef DEBUG

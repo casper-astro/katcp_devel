@@ -39,284 +39,6 @@ int simple_integer_check_sensor(struct katcp_dispatch *d, void *local)
   return ((int)time(NULL)) / 10;
 }
 
-#if 0  /* all sensors have been disabled - for a while, sorry */
-
-/* a simple discrete sensor, returns index into the set of values */
-
-#define DISCRETE_RANGE 3U
-
-int discrete_check_sensor(struct katcp_sensor *s, void *local)
-{
-  int result;
-
-  result = ((unsigned int)rand()) % DISCRETE_RANGE;
-
-#ifdef DEBUG
-  fprintf(stderr, "discrete: result is %d\n", result);
-#endif
-
-  return result;
-}
-
-/* a simple LRU example sensor */
-
-int lru_check_sensor(struct katcp_sensor *s, void *local)
-{
-  int result;
-
-  result = ((unsigned int)rand()) % 2;
-
-#ifdef DEBUG
-  fprintf(stderr, "lru: result is %d\n", result);
-#endif
-
-  return result;
-}
-
-/* a simple boolean example sensor */
-
-int bool_check_sensor(struct katcp_sensor *s, void *local)
-{
-  int result;
-
-  result = ((unsigned int)rand()) % 2;
-
-  /* change the status of the sensor, useful to provide an 
-   * opinion if the value is ok or problematic. Available options
-   * are KATCP_STATUS_UNKNOWN, KATCP_STATUS_NOMINAL, KATCP_STATUS_WARN
-   * KATCP_STATUS_ERROR and KATCP_STATUS_FAILURE
-   *
-   * if no value is set, sensor defaults to KATCP_STATUS_UNKNOWN
-   */
-
-  if(result){
-    set_status_sensor_katcp(s, KATCP_STATUS_NOMINAL);
-  } else {
-    set_status_sensor_katcp(s, KATCP_STATUS_WARN);
-  }
-
-#ifdef DEBUG
-  fprintf(stderr, "bool: result is %d\n", result);
-#endif
-
-  return result;
-}
-
-/* more complex sensors ******************************************************/
-/* In this example we return a cached value in the *_check_sensor function   */
-/* The real value is acquired at most once a second, using a prepare and     */
-/* acquire function. The prepare function sets either a timeout or a file    */
-/* descriptor which needs to be come active, while the acquire function      */
-/* actually retrieves the value. This approach is useful if it is expensive  */
-/* to acquire a real value                                                   */
-
-struct cached_sensor_state{
-  struct timeval c_when;
-  int c_value;
-};
-
-int cached_integer_prepare_sensor(struct katcp_sensor *s, void *local, int *max, fd_set *fsr, fd_set *fsw, struct timeval *now, struct timeval *future)
-{
-  struct cached_sensor_state *css;
-
-  /* in case this function needs to access persistent data, we can retrieve */
-  /* what we saved with local_name_sensor_katcp when setting up */
-
-  css = local;
-
-  /* now is the current time, future is the time at which the sensor */
-  /* with the closest timeout should be run, future may need to be updated */
-
-  /* helper function which shrinks the value of future as necessary */
-
-  return preparation_time_sensor_katcp(s, now, future);
-}
-
-int cached_integer_acquire_sensor(struct katcp_sensor *s, void *local, int *max, fd_set *fsr, fd_set *fsw, struct timeval *now, struct timeval *past)
-{
-  struct cached_sensor_state *css;
-
-  css = local;
-
-  /* has our saved second field ticked over ? */
-  if(now->tv_sec > css->c_when.tv_sec){
-
-    /* then get real data about once a second */
-    /* in this example "real" means increment the counter */
-
-    css->c_value++;
-
-    css->c_when.tv_sec = now->tv_sec;
-    css->c_when.tv_usec = now->tv_usec;
-  }
-
-  return acquisition_time_sensor_katcp(s, now, past);
-}
-
-int cached_integer_check_sensor(struct katcp_sensor *s, void *local)
-{
-  struct cached_sensor_state *css;
-
-  /* simply retrieve the cached value */
-
-  css = local;
-
-  return css->c_value;
-}
-
-/* fifo example: a boolean sensor which reads from a fifo, turns true if 
- * the read character a digit */
-
-#define FIFO_MAGIC 0xfa430ad4
-
-struct fifo_sensor_state{
-  unsigned int f_magic;
-  int f_fd;
-  int f_isdigit;
-};
-
-void fifo_boolean_destroy_sensor(struct fifo_sensor_state *fss);
-
-int fifo_boolean_prepare_sensor(struct katcp_sensor *s, void *local, int *max, fd_set *fsr, fd_set *fsw, struct timeval *now, struct timeval *future)
-{
-  struct fifo_sensor_state *fss;
-
-  fss = local;
-
-  if(fss->f_magic != FIFO_MAGIC){
-    fprintf(stderr, "fifo: logic problem: bad pointer %p\n", fss);
-    abort();
-  }
-
-  return prepare_read_sensor_katcp(s, max, fsr, fss->f_fd);
-}
-
-int fifo_boolean_acquire_sensor(struct katcp_sensor *s, void *local, int *max, fd_set *fsr, fd_set *fsw, struct timeval *now, struct timeval *future)
-{
-  struct fifo_sensor_state *fss;
-  int result;
-  unsigned char byte;
-
-  fss = local;
-
-  if(fss->f_magic != FIFO_MAGIC){
-    fprintf(stderr, "fifo: logic problem: bad pointer %p\n", fss);
-    abort();
-  }
-
-  if(fss->f_fd < 0){
-    return -1;
-  }
-
-  /* could, should be hidden in a helper function ? */
-  if(!(FD_ISSET(fss->f_fd, fsr))){
-    return 0;
-  }
-
-  result = read(fss->f_fd, &byte, 1);
-  if(result < 0){
-    switch(errno){
-      case EAGAIN :
-      case EINTR  :
-        return 0;
-      default :
-        close(fss->f_fd);
-        fss->f_fd = (-1);
-        return -1;
-    }
-  }
-
-  if(result == 0){
-    close(fss->f_fd);
-    fss->f_fd = (-1);
-    return -1;
-  }
-
-  if(isalnum(byte)){
-    fss->f_isdigit = isdigit(byte) ? 1 : 0;
-  }
-#ifdef DEBUG
-  fprintf(stderr, "fifo: isdigit now %d\n", fss->f_isdigit);
-#endif
-
-  return 1;
-}
-
-int fifo_boolean_check_sensor(struct katcp_sensor *s, void *local)
-{
-  struct fifo_sensor_state *fss;
-
-  /* simply retrieve the cached value */
-
-  fss = local;
-
-  if(fss->f_magic != FIFO_MAGIC){
-    fprintf(stderr, "fifo: logic problem: bad pointer %p\n", fss);
-    abort();
-  }
-
-#ifdef DEBUG
-  fprintf(stderr, "fifo: on retrieve %d\n", fss->f_isdigit);
-#endif
-
-  return fss->f_isdigit;
-}
-
-struct fifo_sensor_state *fifo_boolean_create_sensor(struct katcp_dispatch *d, char *path, char *name)
-{
-  struct fifo_sensor_state *fss;
-  int fd;
-
-  fd = open(path, O_RDONLY);
-  if(fd < 0){
-    return NULL;
-  }
-
-  fss = malloc(sizeof(struct fifo_sensor_state));
-  if(fss == NULL){
-    close(fd);
-    return NULL;
-  }
-
-  fss->f_magic = FIFO_MAGIC;
-  fss->f_fd = fd;
-  fss->f_isdigit = 0;
-
-  if(register_boolean_sensor_katcp(d, name, "checks input on fifo for digit characters", "truth values", KATCP_STRATEGY_EVENT, &fifo_boolean_check_sensor)){
-    fifo_boolean_destroy_sensor(fss);
-    return NULL;
-  }
-
-  local_name_sensor_katcp(d, name, fss);
-  prepare_name_sensor_katcp(d, name, &fifo_boolean_prepare_sensor);
-  acquire_name_sensor_katcp(d, name, &fifo_boolean_acquire_sensor);
-
-  return NULL;
-}
-
-void fifo_boolean_destroy_sensor(struct fifo_sensor_state *fss)
-{
-  if(fss == NULL){
-    return;
-  }
-
-  if(fss->f_magic != FIFO_MAGIC){
-    fprintf(stderr, "fifo: logic problem: bad pointer %p\n", fss);
-    abort();
-  }
-  
-  if(fss->f_fd >= 0){
-    close(fss->f_fd);
-    fss->f_fd = (-1);
-  }
-
-  free(fss);
-}
-
-#endif
-
-/* command functions *********************************************************/
-
 /* check command 1: generates its own reply, with binary and integer output */
 
 int own_check_cmd(struct katcp_dispatch *d, int argc)
@@ -356,6 +78,52 @@ int pause_check_cmd(struct katcp_dispatch *d, int argc)
   return KATCP_RESULT_PAUSE;
 }
 
+int subprocess_check_callback(struct katcp_dispatch *d, struct katcp_notice *n)
+{
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "was woken by child process exit");
+
+  /* a callback can not used KATCP_RESULT_* codes, it has to generate its messages by hand */
+  send_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "!check-subprocess", KATCP_FLAG_LAST | KATCP_FLAG_STRING, KATCP_OK);
+
+  /* unpause the client instance, so that it can parse new commands */
+  resume_katcp(d);
+
+  return 0;
+}
+
+int subprocess_check_cmd(struct katcp_dispatch *d, int argc)
+{
+  struct katcp_notice *n;
+  struct katcp_job *j;
+  char *arguments[3] = { "SLEEP", "10", NULL };
+
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "starting child process sleep 10");
+
+  /* check if somebody else is busy */
+  n = find_notice_katcp(d, "sleep-notice");
+  if(n != NULL){ 
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "another instance already active");
+    return KATCP_RESULT_FAIL;
+  }
+  
+  /* create a notice, an entity which can invoke the callback when triggered */
+  n = register_notice_katcp(d, "sleep-notice", 0, &subprocess_check_callback);
+  if(n == NULL){
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "unable to create notice object");
+    return KATCP_RESULT_FAIL;
+  }
+
+  /* create a job, something which isn't a timer or a client issuing commands, give it the notice so that it can trigger it when it needs to */
+  j = process_create_job_katcp(d, "sleep", arguments, n, NULL);
+  if(j == NULL){
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "unable to create a subprocess handling job");
+    return KATCP_RESULT_FAIL;
+  }
+
+  /* suspend, rely on the call back to resume this task */
+  return KATCP_RESULT_PAUSE;
+}
+
 int main(int argc, char **argv)
 {
   struct katcp_dispatch *d;
@@ -381,49 +149,14 @@ int main(int argc, char **argv)
   version_katcp(d, "exampleserver", 0, 1);
   build_katcp(d, BUILD);
 
-#if 0
-  /* register example sensors */
-  if(register_lru_sensor_katcp(d, "check.lru", "checks lru", "lru", KATCP_STRATEGY_EVENT, &lru_check_sensor)){
-    fprintf(stderr, "server: unable to register lru sensor\n");
-    return 1;
-  }
-
-  if(register_boolean_sensor_katcp(d, "check.bool", "checks boolean value", "truth values", KATCP_STRATEGY_EVENT, &bool_check_sensor)){
-    fprintf(stderr, "server: unable to register bool sensor\n");
-    return 1;
-  }
-
-  if(register_discrete_sensor_katcp(d, "check.discrete", "random 3 values", "initial greek letters", KATCP_STRATEGY_EVENT, &discrete_check_sensor, "alpha", "beta", "gamma", NULL)){
-    fprintf(stderr, "server: unable to register sensors\n");
-    return 1;
-  }
-
-  if(register_integer_sensor_katcp(d, "check.integer.cached", "arbitrary counter", "counter", KATCP_STRATEGY_EVENT, &cached_integer_check_sensor, 0, INT_MAX)){
-    fprintf(stderr, "server: unable to register sensors\n");
-    return 1;
-  }
-
-  /* set up the cached state */
-  local_data.c_value = 42;
-  local_data.c_when.tv_sec = 0;
-
-  /* register supporting functions and local state variable */
-  prepare_name_sensor_katcp(d, "check.integer.cached", &cached_integer_prepare_sensor);
-  acquire_name_sensor_katcp(d, "check.integer.cached", &cached_integer_acquire_sensor);
-  local_name_sensor_katcp(d, "check.integer.cached", &local_data);
-
-
-#if 0
-  fss = fifo_boolean_create_sensor(d, "example-fifo", "check.fifo");
-#endif
-#endif
-
-  /* register example commands */
+  /* example sensor */
 
   if(register_integer_sensor_katcp(d, 0, "check.integer.simple", "unix time in decaseconds", "Ds", &simple_integer_check_sensor, NULL, 0, INT_MAX)){
     fprintf(stderr, "server: unable to register sensors\n");
     return 1;
   }
+
+  /* register example commands */
 
   result = 0;
 
@@ -432,6 +165,7 @@ int main(int argc, char **argv)
   result += register_katcp(d, "?check-fail",  "return fail", &fail_check_cmd);
   result += register_katcp(d, "?check-yield", "return function multiple times", &yield_check_cmd);
   result += register_katcp(d, "?check-pause", "pauses", &pause_check_cmd);
+  result += register_katcp(d, "?check-subprocess", "runs sleep 10 as a subprocess and waits for completion", &subprocess_check_cmd);
 
   if(result < 0){
     fprintf(stderr, "server: unable to register commands\n");

@@ -117,6 +117,8 @@ int call_katcp(struct katcp_dispatch *d);
 /* combines lookup and call while there is stuff to do */
 int dispatch_katcp(struct katcp_dispatch *d);
 
+void resume_katcp(struct katcp_dispatch *d);
+
 /* run the dispatch handler until error or shutdown */
 int run_katcp(struct katcp_dispatch *d, int server, char *host, int port);
 int run_client_katcp(struct katcp_dispatch *d, char *host, int port);
@@ -277,13 +279,14 @@ struct katcp_notice *find_notice_katcp(struct katcp_dispatch *d, char *name);
 void wake_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 int wake_name_notice_katcp(struct katcp_dispatch *d, char *name);
 
+/* job logic */
 
+struct katcp_job *create_job_katcp(struct katcp_dispatch *d, pid_t pid, int fd, struct katcp_notice *halt, struct katcp_notice *data);
 
+struct katcp_job *process_create_job_katcp(struct katcp_dispatch *d, char *file, char **argv, struct katcp_notice *halt, struct katcp_notice *data);
 
+int stop_job_katcp(struct katcp_dispatch *d, struct katcp_job *j);
 
-
-
-void resume_katcp(struct katcp_dispatch *d);
 
 
 #endif
