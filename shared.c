@@ -23,6 +23,9 @@ static volatile int child_signal_shared = 0;
 
 static void handle_child_shared(int signal)
 {
+#ifdef DEBUG
+  fprintf(stderr, "received child signal");
+#endif
   child_signal_shared++;
 }
 
@@ -209,24 +212,6 @@ int startup_shared_katcp(struct katcp_dispatch *d)
 
   /* have not touched the signal handlers yet */
   s->s_restore_signals = 0;
-
-#if 0
-  /* squirrel away old signal handler settings */
-  sigprocmask(SIG_SETMASK, NULL, &(s->s_mask_previous));
-  sigaction(SIGCHLD, NULL, &(s->s_action_previous));
-
-  /* block child processes, and remember old settings in mp */
-  sigprocmask(SIG_SETMASK, NULL, &(s->s_mask_current));
-  sigaddset(&(s->s_mask_current), SIGCHLD);
-
-  sigprocmask(SIG_SETMASK, (s->s_mask_current), &(s->s_mask_previous));
-  sigdelset(&(s->s_mask_current), SIGCHLD);
-
-  s->s_action_current.sa_handler = handle_child;
-  s->s_action_current.sa_flags = 0;
-  sigemptyset(&(s->s_action_current.sa_mask));
-  sigaction(SIGCHLD, &(s->s_action_current), &(s->s_action_previous));
-#endif
 
   s->s_template = d;
   d->d_shared = s;

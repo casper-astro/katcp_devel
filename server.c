@@ -209,7 +209,7 @@ int run_multi_server_katcp(struct katcp_dispatch *dl, int count, char *host, int
   }
 
   register_flag_mode_katcp(dl, "?notice",  "notice operations (?notice [list|create|watch|wake])", &notice_cmd_katcp, KATCP_CMD_HIDDEN, 0);
-  register_flag_mode_katcp(dl, "?job",     "job operations (?notice [list])", &job_cmd_katcp, KATCP_CMD_HIDDEN, 0);
+  register_flag_mode_katcp(dl, "?job",     "job operations (?job [list|process notice-name executable-file])", &job_cmd_katcp, KATCP_CMD_HIDDEN, 0);
 
   register_katcp(dl, "?sensor-list",       "lists available sensors (?sensor-list [sensor])", &sensor_list_cmd_katcp);
   if(s->s_tally > 0){
@@ -342,6 +342,7 @@ int run_multi_server_katcp(struct katcp_dispatch *dl, int count, char *host, int
       switch(errno){
         case EAGAIN :
         case EINTR  :
+/*        case ERESTARTSYS : */
           result = 0;
           break;
         default  :
@@ -356,6 +357,9 @@ int run_multi_server_katcp(struct katcp_dispatch *dl, int count, char *host, int
     }
 
     if(child_signal_shared_katcp(s)){
+#ifdef DEBUG
+      fprintf(stderr, "multi: saw child signal\n");
+#endif
       wait_jobs_katcp(dl);
     }
 

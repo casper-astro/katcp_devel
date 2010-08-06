@@ -925,7 +925,7 @@ int help_cmd_katcp(struct katcp_dispatch *d, int argc)
   for(c = d->d_shared->s_commands; c; c = c->c_next){
     if((c->c_mode == 0) || (d->d_shared->s_mode == c->c_mode)){
       if((c->c_name) && (
-          ((match != NULL) && (!strcmp(c->c_name, match))) || /* print matching command for this mode, no matter if hidden or not */
+          ((match != NULL) && (!strcmp(c->c_name + 1, match))) || /* print matching command for this mode, no matter if hidden or not */
           ((match == NULL) && (((c->c_flags & KATCP_CMD_HIDDEN) == 0))) /* print all not hidden commands in this mode */
       )){
         send_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#help", KATCP_FLAG_STRING, c->c_name + 1, KATCP_FLAG_LAST | KATCP_FLAG_STRING, c->c_help);

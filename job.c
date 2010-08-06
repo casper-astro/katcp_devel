@@ -216,11 +216,13 @@ int load_jobs_katcp(struct katcp_dispatch *d)
     j = s->s_tasks[i];
     if(j->j_fd >= 0){
 
+#if 0
       /* TODO: load up the file descriptors */
       FD_SET(j->j_fd, &(s->s_read));
       if(j->j_fd > s->s_max){
         s->s_max = j->j_fd;
       }
+#endif
     }
   }
 
@@ -357,7 +359,7 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
         log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "job %p is %s", j, j->j_ended ? "ended" : "up");
       }
       return KATCP_RESULT_OK;
-    } else if(!strcmp(name, "launch")){
+    } else if(!strcmp(name, "process")){
       watch = arg_string_katcp(d, 2);
       cmd = arg_string_katcp(d, 3);
 
