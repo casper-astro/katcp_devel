@@ -237,6 +237,10 @@ int run_jobs_katcp(struct katcp_dispatch *d)
 
   s = d->d_shared;
 
+#ifdef DEBUG
+  fprintf(stderr, "job: checking %d jobs\n", s->s_number);
+#endif
+
   count = 0;
   i = 0;
   while(i < s->s_number){

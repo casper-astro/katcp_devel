@@ -220,6 +220,14 @@ struct katcp_notice *create_notice_katcp(struct katcp_dispatch *d, char *name, u
 
   s = d->d_shared;
 
+  if(name){
+    n = find_notice_katcp(d, name);
+    if(n != NULL){
+      /* TODO: maybe check tag */
+      return n;
+    }
+  }
+
   n = malloc(sizeof(struct katcp_notice));
   if(n == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate %d bytes for notice", sizeof(struct katcp_notice));
@@ -245,7 +253,6 @@ struct katcp_notice *create_notice_katcp(struct katcp_dispatch *d, char *name, u
   } else {
     n->n_name = NULL;
   }
-
 
   t = realloc(s->s_notices, sizeof(struct katcp_notice *) * (s->s_pending + 1));
   if(t == NULL){
@@ -414,6 +421,10 @@ int run_notices_katcp(struct katcp_dispatch *d)
   i = 0;
   remove = 0;
 
+#ifdef DEBUG
+  fprintf(stderr, "notice: running %d pending entries\n", s->s_pending);
+#endif
+
   while(i < s->s_pending){
     n = s->s_notices[i];
     if(n->n_trigger){
@@ -514,6 +525,9 @@ int run_notices_katcp(struct katcp_dispatch *d)
 int resume_notice(struct katcp_dispatch *d, struct katcp_notice *n)
 {
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "resuming after waiting for notice");
+
+  append_string_katcp(d, KATCP_FLAG_FIRST, "!notice");
+  append_string_katcp(d, KATCP_FLAG_LAST, KATCP_OK);
 
   resume_katcp(d);
 
