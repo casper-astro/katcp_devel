@@ -1,8 +1,8 @@
 CC = $(CROSS_COMPILE)gcc
 CFLAGS = -Wall
 #CFLAGS += -DDEBUG -ggdb
-INC = -I..
-LIB = -L.. -lkatcp
+INC = -I$(KATCP)
+LIB = -L$(KATCP) -lkatcp
 RM = rm -f
 BUILD = unknown-0.1
 

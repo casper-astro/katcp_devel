@@ -1,37 +1,25 @@
-prefix=/usr/local
-
-CC = $(CROSS_COMPILE)gcc
 CFLAGS = -Wall
 CFLAGS += -O2
-CFLAGS += -DKATCP_USE_FLOATS
-CFLAGS += -DPARANOID
-CFLAGS += -DDEBUG
 CFLAGS += -ggdb
-AR = ar
+
+# where to find the KATCP library (change this in case katcp isn't included locally)
+KATCP = katcp
+
+###############################################################################
+
+SUB = katcp kcs examples
+
+CC = $(CROSS_COMPILE)gcc
 RM = rm -f
-INSTALL = install
-INC = -I.
 
-LIB = libkatcp.a
+###############################################################################
 
-SUB = examples utils
-SRC = line.c netc.c dispatch.c loop.c log.c time.c shared.c misc.c server.c client.c ts.c nonsense.c notice.c job.c
-HDR = katcp.h katcl.h katsensor.h katpriv.h
-OBJ = $(patsubst %.c,%.o,$(SRC))
+all: all-dir
+clean: clean-dir
+install: install-dir
 
-all: $(LIB) 
+###############################################################################
 
-$(LIB): $(OBJ)
-	$(AR) rcs $(LIB) $(OBJ)
-
-%.o: %.c *.h 
-	$(CC) $(CFLAGS) -c $< -o $@ $(INC)
-
-clean:
-	$(RM) $(LIB) *.o core
-
-install: all
-	$(INSTALL) -d $(prefix)/include $(prefix)/lib
-	$(INSTALL) $(LIB) $(prefix)/lib
-	$(INSTALL) $(HDR) $(prefix)/include
-
+# warning: below rewrites KATCP for subdirectory
+all-dir clean-dir install-dir: 
+	@for d in $(SUB); do if ! $(MAKE) -C $$d KATCP=../$(KATCP) CFLAGS="$(CFLAGS)" $(subst -dir,,$@) ; then exit; fi; done
