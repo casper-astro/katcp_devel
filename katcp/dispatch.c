@@ -603,6 +603,10 @@ int lookup_katcp(struct katcp_dispatch *d)
     return 1; /* still busy from last time */
   }
 
+  if(d->d_pause){
+    return 0;
+  }
+
   r = have_katcl(d->d_line);
   if(r < 0){
     return -1;
@@ -695,12 +699,26 @@ int dispatch_katcp(struct katcp_dispatch *d)
   int r;
 
   if(d->d_pause > 0){
+#if DEBUG > 1
+    fprintf(stderr, "dispatch: deferring because paused\n");
+#endif
     return 0;
   }
 
+#if DEBUG > 1
+    fprintf(stderr, "dispatch: looking up\n");
+#endif
+
   while((r = lookup_katcp(d)) > 0){
+#if DEBUG > 1
+    fprintf(stderr, "dispatch: calling\n");
+#endif
     call_katcp(d);
   }
+
+#if DEBUG > 1
+  fprintf(stderr, "dispatch: lookup returns %d\n", r);
+#endif
 
   return r;
 }
@@ -794,6 +812,7 @@ int read_katcp(struct katcp_dispatch *d)
   return -1;
 }
 
+#if 0
 int have_katcp(struct katcp_dispatch *d)
 {
   if(d && d->d_line){
@@ -802,6 +821,7 @@ int have_katcp(struct katcp_dispatch *d)
   
   return 0;
 }
+#endif
 
 int error_katcp(struct katcp_dispatch *d)
 {
@@ -1230,6 +1250,9 @@ static int prepend_generic_katcp(struct katcp_dispatch *d, int reply)
 
   message = arg_string_katcl(d->d_line, 0);
   if((message == NULL) || (message[0] != KATCP_REQUEST)){
+#ifdef DEBUG
+    fprintf(stderr, "prepend: arg0 is unavailable (%p)\n", message);
+#endif
     return -1;
   }
 

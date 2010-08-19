@@ -1,3 +1,7 @@
+CC = $(CROSS_COMPILE)gcc
+CFLAGS = -Wall
+CFLAGS += -DDEBUG
+
 SERVER = kcs
 SRC = kcserver.c basic.c
 

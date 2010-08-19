@@ -14,7 +14,17 @@ int script_wildcard_resume(struct katcp_dispatch *d, struct katcp_notice *n)
 {
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "should extract status code at this point");
 
+#ifdef DEBUG
+  fprintf(stderr, "script resume: dispatch is %p\n", d);
+#endif
+
+#ifdef DEBUG
+  if(prepend_reply_katcp(d) < 0){
+    fprintf(stderr, "script resume: unable to prepend reply\n");
+  } 
+#else
   prepend_reply_katcp(d);
+#endif
   append_string_katcp(d, KATCP_FLAG_LAST, KATCP_OK);
 
   resume_katcp(d);
@@ -32,6 +42,10 @@ int script_wildcard_cmd(struct katcp_dispatch *d, int argc)
   struct stat st;
   char *name, *path, **vector;
   int len, i;
+
+#ifdef DEBUG
+  fprintf(stderr, "script cmd: dispatch is %p\n", d);
+#endif
 
   kb = need_current_mode_katcp(d, KCS_MODE_BASIC);
 

@@ -22,4 +22,4 @@ install: install-dir
 
 # warning: below rewrites KATCP for subdirectory
 all-dir clean-dir install-dir: 
-	@for d in $(SUB); do if ! $(MAKE) -C $$d KATCP=../$(KATCP) CFLAGS="$(CFLAGS)" $(subst -dir,,$@) ; then exit; fi; done
+	@for d in $(SUB); do if ! $(MAKE) -C $$d KATCP=../$(KATCP) $(subst -dir,,$@) ; then exit; fi; done
