@@ -5,14 +5,32 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 
 #include <katcp.h>
+#include <katpriv.h>
 
 #include "kcs.h"
 
 int script_wildcard_resume(struct katcp_dispatch *d, struct katcp_notice *n)
 {
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "should extract status code at this point");
+  struct katcp_job *j;
+  int failed, code;
+
+  failed = 1;
+
+  j = via_notice_job_katcp(d, n);
+  if(j){
+    if(WIFEXITED(j->j_status)){
+      code = WEXITSTATUS(j->j_status);
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "job exited with status code %d", code);
+      if(code == 0){
+        failed = 0;
+      }
+    } else {
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "job exited abnormally");
+    }
+  }
 
 #ifdef DEBUG
   fprintf(stderr, "script resume: dispatch is %p\n", d);
@@ -25,7 +43,7 @@ int script_wildcard_resume(struct katcp_dispatch *d, struct katcp_notice *n)
 #else
   prepend_reply_katcp(d);
 #endif
-  append_string_katcp(d, KATCP_FLAG_LAST, KATCP_OK);
+  append_string_katcp(d, KATCP_FLAG_LAST, failed ? KATCP_FAIL : KATCP_OK);
 
   resume_katcp(d);
 

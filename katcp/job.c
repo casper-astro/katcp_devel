@@ -131,6 +131,21 @@ struct katcp_job *create_job_katcp(struct katcp_dispatch *d, pid_t pid, int fd, 
   return j;
 }
 
+struct katcp_job *via_notice_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
+{
+  struct katcp_job *j;
+
+  if(n->n_payload == NULL){
+    return NULL;
+  }
+
+  j = n->n_payload;
+
+  sane_job_katcp(j);
+
+  return j;
+}
+
 /* manually stop a task, trigger notice as if stopped on its own **/
 
 int stop_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)

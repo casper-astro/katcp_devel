@@ -282,6 +282,7 @@ int wake_name_notice_katcp(struct katcp_dispatch *d, char *name);
 /* job logic */
 
 struct katcp_job *create_job_katcp(struct katcp_dispatch *d, pid_t pid, int fd, struct katcp_notice *halt, struct katcp_notice *data);
+struct katcp_job *via_notice_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 
 struct katcp_job *process_create_job_katcp(struct katcp_dispatch *d, char *file, char **argv, struct katcp_notice *halt, struct katcp_notice *data);
 
