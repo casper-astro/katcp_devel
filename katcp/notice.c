@@ -526,7 +526,11 @@ int resume_notice(struct katcp_dispatch *d, struct katcp_notice *n)
 {
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "resuming after waiting for notice");
 
+#if 0
   append_string_katcp(d, KATCP_FLAG_FIRST, "!notice");
+#endif
+
+  prepend_reply_katcp(d);
   append_string_katcp(d, KATCP_FLAG_LAST, KATCP_OK);
 
   resume_katcp(d);
