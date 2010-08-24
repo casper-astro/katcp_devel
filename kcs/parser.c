@@ -290,9 +290,242 @@ void clean_up_parser(struct p_parser *p){
       free(p->labels);
     free(p);
     p = NULL;
+  }  
+  //fprintf(stderr,"PARSER Finished parser cleanup\n");
+}
+
+int save_tree(struct p_parser *p,char *filename){
+  FILE *file;
+  int i,j,k;
+  struct p_label *cl=NULL;
+  struct p_setting *cs=NULL;
+  struct p_value *cv=NULL;
+  
+  file = fopen(filename,"w");
+  
+  if (file == NULL){
+    fprintf(stderr,"Error reading file: %s\n",strerror(errno));
+    return KATCP_RESULT_FAIL;
+  }
+
+  for (i=0;i<p->lcount;i++){
+    cl = p->labels[i];
+    fprintf(file,"[%s]\n",cl->str);
+    for (j=0;j<cl->scount;j++){
+      cs = cl->settings[j];
+      fprintf(file,"  %s = ",cs->str);
+      for (k=0;k<cs->vcount;k++){
+        cv = cs->values[k];
+        fprintf(file,"%s%c",cv->str,(k==cs->vcount-1)?' ':',');
+      }
+      fprintf(file,"\n");
+    }
+  }
+
+  fclose(file);
+  
+  return KATCP_RESULT_OK;
+}
+
+
+struct p_value * get_label_setting_value(struct katcp_dispatch *d,struct p_parser *p, char *srcl, char *srcs, unsigned long vidx){
+
+  int i,j;
+
+  struct p_label *cl;
+  struct p_setting *cs;
+
+  for (i=0;i<p->lcount;i++){
+    cl = p->labels[i];
+    if (strcmp(srcl,cl->str)==0){
+      for (j=0;j<cl->scount;j++){
+        cs = cl->settings[j];
+        if (strcmp(srcs,cs->str)==0){
+          if (cs->values[vidx] != NULL){
+            return cs->values[vidx];
+          }
+        }
+      }
+    }
+  }
+
+  log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"Could not find [%s] %s(%d)",srcl,srcs,vidx);
+  return NULL;
+}
+
+int set_label_setting_value(struct katcp_dispatch *d,struct p_parser *p, char *srcl, char *srcs, unsigned long vidx, char *newval){
+
+  int i,j;
+
+  struct p_label *cl;
+  struct p_setting *cs;
+  struct p_value *cv;
+
+  for (i=0;i<p->lcount;i++){
+    cl = p->labels[i];
+    
+    if (strcmp(srcl,cl->str)==0){ //if label exists
+      for (j=0;j<cl->scount;j++){
+        cs = cl->settings[j];
+        
+        if (strcmp(srcs,cs->str)==0){ //if settings exists
+          
+          if (cs->vcount > vidx && cs->values[vidx] != NULL){ //if value index exists
+            cv = cs->values[vidx];
+            if (cv->str != NULL){
+              log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"OLD Value: %s",cv->str);
+              free(cv->str);
+            }
+            cv->str = strdup(newval);
+            
+           // fprintf(stderr,"label,setting,value exist ... update\n");
+
+            log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"Updateing value for %s/%s",srcl,srcs);
+            
+            return KATCP_RESULT_OK;
+          }
+          else { //can find the value at vidx so create a new value for setting at scount+1
+            if (cs->values == NULL){
+              cs->vcount++;
+              cs->values = malloc(sizeof(struct p_value*));
+            }
+            else {
+              cs->vcount++;
+              cs->values = realloc(cs->values,sizeof(struct p_value*)*cs->vcount);
+            }
+
+            struct p_value *nv;
+            nv = malloc(sizeof(struct p_value));
+            nv->str = strdup(newval);
+
+            cs->values[cs->vcount-1] = nv;
+
+            log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"Adding new value for %s/%s",srcl,srcs);
+            //fprintf(stderr,"label,setting exist ... create new value\n");
+            return KATCP_RESULT_OK;
+          }
+
+        }
+      }
+      
+      if (cl->settings == NULL){
+        cl->scount++;
+        cl->settings = malloc(sizeof(struct p_setting*));
+      }
+      else {
+        cl->scount++;
+        cl->settings = realloc(cl->settings,sizeof(struct p_setting*)*cl->scount);
+      }
+      struct p_setting *ns;
+      ns = malloc(sizeof(struct p_setting));
+
+      ns->str = strdup(srcs);
+      ns->values = malloc(sizeof(struct p_value*));
+      ns->vcount = 1;
+
+      struct p_value *nv;
+      nv = malloc(sizeof(struct p_value));
+      nv->str = strdup(newval);
+
+      ns->values[0] = nv;
+      cl->settings[cl->scount-1] = ns;
+      
+      log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"Adding setting and value for %s",srcl);
+      //fprintf(stderr,"label exists ... create new setting and value\n");
+      return KATCP_RESULT_OK;
+    } 
   }
   
-  //fprintf(stderr,"PARSER Finished parser cleanup\n");
+  if (p->labels == NULL){
+    p->lcount++;
+    p->labels = malloc(sizeof(struct p_label*));
+  }
+  else {
+    p->lcount++;
+    p->labels = realloc(p->labels,sizeof(struct p_label*)*p->lcount);
+  }
+
+  struct p_label *nl;
+  nl = malloc(sizeof(struct p_label));
+  nl->scount = 1;
+  nl->str = strdup(srcl);
+  nl->settings = malloc(sizeof(struct p_setting*));
+
+  struct p_setting *ns;
+  ns = malloc(sizeof(struct p_setting));
+  ns->str = strdup(srcs);
+  ns->values = malloc(sizeof(struct p_value*));
+  ns->vcount=1;
+
+  struct p_value *nv;
+  nv = malloc(sizeof(struct p_value));
+  nv->str = strdup(newval);
+
+  ns->values[0] = nv;
+  nl->settings[0] = ns;
+  p->labels[p->lcount-1] = nl;
+
+  log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"Added new label setting and value");
+  //fprintf(stderr,"... none exist\n");
+  return KATCP_RESULT_OK;
+}
+
+struct p_value * parser_get(struct katcp_dispatch *d, char *srcl, char *srcs, unsigned long vidx){
+
+  struct kcs_basic *kb;
+  struct p_parser *p;
+  kb = need_current_mode_katcp(d,KCS_MODE_BASIC);
+  if (kb == NULL)
+    return NULL;
+
+  p = kb->b_parser;
+
+  if (p != NULL) {
+    return get_label_setting_value(d,p,srcl,srcs,vidx);
+  }
+  
+  log_message_katcp(d,KATCP_LEVEL_ERROR,NULL,"No configuration file loaded yet, use ?parser load [filename]");
+  return NULL;
+}
+
+int parser_set(struct katcp_dispatch *d, char *srcl, char *srcs, unsigned long vidx, char *nv){
+
+  struct kcs_basic *kb;
+  struct p_parser *p;
+  kb = need_current_mode_katcp(d,KCS_MODE_BASIC);
+  if (kb == NULL)
+    return KATCP_RESULT_FAIL;
+
+  p = kb->b_parser;
+
+  if (p != NULL) {
+    return set_label_setting_value(d,p,srcl,srcs,vidx,nv);
+  }
+  
+  log_message_katcp(d,KATCP_LEVEL_ERROR,NULL,"No configuration file loaded yet, use ?parser load [filename]");
+  return KATCP_RESULT_FAIL;
+}
+
+int parser_save(struct katcp_dispatch *d, char *filename){
+  
+  struct kcs_basic *kb;
+  struct p_parser *p;
+  kb = need_current_mode_katcp(d,KCS_MODE_BASIC);
+  if (kb == NULL)
+    return KATCP_RESULT_FAIL;
+
+  p = kb->b_parser;
+
+  if (p != NULL) {
+    int rtn = save_tree(p,filename);
+    if (rtn == KATCP_RESULT_OK){
+      log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"Saved configuration file as %s",filename);
+      return rtn;
+    }
+  }
+  
+  log_message_katcp(d,KATCP_LEVEL_ERROR,NULL,"No configuration file loaded yet, use ?parser load [filename]");
+  return KATCP_RESULT_FAIL;
 }
 
 int parser_load(struct katcp_dispatch *d, char *filename){
@@ -324,6 +557,7 @@ int parser_load(struct katcp_dispatch *d, char *filename){
     return KATCP_RESULT_FAIL;
   }
 
+  p->filename = filename;
   kb->b_parser = p;
 
   log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"Configuration file loaded");
@@ -430,6 +664,17 @@ int main(int argc, char **argv) {
   fprintf(stderr,"filename: %s\n",filename);
 
   parser_load(NULL,filename);
+  //parser_list(NULL);
+  //parser_save(NULL,"output.conf");
+  /*struct p_value *tval;
+  tval = parser_get(NULL,"borphserver","bitstream",0);
+  if (tval != NULL)
+    fprintf(stderr,"%s\n",tval->str);
+  else
+    fprintf(stderr,"CANNOT FIND\n");
+ */
+  parser_set(NULL,"k","a",1,"hello world");
+
   parser_list(NULL);
   parser_destroy(NULL);
   
