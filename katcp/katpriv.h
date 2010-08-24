@@ -199,7 +199,9 @@ struct katcp_notice;
 
 struct katcp_job{
   unsigned int j_magic;
+#if 0
   int j_fd;
+#endif
   pid_t j_pid;
 
   struct katcp_notice *j_halt;
@@ -207,6 +209,8 @@ struct katcp_job{
 
   int j_ended;
   int j_status;
+
+  struct katcl_line *j_line;
 };
 
 #if 0

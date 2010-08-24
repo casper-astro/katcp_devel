@@ -211,5 +211,3 @@ int setup_basic_kcs(struct katcp_dispatch *d, char *scripts)
 
   return 0;
 }
-
-

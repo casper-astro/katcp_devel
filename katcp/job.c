@@ -79,9 +79,9 @@ static void delete_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
     log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "attempting to delete job %p with child %u", j, j->j_pid);
   }
 
-  if(j->j_fd > 0){
-    close(j->j_fd);
-    j->j_fd = (-1);
+  if(j->j_line){
+    destroy_katcl(j->j_line, 1);
+    j->j_line = NULL;
   }
 
   free(j);
@@ -109,11 +109,22 @@ struct katcp_job *create_job_katcp(struct katcp_dispatch *d, pid_t pid, int fd, 
 
   j->j_magic = JOB_MAGIC;
   j->j_pid = pid;
+#if 0
   j->j_fd = fd;
+#endif
   j->j_halt = halt;
   j->j_data = data;
   j->j_ended = 0;
   j->j_status = (-1);
+  j->j_line = NULL;
+
+  if(fd >= 0){
+    j->j_line = create_katcl(fd);
+    if(j->j_line == NULL){
+      free(j);
+      return NULL;
+    }
+  }
 
   if(halt){
     halt->n_payload = j;
@@ -167,10 +178,7 @@ int stop_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
     j->j_status = (-1);
   }
 
-  if(j->j_fd >= 0){
-    close(j->j_fd);
-    j->j_fd = (-1);
-  }
+  exchange_katcl(j->j_line, -1);
 
   return result;
 }
@@ -198,10 +206,8 @@ int wait_jobs_katcp(struct katcp_dispatch *d)
         j->j_pid = 0;
         j->j_status = status;
 
-        if(j->j_fd >= 0){
-          close(j->j_fd);
-          j->j_fd = (-1);
-        }
+        /* WARNING: risks flushing data before it has been processed */
+        exchange_katcl(j->j_line, -1);
 
         if(j->j_ended == 0){
           if(j->j_halt){
@@ -223,21 +229,22 @@ int load_jobs_katcp(struct katcp_dispatch *d)
 {
   struct katcp_shared *s;
   struct katcp_job *j;
-  int i;
+  int i, fd;
 
   s = d->d_shared;
 
   for(i = 0; i < s->s_number; i++){
     j = s->s_tasks[i];
-    if(j->j_fd >= 0){
 
-#if 0
-      /* TODO: load up the file descriptors */
-      FD_SET(j->j_fd, &(s->s_read));
-      if(j->j_fd > s->s_max){
-        s->s_max = j->j_fd;
+    fd = fileno_katcl(j->j_line);
+    if(fd >= 0){
+      FD_SET(fd, &(s->s_read));
+      if(flushing_katcl(j->j_line)){
+        FD_SET(fd, &(s->s_write));
       }
-#endif
+      if(fd > s->s_max){
+        s->s_max = fd;
+      }
     }
   }
 
@@ -248,7 +255,7 @@ int run_jobs_katcp(struct katcp_dispatch *d)
 {
   struct katcp_shared *s;
   struct katcp_job *j;
-  int i, count;
+  int i, count, fd;
 
   s = d->d_shared;
 
@@ -273,9 +280,18 @@ int run_jobs_katcp(struct katcp_dispatch *d)
       }
 
     } else {
-      if(j->j_fd >= 0){
-        /* TODO: check read fd, write fd, etc */
-        if(FD_ISSET(j->j_fd, &(s->s_read))){
+      fd = fileno_katcl(j->j_line);
+      if((fd >= 0) && FD_ISSET(fd, &(s->s_read))){
+        if(read_katcl(j->j_line)){
+          /* WARNING: what about unprocessed data ? */
+          exchange_katcl(j->j_line, -1);
+          fd = (-1);
+        }
+      }
+      if((fd >= 0) && FD_ISSET(fd, &(s->s_write))){
+        if(write_katcl(j->j_line) < 0){
+          exchange_katcl(j->j_line, -1);
+          fd = (-1);
         }
       }
       i++;
