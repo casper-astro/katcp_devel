@@ -1,9 +1,10 @@
 CC = $(CROSS_COMPILE)gcc
 CFLAGS = -Wall
 CFLAGS += -DDEBUG
+CFLAGS += -ggdb
 
 SERVER = kcs
-SRC = kcserver.c basic.c
+SRC = parser.c kcserver.c basic.c
 
 OBJ = $(patsubst %.c,%.o,$(SRC))
 INC = -I$(KATCP)
@@ -20,4 +21,5 @@ clean:
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@ $(INC)
 
-
+test-parser: parser.c 
+	$(CC) $(CFLAGS) -DSTANDALONE -o $@ $^ -I../katcp

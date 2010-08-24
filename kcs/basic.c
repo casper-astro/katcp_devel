@@ -147,13 +147,69 @@ void destroy_basic_kcs(struct katcp_dispatch *d)
     return;
   }
 
-  if(kb->b_scripts == NULL){
+  if(kb->b_scripts != NULL){
     free(kb->b_scripts);
     kb->b_scripts = NULL;
   }
 
+  if (kb->b_parser != NULL){
+    fprintf(stderr,"FREE the Parser object\n");
+    parser_destroy(d);
+    kb->b_parser = NULL;
+  }
+
   free(kb);
 }
+
+
+
+int parser_cmd(struct katcp_dispatch *d, int argc){
+
+  char *p_cmd;
+
+  if (argc == 1){
+    prepend_inform_katcp(d);
+    append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST ,"load [filename]");
+    prepend_inform_katcp(d);
+    append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST ,"save [filename] UNIMPLEMENTED"); 
+    prepend_inform_katcp(d);
+    append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST ,"get [label] | [label setting] UNIMPLEMENTED");
+    prepend_inform_katcp(d);
+    append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST ,"set [label] UNIMPLEMENTED");
+    prepend_inform_katcp(d);
+    append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST ,"list");
+    return KATCP_RESULT_OK;
+  }
+  else if (argc > 2) {
+    p_cmd = arg_string_katcp(d,1);
+
+    if (strcmp("load",p_cmd) == 0){
+      return parser_load(d,arg_string_katcp(d,2)); 
+    }
+    else if (strcmp("save",p_cmd) == 0){
+
+      return KATCP_RESULT_OK;
+    }
+    else if (strcmp("get",p_cmd) == 0){
+
+      return KATCP_RESULT_OK;
+    }
+    else if (strcmp("set",p_cmd) == 0){
+    
+      return KATCP_RESULT_OK;
+    }
+
+  }
+  else if (argc == 2){
+    p_cmd = arg_string_katcp(d,1);
+    if (strcmp("list",p_cmd) == 0){
+      return parser_list(d);
+    }
+  }
+  
+  return KATCP_RESULT_FAIL;
+}
+
 
 int setup_basic_kcs(struct katcp_dispatch *d, char *scripts)
 {
@@ -171,6 +227,9 @@ int setup_basic_kcs(struct katcp_dispatch *d, char *scripts)
 
   kb->b_scripts = NULL;
 
+  kb->b_parser = NULL;
+  fprintf(stderr,"PARSER Object set to: %p\n",kb->b_parser);
+  
   kb->b_scripts = strdup(scripts);
   if(kb->b_scripts == NULL){
     free(kb);
@@ -187,8 +246,10 @@ int setup_basic_kcs(struct katcp_dispatch *d, char *scripts)
   result = 0;
 
   result += register_flag_mode_katcp(d, NULL, "python script handler", &script_wildcard_cmd, KATCP_CMD_HIDDEN | KATCP_CMD_WILDCARD, KCS_MODE_BASIC);
+  result += register_flag_mode_katcp(d, "?parser" , "ROACH Configuration file parser (?parser [load|save|get|set|list])", &parser_cmd, 0, KCS_MODE_BASIC);
   if(result < 0){
     fprintf(stderr, "setup: unable to register command handlers for basic mode\n");
+    return result;
   }
 
   return 0;
