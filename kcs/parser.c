@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <string.h>
 #include <ctype.h>
+#include <sys/stat.h>
 
 #include <katcp.h>
 
@@ -221,6 +222,17 @@ int start_parser(struct p_parser *p, char *f) {
   } while(c != EOF);
   
   free(buffer);
+
+  int fd;
+  struct stat file_stats;
+  fd=fileno(file);
+  if (fstat(fd,&file_stats) != 0)
+    return errno;
+  
+  p->open_time = file_stats.st_atime;
+  
+  //fprintf(stderr,"fd: %d atime:%d\n",fd,p->open_time);
+
   fclose(file);
   
   if (rtn == EIO)
@@ -229,28 +241,35 @@ int start_parser(struct p_parser *p, char *f) {
   return EX_OK;
 }
 
-void show_tree(struct p_parser *p){
+void show_tree(struct katcp_dispatch *d, struct p_parser *p){
   int i,j,k;
   
   struct p_label *cl=NULL;
   struct p_setting *cs=NULL;
   struct p_value *cv=NULL;
   
-  fprintf(stderr,"PARSER show tree\n");
+  //fprintf(stderr,"PARSER show tree\n");
 
   for (i=0;i<p->lcount;i++){
     cl = p->labels[i];
-    fprintf(stderr,"%d[%s]\n",i,cl->str);
+    //fprintf(stderr,"%d[%s]\n",i,cl->str);
 
     for (j=0;j<cl->scount;j++){
       cs = cl->settings[j];
-      fprintf(stderr,"  %d\t|__ %s\n",j,cs->str);
+      //fprintf(stderr,"  %d\t|__ %s\n",j,cs->str);
       
       for (k=0;k<cs->vcount;k++){
         cv = cs->values[k];
-        fprintf(stderr,"\t%c\t%d = %s\n",(j==cl->scount-1)?' ':'|',k,cv->str);
+        //fprintf(stderr,"\t%c\t%d = %s\n",(j==cl->scount-1)?' ':'|',k,cv->str);
+#ifndef STANDALONE
+        prepend_reply_katcp(d);
+        append_string_katcp(d,KATCP_FLAG_STRING,"list");
+        append_string_katcp(d,KATCP_FLAG_STRING,cl->str);
+        append_string_katcp(d,KATCP_FLAG_STRING,cs->str);
+        append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,cv->str);
+#endif
       }
-      fprintf(stderr,"\t%c\n",(j==cl->scount-1)?' ':'|');
+      //fprintf(stderr,"\t%c\n",(j==cl->scount-1)?' ':'|');
     }
   }
 }
@@ -288,6 +307,8 @@ void clean_up_parser(struct p_parser *p){
   
     if (p->labels != NULL)
       free(p->labels);
+    if (p->filename != NULL)
+      free(p->filename);
     free(p);
     p = NULL;
   }  
@@ -302,6 +323,17 @@ int save_tree(struct p_parser *p,char *filename){
   struct p_value *cv=NULL;
   
   file = fopen(filename,"w");
+
+  int fd;
+  struct stat file_stats;
+  fd=fileno(file);
+  if (fstat(fd,&file_stats) != 0)
+    return KATCP_RESULT_FAIL;
+  
+  if (p->open_time < file_stats.st_atime){
+    return KATCP_RESULT_FAIL;
+  }
+
   
   if (file == NULL){
     fprintf(stderr,"Error reading file: %s\n",strerror(errno));
@@ -517,7 +549,17 @@ int parser_save(struct katcp_dispatch *d, char *filename){
   p = kb->b_parser;
 
   if (p != NULL) {
-    int rtn = save_tree(p,filename);
+    int rtn;
+    if (filename == NULL){
+      rtn = save_tree(p,p->filename);
+      if (rtn == KATCP_RESULT_FAIL){
+         log_message_katcp(d,KATCP_LEVEL_WARN,NULL,"File has been edited behind your back!!! use ?parser save newfilename or force save ?parser forcesave");
+        return KATCP_RESULT_FAIL;
+      }
+    }
+    else
+      rtn = save_tree(p,filename);
+
     if (rtn == KATCP_RESULT_OK){
       log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"Saved configuration file as %s",filename);
       return rtn;
@@ -557,7 +599,7 @@ int parser_load(struct katcp_dispatch *d, char *filename){
     return KATCP_RESULT_FAIL;
   }
 
-  p->filename = filename;
+  p->filename = strdup(filename);
   kb->b_parser = p;
 
   log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"Configuration file loaded");
@@ -589,7 +631,7 @@ int parser_list(struct katcp_dispatch *d){
   p = kb->b_parser;
 
   if (p != NULL) {
-    show_tree(p);
+    show_tree(d,p);
   }
   else {
     log_message_katcp(d,KATCP_LEVEL_ERROR,NULL,"No configuration file loaded yet, use ?parser load [filename]");
@@ -674,8 +716,8 @@ int main(int argc, char **argv) {
     fprintf(stderr,"CANNOT FIND\n");
  */
   parser_set(NULL,"k","a",1,"hello world");
-
-  parser_list(NULL);
+  parser_save(NULL,NULL);
+  //parser_list(NULL);
   parser_destroy(NULL);
   
   free(tkb);

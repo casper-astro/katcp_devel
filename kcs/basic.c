@@ -196,6 +196,9 @@ int parser_cmd(struct katcp_dispatch *d, int argc){
     if (strcmp("list",p_cmd) == 0){
       return parser_list(d);
     }
+    else if (strcmp("save",p_cmd) == 0){
+      return parser_save(d,NULL);
+    }
   }
   else if (argc == 5){
     p_cmd = arg_string_katcp(d,1);
@@ -203,7 +206,7 @@ int parser_cmd(struct katcp_dispatch *d, int argc){
       struct p_value *tval;
       tval = parser_get(d,arg_string_katcp(d,2),arg_string_katcp(d,3),arg_unsigned_long_katcp(d,4));
       if (tval != NULL){
-        log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"found: %s",tval->str);
+        log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"%s",tval->str);
         return KATCP_RESULT_OK;
       }
       else

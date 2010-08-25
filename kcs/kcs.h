@@ -19,6 +19,7 @@ struct p_parser {
   struct p_label **labels;
   int lcount;
   char *filename;
+  time_t open_time;
 };
 
 struct p_label {
