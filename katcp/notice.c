@@ -24,7 +24,7 @@ static void deallocate_notice_katcp(struct katcp_dispatch *d, struct katcp_notic
     }
 
     if(n->n_release){
-      (*(n->n_release))(d, n->n_payload);
+      (*(n->n_release))(d, n, n->n_payload);
       n->n_release = NULL;
     }
 
