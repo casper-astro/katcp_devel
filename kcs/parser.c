@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <sysexits.h>
-#include <errno.h>
 #include <string.h>
 #include <ctype.h>
 #include <sys/stat.h>
