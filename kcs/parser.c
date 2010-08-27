@@ -6,6 +6,8 @@
 #include <string.h>
 #include <ctype.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include <katcp.h>
 
@@ -47,6 +49,35 @@ char *rm_whitespace(char *str)
   return nstr;
 }
 
+int store_comment(char *buff,struct p_parser *p){
+  
+  if (p->comments == NULL){
+    p->comcount++;
+    p->comments = malloc(sizeof(struct p_comment*));
+  }
+  else {
+    p->comcount++;
+    p->comments = realloc(p->comments,sizeof(struct p_comment*)*p->comcount);
+  }
+
+  if (p->comments == NULL)
+    return EIO;
+
+  struct p_comment *c;
+  c = malloc(sizeof(struct p_comment));
+  c->str = NULL;
+  c->flag = 0;
+
+  if ((c->str = strdup(buff)) == NULL){
+    free(c);
+    return EIO;
+  }
+
+  p->comments[p->comcount-1] = c;
+
+  return EX_OK;
+}
+
 #define OLABEL    91 /*[*/
 #define CLABEL    93 /*]*/
 #define SETTING   61 /*=*/ 
@@ -58,8 +89,8 @@ int process_line(char * buff,struct p_parser *p){
   switch (buff[0]){
     case '\n':
       return EX_OK;
-    case '#':
-      return EX_OK;
+    case '#': 
+      return store_comment(buff,p);
   }
 
   if (strlen(buff) == 1)
@@ -97,6 +128,20 @@ int process_line(char * buff,struct p_parser *p){
     
     l->settings=NULL;
     l->scount=0;
+    l->comcount=0;
+    l->comments=NULL;
+    
+    struct p_comment *cc;
+    for(i=0;i<p->comcount;i++){
+      cc = p->comments[i];
+      if (cc->flag == 0){
+        l->comcount++;
+        l->comments=realloc(l->comments,sizeof(struct p_comment*)*l->comcount);
+        l->comments[l->comcount-1] = cc;
+        cc->flag=1;
+      }
+    }
+
     l->str = malloc(sizeof(char)*(len));
     
     for (i=0;i<len-1;i++){
@@ -135,6 +180,20 @@ int process_line(char * buff,struct p_parser *p){
     /*create the new setting*/
     struct p_setting *s;
     s=malloc(sizeof(struct p_setting));
+    
+    s->comcount=0;
+    s->comments=NULL;
+    
+    struct p_comment *cc;
+    for(i=0;i<p->comcount;i++){
+      cc = p->comments[i];
+      if (cc->flag == 0){
+        s->comcount++;
+        s->comments=realloc(s->comments,sizeof(struct p_comment*)*s->comcount);
+        s->comments[s->comcount-1] = cc;
+        cc->flag=1;
+      }
+    }
     
     s->vcount=0;
     s->str = malloc(sizeof(char)*len);
@@ -223,10 +282,8 @@ int start_parser(struct p_parser *p, char *f) {
   
   free(buffer);
 
-  int fd;
   struct stat file_stats;
-  fd=fileno(file);
-  if (fstat(fd,&file_stats) != 0)
+  if (stat(f,&file_stats) != 0)
     return errno;
   
   p->open_time = file_stats.st_atime;
@@ -252,15 +309,23 @@ void show_tree(struct katcp_dispatch *d, struct p_parser *p){
 
   for (i=0;i<p->lcount;i++){
     cl = p->labels[i];
-    //fprintf(stderr,"%d[%s]\n",i,cl->str);
-
+#ifdef STANDALONE    
+    for (j=0;j<cl->comcount;j++)
+      fprintf(stderr,"%s",cl->comments[j]->str);
+    fprintf(stderr,"%d[%s]\n",i,cl->str);
+#endif
     for (j=0;j<cl->scount;j++){
       cs = cl->settings[j];
-      //fprintf(stderr,"  %d\t|__ %s\n",j,cs->str);
-      
+#ifdef STANDALONE      
+      for (k=0;k<cs->comcount;k++)
+        fprintf(stderr,"%s",cs->comments[k]->str);
+      fprintf(stderr,"  %d\t|__ %s\n",j,cs->str);
+#endif      
       for (k=0;k<cs->vcount;k++){
         cv = cs->values[k];
-        //fprintf(stderr,"\t%c\t%d = %s\n",(j==cl->scount-1)?' ':'|',k,cv->str);
+#ifdef STANDALONE
+        fprintf(stderr,"\t%c\t%d = %s\n",(j==cl->scount-1)?' ':'|',k,cv->str);
+#endif
 #ifndef STANDALONE
         prepend_reply_katcp(d);
         append_string_katcp(d,KATCP_FLAG_STRING,"list");
@@ -269,9 +334,19 @@ void show_tree(struct katcp_dispatch *d, struct p_parser *p){
         append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,cv->str);
 #endif
       }
-      //fprintf(stderr,"\t%c\n",(j==cl->scount-1)?' ':'|');
+#ifdef STANDALONE
+      fprintf(stderr,"\t%c\n",(j==cl->scount-1)?' ':'|');
+#endif
     }
   }
+  
+ /* struct p_comment *cc;
+  for (i=0;i<p->comcount;i++){
+    cc = p->comments[i];
+    fprintf(stderr,"%s",cc->str);
+  }
+*/
+
 }
 
 void clean_up_parser(struct p_parser *p){
@@ -282,6 +357,7 @@ void clean_up_parser(struct p_parser *p){
   struct p_label *cl;
   struct p_setting *cs;
   struct p_value *cv;
+  struct p_comment *cc;
 
   if (p != NULL) {
     for (i=0;i<p->lcount;i++){
@@ -293,22 +369,41 @@ void clean_up_parser(struct p_parser *p){
           free(cv->str);
           free(cv);
         }
+        for (k=0;k<cs->comcount;k++){
+          cs->comments[k] = NULL;
+        }
+        if (cs->comments != NULL)
+          free(cs->comments);
         //fprintf(stderr,"\t\tPARSER FREE'd %d vals\n",cs->vcount);
         free(cs->str);
         free(cs->values);
         free(cs);
       }
+      for (j=0;j<cl->comcount;j++){
+        cl->comments[j] = NULL;
+      }
+      if (cl->comments != NULL)
+        free(cl->comments);
       //fprintf(stderr,"\tPARSER FREE'd %d settings\n",cl->scount);
       free(cl->str);
       free(cl->settings);
       free(cl);
     }
+    
     //fprintf(stderr,"PARSER FREE'd %d labels\n",p->lcount);
   
     if (p->labels != NULL)
       free(p->labels);
     if (p->filename != NULL)
       free(p->filename);
+    
+    for (i=0;i<p->comcount;i++){
+      cc = p->comments[i];
+      free(cc->str);
+      free(cc);
+    }
+    free(p->comments);
+
     free(p);
     p = NULL;
   }  
@@ -321,31 +416,48 @@ int save_tree(struct p_parser *p,char *filename){
   struct p_label *cl=NULL;
   struct p_setting *cs=NULL;
   struct p_value *cv=NULL;
-  
-  file = fopen(filename,"w");
+  int pid;
 
-  int fd;
-  struct stat file_stats;
-  fd=fileno(file);
-  if (fstat(fd,&file_stats) != 0)
-    return KATCP_RESULT_FAIL;
-  
-  if (p->open_time < file_stats.st_atime){
-    return KATCP_RESULT_FAIL;
-  }
+  char tempname[50];
 
-  
+  pid=getpid();
+  sprintf(tempname,"./tempconf.%d",pid);
+  //fprintf(stderr,"in file writing function pid:%d %s\n",pid,tempname);
+
+  file = fopen(tempname,"w");
+
   if (file == NULL){
     fprintf(stderr,"Error reading file: %s\n",strerror(errno));
     return KATCP_RESULT_FAIL;
   }
+  
+  struct stat file_stats;
+  if (stat(filename,&file_stats) != 0){
+    fprintf(stderr,"%d %s\n",errno,strerror(errno));
+    if (errno != 2)
+      return KATCP_RESULT_FAIL;
+  }
 
+  if (strcmp(filename,p->filename) == 0 && p->open_time < file_stats.st_atime){
+    fprintf(stderr,"filename: %s opentime: %d accesstime: %d\n",filename,p->open_time,file_stats.st_atime);
+    return KATCP_RESULT_FAIL;
+  }
+
+  
   for (i=0;i<p->lcount;i++){
     cl = p->labels[i];
+
+    for (j=0;j<cl->comcount;j++)
+      fprintf(file,"%s",cl->comments[j]->str);
     fprintf(file,"[%s]\n",cl->str);
+    
     for (j=0;j<cl->scount;j++){
       cs = cl->settings[j];
+
+      for (k=0;k<cs->comcount;k++)
+        fprintf(file,"%s",cs->comments[k]->str);
       fprintf(file,"  %s = ",cs->str);
+      
       for (k=0;k<cs->vcount;k++){
         cv = cs->values[k];
         fprintf(file,"%s%c",cv->str,(k==cs->vcount-1)?' ':',');
@@ -355,7 +467,13 @@ int save_tree(struct p_parser *p,char *filename){
   }
 
   fclose(file);
-  
+  //fprintf(stderr,"done writing file\n");
+  //fprintf(stderr,"moving file from tempname to new name\n");
+  if (rename(tempname,filename) != 0){
+    fprintf(stderr,"could not rename file to other name\n");
+    return KATCP_RESULT_FAIL;
+  }
+
   return KATCP_RESULT_OK;
 }
 
@@ -553,7 +671,7 @@ int parser_save(struct katcp_dispatch *d, char *filename){
     if (filename == NULL){
       rtn = save_tree(p,p->filename);
       if (rtn == KATCP_RESULT_FAIL){
-         log_message_katcp(d,KATCP_LEVEL_WARN,NULL,"File has been edited behind your back!!! use ?parser save newfilename or force save ?parser forcesave");
+        log_message_katcp(d,KATCP_LEVEL_WARN,NULL,"File has been edited behind your back!!! use ?parser save newfilename or force save ?parser forcesave");
         return KATCP_RESULT_FAIL;
       }
     }
@@ -590,6 +708,8 @@ int parser_load(struct katcp_dispatch *d, char *filename){
   p = malloc(sizeof(struct p_parser));
   p->lcount = 0;
   p->labels = NULL;
+  p->comments = NULL;
+  p->comcount = 0;
   
   rtn = start_parser(p,filename);
   
@@ -715,9 +835,10 @@ int main(int argc, char **argv) {
   else
     fprintf(stderr,"CANNOT FIND\n");
  */
-  parser_set(NULL,"k","a",1,"hello world");
-  parser_save(NULL,NULL);
-  //parser_list(NULL);
+ // parser_set(NULL,"k","a",1,"hello world");
+  parser_save(NULL,"oldtest");
+//  parser_list(NULL);
+
   parser_destroy(NULL);
   
   free(tkb);

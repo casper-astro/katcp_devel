@@ -20,18 +20,29 @@ struct p_parser {
   int lcount;
   char *filename;
   time_t open_time;
+  struct p_comment **comments;
+  int comcount;
+};
+
+struct p_comment {
+  char *str;
+  int flag;
 };
 
 struct p_label {
   struct p_setting **settings;
   int scount;
   char *str;
+  struct p_comment **comments;
+  int comcount;
 };
 
 struct p_setting {
   struct p_value **values;
   int vcount;
   char *str;
+  struct p_comment **comments;
+  int comcount;
 };
 
 struct p_value {
