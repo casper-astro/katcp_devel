@@ -410,7 +410,7 @@ void clean_up_parser(struct p_parser *p){
   //fprintf(stderr,"PARSER Finished parser cleanup\n");
 }
 
-int save_tree(struct p_parser *p,char *filename){
+int save_tree(struct p_parser *p,char *filename, int force){
   FILE *file;
   int i,j,k;
   struct p_label *cl=NULL;
@@ -434,12 +434,14 @@ int save_tree(struct p_parser *p,char *filename){
   struct stat file_stats;
   if (stat(filename,&file_stats) != 0){
     fprintf(stderr,"%d %s\n",errno,strerror(errno));
-    if (errno != 2)
+    if (errno != 2){
+      fclose(file);
       return KATCP_RESULT_FAIL;
+    }
   }
 
-  if (strcmp(filename,p->filename) == 0 && p->open_time < file_stats.st_atime){
-    fprintf(stderr,"filename: %s opentime: %d accesstime: %d\n",filename,p->open_time,file_stats.st_atime);
+  if (!force && strcmp(filename,p->filename) == 0 && p->open_time < file_stats.st_atime){
+    fprintf(stderr,"PARSER filename: %s opentime: %d accesstime: %d\n",filename,p->open_time,file_stats.st_atime);
     return KATCP_RESULT_FAIL;
   }
 
@@ -464,6 +466,7 @@ int save_tree(struct p_parser *p,char *filename){
       }
       fprintf(file,"\n");
     }
+    fprintf(file,"\n");
   }
 
   fclose(file);
@@ -656,7 +659,7 @@ int parser_set(struct katcp_dispatch *d, char *srcl, char *srcs, unsigned long v
   return KATCP_RESULT_FAIL;
 }
 
-int parser_save(struct katcp_dispatch *d, char *filename){
+int parser_save(struct katcp_dispatch *d, char *filename, int force){
   
   struct kcs_basic *kb;
   struct p_parser *p;
@@ -668,18 +671,20 @@ int parser_save(struct katcp_dispatch *d, char *filename){
 
   if (p != NULL) {
     int rtn;
-    if (filename == NULL){
-      rtn = save_tree(p,p->filename);
+    if (filename == NULL && !force){
+      rtn = save_tree(p,p->filename,force);
       if (rtn == KATCP_RESULT_FAIL){
         log_message_katcp(d,KATCP_LEVEL_WARN,NULL,"File has been edited behind your back!!! use ?parser save newfilename or force save ?parser forcesave");
         return KATCP_RESULT_FAIL;
       }
     }
+    else if (force)
+      rtn = save_tree(p,p->filename,force);
     else
-      rtn = save_tree(p,filename);
+      rtn = save_tree(p,filename,force);
 
     if (rtn == KATCP_RESULT_OK){
-      log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"Saved configuration file as %s",filename);
+      log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"Saved configuration file as %s",(filename == NULL)?p->filename:filename);
       return rtn;
     }
   }
@@ -836,7 +841,7 @@ int main(int argc, char **argv) {
     fprintf(stderr,"CANNOT FIND\n");
  */
  // parser_set(NULL,"k","a",1,"hello world");
-  parser_save(NULL,"oldtest");
+  //parser_save(NULL,"oldtest");
 //  parser_list(NULL);
 
   parser_destroy(NULL);

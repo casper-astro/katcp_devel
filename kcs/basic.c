@@ -187,7 +187,7 @@ int parser_cmd(struct katcp_dispatch *d, int argc){
       return parser_load(d,arg_string_katcp(d,2)); 
     }
     else if (strcmp("save",p_cmd) == 0){
-      return parser_save(d,arg_string_katcp(d,2));
+      return parser_save(d,arg_string_katcp(d,2),0);
     }
 
   }
@@ -197,7 +197,10 @@ int parser_cmd(struct katcp_dispatch *d, int argc){
       return parser_list(d);
     }
     else if (strcmp("save",p_cmd) == 0){
-      return parser_save(d,NULL);
+      return parser_save(d,NULL,0);
+    }
+    else if (strcmp("forcesave",p_cmd) ==0){
+      return parser_save(d,NULL,1);
     }
   }
   else if (argc == 5){

@@ -56,7 +56,7 @@ int setup_basic_kcs(struct katcp_dispatch *d, char *scripts);
 int parser_load(struct katcp_dispatch *d,char *filename);
 int parser_destroy(struct katcp_dispatch *d);
 int parser_list(struct katcp_dispatch *d);
-int parser_save(struct katcp_dispatch *d, char *filename);
+int parser_save(struct katcp_dispatch *d, char *filename, int force);
 struct p_value * parser_get(struct katcp_dispatch *d, char *srcl, char *srcs, unsigned long vidx);
 int parser_set(struct katcp_dispatch *d, char *srcl, char *srcs, unsigned long vidx, char *newval);
 
