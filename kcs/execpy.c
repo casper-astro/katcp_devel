@@ -1,14 +1,88 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <errno.h>
 #include <sysexits.h>
 #include <string.h>
 #include <ctype.h>
 #include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/socket.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include <katcp.h>
 
-#include <kcs.h>
+#include "kcs.h"
+
+
+
+
+int execpy_exec(char *filename){
+
+  int fds[2], dups;
+  pid_t pid,wpid;
+  int status=0;
+  //int i;
+
+  if (socketpair(AF_UNIX, SOCK_STREAM,0, fds) < 0) {
+      fprintf(stderr,"socketpair failed: %s\n",strerror(errno));  
+      return KATCP_RESULT_FAIL;
+  }
+  
+  fprintf(stderr,"parent_pid = %d\n",getpid());
+ 
+  pid = fork();
+ 
+  if (pid == 0){
+    /*This is the child*/
+    fprintf(stderr,"In Child Process (PID=%d)\n",getpid());
+    
+    dups=0;
+
+    close(fds[1]);
+    if (fds[0] != STDOUT_FILENO){
+      if (dup2(fds[0], STDOUT_FILENO) != STDOUT_FILENO){
+        fprintf(stderr,"Could not DUP2 chid socket pair to child stdout fd err: %s\n",strerror(errno));        
+        exit(EX_OSERR);
+      }
+      dups++;
+    }
+    if (fds[0] != STDIN_FILENO){
+      if (dup2(fds[0], STDIN_FILENO) != STDIN_FILENO){
+        fprintf(stderr,"Could not DUP2 child socket pair to child stdin fd err: %s\n",strerror(errno));
+        exit(EX_OSERR);
+      }
+      dups++;
+    }
+    if (dups >= 2)
+      fcntl(fds[0], F_SETFD, FD_CLOEXEC);
+    
+    char *args[] = {"/bin/ls","-t","-l",(char*)0};
+    execvp("ls -tl",args);
+    
+    fprintf(stderr,"EXECVP FAIL: %s\n",strerror(errno));
+    exit(EX_OSERR);
+    //exit(1);
+  }
+  else if (pid < 0){
+    close(fds[0]);
+    close(fds[1]);
+    fprintf(stderr,"fork failed: %s\n",strerror(errno));
+    return KATCP_RESULT_FAIL;
+  }
+
+  /*This is the parent*/
+  close(fds[0]);
+  fcntl(fds[1], F_SETFD, FD_CLOEXEC);
+
+
+
+  while ((wpid = wait(&status)) > 0){
+    fprintf(stderr,"EXIT STATUS of %d was %d (%s)\n",(int)wpid,status,strerror(status));
+  }
+
+  return KATCP_RESULT_OK;
+}
 
 
 
@@ -16,7 +90,7 @@
 #ifdef STANDALONE
 
 int greeting(char *app) {
-  fprintf(stderr,"ROACH Configuration Parser\n\n\tUsage:\t%s -f [filename]\n\n",app);
+  fprintf(stderr,"ROACH ExecPY\n\n\tUsage:\t%s -f [filename] [args] [...]\n\n",app);
   return EX_OK;
 }
 
@@ -69,6 +143,8 @@ int main(int argc, char **argv){
   }
   
   fprintf(stderr,"filename: %s\n",filename);
+
+  execpy_exec(filename);
 
   return EX_OK;
 }

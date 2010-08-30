@@ -4,7 +4,7 @@ CFLAGS += -DDEBUG
 CFLAGS += -ggdb
 
 SERVER = kcs
-SRC = parser.c kcserver.c basic.c
+SRC = execpy.c parser.c kcserver.c basic.c
 
 OBJ = $(patsubst %.c,%.o,$(SRC))
 INC = -I$(KATCP)
@@ -22,4 +22,7 @@ clean:
 	$(CC) $(CFLAGS) -c $< -o $@ $(INC)
 
 test-parser: parser.c 
+	$(CC) $(CFLAGS) -DSTANDALONE -o $@ $^ -I../katcp
+
+test-execpy: execpy.c 
 	$(CC) $(CFLAGS) -DSTANDALONE -o $@ $^ -I../katcp
