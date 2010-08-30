@@ -112,7 +112,8 @@ static int client_list_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   struct katcp_shared *s;
   struct katcp_dispatch *dx;
-  unsigned int count, detail;
+  unsigned int detail;
+  unsigned long count;
   char *ptr, *level;
 
   s = d->d_shared;
@@ -129,10 +130,10 @@ static int client_list_cmd_katcp(struct katcp_dispatch *d, int argc)
   if(s != NULL){
     while(count < s->s_used){
       dx = s->s_clients[count];
+
+      prepend_inform_katcp(d);
+
       if(detail){
-
-        prepend_inform_katcp(d);
-
         append_string_katcp(d, KATCP_FLAG_STRING, dx->d_name);
 
         level = log_to_string(dx->d_level);
@@ -142,12 +143,13 @@ static int client_list_cmd_katcp(struct katcp_dispatch *d, int argc)
         append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, dx->d_pause ? "paused" : "parsing");
 
       } else {
-        send_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#client-list", KATCP_FLAG_LAST | KATCP_FLAG_STRING, dx->d_name);
+        append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, dx->d_name);
       }
       count++;
     }
   }
 
+#if 0
   if(count > 0){
     send_katcp(d, 
       KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "!client-list", 
@@ -158,6 +160,16 @@ static int client_list_cmd_katcp(struct katcp_dispatch *d, int argc)
       KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "!client-list", 
                          KATCP_FLAG_STRING, KATCP_FAIL,
       KATCP_FLAG_LAST  | KATCP_FLAG_STRING, "internal state inaccessible");
+  }
+#endif
+
+  prepend_reply_katcp(d);
+  if(count > 0){
+    append_string_katcp(d, KATCP_FLAG_STRING, KATCP_OK);
+    append_unsigned_long_katcp(d, KATCP_FLAG_ULONG | KATCP_FLAG_LAST, count);
+  } else {
+    append_string_katcp(d, KATCP_FLAG_STRING, KATCP_FAIL);
+    append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, "internal state inaccessible");
   }
   
   return KATCP_RESULT_OWN;

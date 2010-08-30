@@ -37,7 +37,7 @@ static void sane_job_katcp(struct katcp_job *j)
 
 /* functions given to notice to unlink itself from job ************/
 
-int unlink_halt_job_katcp(struct katcp_dispatch *d, void *payload)
+int unlink_halt_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *payload)
 {
   struct katcp_job *j;
 
@@ -50,17 +50,94 @@ int unlink_halt_job_katcp(struct katcp_dispatch *d, void *payload)
   return 0;
 }
 
-int unlink_data_job_katcp(struct katcp_dispatch *d, void *payload)
+static int remove_index_job(struct katcp_job *j, unsigned int index)
+{
+  unsigned int end, tail;
+#ifdef DEBUG
+  if(index >= j->j_size){
+    fprintf(stderr, "index %u out of range %u\n", index, j->j_size);
+    abort();
+  }
+  if(j->j_queue[index] == NULL){
+    fprintf(stderr, "index %u (head=%u,count=%u) already null\n", index, j->j_head, j->j_count);
+    abort();
+  }
+#endif
+
+  if(j->j_count == 0){
+    return -1;
+  }
+
+  j->j_queue[index] = NULL;
+
+  if(index == j->j_head){
+    /* hopefully the common, simple case: only one interested party */
+    j->j_head = (j->j_head + 1) % j->j_size;
+    return 0;
+  }
+
+  if((j->j_head + j->j_count) > j->j_size){ /* wrapping case */
+    if(index >= j->j_head){ /* position before wrap around, move up head */
+      if(index > j->j_head){
+        memcpy(&(j->j_queue[j->j_head + 1]), &(j->j_queue[j->j_head]), (index - j->j_head) * sizeof(struct katcp_notice *));
+      }
+      j->j_queue[j->j_head] = NULL;
+      j->j_head = (j->j_head + 1) % j->j_size;
+      j->j_count--;
+      return 0; /* WARNING: done here */
+    }
+  } else { /* if no wrapping, we can not be before head */
+    if(index < j->j_head){
+      return -1;
+    }
+  }
+
+  /* now move back end by one, to overwrite position at index */
+  end = j->j_head + j->j_count - 1; /* WARNING: relies on count+head never being zero, hence earlier test */
+  if(index > end){
+    return -1;
+  }
+  if(index < end){
+    memcpy(&(j->j_queue[index]), &(j->j_queue[index + 1]), (end - index) * sizeof(struct katcp_notice *));
+  } /* else index is end, no copy needed  */
+
+  j->j_queue[end] = NULL;
+  j->j_count--;
+
+  return 0;
+}
+
+int unlink_queue_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *payload)
 {
   struct katcp_job *j;
+  unsigned int i, k;
 
   j = payload;
 
-  j->j_data = NULL;
-  
-  /* TODO: maybe initiate destruction of job */
+  if(j->j_queue == NULL){
+    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "attempting to dequeue notice from empty job");
+    return -1;
+  }
 
-  return 0;
+  for(i = j->j_head, k = 0; k < j->j_count; i = (i + 1) % j->j_size, k++){
+#ifdef DEBUG
+    if(j->j_queue[i] == NULL){
+      fprintf(stderr, "unlink: found null entry in queue\n");
+      abort();
+    }
+#endif
+    if(j->j_queue[i] == n){
+      remove_index_job(j, i);
+      return 0;
+    }
+  }
+  
+#ifdef DEBUG
+  fprintf(stderr, "unlink: notice not registered with job\n");
+  abort();
+#endif
+
+  return -1;
 }
 
 /* deallocate notice, do not unlink itself from anywhere **********/
@@ -71,7 +148,7 @@ static void delete_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
     return;
   }
 
-  if(j->j_data || j->j_halt){
+  if(j->j_halt || (j->j_count > 0)){
     log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "attempting to delete job %p which is noticed", j);
   }
 
@@ -79,9 +156,14 @@ static void delete_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
     log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "attempting to delete job %p with child %u", j, j->j_pid);
   }
 
-  if(j->j_fd > 0){
-    close(j->j_fd);
-    j->j_fd = (-1);
+  if(j->j_line){
+    destroy_katcl(j->j_line, 1);
+    j->j_line = NULL;
+  }
+
+  if(j->j_queue){
+    free(j->j_queue);
+    j->j_queue = NULL;
   }
 
   free(j);
@@ -89,7 +171,7 @@ static void delete_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
 
 /* create, modify notices to point back at job ********************/
 
-struct katcp_job *create_job_katcp(struct katcp_dispatch *d, pid_t pid, int fd, struct katcp_notice *halt, struct katcp_notice *data)
+struct katcp_job *create_job_katcp(struct katcp_dispatch *d, pid_t pid, int fd, struct katcp_notice *halt)
 {
   struct katcp_job *j, **t;
   struct katcp_shared *s;
@@ -109,24 +191,48 @@ struct katcp_job *create_job_katcp(struct katcp_dispatch *d, pid_t pid, int fd, 
 
   j->j_magic = JOB_MAGIC;
   j->j_pid = pid;
+#if 0
   j->j_fd = fd;
+#endif
   j->j_halt = halt;
-  j->j_data = data;
   j->j_ended = 0;
   j->j_status = (-1);
+  j->j_line = NULL;
+
+  j->j_queue = NULL;
+  j->j_head = 0;
+  j->j_count = 0;
+
+  if(fd >= 0){
+    j->j_line = create_katcl(fd);
+    if(j->j_line == NULL){
+      free(j);
+      return NULL;
+    }
+  }
 
   if(halt){
     halt->n_payload = j;
     halt->n_release = &unlink_halt_job_katcp;
   }
 
-  if(data){
-    data->n_payload = j;
-    data->n_release = &unlink_data_job_katcp;
-  }
-
   s->s_tasks[s->s_number] = j;
   s->s_number++;
+
+  return j;
+}
+
+struct katcp_job *via_notice_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
+{
+  struct katcp_job *j;
+
+  if(n->n_payload == NULL){
+    return NULL;
+  }
+
+  j = n->n_payload;
+
+  sane_job_katcp(j);
 
   return j;
 }
@@ -152,10 +258,7 @@ int stop_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
     j->j_status = (-1);
   }
 
-  if(j->j_fd >= 0){
-    close(j->j_fd);
-    j->j_fd = (-1);
-  }
+  exchange_katcl(j->j_line, -1);
 
   return result;
 }
@@ -183,10 +286,8 @@ int wait_jobs_katcp(struct katcp_dispatch *d)
         j->j_pid = 0;
         j->j_status = status;
 
-        if(j->j_fd >= 0){
-          close(j->j_fd);
-          j->j_fd = (-1);
-        }
+        /* WARNING: risks flushing data before it has been processed */
+        exchange_katcl(j->j_line, -1);
 
         if(j->j_ended == 0){
           if(j->j_halt){
@@ -208,21 +309,22 @@ int load_jobs_katcp(struct katcp_dispatch *d)
 {
   struct katcp_shared *s;
   struct katcp_job *j;
-  int i;
+  int i, fd;
 
   s = d->d_shared;
 
   for(i = 0; i < s->s_number; i++){
     j = s->s_tasks[i];
-    if(j->j_fd >= 0){
 
-#if 0
-      /* TODO: load up the file descriptors */
-      FD_SET(j->j_fd, &(s->s_read));
-      if(j->j_fd > s->s_max){
-        s->s_max = j->j_fd;
+    fd = fileno_katcl(j->j_line);
+    if(fd >= 0){
+      FD_SET(fd, &(s->s_read));
+      if(flushing_katcl(j->j_line)){
+        FD_SET(fd, &(s->s_write));
       }
-#endif
+      if(fd > s->s_max){
+        s->s_max = fd;
+      }
     }
   }
 
@@ -233,7 +335,7 @@ int run_jobs_katcp(struct katcp_dispatch *d)
 {
   struct katcp_shared *s;
   struct katcp_job *j;
-  int i, count;
+  int i, count, fd;
 
   s = d->d_shared;
 
@@ -247,7 +349,7 @@ int run_jobs_katcp(struct katcp_dispatch *d)
     j = s->s_tasks[i];
 
 
-    if(j->j_ended && (j->j_halt == NULL) && (j->j_data == NULL)){ /* job ended and nobody interested in the status */
+    if(j->j_ended && (j->j_halt == NULL) && (j->j_count == 0)){ /* job ended and nobody interested in the status */
       log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "removing unnoticed and ended job %p", j);
 
       delete_job_katcp(d, j);
@@ -258,9 +360,18 @@ int run_jobs_katcp(struct katcp_dispatch *d)
       }
 
     } else {
-      if(j->j_fd >= 0){
-        /* TODO: check read fd, write fd, etc */
-        if(FD_ISSET(j->j_fd, &(s->s_read))){
+      fd = fileno_katcl(j->j_line);
+      if((fd >= 0) && FD_ISSET(fd, &(s->s_read))){
+        if(read_katcl(j->j_line)){
+          /* WARNING: what about unprocessed data ? */
+          exchange_katcl(j->j_line, -1);
+          fd = (-1);
+        }
+      }
+      if((fd >= 0) && FD_ISSET(fd, &(s->s_write))){
+        if(write_katcl(j->j_line) < 0){
+          exchange_katcl(j->j_line, -1);
+          fd = (-1);
         }
       }
       i++;
@@ -270,7 +381,7 @@ int run_jobs_katcp(struct katcp_dispatch *d)
   return 0;
 }
 
-struct katcp_job *process_create_job_katcp(struct katcp_dispatch *d, char *file, char **argv, struct katcp_notice *halt, struct katcp_notice *data)
+struct katcp_job *process_create_job_katcp(struct katcp_dispatch *d, char *file, char **argv, struct katcp_notice *halt)
 {
   int fds[2];
   pid_t pid;
@@ -293,7 +404,7 @@ struct katcp_job *process_create_job_katcp(struct katcp_dispatch *d, char *file,
     close(fds[0]);
     fcntl(fds[1], F_SETFD, FD_CLOEXEC);
 
-    j = create_job_katcp(d, pid, fds[1], halt, data);
+    j = create_job_katcp(d, pid, fds[1], halt);
     if(j == NULL){
       log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "unable to allocate job logic so terminating child process");
       kill(pid, SIGTERM);
@@ -381,7 +492,7 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
       vector[0] = cmd;
       vector[1] = NULL;
 
-      j = process_create_job_katcp(d, cmd, vector, n, NULL);
+      j = process_create_job_katcp(d, cmd, vector, n);
 
       if(j == NULL){
         return KATCP_RESULT_FAIL;

@@ -561,32 +561,6 @@ int continue_katcp(struct katcp_dispatch *d, int when, int (*call)(struct katcp_
   return 0;
 }
 
-int basic_response_katcp(struct katcp_dispatch *d, int code)
-{
-  char *message, *result;
-
-  if(code > KATCP_RESULT_OK){
-    return 0;
-  }
-
-  message = arg_string_katcl(d->d_line, 0);
-  if((message == NULL) || (message[0] != KATCP_REQUEST)){
-    return -1;
-  }
-
-  result = code_to_name_katcm(code);
-  if(result == NULL){
-    result = KATCP_INVALID;
-  }
-
-  send_katcp(d, 
-    KATCP_FLAG_FIRST | KATCP_FLAG_MORE | KATCP_FLAG_STRING, "!", 
-                                         KATCP_FLAG_STRING, message + 1, 
-    KATCP_FLAG_LAST | KATCP_FLAG_STRING, result);
-
-  return 0;
-}
-
 int lookup_katcp(struct katcp_dispatch *d)
 {
   char *s;
@@ -657,7 +631,7 @@ int call_katcp(struct katcp_dispatch *d)
     r = (*(d->d_current))(d, n);
 
     if(r <= 0){
-      basic_response_katcp(d, r);
+      extra_response_katcp(d, r, NULL);
     }
     if(r != KATCP_RESULT_YIELD){
       d->d_current = NULL;
@@ -930,7 +904,7 @@ void reset_katcp(struct katcp_dispatch *d, int fd)
 int help_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   struct katcp_cmd *c;
-  unsigned int count;
+  unsigned long count;
   char *match;
 
   if(d->d_shared == NULL){
@@ -948,17 +922,32 @@ int help_cmd_katcp(struct katcp_dispatch *d, int argc)
           ((match != NULL) && (!strcmp(c->c_name + 1, match))) || /* print matching command for this mode, no matter if hidden or not */
           ((match == NULL) && (((c->c_flags & KATCP_CMD_HIDDEN) == 0))) /* print all not hidden commands in this mode */
       )){
+
+        prepend_inform_katcp(d);
+        append_string_katcp(d, KATCP_FLAG_STRING, c->c_name + 1);
+        append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, c->c_help);
+
+#if 0
         send_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#help", KATCP_FLAG_STRING, c->c_name + 1, KATCP_FLAG_LAST | KATCP_FLAG_STRING, c->c_help);
+#endif
+
         count++;
       }
     }
   }
 
   if(count > 0){
+    prepend_reply_katcp(d);
+    append_string_katcp(d, KATCP_FLAG_STRING, KATCP_OK);
+    append_unsigned_long_katcp(d, KATCP_FLAG_ULONG | KATCP_FLAG_LAST, count);
+
+#if 0
     send_katcp(d, 
       KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "!help", 
                          KATCP_FLAG_STRING, KATCP_OK,
       KATCP_FLAG_LAST  | KATCP_FLAG_ULONG, (unsigned long) count);
+#endif
+
   } else {
     extra_response_katcp(d, KATCP_RESULT_INVALID, "request");
 #if 0
@@ -1023,10 +1012,18 @@ int log_level_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
 
   if(ok){
+
+    prepend_reply_katcp(d);
+    append_string_katcp(d, KATCP_FLAG_STRING, KATCP_OK);
+    append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, got);
+
+#if 0
     send_katcp(d, 
       KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "!log-level", 
                          KATCP_FLAG_STRING, KATCP_OK,
       KATCP_FLAG_LAST  | KATCP_FLAG_STRING, got);
+#endif
+
   } else {
     if(requested){
       log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unknown log level %s", requested);
@@ -1055,7 +1052,7 @@ int broadcast_inform_katcp(struct katcp_dispatch *d, char *name, char *arg)
   for(i = 0; i < s->s_used; i++){
     d = s->s_clients[i];
     if(d->d_line){
-      result = basic_inform_katcl(d->d_line, name, arg);
+      result = basic_inform_katcp(d, name, arg);
       if(result < 0){
         return -1;
       }
@@ -1135,15 +1132,86 @@ int log_message_katcp(struct katcp_dispatch *d, unsigned int priority, char *nam
 int extra_response_katcp(struct katcp_dispatch *d, int code, char *fmt, ...)
 {
   va_list args;
+#if 0
   int result;
+#endif
+  char *result;
 
+  if(code > KATCP_RESULT_OK){
+    return 0;
+  }
+
+#if 0
   va_start(args, fmt);
   result = vextra_response_katcl(d->d_line, code, fmt, args);
   va_end(args);
+#endif
 
-  return result;
-  
+  result = code_to_name_katcm(code);
+  if(result == NULL){
+    result = KATCP_INVALID;
+  }
+
+  prepend_reply_katcp(d);
+
+  if(fmt != NULL){
+    append_string_katcp(d, KATCP_FLAG_STRING, result);
+    va_start(args, fmt);
+    append_vargs_katcp(d, KATCP_FLAG_LAST, fmt, args);
+    va_end(args);
+  } else {
+    append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, result);
+  }
+
+  return 0;
 }
+
+int basic_inform_katcp(struct katcp_dispatch *d, char *name, char *arg)
+{
+  if(arg){
+    append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, name);
+    append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, arg);
+  } else {
+    append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_FIRST | KATCP_FLAG_LAST, name);
+  }
+
+  return 0;
+}
+
+#if 0
+int basic_response_katcp(struct katcp_dispatch *d, int code)
+{
+  char *message, *result;
+
+  if(code > KATCP_RESULT_OK){
+    return 0;
+  }
+
+#if 0
+  message = arg_string_katcl(d->d_line, 0);
+  if((message == NULL) || (message[0] != KATCP_REQUEST)){
+    return -1;
+  }
+#endif
+
+  result = code_to_name_katcm(code);
+  if(result == NULL){
+    result = KATCP_INVALID;
+  }
+
+  prepend_reply_katcp(d);
+  append_string_katcp(d, KATCP_FLAG_LAST | KATCP_FLAG_STRING, result);
+
+#if 0
+  send_katcp(d, 
+    KATCP_FLAG_FIRST | KATCP_FLAG_MORE | KATCP_FLAG_STRING, "!", 
+                                         KATCP_FLAG_STRING, message + 1, 
+    KATCP_FLAG_LAST | KATCP_FLAG_STRING, result);
+#endif
+
+  return 0;
+}
+#endif
 
 int arg_request_katcp(struct katcp_dispatch *d)
 {

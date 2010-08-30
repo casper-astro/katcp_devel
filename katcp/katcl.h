@@ -64,6 +64,8 @@ int  vlog_message_katcl(struct katcl_line *cl, int level, char *name, char *fmt,
 int extra_response_katcl(struct katcl_line *cl, int code, char *fmt, ...);
 int vextra_response_katcl(struct katcl_line *cl, int code, char *fmt, va_list args);
 
+#if 0
 int basic_inform_katcl(struct katcl_line *cl, char *name, char *arg);
+#endif
 
 #endif

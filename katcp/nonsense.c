@@ -899,6 +899,7 @@ int run_acquire_katcp(struct katcp_dispatch *d, void *data)
           
           if((*(type_lookup_table[sn->s_type].c_checks[ns->n_strategy]))(ns)){
             log_message_katcp(d, KATCP_LEVEL_TRACE | KATCP_LEVEL_LOCAL, NULL, "strategy %d reports a match", ns->n_strategy);
+            /* TODO: needs work for having tags in katcp messages */
             generic_sensor_update_katcp(dx, sn, (ns->n_strategy == KATCP_STRATEGY_FORCED) ? "#sensor-value" : "#sensor-status");
           }
         }
@@ -1705,7 +1706,13 @@ int append_sensor_type_katcp(struct katcp_dispatch *d, int flags, struct katcp_s
 static int inform_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_sensor *sn)
 {
 
+#if 0
   if(append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, "#sensor-list") < 0){
+    return -1;
+  }
+#endif
+
+  if(prepend_reply_katcp(d) < 0){
     return -1;
   }
 
@@ -1769,16 +1776,16 @@ int sensor_list_cmd_katcp(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_OWN;
   }
 
+#if 0
   send_katcp(d, 
       KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "!sensor-list", 
       KATCP_FLAG_STRING, KATCP_OK,
       KATCP_FLAG_LAST  | KATCP_FLAG_ULONG, (unsigned long) count);
+#endif
 
-#if 0
   prepend_reply_katcp(d);
   append_string_katcp(d, KATCP_FLAG_STRING, KATCP_OK);
   append_unsigned_long_katcp(d, KATCP_FLAG_LAST | KATCP_FLAG_ULONG, count);
-#endif
 
   return KATCP_RESULT_OWN;
 }

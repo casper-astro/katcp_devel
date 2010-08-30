@@ -24,7 +24,7 @@ static void deallocate_notice_katcp(struct katcp_dispatch *d, struct katcp_notic
     }
 
     if(n->n_release){
-      (*(n->n_release))(d, n->n_payload);
+      (*(n->n_release))(d, n, n->n_payload);
       n->n_release = NULL;
     }
 
@@ -526,7 +526,11 @@ int resume_notice(struct katcp_dispatch *d, struct katcp_notice *n)
 {
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "resuming after waiting for notice");
 
+#if 0
   append_string_katcp(d, KATCP_FLAG_FIRST, "!notice");
+#endif
+
+  prepend_reply_katcp(d);
   append_string_katcp(d, KATCP_FLAG_LAST, KATCP_OK);
 
   resume_katcp(d);

@@ -154,6 +154,7 @@ int vlog_message_katcl(struct katcl_line *cl, int level, char *name, char *fmt, 
   return vector_sum(result, 5);
 }
 
+#if 0
 int basic_inform_katcl(struct katcl_line *cl, char *name, char *arg)
 {
   int result[2];
@@ -166,6 +167,7 @@ int basic_inform_katcl(struct katcl_line *cl, char *name, char *arg)
     return append_string_katcl(cl, KATCP_FLAG_FIRST | KATCP_FLAG_LAST, name);
   }
 }
+#endif
 
 int extra_response_katcl(struct katcl_line *cl, int code, char *fmt, ...)
 {

@@ -83,6 +83,7 @@ int mode_version_katcp(struct katcp_dispatch *d, int mode, char *subsystem, int 
 int version_katcp(struct katcp_dispatch *d, char *subsystem, int major, int minor);
 int add_build_katcp(struct katcp_dispatch *d, char *build);
 int del_build_katcp(struct katcp_dispatch *d, int index);
+int build_katcp(struct katcp_dispatch *d, char *build);
 
 /* make life easier for users, let them store their state here */
 void *get_code_katcp(struct katcp_dispatch *d, unsigned int index);
@@ -186,6 +187,7 @@ int send_katcp(struct katcp_dispatch *d, ...);
 
 int log_message_katcp(struct katcp_dispatch *d, unsigned int priority, char *name, char *fmt, ...);
 int extra_response_katcp(struct katcp_dispatch *d, int code, char *fmt, ...);
+int basic_inform_katcp(struct katcp_dispatch *d, char *name, char *arg);
 int broadcast_inform_katcp(struct katcp_dispatch *d, char *name, char *arg);
 
 int error_katcp(struct katcp_dispatch *d);
@@ -281,9 +283,10 @@ int wake_name_notice_katcp(struct katcp_dispatch *d, char *name);
 
 /* job logic */
 
-struct katcp_job *create_job_katcp(struct katcp_dispatch *d, pid_t pid, int fd, struct katcp_notice *halt, struct katcp_notice *data);
+struct katcp_job *create_job_katcp(struct katcp_dispatch *d, pid_t pid, int fd, struct katcp_notice *halt);
+struct katcp_job *via_notice_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 
-struct katcp_job *process_create_job_katcp(struct katcp_dispatch *d, char *file, char **argv, struct katcp_notice *halt, struct katcp_notice *data);
+struct katcp_job *process_create_job_katcp(struct katcp_dispatch *d, char *file, char **argv, struct katcp_notice *halt);
 
 int stop_job_katcp(struct katcp_dispatch *d, struct katcp_job *j);
 

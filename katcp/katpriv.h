@@ -199,14 +199,19 @@ struct katcp_notice;
 
 struct katcp_job{
   unsigned int j_magic;
-  int j_fd;
   pid_t j_pid;
-
-  struct katcp_notice *j_halt;
-  struct katcp_notice *j_data; 
 
   int j_ended;
   int j_status;
+
+  struct katcl_line *j_line;
+
+  struct katcp_notice *j_halt;
+
+  struct katcp_notice **j_queue; 
+  unsigned int j_size;
+  unsigned int j_head; /* points at the current head */
+  unsigned int j_count; /* number of entries present */
 };
 
 #if 0
@@ -242,7 +247,7 @@ struct katcp_notice{
 
   int n_tag;
   void *n_payload;
-  int (*n_release)(struct katcp_dispatch *d, void *payload);
+  int (*n_release)(struct katcp_dispatch *d, struct katcp_notice *n, void *payload);
 };
 
 struct katcp_shared{
