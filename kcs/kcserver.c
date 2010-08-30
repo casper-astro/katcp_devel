@@ -123,6 +123,7 @@ int main(int argc, char **argv)
     fprintf(stderr, "%s: unable to set up basic logic\n", argv[0]);
   }
 
+/*mode from command line*/
   if(mode){
     if(enter_name_mode_katcp(d, mode, NULL) < 0){
       fprintf(stderr, "%s: unable to enter mode %s\n", argv[0], mode);
