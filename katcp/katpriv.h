@@ -199,9 +199,6 @@ struct katcp_notice;
 
 struct katcp_job{
   unsigned int j_magic;
-#if 0
-  int j_fd;
-#endif
   pid_t j_pid;
 
   int j_ended;
