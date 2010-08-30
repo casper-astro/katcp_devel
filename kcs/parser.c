@@ -441,7 +441,7 @@ int save_tree(struct p_parser *p,char *filename, int force){
   }
 
   if (!force && strcmp(filename,p->filename) == 0 && p->open_time < file_stats.st_atime){
-    fprintf(stderr,"PARSER filename: %s opentime: %d accesstime: %d\n",filename,p->open_time,file_stats.st_atime);
+    fprintf(stderr,"PARSER filename: %s opentime: %ld accesstime: %ld\n",filename,p->open_time,file_stats.st_atime);
     return KATCP_RESULT_FAIL;
   }
 
