@@ -60,6 +60,14 @@ int parser_save(struct katcp_dispatch *d, char *filename, int force);
 struct p_value * parser_get(struct katcp_dispatch *d, char *srcl, char *srcs, unsigned long vidx);
 int parser_set(struct katcp_dispatch *d, char *srcl, char *srcs, unsigned long vidx, char *newval);
 
-int execpy_exec(char *filename);
+struct e_state {
+  int fd;
+  fd_set insocks;
+  fd_set outsocks;
+  int highsock;
+};
+
+int execpy_exec(struct e_state *e, char *filename);
+int execpy_destroy(struct e_state *e);
 
 #endif
