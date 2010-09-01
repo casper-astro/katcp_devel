@@ -65,9 +65,10 @@ struct e_state {
   fd_set insocks;
   fd_set outsocks;
   int highsock;
+  pid_t pid;
 };
 
-int execpy_exec(struct e_state *e, char *filename);
+struct e_state * execpy_exec(char *filename, int *status);
 int execpy_destroy(struct e_state *e);
 
 #endif
