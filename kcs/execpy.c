@@ -11,6 +11,7 @@
 #include <fcntl.h>
 
 #include <katcp.h>
+#include <katcl.h>
 
 #include "kcs.h"
 
@@ -22,12 +23,9 @@ void handle(int signum){
 }
 
 void build_socket_set(struct e_state *e){
-  
   FD_ZERO(&e->insocks);
   FD_SET(e->fd,&e->insocks);
-  
   e->highsock = e->fd;
-
 }
 
 void run_child(int *fds){
@@ -62,12 +60,25 @@ void run_child(int *fds){
   exit(EX_OSERR);
 }
 
+#define TEMPBUFFERSIZE 100
+int parent_process_data(struct e_state *e, char *buf, int size){
+  
+  int gotline;
+  gotline = 0;
+  
+   
+  
+  return 0;  
+   
+}
+
 int run_parent(struct e_state *e,int *fds){
 
   pid_t wpid;
   struct sigaction sa;
-  int rtn, run=1, recvb=0, status=0;
-  char readbuf[500];
+  int rtn, run=1, status=0, recvb;
+ 
+  char temp_buffer[TEMPBUFFERSIZE];
 
   close(fds[0]);
   fcntl(fds[1], F_SETFD, FD_CLOEXEC);
@@ -103,14 +114,14 @@ int run_parent(struct e_state *e,int *fds){
     else {
       if (FD_ISSET(e->fd,&e->insocks)){
         fprintf(stderr,"PARENT got data\n");
-        memset(readbuf,0,500);
-        recvb = read(e->fd,readbuf,500);
+        recvb = read(e->fd,temp_buffer,TEMPBUFFERSIZE);
+        
         if (recvb == 0){
-          fprintf(stderr,"recvb zero\n");
-          run = 0;
+          run=0;
+          fprintf(stderr,"Read EOF from client\n");
         }
         else {
-          fprintf(stderr,"recvb: %d readbuf: %s\n",recvb,readbuf);
+          fprintf(stderr,"Parent has %d bytes process returned: %d\n",recvb,parent_process_data(e,temp_buffer,recvb));
         }
       }
     }
@@ -126,7 +137,7 @@ int run_parent(struct e_state *e,int *fds){
     fprintf(stderr,"about to wait for SIGCHLD\n");
     wpid = waitpid(e->pid,&status,0);
   }
-
+  
   close(e->fd);
   return status;
 }
@@ -139,8 +150,16 @@ struct e_state * execpy_exec(char *filename, int *status){
 
   struct e_state *e;
   e = malloc(sizeof(struct e_state));
-  e->fd = 0;
+  e->fd       = 0;
   e->highsock = 0;
+  e->kl       = NULL;
+
+  e->kl = create_katcl(STDOUT_FILENO);
+
+  if (e->kl == NULL){
+    fprintf(stderr,"create_katcl fail\n");
+    return NULL;
+  }
 
   if (socketpair(AF_UNIX, SOCK_STREAM,0, fds) < 0) {
     fprintf(stderr,"socketpair failed: %s\n",strerror(errno));  
@@ -171,6 +190,9 @@ struct e_state * execpy_exec(char *filename, int *status){
 int execpy_destroy(struct e_state *e){
   if (e != NULL){
     fprintf(stderr,"Freeing state struct\n");
+    
+    destroy_katcl(e->kl,0);
+    
     free(e);
     return KATCP_RESULT_OK;
   }
@@ -240,6 +262,9 @@ int main(int argc, char **argv){
   struct e_state *e;
  
   e = execpy_exec(filename, &status);
+
+  if (e ==NULL)
+    return EX_SOFTWARE;
   
   if(execpy_destroy(e) == KATCP_RESULT_OK){
     fprintf(stderr,"Mem cleaned\n"); 

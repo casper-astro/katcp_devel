@@ -66,6 +66,9 @@ struct e_state {
   fd_set outsocks;
   int highsock;
   pid_t pid;
+  struct katcl_line *kl;
+  char *cdb;
+  int cdbsize;
 };
 
 struct e_state * execpy_exec(char *filename, int *status);

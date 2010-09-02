@@ -25,4 +25,4 @@ test-parser: parser.c
 	$(CC) $(CFLAGS) -DSTANDALONE -o $@ $^ -I../katcp
 
 test-execpy: execpy.c 
-	$(CC) $(CFLAGS) -DSTANDALONE -o $@ $^ -I../katcp
+	$(CC) $(CFLAGS) -DSTANDALONE -o $@ $^ -I../katcp -L../katcp -lkatcp
