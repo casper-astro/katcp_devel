@@ -65,14 +65,18 @@ struct e_state {
   fd_set insocks;
   fd_set outsocks;
   int highsock;
+  
   pid_t pid;
+  
   struct katcl_line *kl;
+  
   char *cdb;
   int cdbsize;
+
   char *filename;
 };
 
-struct e_state * execpy_exec(char *filename, int *status);
-int execpy_destroy(struct e_state *e);
+void execpy_do(char *filename, char **argv);
+
 
 #endif

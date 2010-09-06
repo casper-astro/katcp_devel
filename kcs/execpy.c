@@ -28,9 +28,9 @@ void build_socket_set(struct e_state *e){
   e->highsock = e->fd;
 }
 
-void run_child(int *fds,char *filename){
+void run_child(int *fds,char *filename, char **argv){
   int dups;
-  char *args[] = {filename,"-t","-l",NULL};
+  /*char *args[] = {filename,"-t","-l",NULL};*/
 
   fprintf(stderr,"In Child Process (PID=%d)\n",getpid());
 
@@ -54,7 +54,7 @@ void run_child(int *fds,char *filename){
   if (dups >= 2)
     fcntl(fds[0], F_SETFD, FD_CLOEXEC);
 
-  execvp(filename,args);
+  execvp(filename,argv);
 
   fprintf(stderr,"EXECVP FAIL: %s\n",strerror(errno));
   exit(EX_OSERR);
@@ -103,9 +103,9 @@ int parent_process_data(struct e_state *e, char *buf, int size){
     e->cdb[len] = '\0';
     e->cdbsize = 0;
 
-   // fprintf(stderr,"line: %s\n",e->cdb);
+//    fprintf(stderr,"line: %s\n",e->cdb);
 
-    log_message_katcl(e->kl,KATCP_LEVEL_INFO,"/bin/ls","%s",e->cdb);
+    log_message_katcl(e->kl,KATCP_LEVEL_INFO,e->filename,"%s",e->cdb);
       
   } while (lastpos != strlen(buf));
 
@@ -187,7 +187,7 @@ int run_parent(struct e_state *e,int *fds){
 }
 
 
-struct e_state * execpy_exec(char *filename, int *status){
+struct e_state * execpy_exec(char *filename, char **argv, int *status){
 
   int fds[2];
   pid_t pid;
@@ -219,7 +219,7 @@ struct e_state * execpy_exec(char *filename, int *status){
  
   if (pid == 0){
     /*This is the child*/
-    run_child(fds,filename);
+    run_child(fds,filename,argv);
   }
   else if (pid < 0){
     close(fds[0]);
@@ -250,6 +250,35 @@ int execpy_destroy(struct e_state *e){
 }
 
 
+void execpy_do(char * filename, char **argv){
+  int status;
+  struct e_state *e;
+  
+  e = execpy_exec(filename, argv, &status);
+  
+  if (e ==NULL)
+    return exit(1);
+  
+  if(execpy_destroy(e) == KATCP_RESULT_OK){
+    fprintf(stderr,"Mem cleaned\n"); 
+  }
+  else {
+    fprintf(stderr,"Mem not cleaned\n"); 
+  }
+
+  if (WIFEXITED(status)) {
+    fprintf(stderr,"End of program\n");
+    exit(WEXITSTATUS(status));
+  }
+  else if (WIFSIGNALED(status)){
+#ifdef WCOREDUMP
+    if (WCOREDUMP(status)){
+      fprintf(stderr,"CHild Core DUMPed!!\n");
+    }
+#endif
+    kill(getpid(),WTERMSIG(status));
+  }
+}
 
 
 #ifdef STANDALONE
@@ -307,34 +336,10 @@ int main(int argc, char **argv){
   }
   
   fprintf(stderr,"filename: %s\n",filename);
-
-  int status;
-  struct e_state *e;
- 
-  e = execpy_exec(filename, &status);
-
-  if (e ==NULL)
-    return EX_SOFTWARE;
   
-  if(execpy_destroy(e) == KATCP_RESULT_OK){
-    fprintf(stderr,"Mem cleaned\n"); 
-  }
-  else {
-    fprintf(stderr,"Mem not cleaned\n"); 
-  }
+  char *args[] = {filename,"-l",NULL};
 
-  if (WIFEXITED(status)) {
-    fprintf(stderr,"End of program\n");
-    exit(WEXITSTATUS(status));
-  }
-  else if (WIFSIGNALED(status)){
-#ifdef WCOREDUMP
-    if (WCOREDUMP(status)){
-      fprintf(stderr,"CHild Core DUMPed!!\n");
-    }
-#endif
-    kill(getpid(),WTERMSIG(status));
-  }
+  execpy_do(filename,args);
 
   return EX_OK;
 }
