@@ -69,6 +69,7 @@ struct e_state {
   struct katcl_line *kl;
   char *cdb;
   int cdbsize;
+  char *filename;
 };
 
 struct e_state * execpy_exec(char *filename, int *status);

@@ -28,9 +28,9 @@ void build_socket_set(struct e_state *e){
   e->highsock = e->fd;
 }
 
-void run_child(int *fds){
+void run_child(int *fds,char *filename){
   int dups;
-  char *args[] = {"/bin/ls","-t","-l",NULL};
+  char *args[] = {filename,"-t","-l",NULL};
 
   fprintf(stderr,"In Child Process (PID=%d)\n",getpid());
 
@@ -54,22 +54,64 @@ void run_child(int *fds){
   if (dups >= 2)
     fcntl(fds[0], F_SETFD, FD_CLOEXEC);
 
-  execvp("/bin/ls",args);
+  execvp(filename,args);
 
   fprintf(stderr,"EXECVP FAIL: %s\n",strerror(errno));
   exit(EX_OSERR);
 }
 
-#define TEMPBUFFERSIZE 100
+#define TEMPBUFFERSIZE 500
 int parent_process_data(struct e_state *e, char *buf, int size){
   
-  int gotline;
-  gotline = 0;
+  char *gotline,*linestart;
+  int lastpos, len;
+  gotline   = NULL;
+  linestart = NULL;
+  lastpos   = 0;
+  len       = 0;
   
+  //fprintf(stderr,"buff------%s------\n",buf);
+  
+  do {
+    gotline = strchr(buf+lastpos,'\n');
+    if (gotline == NULL){
+      //fprintf(stderr,"End of data -- line continues in next read!!");
+      
+      linestart = buf + lastpos;
+      len = strlen(buf) - lastpos;
+      
+      e->cdb = realloc(e->cdb,sizeof(char) * (len+1));
+      e->cdb = strncpy(e->cdb,linestart,len);
+      e->cdb[len] = '\0';
+      e->cdbsize = len;
+
+      //fprintf(stderr,"partial line: %s\n",e->cdb);
+
+      break;
+    }
+    linestart = buf + lastpos;
+    lastpos = (int)(gotline-buf)+1;
+    len = (int)(gotline-linestart);
+
+    //fprintf(stderr,"GOT L:%p NL @ (%p) _%d_ len: %d ",linestart,gotline,lastpos,len);
    
-  
+    if (e->cdbsize > 0) 
+      len += e->cdbsize;
+
+    e->cdb = realloc(e->cdb,sizeof(char) * (len+1)); 
+    strncpy(e->cdb + e->cdbsize,linestart,len-e->cdbsize);
+    e->cdb[len] = '\0';
+    e->cdbsize = 0;
+
+   // fprintf(stderr,"line: %s\n",e->cdb);
+
+    log_message_katcl(e->kl,KATCP_LEVEL_INFO,"/bin/ls","%s",e->cdb);
+      
+  } while (lastpos != strlen(buf));
+
+  //fprintf(stderr,"\nDone searching no more NLs lastpos:%d\n",lastpos);
+
   return 0;  
-   
 }
 
 int run_parent(struct e_state *e,int *fds){
@@ -113,7 +155,8 @@ int run_parent(struct e_state *e,int *fds){
     }
     else {
       if (FD_ISSET(e->fd,&e->insocks)){
-        fprintf(stderr,"PARENT got data\n");
+        //fprintf(stderr,"\nPARENT got data\n");
+        memset(temp_buffer,'\0',TEMPBUFFERSIZE);
         recvb = read(e->fd,temp_buffer,TEMPBUFFERSIZE);
         
         if (recvb == 0){
@@ -121,7 +164,8 @@ int run_parent(struct e_state *e,int *fds){
           fprintf(stderr,"Read EOF from client\n");
         }
         else {
-          fprintf(stderr,"Parent has %d bytes process returned: %d\n",recvb,parent_process_data(e,temp_buffer,recvb));
+          rtn = parent_process_data(e,temp_buffer,recvb);
+          //fprintf(stderr,"Parent has %d bytes process returned: %d\n",recvb,rtn);
         }
       }
     }
@@ -134,7 +178,7 @@ int run_parent(struct e_state *e,int *fds){
   }
         
   if (!sawchild){
-    fprintf(stderr,"about to wait for SIGCHLD\n");
+    //fprintf(stderr,"about to wait for SIGCHLD\n");
     wpid = waitpid(e->pid,&status,0);
   }
   
@@ -153,6 +197,9 @@ struct e_state * execpy_exec(char *filename, int *status){
   e->fd       = 0;
   e->highsock = 0;
   e->kl       = NULL;
+  e->cdb      = NULL;
+  e->cdbsize  = 0;
+  e->filename = filename;
 
   e->kl = create_katcl(STDOUT_FILENO);
 
@@ -172,7 +219,7 @@ struct e_state * execpy_exec(char *filename, int *status){
  
   if (pid == 0){
     /*This is the child*/
-    run_child(fds);
+    run_child(fds,filename);
   }
   else if (pid < 0){
     close(fds[0]);
@@ -192,6 +239,9 @@ int execpy_destroy(struct e_state *e){
     fprintf(stderr,"Freeing state struct\n");
     
     destroy_katcl(e->kl,0);
+    
+    if (e->cdb != NULL)
+      free(e->cdb);
     
     free(e);
     return KATCP_RESULT_OK;
