@@ -13,7 +13,8 @@
 
 #include "kcs.h"
 
-int greeting(char *app) {
+int greeting(char *app)
+{
   fprintf(stderr,"ROACH Configuration Parser\n\n\tUsage:\t%s -f [filename]\n\n",app);
   return EX_OK;
 }
@@ -49,8 +50,8 @@ char *rm_whitespace(char *str)
   return nstr;
 }
 
-int store_comment(char *buff,struct p_parser *p){
-  
+int store_comment(char *buff,struct p_parser *p)
+{
   if (p->comments == NULL){
     p->comcount++;
     p->comments = malloc(sizeof(struct p_comment*));
@@ -78,18 +79,29 @@ int store_comment(char *buff,struct p_parser *p){
   return EX_OK;
 }
 
+/* makes things explicit (and portable, in case anybody wants to move to EBCDIC ;) */
+
+#define OLABEL    '['
+#define CLABEL    ']'
+#define SETTING   '='
+#define VALUE     ',' 
+#define COMMENT   '#'
+
+#if 0
 #define OLABEL    91 /*[*/
 #define CLABEL    93 /*]*/
 #define SETTING   61 /*=*/ 
 #define VALUE     44 /*,*/
-int process_line(char * buff,struct p_parser *p){
+#endif
+
+int process_line(char *buff, struct p_parser *p){
 
   //fprintf(stderr,"%d CL: %s",strlen(buff),buff);
 
   switch (buff[0]){
     case '\n':
       return EX_OK;
-    case '#': 
+    case COMMENT : 
       return store_comment(buff,p);
   }
 

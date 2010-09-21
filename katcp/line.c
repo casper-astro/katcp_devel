@@ -1245,6 +1245,40 @@ int print_katcl(struct katcl_line *l, int full, char *fmt, ...)
   return result;
 }
 
+#if 0
+int relay_katcl(struct katcl_line *lx, struct katcl_line *ly)
+{
+  int i, flag, need, done, len;
+
+  flag = KATCP_FLAG_FIRST;
+
+  done = 0;
+  need = 0;
+
+  for(i = 0; i < lx->l_ahave; i++){
+    if((i + 1) >= lx->l_ahave){
+      flag |= KATCP_FLAG_LAST;
+    }
+
+    len = lx->l_args[i].a_end - lx->l_args[i].a_begin;
+    need += len;
+
+    done += append_buffer_katcl(ly, flag, lx->l_input + lx->l_args[i].a_begin, len);
+    flag = 0;
+  }
+
+#ifdef DEBUG
+  fprintf(stderr, "copyied line of %d args from %p (%d arg bytes) to %p (%d arg bytes)\n", i, lx, need, ly, done);
+#endif
+
+  if(need != done){
+    return -1;
+  }
+
+  return 0;
+}
+#endif
+
 /***************************/
 
 #define FLUSH_LIMIT (1024 * 1024)

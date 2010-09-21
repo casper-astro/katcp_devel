@@ -52,7 +52,7 @@ int unlink_halt_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void
 
 static int remove_index_job(struct katcp_job *j, unsigned int index)
 {
-  unsigned int end, tail;
+  unsigned int end;
 #ifdef DEBUG
   if(index >= j->j_size){
     fprintf(stderr, "index %u out of range %u\n", index, j->j_size);
@@ -140,7 +140,7 @@ int unlink_queue_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n, voi
   return -1;
 }
 
-/* deallocate notice, do not unlink itself from anywhere **********/
+/* deallocate job, does not unlink itself from anywhere **********/
 
 static void delete_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
 {
@@ -165,6 +165,8 @@ static void delete_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
     free(j->j_queue);
     j->j_queue = NULL;
   }
+
+  j->j_halt = NULL;
 
   free(j);
 }
@@ -263,7 +265,63 @@ int stop_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
   return result;
 }
 
-/* wait on child exit status **************************************/
+static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
+{
+  int result, code;
+  char *cmd, *module, *message, *priority;
+
+  result = have_katcl(j->j_line);
+
+  if(result <= 0){
+    return result;
+  }
+
+  cmd = arg_string_katcl(j->j_line, 0);
+  if(cmd == NULL){
+    return -1;
+  }
+
+  switch(cmd[0]){
+
+    case KATCP_REQUEST : 
+      /* our logic is unable to service requests */
+      extra_response_katcl(j->j_line, KATCP_RESULT_FAIL, NULL);
+      break;
+
+    case KATCP_REPLY   :
+    break;
+
+    case KATCP_INFORM  :
+
+      if(!strcmp(cmd, "#log")){
+
+        /* TODO: fix this section */
+        /* WARNING: ditches timestamp from log message */
+        /* WARNING: is disgustingly inefficient */
+
+        priority = arg_string_katcl(j->j_line, 1);
+        module = arg_string_katcl(j->j_line, 3);
+        message = arg_string_katcl(j->j_line, 4);
+
+        code = (-1);
+        if(priority){
+          code = log_to_code(priority);
+        }
+
+        if((message == NULL) || (module == NULL) || (code < 0)){
+          return -1;
+        }
+
+        log_message_katcp(d, code, module, "%s", message);
+      }
+
+    break;
+  }
+
+  return 0;
+}
+
+/* stuff to be called from mainloop *******************************/
 
 int wait_jobs_katcp(struct katcp_dispatch *d)
 {
@@ -368,6 +426,12 @@ int run_jobs_katcp(struct katcp_dispatch *d)
           fd = (-1);
         }
       }
+
+      if((fd >= 0) && (field_job_katcp(d, j) < 0)){
+        exchange_katcl(j->j_line, -1);
+        fd = (-1);
+      }
+
       if((fd >= 0) && FD_ISSET(fd, &(s->s_write))){
         if(write_katcl(j->j_line) < 0){
           exchange_katcl(j->j_line, -1);
@@ -380,6 +444,8 @@ int run_jobs_katcp(struct katcp_dispatch *d)
 
   return 0;
 }
+
+/* functions offered to users *************************************/
 
 struct katcp_job *process_create_job_katcp(struct katcp_dispatch *d, char *file, char **argv, struct katcp_notice *halt)
 {
@@ -447,6 +513,8 @@ struct katcp_job *process_create_job_katcp(struct katcp_dispatch *d, char *file,
   exit(EX_OSERR);
   return NULL;
 }
+
+/* debug/diagnositic access to job logic **************************/
 
 int job_cmd_katcp(struct katcp_dispatch *d, int argc)
 {

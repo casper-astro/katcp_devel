@@ -47,6 +47,8 @@ int send_katcl(struct katcl_line *l, ...);
 int vprint_katcl(struct katcl_line *l, int full, char *fmt, va_list args);
 int print_katcl(struct katcl_line *l, int full, char *fmt, ...);
 
+int relay_katcl(struct katcl_line *lx, struct katcl_line *ly);
+
 int flushing_katcl(struct katcl_line *l);
 int write_katcl(struct katcl_line *l);
 
