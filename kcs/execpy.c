@@ -23,9 +23,20 @@ void handle(int signum){
 }
 
 void build_socket_set(struct e_state *e){
+  int klfd;
+
   FD_ZERO(&e->insocks);
   FD_SET(e->fd,&e->insocks);
-  e->highsock = e->fd;
+  if (e->highsock < e->fd)
+    e->highsock = e->fd;
+
+  FD_ZERO(&e->outsocks);
+  if (flushing_katcl(e->kl)) {
+    klfd = fileno_katcl(e->kl);
+    FD_SET(klfd,&e->outsocks);
+    if(e->highsock < klfd)
+      e->highsock = klfd;
+  }
 }
 
 void run_child(int *fds,char *filename, char **argv){
@@ -142,7 +153,7 @@ int run_parent(struct e_state *e,int *fds){
 
   while (run){
     build_socket_set(e);
-    rtn = pselect(e->highsock+1,&e->insocks,NULL,NULL,NULL,&emptyset);
+    rtn = pselect(e->highsock+1,&e->insocks,&e->outsocks,NULL,NULL,&emptyset);
     if (rtn < 0){
       fprintf(stderr,"PSelect returned an error: %s\n",strerror(errno));
       switch (errno){
@@ -158,7 +169,6 @@ int run_parent(struct e_state *e,int *fds){
         //fprintf(stderr,"\nPARENT got data\n");
         memset(temp_buffer,'\0',TEMPBUFFERSIZE);
         recvb = read(e->fd,temp_buffer,TEMPBUFFERSIZE);
-        
         if (recvb == 0){
           run=0;
           fprintf(stderr,"Read EOF from client\n");
@@ -167,6 +177,9 @@ int run_parent(struct e_state *e,int *fds){
           rtn = parent_process_data(e,temp_buffer,recvb);
           //fprintf(stderr,"Parent has %d bytes process returned: %d\n",recvb,rtn);
         }
+      }
+      if (FD_ISSET(fileno_katcl(e->kl),&e->outsocks)){
+        rtn = write_katcl(e->kl);  
       }
     }
 
