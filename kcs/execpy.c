@@ -23,41 +23,41 @@ void handle(int signum){
 }
 
 void build_socket_set(struct e_state *e){
-  int klfd;
+ // int klfd;
 
   FD_ZERO(&e->insocks);
   FD_SET(e->fd,&e->insocks);
   if (e->highsock < e->fd)
     e->highsock = e->fd;
-
+/*
   FD_ZERO(&e->outsocks);
   if (flushing_katcl(e->kl)) {
     klfd = fileno_katcl(e->kl);
     FD_SET(klfd,&e->outsocks);
     if(e->highsock < klfd)
       e->highsock = klfd;
-  }
+  }*/
 }
 
 void run_child(int *fds,char *filename, char **argv){
   int dups;
   /*char *args[] = {filename,"-t","-l",NULL};*/
 
-  fprintf(stderr,"In Child Process (PID=%d)\n",getpid());
+  fprintf(stderr,"EXECPY CHILD: In Child Process (PID=%d)\n",getpid());
 
   dups=0;
 
   close(fds[1]);
   if (fds[0] != STDOUT_FILENO){
     if (dup2(fds[0], STDOUT_FILENO) != STDOUT_FILENO){
-      fprintf(stderr,"Could not DUP2 chid socket pair to child stdout fd err: %s\n",strerror(errno));        
+      fprintf(stderr,"EXECPY CHILD: Could not DUP2 child socket pair to child stdout fd err: %s\n",strerror(errno));        
       exit(EX_OSERR);
     }
     dups++;
   }
   if (fds[0] != STDIN_FILENO){
     if (dup2(fds[0], STDIN_FILENO) != STDIN_FILENO){
-      fprintf(stderr,"Could not DUP2 child socket pair to child stdin fd err: %s\n",strerror(errno));
+      fprintf(stderr,"EXECPY CHILD: Could not DUP2 child socket pair to child stdin fd err: %s\n",strerror(errno));
       exit(EX_OSERR);
     }
     dups++;
@@ -67,15 +67,15 @@ void run_child(int *fds,char *filename, char **argv){
 
   execvp(filename,argv);
 
-  fprintf(stderr,"EXECVP FAIL: %s\n",strerror(errno));
+  fprintf(stderr,"EXECVP CHILD FAIL: %s\n",strerror(errno));
   exit(EX_OSERR);
 }
 
-#define TEMPBUFFERSIZE 500
+#define TEMPBUFFERSIZE 1500
 int parent_process_data(struct e_state *e, char *buf, int size){
   
   char *gotline,*linestart;
-  int lastpos, len;
+  int klfd, lastpos, len;
   gotline   = NULL;
   linestart = NULL;
   lastpos   = 0;
@@ -114,10 +114,15 @@ int parent_process_data(struct e_state *e, char *buf, int size){
     e->cdb[len] = '\0';
     e->cdbsize = 0;
 
-//    fprintf(stderr,"line: %s\n",e->cdb);
+    fprintf(stderr,"EXECPY PARENT IO: line: %s\n",e->cdb);
 
     log_message_katcl(e->kl,KATCP_LEVEL_INFO,e->filename,"%s",e->cdb);
-      
+
+    klfd = fileno_katcl(e->kl);
+    FD_SET(klfd,&e->outsocks);
+    if(e->highsock < klfd)
+      e->highsock = klfd;
+
   } while (lastpos != strlen(buf));
 
   //fprintf(stderr,"\nDone searching no more NLs lastpos:%d\n",lastpos);
@@ -136,7 +141,7 @@ int run_parent(struct e_state *e,int *fds){
   close(fds[0]);
   fcntl(fds[1], F_SETFD, FD_CLOEXEC);
   
-  fprintf(stderr,"Parent fd: %d\n",fds[1]);
+  fprintf(stderr,"EXECPY PARENT: Parent fd: %d\n",fds[1]);
   
   e->fd       = fds[1];
   e->highsock = 0;
@@ -155,7 +160,7 @@ int run_parent(struct e_state *e,int *fds){
     build_socket_set(e);
     rtn = pselect(e->highsock+1,&e->insocks,&e->outsocks,NULL,NULL,&emptyset);
     if (rtn < 0){
-      fprintf(stderr,"PSelect returned an error: %s\n",strerror(errno));
+      fprintf(stderr,"EXECPY PARENT: PSelect returned an error: %s\n",strerror(errno));
       switch (errno){
         case EAGAIN :
         case EINTR  :
@@ -165,27 +170,29 @@ int run_parent(struct e_state *e,int *fds){
       }
     }
     else {
+      if (FD_ISSET(fileno_katcl(e->kl),&e->outsocks)){
+        fprintf(stderr,"EXECPY PARENT: writing katcl\n");
+        rtn = write_katcl(e->kl);  
+        FD_CLR(fileno_katcl(e->kl),&e->outsocks);
+      }
       if (FD_ISSET(e->fd,&e->insocks)){
         //fprintf(stderr,"\nPARENT got data\n");
         memset(temp_buffer,'\0',TEMPBUFFERSIZE);
         recvb = read(e->fd,temp_buffer,TEMPBUFFERSIZE);
         if (recvb == 0){
           run=0;
-          fprintf(stderr,"Read EOF from client\n");
+          fprintf(stderr,"EXECPY PARENT: Read EOF from client\n");
         }
         else {
           rtn = parent_process_data(e,temp_buffer,recvb);
           //fprintf(stderr,"Parent has %d bytes process returned: %d\n",recvb,rtn);
         }
       }
-      if (FD_ISSET(fileno_katcl(e->kl),&e->outsocks)){
-        rtn = write_katcl(e->kl);  
-      }
     }
 
     if (sawchild) {
       if (e->pid == waitpid(e->pid,&status,WNOHANG)){
-        fprintf(stderr,"In waitpid with WNOHANG\n");
+        fprintf(stderr,"EXECPY PARENT: In waitpid with WNOHANG\n");
       }
     }
   }
@@ -217,16 +224,16 @@ struct e_state * execpy_exec(char *filename, char **argv, int *status){
   e->kl = create_katcl(STDOUT_FILENO);
 
   if (e->kl == NULL){
-    fprintf(stderr,"create_katcl fail\n");
-    return NULL;
+    fprintf(stderr,"EXECPY PARENT: create_katcl fail\n");
+    return e; 
   }
 
   if (socketpair(AF_UNIX, SOCK_STREAM,0, fds) < 0) {
-    fprintf(stderr,"socketpair failed: %s\n",strerror(errno));  
-    return NULL;
+    fprintf(stderr,"EXECPY PARENT: socketpair failed: %s\n",strerror(errno));  
+    return e;
   }
   
-  fprintf(stderr,"parent_pid = %d\n",getpid());
+  fprintf(stderr,"EXECPY PARENT: parent_pid = %d\n",getpid());
  
   pid = fork();
  
@@ -237,7 +244,7 @@ struct e_state * execpy_exec(char *filename, char **argv, int *status){
   else if (pid < 0){
     close(fds[0]);
     close(fds[1]);
-    fprintf(stderr,"fork failed: %s\n",strerror(errno));
+    fprintf(stderr,"EXECPY PARENT: fork failed: %s\n",strerror(errno));
     return NULL;
   }
 
@@ -249,13 +256,13 @@ struct e_state * execpy_exec(char *filename, char **argv, int *status){
 
 int execpy_destroy(struct e_state *e){
   if (e != NULL){
-    fprintf(stderr,"Freeing state struct\n");
+    fprintf(stderr,"EXECPY PARENT: Freeing state struct\n");
     
     destroy_katcl(e->kl,0);
     
     if (e->cdb != NULL)
       free(e->cdb);
-    
+   
     free(e);
     return KATCP_RESULT_OK;
   }
@@ -273,20 +280,20 @@ void execpy_do(char * filename, char **argv){
     return exit(1);
   
   if(execpy_destroy(e) == KATCP_RESULT_OK){
-    fprintf(stderr,"Mem cleaned\n"); 
+    fprintf(stderr,"EXECPY PARENT: Mem cleaned\n"); 
   }
   else {
-    fprintf(stderr,"Mem not cleaned\n"); 
+    fprintf(stderr,"EXECPY PARENT: Mem not cleaned\n"); 
   }
 
   if (WIFEXITED(status)) {
-    fprintf(stderr,"End of program\n");
+    fprintf(stderr,"EXECPY PARENT: End of program\n");
     exit(WEXITSTATUS(status));
   }
   else if (WIFSIGNALED(status)){
 #ifdef WCOREDUMP
     if (WCOREDUMP(status)){
-      fprintf(stderr,"CHild Core DUMPed!!\n");
+      fprintf(stderr,"EXECPY PARENT: Child Core DUMPed!!\n");
     }
 #endif
     kill(getpid(),WTERMSIG(status));
@@ -348,9 +355,9 @@ int main(int argc, char **argv){
       return greeting(argv[0]);
   }
   
-  fprintf(stderr,"filename: %s\n",filename);
+  fprintf(stderr,"EXECPY MAIN: filename: %s\n",filename);
   
-  char *args[] = {filename,"-l",NULL};
+  char *args[] = {filename,NULL};
 
   execpy_do(filename,args);
 

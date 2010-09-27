@@ -203,11 +203,12 @@ int script_wildcard_cmd(struct katcp_dispatch *d, int argc)
   }
   vector[i] = NULL;
 
-#if 0
+#if 0 
   j = process_create_job_katcp(d, path, vector, n);
 #endif
+#if 1 
   j = wrapper_process_create_job_katcp(d, path, vector, n);
-
+#endif
   free(vector);
   free(path);
 
