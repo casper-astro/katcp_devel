@@ -234,8 +234,10 @@ static int pipe_from_file_katcp(struct katcp_dispatch *dl, char *file)
       }
     }
 
-
-
+#if 0 
+    /* this logic to be replaced with something which actually parses
+     * requests, and only sends out one request at a time, waiting for replies to
+     * arrive */
     rr = read(fd, buffer, READ_BUFFER);
     if(rr <= 0){
       if(rr < 0){
@@ -268,6 +270,7 @@ static int pipe_from_file_katcp(struct katcp_dispatch *dl, char *file)
         }
       } while(hw < rr);
     }
+#endif
   }
 
   exit(EX_SOFTWARE);
