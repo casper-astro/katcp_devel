@@ -30,6 +30,7 @@ void usage(char *app)
   printf("-m mode          mode to enter at startup\n");
   printf("-p network-port  network port to listen on\n");
   printf("-s script-dir    directory to load scripts from\n");
+  printf("-i init-file     file containing commands to run at startup\n");
 
 }
 
@@ -40,12 +41,13 @@ int main(int argc, char **argv)
   struct utsname un;
   int status;
   int i, j, c;
-  char *port, *scripts, *mode;
+  char *port, *scripts, *mode, *init;
   char uname_buffer[UNAME_BUFFER];
 
   scripts = ".";
   port = "7147";
   mode = KCS_MODE_BASIC_NAME;
+  init = NULL;
 
   i = 1;
   j = 1;
@@ -67,6 +69,7 @@ int main(int argc, char **argv)
         case 'm' :
         case 's' :
         case 'p' :
+        case 'i' :
           j++;
           if (argv[i][j] == '\0') {
             j = 0;
@@ -84,6 +87,9 @@ int main(int argc, char **argv)
               break;
             case 'p' :
               port = argv[i] + j;
+              break;
+            case 'i' :
+              init = argv[i] + j;
               break;
           }
           i++;
@@ -123,7 +129,7 @@ int main(int argc, char **argv)
     fprintf(stderr, "%s: unable to set up basic logic\n", argv[0]);
   }
 
-/*mode from command line*/
+  /* mode from command line */
   if(mode){
     if(enter_name_mode_katcp(d, mode, NULL) < 0){
       fprintf(stderr, "%s: unable to enter mode %s\n", argv[0], mode);
@@ -133,7 +139,7 @@ int main(int argc, char **argv)
 
   signal(SIGPIPE, SIG_DFL);
 
-  if(run_multi_server_katcp(d, KCS_MAX_CLIENTS, port, 0) < 0){
+  if(run_config_server_katcp(d, init, KCS_MAX_CLIENTS, port, 0) < 0){
     fprintf(stderr, "server: run failed\n");
   }
 
