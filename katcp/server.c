@@ -6,6 +6,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sysexits.h>
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -13,6 +14,7 @@
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/wait.h>
+
 
 #include "katpriv.h"
 #include "katcl.h"
@@ -85,6 +87,7 @@ static int inform_client_connect_katcp(struct katcp_dispatch *d)
 {
   int i;
   struct katcp_shared *s;
+  struct katcp_dispatch *dx;
 
   s = d->d_shared;
 
@@ -96,13 +99,15 @@ static int inform_client_connect_katcp(struct katcp_dispatch *d)
 #endif
 
   for(i = 0; i < s->s_used; i++){
-    d = s->s_clients[i];
+    dx = s->s_clients[i];
 
+    if(dx != d){
 #ifdef DEBUG
-    fprintf(stderr, "multi[%d]: informing %p of new connection\n", i, d);
+      fprintf(stderr, "multi[%d]: informing %p of new connection\n", i, d);
 #endif
 
-    send_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#client-connected", KATCP_FLAG_LAST | KATCP_FLAG_STRING, d->d_name);
+      send_katcp(dx, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#client-connected", KATCP_FLAG_LAST | KATCP_FLAG_STRING, dx->d_name);
+    }
   }
 
   return 0;
@@ -175,14 +180,153 @@ static int client_list_cmd_katcp(struct katcp_dispatch *d, int argc)
   return KATCP_RESULT_OWN;
 }
 
-int run_multi_server_katcp(struct katcp_dispatch *dl, int count, char *host, int port)
+static int pipe_from_file_katcp(struct katcp_dispatch *dl, char *file)
 {
+#define READ_BUFFER 512
+  int fds[2], fd;
+  pid_t pid;
+  char buffer[READ_BUFFER];
+  int rr, wr, hw;
+  struct katcl_line *pl, *fl;
+  int result;
+  char *cmd;
+
+  if(socketpair(AF_UNIX, SOCK_STREAM, 0, fds) < 0){
+    return -1;
+  }
+
+  pid = fork();
+  if(pid < 0){
+    close(fds[0]);
+    close(fds[1]);
+    return -1;
+  }
+
+  if(pid > 0){
+    close(fds[0]);
+    fcntl(fds[1], F_SETFD, FD_CLOEXEC);
+    return fds[1];
+  }
+
+  close(fds[1]);
+
+  fd = open(file, O_RDONLY);
+  if(fd < 0){
+    exit(EX_UNAVAILABLE);
+  }
+
+  pl = create_katcl(fds[0]);
+  fl = create_katcl(fd);
+
+  if((pl == NULL) || (fl == NULL)){
+    exit(EX_UNAVAILABLE);
+  }
+
+  for(;;){
+
+    result = read_katcl(fl);
+    if(result < 0){
+      exit(EX_UNAVAILABLE);
+    }
+
+    if(have_katcl(fl)){
+      if(arg_request_katcl(fl)){
+      }
+    }
+
+
+
+    rr = read(fd, buffer, READ_BUFFER);
+    if(rr <= 0){
+      if(rr < 0){
+        switch(errno){
+          case EAGAIN :
+          case EINTR  :
+            break;
+          default :
+            exit(EX_OSERR);
+            break;
+        }
+      } else {
+        exit(EX_OK);
+      }
+    } else {
+      hw = 0;
+      do{
+        wr = write(fds[0], buffer + hw, rr - hw);
+        if(wr < 0){
+          switch(errno){
+            case EAGAIN :
+            case EINTR  :
+              break;
+            default :
+              exit(EX_OSERR);
+              break;
+          }
+        } else {
+          hw += wr;
+        }
+      } while(hw < rr);
+    }
+  }
+
+  exit(EX_SOFTWARE);
+  return -1;
+#undef READ_BUFFER
+}
+
+void add_client_server_katcp(struct katcp_dispatch *dl, int fd, char *label)
+{
+  struct katcp_shared *s;
+  struct katcp_dispatch *dx;
+
+  s = dl->d_shared;
+
+#ifdef DEBUG
+  if(s->s_used >= s->s_count){
+    fprintf(stderr, "add client: need a free slot to add a client\n");
+    abort();
+  }
+#endif
+
+  fcntl(fd, F_SETFD, FD_CLOEXEC);
+
+  dx = s->s_clients[s->s_used];
+  s->s_used++;
+
+  reset_katcp(dx, fd);
+  name_katcp(dx, "%s", label);
+
+  inform_client_connect_katcp(dx); /* do before creation to avoid seeing own creation message */
+  on_connect_katcp(dx);
+}
+
+void perforate_client_server_katcp(struct katcp_dispatch *dl)
+{
+  struct katcp_shared *s;
+  struct katcp_dispatch *dx;
+
+  s = dl->d_shared;
+
+  if(s->s_used >= s->s_count){
+
+    dx = s->s_clients[(unsigned int)rand() % s->s_count];
+
+    terminate_katcp(dx, KATCP_EXIT_QUIT);
+    on_disconnect_katcp(dx, "displaced by new client connection");
+  }
+}
+
+int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, char *host, int port)
+{
+#define LABEL_BUFFER 32
   int run, i, nfd, fd, result, suspend, status;
   unsigned int len;
   struct sockaddr_in sa;
   struct timespec delta;
   struct katcp_dispatch *d;
   struct katcp_shared *s;
+  char label[LABEL_BUFFER];
 #if 0
   fd_set fsr, fsw;
 #endif
@@ -237,6 +381,14 @@ int run_multi_server_katcp(struct katcp_dispatch *dl, int count, char *host, int
 
   /* setup child signal routines, in case they haven't yet */
   init_signals_shared_katcp(s);
+
+  if(file){
+    fd = pipe_from_file_katcp(dl, file);
+    if(fd < 0){
+      return terminate_katcp(dl, KATCP_EXIT_ABORT);
+    }
+    add_client_server_katcp(dl, fd, file);
+  }
 
   run = 1;
 
@@ -426,22 +578,17 @@ int run_multi_server_katcp(struct katcp_dispatch *dl, int count, char *host, int
           nfd = accept(s->s_lfd, (struct sockaddr *) &sa, &len);
 
           if(nfd >= 0){
-            fcntl(nfd, F_SETFD, FD_CLOEXEC);
+            snprintf(label, LABEL_BUFFER, "%s:%d", inet_ntoa(sa.sin_addr), ntohs(sa.sin_port));
+            label[LABEL_BUFFER - 1] = '\0';
 
-            inform_client_connect_katcp(dl); /* do before creation to avoid seeing own creation message */
-
-            d = s->s_clients[s->s_used];
-            s->s_used++;
-            reset_katcp(d, nfd);
-            name_katcp(d, "%s:%d", inet_ntoa(sa.sin_addr), ntohs(sa.sin_port));
-            on_connect_katcp(d);
+            add_client_server_katcp(dl, nfd, label);
           }
 
         } else {
-          d = s->s_clients[(unsigned int)rand() % s->s_count];
-          terminate_katcp(d, KATCP_EXIT_QUIT);
-          on_disconnect_katcp(d, "displaced by %s:%d", inet_ntoa(sa.sin_addr), ntohs(sa.sin_port));
-          /* WARNING: will run a busy loop, terminating one entry each cycle until space becomes available. We expect an exit to happen quickly, otherwise this could empty out all clients */
+
+          /* WARNING: will run a busy loop, terminating one entry each cycle until space becomes available. We expect an exit to happen quickly, otherwise this could empty out all clients (though there is a backoff, since we pick things randomly) */
+          perforate_client_server_katcp(dl);
+
         }
       }
 
@@ -459,4 +606,11 @@ int run_multi_server_katcp(struct katcp_dispatch *dl, int count, char *host, int
   undo_signals_shared_katcp(s);
 
   return (exited_katcp(dl) == KATCP_EXIT_ABORT) ? (-1) : 0;
+#undef LABEL_BUFFER
 }
+
+int run_multi_server_katcp(struct katcp_dispatch *dl, int count, char *host, int port)
+{
+  return run_config_server_katcp(dl, NULL, count, host, port);
+}
+

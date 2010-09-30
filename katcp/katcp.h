@@ -126,6 +126,7 @@ int run_client_katcp(struct katcp_dispatch *d, char *host, int port);
 int run_server_katcp(struct katcp_dispatch *d, char *host, int port);
 
 int run_multi_server_katcp(struct katcp_dispatch *dl, int count, char *host, int port);
+int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, char *host, int port);
 
 /******************* io functions ****************/
 
