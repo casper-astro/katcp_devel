@@ -56,6 +56,7 @@ void destroy_katcl(struct katcl_line *l, int mode)
     l->l_args = NULL;
   }
   l->l_asize = 0;
+  l->l_current = NULL;
 
   if(l->l_output){
     free(l->l_output);
@@ -92,6 +93,7 @@ struct katcl_line *create_katcl(int fd)
   l->l_itag = (-1);
 
   l->l_args = NULL;
+  l->l_current = NULL;
   l->l_asize = 0;
   l->l_ahave = 0;
 
@@ -463,35 +465,36 @@ void clear_katcl(struct katcl_line *l) /* discard a full line */
   l->l_itag = (-1);
 
   l->l_ahave = 0;
+  l->l_current = NULL;
 
   l->l_state = STATE_FRESH;
 }
 
-static struct katcl_larg *space_katcl(struct katcl_line *l)
+static int space_katcl(struct katcl_line *l)
 {
-  struct katcl_larg *la;
+  struct katcl_larg *tmp;
 
-  if(l->l_asize <= (l->l_ahave + 1)){
-    la = realloc(l->l_args, sizeof(struct katcl_larg) * (l->l_asize + KATCP_ARGS_INC));
-    if(la == NULL){
-      l->l_error = ENOMEM;
-      return NULL;
-    }
-    l->l_args = la;
-    l->l_asize += KATCP_ARGS_INC;
+  if(l->l_ahave < l->l_asize){
+    l->l_current = &(l->l_args[l->l_ahave]);
+    return 0;
   }
 
-  la = &(l->l_args[l->l_ahave]);
+  tmp = realloc(l->l_args, sizeof(struct katcl_larg) * (l->l_asize + KATCP_ARGS_INC));
+  if(tmp == NULL){
+    l->l_error = ENOMEM;
+    return -1;
+  }
 
-  return la;
+  l->l_args = tmp;
+  l->l_asize += KATCP_ARGS_INC;
+  l->l_current = &(l->l_args[l->l_ahave]);
+
+  return 0;
 }
 
 int parse_katcl(struct katcl_line *l) /* transform buffer -> args */
 {
-  struct katcl_larg *la;
   int increment;
-
-  la = NULL;
 
 #ifdef DEBUG
   fprintf(stderr, "invoking parse (have=%d, used=%d, kept=%d)\n", l->l_ihave, l->l_iused, l->l_ikept);
@@ -512,8 +515,7 @@ int parse_katcl(struct katcl_line *l) /* transform buffer -> args */
           case '#' :
           case '!' :
           case '?' :
-            la = space_katcl(l);
-            if(la == NULL){
+            if(space_katcl(l) < 0){
               return -1;
             }
 
@@ -522,7 +524,7 @@ int parse_katcl(struct katcl_line *l) /* transform buffer -> args */
               fprintf(stderr, "logic issue: kept=%d != used=%d\n", l->l_ikept, l->l_iused);
             }
 #endif
-            la->a_begin = l->l_ikept;
+            l->l_current->a_begin = l->l_ikept;
             l->l_state = STATE_COMMAND;
 
             l->l_input[l->l_ikept] = l->l_input[l->l_iused];
@@ -540,7 +542,7 @@ int parse_katcl(struct katcl_line *l) /* transform buffer -> args */
           case '[' : 
             l->l_itag = 0;
             l->l_input[l->l_ikept] = '\0';
-            la->a_end = l->l_ikept;
+            l->l_current->a_end = l->l_ikept;
             l->l_ahave++;
             l->l_state = STATE_TAG;
             break;
@@ -548,7 +550,7 @@ int parse_katcl(struct katcl_line *l) /* transform buffer -> args */
           case ' '  :
           case '\t' :
             l->l_input[l->l_ikept] = '\0';
-            la->a_end = l->l_ikept;
+            l->l_current->a_end = l->l_ikept;
             l->l_ahave++;
             l->l_state = STATE_WHITESPACE;
             break;
@@ -556,7 +558,7 @@ int parse_katcl(struct katcl_line *l) /* transform buffer -> args */
           case '\n' :
           case '\r' :
             l->l_input[l->l_ikept] = '\0';
-            la->a_end = l->l_ikept;
+            l->l_current->a_end = l->l_ikept;
             l->l_ahave++;
             l->l_state = STATE_DONE;
             break;
@@ -608,19 +610,17 @@ int parse_katcl(struct katcl_line *l) /* transform buffer -> args */
             l->l_state = STATE_DONE;
             break;
           case '\\' :
-            la = space_katcl(l);
-            if(la == NULL){
+            if(space_katcl(l) < 0){
               return -1;
             }
-            la->a_begin = l->l_ikept; /* token begins with a whitespace */
+            l->l_current->a_begin = l->l_ikept; /* token begins with a whitespace */
             l->l_state = STATE_ESCAPE;
             break;
           default   :
-            la = space_katcl(l);
-            if(la == NULL){
+            if(space_katcl(l) < 0){
               return -1;
             }
-            la->a_begin = l->l_ikept; /* token begins with a normal char */
+            l->l_current->a_begin = l->l_ikept; /* token begins with a normal char */
             l->l_input[l->l_ikept] = l->l_input[l->l_iused];
             increment = 1;
             l->l_state = STATE_ARG;
@@ -630,15 +630,16 @@ int parse_katcl(struct katcl_line *l) /* transform buffer -> args */
 
       case STATE_ARG :
         increment = 1;
-        la = space_katcl(l);
-        if(la == NULL){
-          return -1;
+#ifdef DEBUG
+        if(l->l_current == NULL){
+          fprintf(stderr, "parse logic failure: entered arg state without having allocated entry\n");
         }
+#endif
         switch(l->l_input[l->l_iused]){
           case ' '  :
           case '\t' :
             l->l_input[l->l_ikept] = '\0';
-            la->a_end = l->l_ikept;
+            l->l_current->a_end = l->l_ikept;
             l->l_ahave++;
             l->l_state = STATE_WHITESPACE;
             break;
@@ -646,7 +647,7 @@ int parse_katcl(struct katcl_line *l) /* transform buffer -> args */
           case '\n' :
           case '\r' :
             l->l_input[l->l_ikept] = '\0';
-            la->a_end = l->l_ikept;
+            l->l_current->a_end = l->l_ikept;
             l->l_ahave++;
             l->l_state = STATE_DONE;
             break;

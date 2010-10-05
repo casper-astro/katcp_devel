@@ -24,6 +24,7 @@ struct katcl_line{
   int l_itag;
 
   struct katcl_larg *l_args;
+  struct katcl_larg *l_current;
   unsigned int l_asize;
   unsigned int l_ahave;
 
