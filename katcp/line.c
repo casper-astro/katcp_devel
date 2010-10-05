@@ -760,7 +760,7 @@ int arg_inform_katcl(struct katcl_line *l)
 
 int arg_null_katcl(struct katcl_line *l, unsigned int index)
 {
-  if(index >= l->L_AHAVE){
+  if(index >= l->l_ahave){
     return 1;
   } 
 
