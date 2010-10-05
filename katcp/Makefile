@@ -2,7 +2,7 @@ prefix=/usr/local
 
 CC = $(CROSS_COMPILE)gcc
 CFLAGS = -Wall
-CFLAGS += -O2
+#CFLAGS += -O2
 CFLAGS += -DKATCP_USE_FLOATS
 CFLAGS += -DPARANOID
 CFLAGS += -DDEBUG=2

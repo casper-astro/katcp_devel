@@ -630,6 +630,10 @@ int parse_katcl(struct katcl_line *l) /* transform buffer -> args */
 
       case STATE_ARG :
         increment = 1;
+        la = space_katcl(l);
+        if(la == NULL){
+          return -1;
+        }
         switch(l->l_input[l->l_iused]){
           case ' '  :
           case '\t' :
@@ -1245,15 +1249,16 @@ int print_katcl(struct katcl_line *l, int full, char *fmt, ...)
   return result;
 }
 
-#if 0
+#if 1 
 int relay_katcl(struct katcl_line *lx, struct katcl_line *ly)
 {
-  int i, flag, need, done, len;
+  int i, flag, need, len;
+  int status;
 
   flag = KATCP_FLAG_FIRST;
 
-  done = 0;
   need = 0;
+  status = 0;
 
   for(i = 0; i < lx->l_ahave; i++){
     if((i + 1) >= lx->l_ahave){
@@ -1263,19 +1268,16 @@ int relay_katcl(struct katcl_line *lx, struct katcl_line *ly)
     len = lx->l_args[i].a_end - lx->l_args[i].a_begin;
     need += len;
 
-    done += append_buffer_katcl(ly, flag, lx->l_input + lx->l_args[i].a_begin, len);
+    if (append_buffer_katcl(ly, flag, lx->l_input + lx->l_args[i].a_begin, len) < 0)
+      status = -1;
     flag = 0;
   }
 
 #ifdef DEBUG
-  fprintf(stderr, "copyied line of %d args from %p (%d arg bytes) to %p (%d arg bytes)\n", i, lx, need, ly, done);
+  fprintf(stderr, "copyied line of %d args from %p (%d arg bytes) to %p (status: %d)\n", i, lx, need, ly, status);
 #endif
 
-  if(need != done){
-    return -1;
-  }
-
-  return 0;
+  return status;
 }
 #endif
 

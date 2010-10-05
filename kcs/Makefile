@@ -12,7 +12,7 @@ LIB = -L$(KATCP) -lkatcp
 
 all: $(SERVER)
 
-$(SERVER): $(OBJ)
+$(SERVER): $(OBJ) ../katcp/libkatcp.a
 	$(CC) -o $@ $^ $(LIB)
 
 clean: 

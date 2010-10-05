@@ -1,5 +1,5 @@
 CFLAGS = -Wall
-CFLAGS += -O2
+#CFLAGS += -O2
 CFLAGS += -ggdb
 
 # where to find the KATCP library (change this in case katcp isn't included locally)
