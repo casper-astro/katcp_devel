@@ -202,8 +202,8 @@ struct katcp_job{
   unsigned int j_magic;
   pid_t j_pid;
 
-  int j_ended;
-  int j_status;
+  int j_state; /* state machine */
+  int j_status; /* exit code */
 
   struct katcl_line *j_line;
 
