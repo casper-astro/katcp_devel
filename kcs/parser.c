@@ -108,12 +108,48 @@ int store_label(struct p_parser *p, char *buf, int start, int end){
 #endif
     
   p->labels = realloc(p->labels,sizeof(struct p_label*)*(++p->lcount));
-
   p->labels[p->lcount-1] = l;
 
   return OKAY;
 }
 
+int store_setting(struct p_parser *p, char *buf, int start, int end){
+  
+  struct p_label *l;
+  struct p_setting *s;
+  int len;
+
+  s = malloc(sizeof(struct p_setting));
+
+  if (s == NULL)
+    return FAIL;
+
+  s->values   = NULL;
+  s->vcount   = 0;
+  s->str      = NULL;
+  s->comments = NULL;
+  s->comcount = 0;
+
+  len = end - start;
+  s->str = malloc(sizeof(char)*len);
+
+  if(s->str == NULL){
+    free(s);
+    return FAIL;
+  }
+  
+  s->str = memcpy(s->str,buf+start,len);
+
+#ifdef DEBUG
+  fprintf(stderr,"\tSETTING: %s\n",s->str);
+#endif
+
+  l = p->labels[p->lcount-1];
+  l->settings = realloc(l->settings,sizeof(struct p_setting*)*(++l->scount));
+  l->settings[l->scount-1] = s;
+  
+  return OKAY;
+}
 /* makes things explicit (and portable, in case anybody wants to move to EBCDIC ;) */
 
 #define OLABEL    '['
@@ -186,15 +222,15 @@ int start_parser(struct p_parser *p, char *f) {
           case S_LABEL:
             if (!store_label(p,buffer,pos,i))
               return KATCP_RESULT_FAIL;
-          break;
           default:
             p->state = S_START;
         }
         break;
       
       case SETTING:
+        if (!store_setting(p,buffer,pos,i-1))
+          return KATCP_RESULT_FAIL;
         p->state = S_SETTING;
-        
         break;
 
       case VALUE:
@@ -215,26 +251,11 @@ int start_parser(struct p_parser *p, char *f) {
           default:
             diff = (i-pos);
             fprintf(stderr,"Startpos: %d Endpos: %d Diff: %d\n",pos,i,diff);
-            pos = i;
+            pos = i+1;
             p->state = S_START;
             break;
         }
         break;
-/*
-      default:
-        switch (p->state){
-          case S_START:
-            fprintf(stderr,"START: %c\n",c);
-            break;
-          case S_COMMENT:
-          case S_LABEL:
-          case S_SETTING:
-          case S_VALUE:
-          case S_MLVALUE:
-            fprintf(stderr,"%c",c);  
-            break;
-        }
-    */
     }
   }
 
@@ -791,7 +812,7 @@ int main(int argc, char **argv) {
  */
  // parser_set(NULL,"k","a",1,"hello world");
   //parser_save(NULL,"oldtest");
-  parser_list(NULL);
+  //parser_list(NULL);
 
   parser_destroy(NULL);
   
