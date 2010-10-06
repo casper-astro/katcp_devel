@@ -16,9 +16,11 @@ struct kcs_basic
 
 
 struct p_parser {
+  int state;
   struct p_label **labels;
   int lcount;
   char *filename;
+  off_t fsize;
   time_t open_time;
   struct p_comment **comments;
   int comcount;

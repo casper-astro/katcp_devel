@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <sys/mman.h>
 
 #include <katcp.h>
 
@@ -18,7 +19,7 @@ int greeting(char *app)
   return EX_OK;
 }
 
-char *rm_whitespace(char *str)
+/*char *rm_whitespace(char *str)
 {
   //fprintf(stderr,"old string: %s",str);
   
@@ -47,27 +48,22 @@ char *rm_whitespace(char *str)
   //fprintf(stderr,"len:%d new string: %s\n",i,nstr);
 
   return nstr;
-}
+}*/
 
 int store_comment(char *buff,struct p_parser *p)
 {
-  if (p->comments == NULL){
-    p->comcount++;
-    p->comments = malloc(sizeof(struct p_comment*));
-  }
-  else {
-    p->comcount++;
-    p->comments = realloc(p->comments,sizeof(struct p_comment*)*p->comcount);
-  }
+  struct p_comment *c;
+  
+  p->comcount++;
+  p->comments = realloc(p->comments,sizeof(struct p_comment*)*p->comcount);
 
   if (p->comments == NULL)
     return EIO;
 
-  struct p_comment *c;
   c = malloc(sizeof(struct p_comment));
   c->str = NULL;
   c->flag = 0;
-
+  
   if ((c->str = strdup(buff)) == NULL){
     free(c);
     return EIO;
@@ -78,6 +74,46 @@ int store_comment(char *buff,struct p_parser *p)
   return EX_OK;
 }
 
+#define OKAY 1
+#define FAIL 0
+
+int store_label(struct p_parser *p, char *buf, int start, int end){
+  
+  struct p_label *l;
+  int len;
+
+  l = malloc(sizeof(struct p_label));
+
+  if (l == NULL)
+    return FAIL;
+
+  l->settings = NULL;
+  l->scount   = 0;
+  l->str      = NULL;
+  l->comments = NULL;
+  l->comcount = 0;
+
+  len = end - start;
+  l->str = malloc(sizeof(char)*len);
+  
+  if (l->str == NULL){
+    free(l);
+    return FAIL;
+  }
+
+  l->str = memcpy(l->str,buf+start,len);
+  
+#ifdef DEBUG
+  fprintf(stderr,"LABEL: [%s]\n",l->str);
+#endif
+    
+  p->labels = realloc(p->labels,sizeof(struct p_label*)*(++p->lcount));
+
+  p->labels[p->lcount-1] = l;
+
+  return OKAY;
+}
+
 /* makes things explicit (and portable, in case anybody wants to move to EBCDIC ;) */
 
 #define OLABEL    '['
@@ -86,225 +122,127 @@ int store_comment(char *buff,struct p_parser *p)
 #define VALUE     ',' 
 #define COMMENT   '#'
 
-#if 0
-#define OLABEL    91 /*[*/
-#define CLABEL    93 /*]*/
-#define SETTING   61 /*=*/ 
-#define VALUE     44 /*,*/
-#endif
-
-int process_line(char *buff, struct p_parser *p){
-
-  //fprintf(stderr,"%d CL: %s",strlen(buff),buff);
-
-  switch (buff[0]){
-    case '\n':
-      return EX_OK;
-    case COMMENT : 
-      return store_comment(buff,p);
-  }
-
-  if (strlen(buff) == 1)
-     return EX_OK;
-
-  char *buf = rm_whitespace(buff);
-  
-  char *rtn;
-  int i;
-
-  /*Search for [ which is start of label*/
-  rtn = strchr(buf,OLABEL);
-  if (rtn != NULL){
-    //fprintf(stderr,"found [ pos: %p %s",rtn,rtn);
-    if (p->labels == NULL){
-      p->lcount++;
-      p->labels = malloc(sizeof(struct p_label*));
-    }
-    else {
-      p->lcount++;
-      p->labels = realloc(p->labels,sizeof(struct p_label*)*p->lcount);
-    }
-    
-    char *lend;
-    int len;
-    
-    lend = strchr(buf,CLABEL);
-    if (lend == NULL)
-      return EIO;
-    
-    len=(int)(lend-rtn);
-    /*create the new label*/
-    struct p_label *l;
-    l=malloc(sizeof(struct p_label));
-    
-    l->settings=NULL;
-    l->scount=0;
-    l->comcount=0;
-    l->comments=NULL;
-    
-    struct p_comment *cc;
-    for(i=0;i<p->comcount;i++){
-      cc = p->comments[i];
-      if (cc->flag == 0){
-        l->comcount++;
-        l->comments=realloc(l->comments,sizeof(struct p_comment*)*l->comcount);
-        l->comments[l->comcount-1] = cc;
-        cc->flag=1;
-      }
-    }
-
-    l->str = malloc(sizeof(char)*(len));
-    
-    for (i=0;i<len-1;i++){
-      l->str[i]=*(rtn+1+i);
-    }
-    l->str[len-1]='\0';
-    
-    /*store the new label in the array*/
-    p->labels[p->lcount-1] = l;
-    
-    //fprintf(stderr,"found ] pos: %p %s",lend,lend);
-    //fprintf(stderr,"diff: %d\n",len);
-    //fprintf(stderr,"[%s]\n",l->str);
-  }
-
-  /*search for = which is the divider between setting and value*/
-  rtn = strchr(buf,SETTING);
-  if (rtn != NULL){
-    
-    struct p_label *cl;
-    cl = p->labels[p->lcount-1];
-
-    if (cl->settings == NULL){
-      cl->scount++;
-      cl->settings = malloc(sizeof(struct p_setting*));
-    }
-    else {
-      cl->scount++;
-      cl->settings = realloc(cl->settings,sizeof(struct p_setting*)*cl->scount);
-    }
-    
-    int len;
-    len =(int)(rtn-buf)+1;
-    //fprintf(stderr,"len: %d ",len);
-    
-    /*create the new setting*/
-    struct p_setting *s;
-    s=malloc(sizeof(struct p_setting));
-    
-    s->comcount=0;
-    s->comments=NULL;
-    
-    struct p_comment *cc;
-    for(i=0;i<p->comcount;i++){
-      cc = p->comments[i];
-      if (cc->flag == 0){
-        s->comcount++;
-        s->comments=realloc(s->comments,sizeof(struct p_comment*)*s->comcount);
-        s->comments[s->comcount-1] = cc;
-        cc->flag=1;
-      }
-    }
-    
-    s->vcount=0;
-    s->str = malloc(sizeof(char)*len);
-    s->values=NULL;
-
-    for(i=0;i<len-1;i++){
-      s->str[i]=*(buf+i);
-    }
-    s->str[len-1]='\0';
-    //fprintf(stderr,"s: %s\n",s->str);   
-    /*store the new setting in the array*/
-    cl->settings[cl->scount-1] = s;
-    
-    /*find the values for this setting*/
-    char *vstart = rtn+1;
-    do {
-      if (*rtn == VALUE || *rtn == '\0'){
-      
-        if (s->values == NULL){
-          s->vcount++;
-          s->values = malloc(sizeof(struct p_value*));
-        }
-        else {
-          s->vcount++;
-          s->values = realloc(s->values,sizeof(struct p_value*)*s->vcount);
-        }
-
-        int val_size = (int)(rtn-vstart);
-        struct p_value *v;
-        v=malloc(sizeof(struct p_value));
-        v->str=malloc(sizeof(char)*(val_size+1));
-
-        for(i=0;i<val_size;i++){
-          v->str[i] = *vstart++;
-        }
-        vstart++;
-
-        v->str[val_size]='\0';
-        //fprintf(stderr,"val: %s\n",v->str);
-        s->values[s->vcount-1] = v;
-
-      }
-    } while (*(rtn++) != '\0');
-  }
-
-  //fprintf(stderr,"about to FREE: %s\n",buf);
-  free(buf); 
-  return EX_OK;
-}
+#define S_START  -1
+#define S_COMMENT 0
+#define S_LABEL   1
+#define S_SETTING 2
+#define S_VALUE   3
+#define S_MLVALUE 4
 
 int start_parser(struct p_parser *p, char *f) {
   
   FILE *file;
-  int size=1024,pos,c,rtn;
-  char *buffer;
-  file = fopen(f,"r");
-  
+  int i,fd,pos, diff;
+  char c;
+  char *buffer, *temp;
+  struct stat file_stats;
+
+  temp   = NULL;
+  buffer = NULL;
+  file   = fopen(f,"r");
+  fd     = fileno(file);
+
   if (file == NULL){
     fprintf(stderr,"Error Reading File: %s\n",f);
     return errno;
   }
-  
-  buffer = malloc(size * sizeof(char));
-
-  do {
-    pos=0;
-    do{
-      c=fgetc(file);
-      if (c!=EOF)
-        buffer[pos++] = (char)c;
-      if (pos >= size-1){
-        size *= 2;
-        buffer = realloc(buffer, size * sizeof(char*));
-      }
-    } while(c != EOF && c != '\n');
-    buffer[pos]=0;
-    
-    if (c != EOF) {
-      rtn = process_line(buffer,p);
-      if (rtn == EIO)
-        break;
-    }
-    //fprintf(stderr,"Line Status: %d\n",rtn);
-
-  } while(c != EOF);
-  
-  free(buffer);
-
-  struct stat file_stats;
   if (stat(f,&file_stats) != 0)
     return errno;
   
   p->open_time = file_stats.st_atime;
-  
-  //fprintf(stderr,"fd: %d atime:%d\n",fd,p->open_time);
+  p->fsize     = file_stats.st_size; 
 
+  buffer = mmap(NULL,p->fsize,PROT_READ,MAP_SHARED,fd,0);
+
+  if (buffer == MAP_FAILED){
+    fprintf(stderr,"mmap failed: %s\n",strerror(errno));
+    fclose(file);
+    return EIO;
+  }
+
+  fprintf(stderr,"fd: %d st_atime:%d st_size:%d mmap:%p\n",fd,(int)p->open_time,(int)p->fsize,buffer);
+
+  p->state = S_START; 
+  pos=0;
+
+  for (i=0;i<p->fsize;i++){
+    c = buffer[i];
+    
+    switch(c){
+      case COMMENT:
+        p->state = S_COMMENT;
+        pos = i;
+        break;
+
+      case OLABEL:
+        p->state = (p->state == S_SETTING) ? S_MLVALUE : S_LABEL;
+        pos = i+1;
+        break;
+
+      case CLABEL:
+        switch (p->state){
+          case S_MLVALUE:
+            break;
+          case S_LABEL:
+            if (!store_label(p,buffer,pos,i))
+              return KATCP_RESULT_FAIL;
+          break;
+          default:
+            p->state = S_START;
+        }
+        break;
+      
+      case SETTING:
+        p->state = S_SETTING;
+        
+        break;
+
+      case VALUE:
+        p->state = S_VALUE;
+        pos = i;
+        break;
+
+      //case ' ':
+      case '\n':
+      case '\r':
+        switch (p->state){
+        //  case S_LABEL:
+        //    fprintf(stderr,"PARSER Error: Malformed label in file cannot parse\n");
+        //    return KATCP_RESULT_FAIL;
+          
+          case S_MLVALUE:
+            break;
+          default:
+            diff = (i-pos);
+            fprintf(stderr,"Startpos: %d Endpos: %d Diff: %d\n",pos,i,diff);
+            pos = i;
+            p->state = S_START;
+            break;
+        }
+        break;
+/*
+      default:
+        switch (p->state){
+          case S_START:
+            fprintf(stderr,"START: %c\n",c);
+            break;
+          case S_COMMENT:
+          case S_LABEL:
+          case S_SETTING:
+          case S_VALUE:
+          case S_MLVALUE:
+            fprintf(stderr,"%c",c);  
+            break;
+        }
+    */
+    }
+  }
+
+  munmap(buffer,p->fsize);
   fclose(file);
   
-  if (rtn == EIO)
-    return rtn;
+  /*if (rtn == EIO)
+    return rtn;*/
 
   return EX_OK;
 }
@@ -429,6 +367,8 @@ int save_tree(struct p_parser *p,char *filename, int force){
   struct p_value *cv=NULL;
   int pid;
 
+  struct stat file_stats;
+  
   char tempname[50];
 
   pid=getpid();
@@ -442,7 +382,6 @@ int save_tree(struct p_parser *p,char *filename, int force){
     return KATCP_RESULT_FAIL;
   }
   
-  struct stat file_stats;
   if (stat(filename,&file_stats) != 0){
     fprintf(stderr,"%d %s\n",errno,strerror(errno));
     if (errno != 2){
@@ -456,7 +395,6 @@ int save_tree(struct p_parser *p,char *filename, int force){
     return KATCP_RESULT_FAIL;
   }
 
-  
   for (i=0;i<p->lcount;i++){
     cl = p->labels[i];
 
@@ -722,11 +660,11 @@ int parser_load(struct katcp_dispatch *d, char *filename){
   }
   
   p = malloc(sizeof(struct p_parser));
-  p->lcount = 0;
-  p->labels = NULL;
+  p->lcount   = 0;
+  p->labels   = NULL;
   p->comments = NULL;
   p->comcount = 0;
-  
+  p->fsize    = 0;
   rtn = start_parser(p,filename);
   
   if (rtn != 0){
@@ -853,7 +791,7 @@ int main(int argc, char **argv) {
  */
  // parser_set(NULL,"k","a",1,"hello world");
   //parser_save(NULL,"oldtest");
-//  parser_list(NULL);
+  parser_list(NULL);
 
   parser_destroy(NULL);
   
