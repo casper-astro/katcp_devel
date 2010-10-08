@@ -13,43 +13,68 @@
 
 #include "kcs.h"
 
+/* makes things explicit (and portable, in case anybody wants to move to EBCDIC ;) */
+
+#define OLABEL    '['
+#define CLABEL    ']'
+#define SETTING   '='
+#define VALUE     ',' 
+#define COMMENT   '#'
+
+#define S_START  -1
+#define S_COMMENT 0
+#define S_LABEL   1
+#define S_SETTING 2
+#define S_VALUE   3
+#define S_MLVALUE 4
+
+#define OKAY 1
+#define FAIL 0
+
 int greeting(char *app)
 {
   fprintf(stderr,"ROACH Configuration Parser\n\n\tUsage:\t%s -f [filename]\n\n",app);
   return EX_OK;
 }
 
-/*char *rm_whitespace(char *str)
+char *rm_whitespace(char *str)
 {
-  //fprintf(stderr,"old string: %s",str);
-  
-  char *nstr;
-  int i;
+  int i,len,pos;
+  char *buf;
 
-  i=1;
-  nstr=NULL;
-  
-  while (*str != '\0'){
-    if (!isspace(*str)){
-      if (nstr == NULL){
-        nstr = malloc(sizeof(char));
-      }
-      else {
-        nstr = realloc(nstr,sizeof(char)*(i+1));
-      }
-      nstr[i-1] = *str;
-      i++;
-    }
-    str++;
+  if (str == NULL){
+#ifdef DEBUG
+    fprintf(stderr,"Cannot remove whitespace from NULL string\n");
+#endif
+    return NULL;
   }
 
-  nstr[i-1] = '\0';
-  
-  //fprintf(stderr,"len:%d new string: %s\n",i,nstr);
+  len = strlen(str);
+  buf = malloc(sizeof(char)*len+1);
+  pos = 0;
+  i   = 0;
 
-  return nstr;
-}*/
+  for (;i<len;i++){
+    switch(str[i]){
+      case 0x09:
+      case 0x0a:
+      case 0x0b:
+      case 0x0c:
+      case 0x0d:
+      case 0x20:
+        break;
+      default:
+        buf[pos++] = str[i];
+        break;
+    }
+  }
+  buf[pos] = '\0';
+  free(str);
 
+  return buf;
+}
+
+/*
 int store_comment(char *buff,struct p_parser *p)
 {
   struct p_comment *c;
@@ -73,9 +98,7 @@ int store_comment(char *buff,struct p_parser *p)
 
   return EX_OK;
 }
-
-#define OKAY 1
-#define FAIL 0
+*/
 
 int store_label(struct p_parser *p, char *buf, int start, int end){
   
@@ -94,7 +117,7 @@ int store_label(struct p_parser *p, char *buf, int start, int end){
   l->comcount = 0;
 
   len = end - start;
-  l->str = malloc(sizeof(char)*len);
+  l->str = malloc(sizeof(char)*len+1);
   
   if (l->str == NULL){
     free(l);
@@ -102,7 +125,10 @@ int store_label(struct p_parser *p, char *buf, int start, int end){
   }
 
   l->str = memcpy(l->str,buf+start,len);
-  
+  l->str[len] = '\0';
+
+  l->str = rm_whitespace(l->str);
+
 #ifdef DEBUG
   fprintf(stderr,"LABEL: [%s]\n",l->str);
 #endif
@@ -131,7 +157,7 @@ int store_setting(struct p_parser *p, char *buf, int start, int end){
   s->comcount = 0;
 
   len = end - start;
-  s->str = malloc(sizeof(char)*len);
+  s->str = malloc(sizeof(char)*len+1);
 
   if(s->str == NULL){
     free(s);
@@ -139,9 +165,12 @@ int store_setting(struct p_parser *p, char *buf, int start, int end){
   }
   
   s->str = memcpy(s->str,buf+start,len);
+  s->str[len] = '\0';
+
+  s->str = rm_whitespace(s->str);
 
 #ifdef DEBUG
-  fprintf(stderr,"\tSETTING: %s\n",s->str);
+  fprintf(stderr,"SETTING: {%s}\n",s->str);
 #endif
 
   l = p->labels[p->lcount-1];
@@ -150,25 +179,51 @@ int store_setting(struct p_parser *p, char *buf, int start, int end){
   
   return OKAY;
 }
-/* makes things explicit (and portable, in case anybody wants to move to EBCDIC ;) */
 
-#define OLABEL    '['
-#define CLABEL    ']'
-#define SETTING   '='
-#define VALUE     ',' 
-#define COMMENT   '#'
+int store_value(struct p_parser *p, char *buf, int start, int end){
+  
+  struct p_label *l;
+  struct p_setting *s;
+  struct p_value *v;
+  int len;
 
-#define S_START  -1
-#define S_COMMENT 0
-#define S_LABEL   1
-#define S_SETTING 2
-#define S_VALUE   3
-#define S_MLVALUE 4
+  v = malloc(sizeof(struct p_value));
+
+  if (v == NULL)
+    return FAIL;
+
+  v->str = NULL;
+
+  len = end - start;
+  v->str = malloc(sizeof(char)*len+1);
+
+  if(v->str == NULL){
+    free(v);
+    return FAIL;
+  }
+
+  v->str = memcpy(v->str,buf+start,len);
+  v->str[len] = '\0';
+
+  if (p->state == S_VALUE)
+    v->str = rm_whitespace(v->str);
+
+#ifdef DEBUG
+  fprintf(stderr,"VALUE: (%s)\n",v->str); 
+#endif
+
+  l = p->labels[p->lcount-1];
+  s = l->settings[l->scount-1];
+  s->values = realloc(s->values,sizeof(struct p_values*)*(++s->vcount));
+  s->values[s->vcount-1] = v;
+
+  return OKAY;
+}
 
 int start_parser(struct p_parser *p, char *f) {
   
   FILE *file;
-  int i,fd,pos, diff;
+  int i,fd,pos;
   char c;
   char *buffer, *temp;
   struct stat file_stats;
@@ -204,67 +259,94 @@ int start_parser(struct p_parser *p, char *f) {
   for (i=0;i<p->fsize;i++){
     c = buffer[i];
     
-    switch(c){
-      case COMMENT:
-        p->state = S_COMMENT;
-        pos = i;
-        break;
-
-      case OLABEL:
-        p->state = (p->state == S_SETTING) ? S_MLVALUE : S_LABEL;
-        pos = i+1;
-        break;
-
-      case CLABEL:
-        switch (p->state){
-          case S_MLVALUE:
+    switch (p->state){
+      
+      case S_COMMENT:
+        switch(c) {
+          case '\n':
+          case '\r':
+            
+            p->state = S_START;
+            pos = i+1;
             break;
-          case S_LABEL:
+        }
+        break;
+
+      case S_LABEL:
+        switch(c){
+          case CLABEL:
             if (!store_label(p,buffer,pos,i))
               return KATCP_RESULT_FAIL;
-          default:
             p->state = S_START;
+            pos = i;
+            break;
         }
         break;
-      
-      case SETTING:
+
+      case S_SETTING:
         if (!store_setting(p,buffer,pos,i-1))
           return KATCP_RESULT_FAIL;
-        p->state = S_SETTING;
-        break;
-
-      case VALUE:
-        p->state = S_VALUE;
         pos = i;
+        p->state = S_VALUE;
         break;
-
-      //case ' ':
-      case '\n':
-      case '\r':
-        switch (p->state){
-        //  case S_LABEL:
-        //    fprintf(stderr,"PARSER Error: Malformed label in file cannot parse\n");
-        //    return KATCP_RESULT_FAIL;
-          
-          case S_MLVALUE:
+      
+      case S_VALUE:
+        switch(c){
+          case OLABEL:
+            p->state = S_MLVALUE;
+            pos = i;
             break;
-          default:
-            diff = (i-pos);
-            fprintf(stderr,"Startpos: %d Endpos: %d Diff: %d\n",pos,i,diff);
+          case VALUE:
+            if (!store_value(p,buffer,pos,i))
+              return KATCP_RESULT_FAIL;
+            p->state = S_VALUE;
             pos = i+1;
+            break;
+          case '\n':
+          case '\r':
+            if (!store_value(p,buffer,pos,i))
+              return KATCP_RESULT_FAIL;
             p->state = S_START;
+            pos = i+1;
             break;
         }
         break;
+
+      case S_MLVALUE:
+          switch(c){
+            case CLABEL:
+              if (!store_value(p,buffer,pos,i+1))
+                return KATCP_RESULT_FAIL;
+              p->state = S_START;
+              break;
+          }
+        break;
+
+      default:
+        switch (c){
+          case COMMENT:
+            p->state = S_COMMENT;
+            pos = i;
+            break;
+          case OLABEL:
+            p->state = S_LABEL;
+            pos = i+1;
+            break;
+          case SETTING:
+            p->state = S_SETTING;
+            break;
+          case '\n':
+          case '\r':
+            p->state = S_START;
+            pos = i+1;
+            break;
+        }
     }
   }
 
   munmap(buffer,p->fsize);
   fclose(file);
   
-  /*if (rtn == EIO)
-    return rtn;*/
-
   return EX_OK;
 }
 
