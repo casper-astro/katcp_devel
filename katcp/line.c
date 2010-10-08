@@ -1016,7 +1016,7 @@ int append_vargs_katcl(struct katcl_line *l, int flags, char *fmt, va_list args)
   int want, got, x, result;
 
   got = strlen(fmt) + 16;
-#ifdef DEBUG
+#if DEBUG > 1
   fprintf(stderr, "vargs: my fmt string is <%s>\n", fmt);
 #endif
 
@@ -1038,7 +1038,7 @@ int append_vargs_katcl(struct katcl_line *l, int flags, char *fmt, va_list args)
     va_copy(copy, args);
     want = vsnprintf(buffer, got, fmt, copy);
     va_end(copy);
-#ifdef DEBUG
+#if DEBUG > 1
     fprintf(stderr, "vargs: printed <%s> (iteration=%d, want=%d, got=%d)\n", buffer, x, want, got);
 #endif
 
