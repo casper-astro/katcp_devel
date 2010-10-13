@@ -74,31 +74,57 @@ char *rm_whitespace(char *str)
   return buf;
 }
 
-/*
-int store_comment(char *buff,struct p_parser *p)
-{
-  struct p_comment *c;
-  
-  p->comcount++;
-  p->comments = realloc(p->comments,sizeof(struct p_comment*)*p->comcount);
 
-  if (p->comments == NULL)
-    return EIO;
+int store_comment(struct p_parser *p, char *buf, int start, int end){
+
+  struct p_comment *c;
+  struct p_label *cl;
+  struct p_setting *cs;
+  int len;
 
   c = malloc(sizeof(struct p_comment));
-  c->str = NULL;
+
+  if (c == NULL)
+    return FAIL;
+
+  c->str  = NULL;
   c->flag = 0;
-  
-  if ((c->str = strdup(buff)) == NULL){
+
+  len = end - start;
+  c->str = malloc(sizeof(char)*len+1);
+
+  if (c->str == NULL){
     free(c);
-    return EIO;
+    return FAIL;
   }
 
-  p->comments[p->comcount-1] = c;
+  c->str = memcpy(c->str,buf+start,len);
+  c->str[len] = '\0';
 
-  return EX_OK;
+#ifdef DEBUG
+  fprintf(stderr,"COMMENT: %s\n",c->str);
+#endif
+  
+  if (p->lcount > 0){
+    cl = p->labels[p->lcount-1];
+    if (cl->scount > 0){
+      cs = cl->settings[cl->scount-1];
+      //store as setting comment
+      cs->comments = realloc(cs->comments,sizeof(struct p_comment)*(++cs->comcount));
+      cs->comments[cs->comcount-1] = c;
+    } else {
+      //store as label comment
+      cl->comments = realloc(cl->comments,sizeof(struct p_comment)*(++cl->comcount));
+      cl->comments[cl->comcount-1] = c;
+    }
+  } else {
+    //store global comment
+    p->comments = realloc(p->comments,sizeof(struct p_comment)*(++p->comcount));
+    p->comments[p->comcount-1] = c;
+  }
+
+  return OKAY;
 }
-*/
 
 int store_label(struct p_parser *p, char *buf, int start, int end){
   
@@ -265,7 +291,8 @@ int start_parser(struct p_parser *p, char *f) {
         switch(c) {
           case '\n':
           case '\r':
-            
+            if (!store_comment(p,buffer,pos,i))
+              return KATCP_RESULT_FAIL;
             p->state = S_START;
             pos = i+1;
             break;
@@ -359,18 +386,23 @@ void show_tree(struct katcp_dispatch *d, struct p_parser *p){
   
   //fprintf(stderr,"PARSER show tree\n");
 
+#ifdef STANDALONE   
+  for (j=0;j<p->comcount;j++)
+    fprintf(stderr,"%s\n",p->comments[j]->str);
+#endif
+
   for (i=0;i<p->lcount;i++){
     cl = p->labels[i];
 #ifdef STANDALONE    
     for (j=0;j<cl->comcount;j++)
-      fprintf(stderr,"%s",cl->comments[j]->str);
+      fprintf(stderr,"%s\n",cl->comments[j]->str);
     fprintf(stderr,"%d[%s]\n",i,cl->str);
 #endif
     for (j=0;j<cl->scount;j++){
       cs = cl->settings[j];
 #ifdef STANDALONE      
       for (k=0;k<cs->comcount;k++)
-        fprintf(stderr,"%s",cs->comments[k]->str);
+        fprintf(stderr,"%s\n",cs->comments[k]->str);
       fprintf(stderr,"  %d\t|__ %s\n",j,cs->str);
 #endif      
       for (k=0;k<cs->vcount;k++){
@@ -378,6 +410,7 @@ void show_tree(struct katcp_dispatch *d, struct p_parser *p){
 #ifdef STANDALONE
         fprintf(stderr,"\t%c\t%d = %s\n",(j==cl->scount-1)?' ':'|',k,cv->str);
 #endif
+
 #ifndef STANDALONE
         prepend_reply_katcp(d);
         append_string_katcp(d,KATCP_FLAG_STRING,"list");
@@ -498,25 +531,31 @@ int save_tree(struct p_parser *p,char *filename, int force){
     return KATCP_RESULT_FAIL;
   }
 
+  for (j=0;j<p->comcount;j++)
+    fprintf(file,"%s\n",p->comments[j]->str);
+
   for (i=0;i<p->lcount;i++){
     cl = p->labels[i];
 
-    for (j=0;j<cl->comcount;j++)
-      fprintf(file,"%s",cl->comments[j]->str);
     fprintf(file,"[%s]\n",cl->str);
+    for (j=0;j<cl->comcount;j++)
+      fprintf(file,"%s\n",cl->comments[j]->str);
     
     for (j=0;j<cl->scount;j++){
       cs = cl->settings[j];
 
-      for (k=0;k<cs->comcount;k++)
-        fprintf(file,"%s",cs->comments[k]->str);
       fprintf(file,"  %s = ",cs->str);
       
       for (k=0;k<cs->vcount;k++){
         cv = cs->values[k];
         fprintf(file,"%s%c",cv->str,(k==cs->vcount-1)?' ':',');
       }
+     
       fprintf(file,"\n");
+      
+      for (k=0;k<cs->comcount;k++)
+        fprintf(file,"%s\n",cs->comments[k]->str);
+      
     }
     fprintf(file,"\n");
   }
@@ -894,7 +933,7 @@ int main(int argc, char **argv) {
  */
  // parser_set(NULL,"k","a",1,"hello world");
   //parser_save(NULL,"oldtest");
-  //parser_list(NULL);
+  parser_list(NULL);
 
   parser_destroy(NULL);
   
