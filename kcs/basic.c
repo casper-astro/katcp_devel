@@ -326,6 +326,30 @@ int parser_cmd(struct katcp_dispatch *d, int argc){
 }
 
 
+int roach_cmd(struct katcp_dispatch *d, int argc){
+  
+    
+  if (argc == 1){
+    prepend_inform_katcp(d);
+    append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST ,"add [roach hostname] [roach ip]");
+    prepend_inform_katcp(d);
+    append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST ,"del [roach hostname]");
+    prepend_inform_katcp(d);
+    append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST ,"start [roach hostname]");
+    prepend_inform_katcp(d);
+    append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST ,"stop [roach hostname]");
+    prepend_inform_katcp(d);
+    append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST ,"start-pool");
+    prepend_inform_katcp(d);
+    append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST ,"stop-pool");
+    
+    return KATCP_RESULT_OK;
+  }
+
+  return KATCP_RESULT_OK;
+}
+
+
 int setup_basic_kcs(struct katcp_dispatch *d, char *scripts)
 {
   struct kcs_basic *kb;
@@ -362,6 +386,8 @@ int setup_basic_kcs(struct katcp_dispatch *d, char *scripts)
 
   result += register_flag_mode_katcp(d, NULL, "python script handler", &script_wildcard_cmd, KATCP_CMD_HIDDEN | KATCP_CMD_WILDCARD, KCS_MODE_BASIC);
   result += register_flag_mode_katcp(d, "?parser" , "ROACH Configuration file parser (?parser [load|save|get|set|list])", &parser_cmd, 0, KCS_MODE_BASIC);
+  result += register_flag_mode_katcp(d, "?roach" , "Control the pool of roaches (?roach [add|del|start|stop|start-pool|stop-pool])", &roach_cmd, 0, KCS_MODE_BASIC);
+  
   if(result < 0){
     fprintf(stderr, "setup: unable to register command handlers for basic mode\n");
     return result;
