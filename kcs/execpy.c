@@ -63,7 +63,8 @@ void run_child(int *fds,char *filename, char **argv){
     dups++;
   }
   if (dups >= 2)
-    fcntl(fds[0], F_SETFD, FD_CLOEXEC);
+    //fcntl(fds[0], F_SETFD, FD_CLOEXEC);
+    close(fds[0]);
 
   execvp(filename,argv);
 
@@ -71,7 +72,7 @@ void run_child(int *fds,char *filename, char **argv){
   exit(EX_OSERR);
 }
 
-#define TEMPBUFFERSIZE 1500
+#define TEMPBUFFERSIZE 4096 
 int parent_process_data(struct e_state *e, char *buf, int size){
   
   char *gotline,*linestart;
@@ -86,17 +87,20 @@ int parent_process_data(struct e_state *e, char *buf, int size){
   do {
     gotline = strchr(buf+lastpos,'\n');
     if (gotline == NULL){
-      //fprintf(stderr,"End of data -- line continues in next read!!");
+      fprintf(stderr,"EXECPY: End of data -- line continues in next read!! ");
       
       linestart = buf + lastpos;
-      len = strlen(buf) - lastpos;
-      
+      len = TEMPBUFFERSIZE - lastpos;
+
+      fprintf(stderr,"EXECPY: len: %d ",len);
+
       e->cdb = realloc(e->cdb,sizeof(char) * (len+1));
       e->cdb = strncpy(e->cdb,linestart,len);
       e->cdb[len] = '\0';
       e->cdbsize = len;
 
-      //fprintf(stderr,"partial line: %s\n",e->cdb);
+      fprintf(stderr,"EXECPY PARENT: %s\n",e->cdb);
+      fflush(stderr);
 
       break;
     }
@@ -104,7 +108,7 @@ int parent_process_data(struct e_state *e, char *buf, int size){
     lastpos = (int)(gotline-buf)+1;
     len = (int)(gotline-linestart);
 
-    //fprintf(stderr,"GOT L:%p NL @ (%p) _%d_ len: %d ",linestart,gotline,lastpos,len);
+    fprintf(stderr,"EXECPY _%d_ len: %d ",lastpos,len);
    
     if (e->cdbsize > 0) 
       len += e->cdbsize;
@@ -115,10 +119,12 @@ int parent_process_data(struct e_state *e, char *buf, int size){
     e->cdbsize = 0;
 
     fprintf(stderr,"EXECPY PARENT IO: line: %s\n",e->cdb);
+    fflush(stderr);
 
     log_message_katcl(e->kl,KATCP_LEVEL_INFO,e->filename,"%s",e->cdb);
 
     klfd = fileno_katcl(e->kl);
+    FD_ZERO(&e->outsocks);
     FD_SET(klfd,&e->outsocks);
     if(e->highsock < klfd)
       e->highsock = klfd;
@@ -156,6 +162,7 @@ int run_parent(struct e_state *e,int *fds){
   sigaction(SIGCHLD,&sa,NULL);
   sigemptyset(&emptyset);
 
+  FD_ZERO(&e->outsocks);
   while (run){
     build_socket_set(e);
     rtn = pselect(e->highsock+1,&e->insocks,&e->outsocks,NULL,NULL,&emptyset);

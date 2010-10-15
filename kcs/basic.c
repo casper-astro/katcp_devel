@@ -162,7 +162,10 @@ int script_wildcard_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
+#if 0
   snprintf(path, len, "%s/%s.py", kb->b_scripts, name + 1);
+#endif
+  snprintf(path,len, "%s/%s",kb->b_scripts, name + 1);
 
   log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "checking if %s exists", path);
 
