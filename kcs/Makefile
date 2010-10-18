@@ -4,7 +4,7 @@ CFLAGS += -DDEBUG
 CFLAGS += -ggdb
 
 SERVER = kcs
-SRC = execpy.c parser.c kcserver.c basic.c
+SRC = roachpool.c execpy.c parser.c kcserver.c basic.c
 
 OBJ = $(patsubst %.c,%.o,$(SRC))
 INC = -I$(KATCP)

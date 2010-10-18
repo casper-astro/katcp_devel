@@ -328,23 +328,18 @@ int parser_cmd(struct katcp_dispatch *d, int argc){
 
 int roach_cmd(struct katcp_dispatch *d, int argc){
   
-    
-  if (argc == 1){
-    prepend_inform_katcp(d);
-    append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST ,"add [roach hostname] [roach ip]");
-    prepend_inform_katcp(d);
-    append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST ,"del [roach hostname]");
-    prepend_inform_katcp(d);
-    append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST ,"start [roach hostname]");
-    prepend_inform_katcp(d);
-    append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST ,"stop [roach hostname]");
-    prepend_inform_katcp(d);
-    append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST ,"start-pool");
-    prepend_inform_katcp(d);
-    append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST ,"stop-pool");
-    
-    return KATCP_RESULT_OK;
+  char *p_cmd;
+  
+  switch (argc){
+    case 1:
+      roachpool_greeting(d);        
+      break;
+
   }
+
+
+
+
 
   return KATCP_RESULT_OK;
 }

@@ -7,7 +7,7 @@ KATCP = katcp
 
 ###############################################################################
 
-SUB = katcp kcs examples
+SUB = katcp cmd kcs examples
 
 CC = $(CROSS_COMPILE)gcc
 RM = rm -f
