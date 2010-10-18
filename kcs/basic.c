@@ -257,6 +257,11 @@ void destroy_basic_kcs(struct katcp_dispatch *d)
     kb->b_parser = NULL;
   }
 
+  if (kb->b_rpool != NULL){
+    roachpool_destroy(d);
+    kb->b_rpool = NULL;
+  }
+
   free(kb);
 }
 
@@ -327,21 +332,43 @@ int parser_cmd(struct katcp_dispatch *d, int argc){
 
 
 int roach_cmd(struct katcp_dispatch *d, int argc){
-  
   char *p_cmd;
-  
+
   switch (argc){
     case 1:
-      roachpool_greeting(d);        
-      break;
+      return roachpool_greeting(d);        
+    case 2:
+      p_cmd = arg_string_katcp(d,1);
+      if (strcmp("start-pool",p_cmd) == 0){
+      
+      } else if(strcmp("stop-pool",p_cmd) == 0){
+        
+      } else if (strcmp("list",p_cmd) == 0){
+        return roachpool_list(d); 
+      }
+      return KATCP_RESULT_FAIL;
+    case 3:
+      p_cmd = arg_string_katcp(d,1);
+      if (strcmp("del",p_cmd) == 0){
+ 
+      } else if (strcmp("start",p_cmd) == 0){
 
+      } else if (strcmp("stop",p_cmd) == 0){
+
+      }     
+      return KATCP_RESULT_FAIL;
+    case 4:
+      
+      return KATCP_RESULT_FAIL;
+    case 5:
+      p_cmd = arg_string_katcp(d,1);
+      if (strcmp("add",p_cmd) == 0){
+        return roachpool_add(d);
+      }
+      return KATCP_RESULT_FAIL;
   }
 
-
-
-
-
-  return KATCP_RESULT_OK;
+  return KATCP_RESULT_FAIL;
 }
 
 
@@ -360,9 +387,8 @@ int setup_basic_kcs(struct katcp_dispatch *d, char *scripts)
   }
 
   kb->b_scripts = NULL;
-
-  kb->b_parser = NULL;
-  fprintf(stderr,"PARSER Object set to: %p\n",kb->b_parser);
+  kb->b_parser  = NULL;
+  kb->b_rpool   = NULL;
   
   kb->b_scripts = strdup(scripts);
   if(kb->b_scripts == NULL){

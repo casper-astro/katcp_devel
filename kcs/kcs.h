@@ -12,13 +12,19 @@ struct kcs_basic
 {
   char *b_scripts;
   struct p_parser *b_parser;
-  struct kcs_roach_poll *b_rpool;
+  struct kcs_roach_pool *b_rpool;
+};
+
+struct kcs_roach {
+  char *hostname;
+  char *ip;
+  char *type;
+  char *mac;
 };
 
 struct kcs_roach_pool {
-  char *hostname;
-  char *ip;
-  int type;
+  struct kcs_roach **krr;
+  int krrcount;
 };
 
 struct p_parser {
@@ -86,6 +92,7 @@ struct e_state {
 
 void execpy_do(char *filename, char **argv);
 
-void roachpool_greeting(struct katcp_dispatch *d);
-
+int roachpool_greeting(struct katcp_dispatch *d);
+int roachpool_add(struct katcp_dispatch *d);
+int roachpool_destroy(struct katcp_dispatch *d);
 #endif

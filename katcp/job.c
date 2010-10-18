@@ -562,6 +562,28 @@ struct katcp_job *process_create_job_katcp(struct katcp_dispatch *d, char *file,
   return NULL;
 }
 
+struct katcp_job *network_connect_job_katcp(struct katcp_dispatch *d, char *host, int port, struct katcp_notice *halt)
+{
+  struct katcp_job *j;
+  int fd;
+
+  fd = net_connect(host,port,0);
+
+  if (fd < 0){
+    log_message_katcp(d,KATCP_LEVEL_ERROR,NULL,"Unable to connect to ROACH: %s",host);
+    return NULL;
+  }
+  
+  j = create_job_katcp(d,0,fd,halt);
+
+  if (j == NULL){
+    log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"unable to allocate job logic so closing connection");
+    close(fd);
+  }
+  
+  return j;
+}
+
 /* debug/diagnositic access to job logic **************************/
 
 int job_cmd_katcp(struct katcp_dispatch *d, int argc)
@@ -569,9 +591,9 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
   struct katcp_shared *s;
   struct katcp_job *j;
   struct katcp_notice *n;
-  char *name, *watch, *cmd;
+  char *name, *watch, *cmd, *host;
   char *vector[2];
-  int i;
+  int i, port;
 
   s = d->d_shared;
 
@@ -616,6 +638,29 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
       j = process_create_job_katcp(d, cmd, vector, n);
 
       if(j == NULL){
+        return KATCP_RESULT_FAIL;
+      }
+
+      return KATCP_RESULT_OK;
+    } else if(!strcmp(name,"network")){ 
+      watch = arg_string_katcp(d,2);
+      host = arg_string_katcp(d,3);
+      port = arg_unsigned_long_katcp(d,4);
+
+      if ((host == NULL) || (watch == NULL) || (port == 0)){
+        log_message_katcp(d,KATCP_LEVEL_INFO, NULL,"insufficient parameters for launch");
+        return KATCP_RESULT_FAIL;
+      }
+
+      n = create_notice_katcp(d,watch,0);
+      if (n==NULL){
+        log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"unable to create notice called %s",watch);
+        return KATCP_RESULT_FAIL;
+      }
+
+      j = network_connect_job_katcp(d,host,port,n); 
+      
+      if (j == NULL){
         return KATCP_RESULT_FAIL;
       }
 
