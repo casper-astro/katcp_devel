@@ -257,9 +257,9 @@ void destroy_basic_kcs(struct katcp_dispatch *d)
     kb->b_parser = NULL;
   }
 
-  if (kb->b_rpool != NULL){
+  if (kb->b_pool_head != NULL){
     roachpool_destroy(d);
-    kb->b_rpool = NULL;
+    kb->b_pool_head = NULL;
   }
 
   free(kb);
@@ -386,9 +386,9 @@ int setup_basic_kcs(struct katcp_dispatch *d, char *scripts)
     return -1;
   }
 
-  kb->b_scripts = NULL;
-  kb->b_parser  = NULL;
-  kb->b_rpool   = NULL;
+  kb->b_scripts    = NULL;
+  kb->b_parser     = NULL;
+  kb->b_pool_head  = NULL;
   
   kb->b_scripts = strdup(scripts);
   if(kb->b_scripts == NULL){

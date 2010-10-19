@@ -12,20 +12,32 @@ struct kcs_basic
 {
   char *b_scripts;
   struct p_parser *b_parser;
-  struct kcs_roach_pool *b_rpool;
+  struct kcs_node *b_pool_head;
+};
+
+struct kcs_node {
+  struct kcs_node *parent;
+  struct kcs_node **childnodes;
+  struct kcs_roach **childroaches;
+  int childcount;
+  char *desc;
 };
 
 struct kcs_roach {
+  struct kcs_node *parent;
   char *hostname;
   char *ip;
-  char *type;
   char *mac;
+  char *type;
 };
 
+/*
 struct kcs_roach_pool {
   struct kcs_roach **krr;
   int krrcount;
+  char *type;
 };
+*/
 
 struct p_parser {
   int state;
