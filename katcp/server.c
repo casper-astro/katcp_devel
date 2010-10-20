@@ -641,7 +641,7 @@ int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, ch
 
         } else {
 
-          /* WARNING: will run a busy loop, terminating one entry each cycle until space becomes available. We expect an exit to happen quickly, otherwise this could empty out all clients (though there is a backoff, since we pick things randomly) */
+          /* WARNING: will run a busy loop, terminating one entry each cycle until space becomes available. We expect an exit to happen quickly, otherwise this could empty out all clients (though there is a backoff, since we pick a slot randomly) */
           perforate_client_server_katcp(dl);
 
         }

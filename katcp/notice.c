@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "katcp.h"
+#include "katcl.h"
 #include "katpriv.h"
 
 /**********************************************************************************/
@@ -31,6 +32,11 @@ static void deallocate_notice_katcp(struct katcp_dispatch *d, struct katcp_notic
     if(n->n_name){
       free(n->n_name);
       n->n_name = NULL;
+    }
+
+    if(n->n_msg){
+      destroy_msg_katcl(n->n_msg);
+      n->n_msg = NULL;
     }
 
     n->n_tag = (-1);
@@ -240,14 +246,22 @@ struct katcp_notice *create_notice_katcp(struct katcp_dispatch *d, char *name, u
   n->n_trigger = 0;
 
   n->n_tag = tag;
+  n->n_msg = NULL;
   n->n_payload = NULL;
   n->n_release = NULL;
+
+  n->n_msg = create_msg_katcl(NULL);
+  if(n->n_msg == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to create notice resident message");
+    deallocate_notice_katcp(d, n);
+    return NULL;
+  }
 
   if(name){
     n->n_name = strdup(name);
     if(n->n_name == NULL){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to duplicate name %s", name);
-      free(n);
+      deallocate_notice_katcp(d, n);
       return NULL;
     }
   } else {
@@ -257,11 +271,7 @@ struct katcp_notice *create_notice_katcp(struct katcp_dispatch *d, char *name, u
   t = realloc(s->s_notices, sizeof(struct katcp_notice *) * (s->s_pending + 1));
   if(t == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to insert notice into list");
-    if(n->n_name){
-      free(n->n_name);
-      n->n_name = NULL;
-    }
-    free(n);
+    deallocate_notice_katcp(d, n);
     return NULL;
   }
 
@@ -321,6 +331,13 @@ struct katcp_notice *register_notice_katcp(struct katcp_dispatch *d, char *name,
   }
 
   return n;
+}
+
+/*******************************************************************************/
+
+struct katcl_msg *message_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
+{
+  return n->n_msg;
 }
 
 /*******************************************************************************/

@@ -13,6 +13,16 @@ struct katcl_larg{
   unsigned int a_end;
 };
 
+struct katcl_msg{
+  struct katcl_line *m_line;
+
+  char *m_buffer;
+  unsigned int m_size;
+  unsigned int m_want;
+  int m_tag;
+  int m_complete;
+};
+
 struct katcl_line{
   int l_fd;
 
@@ -28,11 +38,17 @@ struct katcl_line{
   unsigned int l_asize;
   unsigned int l_ahave;
 
+#if 0
   char *l_output;
   unsigned int l_osize;
   unsigned int l_owant;
   unsigned int l_odone;
   int l_otag;
+  int l_ocomplete;
+#endif
+
+  struct katcl_msg *l_out;
+  unsigned int l_odone;
 
   int l_error;
   int l_problem;
@@ -247,6 +263,7 @@ struct katcp_notice{
   char *n_name;
 
   int n_tag;
+  struct katcl_msg *n_msg;
   void *n_payload;
   int (*n_release)(struct katcp_dispatch *d, struct katcp_notice *n, void *payload);
 };

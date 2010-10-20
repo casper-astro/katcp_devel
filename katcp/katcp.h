@@ -1,6 +1,9 @@
 #ifndef _KATCP_H_
 #define _KATCP_H_
 
+struct katcl_line;
+struct katcl_msg;
+
 struct katcp_sensor;
 struct katcp_nonsense;
 struct katcp_acquire;
@@ -278,6 +281,7 @@ struct katcp_notice *create_notice_katcp(struct katcp_dispatch *d, char *name, u
 int add_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n));
 struct katcp_notice *register_notice_katcp(struct katcp_dispatch *d, char *name, unsigned int tag, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n));
 struct katcp_notice *find_notice_katcp(struct katcp_dispatch *d, char *name);
+struct katcl_msg *message_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 
 void wake_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 int wake_name_notice_katcp(struct katcp_dispatch *d, char *name);
@@ -290,7 +294,5 @@ struct katcp_job *via_notice_job_katcp(struct katcp_dispatch *d, struct katcp_no
 struct katcp_job *process_create_job_katcp(struct katcp_dispatch *d, char *file, char **argv, struct katcp_notice *halt);
 
 int stop_job_katcp(struct katcp_dispatch *d, struct katcp_job *j);
-
-
 
 #endif
