@@ -264,8 +264,8 @@ struct katcp_notice{
 
   int n_tag;
   struct katcl_msg *n_msg;
-  void *n_payload;
-  int (*n_release)(struct katcp_dispatch *d, struct katcp_notice *n, void *payload);
+  void *n_target;
+  int (*n_release)(struct katcp_dispatch *d, struct katcp_notice *n, void *target);
 };
 
 struct katcp_shared{

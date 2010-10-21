@@ -25,7 +25,7 @@ static void deallocate_notice_katcp(struct katcp_dispatch *d, struct katcp_notic
     }
 
     if(n->n_release){
-      (*(n->n_release))(d, n, n->n_payload);
+      (*(n->n_release))(d, n, n->n_target);
       n->n_release = NULL;
     }
 
@@ -40,7 +40,7 @@ static void deallocate_notice_katcp(struct katcp_dispatch *d, struct katcp_notic
     }
 
     n->n_tag = (-1);
-    n->n_payload = NULL;
+    n->n_target = NULL;
 
     free(n);
   }
@@ -218,11 +218,16 @@ void destroy_notices_katcp(struct katcp_dispatch *d)
 
 /**********************************************************************************/
 
-struct katcp_notice *create_notice_katcp(struct katcp_dispatch *d, char *name, unsigned int tag)
+struct katcp_notice *create_message_notice_katcp(struct katcp_dispatch *d, char *name, unsigned int tag, struct katcl_msg *m)
 {
   struct katcp_notice *n;
   struct katcp_notice **t;
   struct katcp_shared *s;
+
+  if(m == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "creating a notice without a message is a usage problem");
+    return NULL;
+  }
 
   s = d->d_shared;
 
@@ -247,15 +252,8 @@ struct katcp_notice *create_notice_katcp(struct katcp_dispatch *d, char *name, u
 
   n->n_tag = tag;
   n->n_msg = NULL;
-  n->n_payload = NULL;
+  n->n_target = NULL;
   n->n_release = NULL;
-
-  n->n_msg = create_msg_katcl(NULL);
-  if(n->n_msg == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to create notice resident message");
-    deallocate_notice_katcp(d, n);
-    return NULL;
-  }
 
   if(name){
     n->n_name = strdup(name);
@@ -275,10 +273,31 @@ struct katcp_notice *create_notice_katcp(struct katcp_dispatch *d, char *name, u
     return NULL;
   }
 
+  n->n_msg = m;
+
   s->s_notices = t;
 
   s->s_notices[s->s_pending] = n;
   s->s_pending++;
+
+  return n;
+}
+
+struct katcp_notice *create_notice_katcp(struct katcp_dispatch *d, char *name, unsigned int tag)
+{
+  struct katcl_msg *m;
+  struct katcp_notice *n;
+
+  m = create_msg_katcl(NULL);
+  if(m == NULL){
+    return NULL;
+  }
+
+  n = create_message_notice_katcp(d, name, tag, m);
+  if(n == NULL){
+    destroy_msg_katcl(m);
+    return NULL;
+  }
 
   return n;
 }

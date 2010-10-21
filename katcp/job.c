@@ -42,11 +42,11 @@ static void sane_job_katcp(struct katcp_job *j)
 
 /* functions given to notice to unlink itself from job ************/
 
-int unlink_halt_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *payload)
+int unlink_halt_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *target)
 {
   struct katcp_job *j;
 
-  j = payload;
+  j = target;
 
   j->j_halt = NULL;
   
@@ -55,9 +55,59 @@ int unlink_halt_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void
   return 0;
 }
 
+static int add_tail_job(struct katcp_job *j, struct katcp_notice *n)
+{
+  struct katcp_notice **tmp;
+  unsigned int index;
+
+  if(j->j_count >= j->j_size){
+
+#ifdef DEBUG
+    fprintf(stderr, "size=%d, count=%d - increasing queue\n", j->j_size, j->j_count);
+    if(j->j_size < j->j_count){
+      fprintf(stderr, "add: warning: detected rapid size increase of queue, expect corruption\n");
+      abort();
+    }
+#endif
+    tmp = realloc(j->j_queue, sizeof(struct katcp_notice *) * (j->j_size + 1));
+
+    if(tmp == NULL){
+      return -1;
+    }
+    j->j_queue = tmp;
+
+    if(j->j_head > 0){
+      j->j_queue[j->j_size] = j->j_queue[0];
+      if(j->j_head > 1){
+        memmove(&(j->j_queue[0]), &(j->j_queue[1]), sizeof(struct katcp_notice *) * (j->j_head - 1));
+      }
+      j->j_queue[j->j_head - 1] = NULL;
+    }
+
+    j->j_size = j->j_size + 1;
+  }
+
+  index = (j->j_head + j->j_count) % j->j_size;
+#if DEBUG > 1
+  fprintf(stderr, "job add[%d]=%p\n", index, n);
+#endif
+  j->j_queue[index] = n;
+  j->j_count++;
+
+  return 0;
+}
+
 static int remove_index_job(struct katcp_job *j, unsigned int index)
 {
   unsigned int end;
+
+  if(j->j_count <= 0){
+#ifdef DEBUG
+    fprintf(stderr, "remove: nothing to remove\n");
+#endif
+    return -1;
+  }
+
 #ifdef DEBUG
   if(index >= j->j_size){
     fprintf(stderr, "index %u out of range %u\n", index, j->j_size);
@@ -69,15 +119,16 @@ static int remove_index_job(struct katcp_job *j, unsigned int index)
   }
 #endif
 
-  if(j->j_count == 0){
-    return -1;
-  }
+#if DEBUG > 1
+  fprintf(stderr, "job del[%d]=%p\n", index, j->j_queue[index]);
+#endif
 
   j->j_queue[index] = NULL;
 
   if(index == j->j_head){
     /* hopefully the common, simple case: only one interested party */
     j->j_head = (j->j_head + 1) % j->j_size;
+    j->j_count--;
     return 0;
   }
 
@@ -112,12 +163,50 @@ static int remove_index_job(struct katcp_job *j, unsigned int index)
   return 0;
 }
 
-int unlink_queue_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *payload)
+static int remove_head_job(struct katcp_job *j)
+{
+  return remove_index_job(j, j->j_head);
+}
+
+#ifdef DEBUG
+void dump_queue_job_katcp(struct katcp_job *j, FILE *fp)
+{
+  unsigned int i, k;
+
+  fprintf(fp, "job queue (%d):", j->j_size);
+  for(i = 0; i < j->j_size; i++){
+    if(j->j_queue[i]){
+      fprintf(fp, " <%p>", j->j_queue[i]);
+    } else {
+      fprintf(fp, " [%d]", i);
+    }
+  }
+  fprintf(fp, "\n");
+
+  for(k = j->j_head, i = 0; i < j->j_count; i++, k = (k + 1) % j->j_size){
+    if(j->j_queue[k] == NULL){
+      fprintf(stderr, "job queue: error: null field at %d\n", k);
+    }
+  }
+
+  while(i < j->j_size){
+
+    if(j->j_queue[k] != NULL){
+      fprintf(stderr, "job queue: error: used field at %d\n", k);
+    }
+
+    k = (k + 1) % j->j_size;
+    i++;
+  }
+}
+#endif
+
+int unlink_queue_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *target)
 {
   struct katcp_job *j;
   unsigned int i, k;
 
-  j = payload;
+  j = target;
 
   if(j->j_queue == NULL){
     log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "attempting to dequeue notice from empty job");
@@ -208,6 +297,7 @@ struct katcp_job *create_job_katcp(struct katcp_dispatch *d, pid_t pid, int fd, 
   j->j_queue = NULL;
   j->j_head = 0;
   j->j_count = 0;
+  j->j_size = 0;
 
   if(fd >= 0){
     j->j_line = create_katcl(fd);
@@ -218,7 +308,7 @@ struct katcp_job *create_job_katcp(struct katcp_dispatch *d, pid_t pid, int fd, 
   }
 
   if(halt){
-    halt->n_payload = j;
+    halt->n_target = j;
     halt->n_release = &unlink_halt_job_katcp;
   }
 
@@ -232,11 +322,11 @@ struct katcp_job *via_notice_job_katcp(struct katcp_dispatch *d, struct katcp_no
 {
   struct katcp_job *j;
 
-  if(n->n_payload == NULL){
+  if(n->n_target == NULL){
     return NULL;
   }
 
-  j = n->n_payload;
+  j = n->n_target;
 
   sane_job_katcp(j);
 
@@ -252,7 +342,6 @@ int stop_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
   result = 0;
 
   /* WARNING: maybe: only kill jobs which have a pid, wait for the child to close - that ensures that we receive all messages */
-
 
   if((j->j_state & JOB_MAY_KILL) && (j->j_pid > 0)){
     if(kill(j->j_pid, SIGTERM) < 0){
@@ -270,6 +359,39 @@ int stop_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
 
   return result;
 }
+
+int submit_to_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, struct katcl_msg *m, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n))
+{
+  /* queue a message request to job */
+  struct katcp_notice *n;
+
+  n = create_message_notice_katcp(d, NULL, 0, m);
+  if(n == NULL){
+    return -1;
+  }
+
+  if(add_tail_job(j, n)){
+    cancel_notice_katcp(d, n);
+    return -1;
+  }
+
+  if(add_notice_katcp(d, n, call)){
+    cancel_notice_katcp(d, n);
+    return -1;
+  }
+
+  /* now kick the thing in case it is at the top of the queue */
+
+  return 0;
+}
+
+#if 0
+int request_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
+{
+  if(j->j_state & JOB_MAY_IO){
+  }
+}
+#endif
 
 static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
 {
@@ -609,8 +731,9 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
       log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%d jobs", s->s_number);
       for(i = 0; i < s->s_number; i++){
         j = s->s_tasks[i];
-        log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "job %p %s, %s, %s and %s", 
+        log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "job %p with %d notices %s, %s, %s and %s", 
         j, 
+        j->j_count,
         (j->j_state & JOB_MAY_IO) ? "can do io" : "has finished io", 
         (j->j_state & JOB_MAY_WORK) ? "can process data" : "has no more data", 
         (j->j_state & JOB_MAY_KILL) ? "may be signalled" : "may not be signalled", 
@@ -670,3 +793,48 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
     }
   }
 }
+
+#ifdef UNIT_TEST
+
+#include <unistd.h>
+
+#define FUDGE 10000
+
+int main()
+{
+  struct katcp_job *j;
+  struct katcp_dispatch *d;
+  int i, k, r;
+
+  srand(getpid());
+  fprintf(stderr, "test: seed is %d\n", getpid());
+
+  d = startup_katcp();
+  if(d == NULL){
+    fprintf(stderr, "unable to create dispatch\n");
+    return 1;
+  }
+
+  j = create_job_katcp(d, 0, -1, NULL);
+  if(j == NULL){
+    fprintf(stderr, "unable to create job\n");
+    return 1;
+  }
+
+  for(i = 0; i >= 0; i++){
+    r = rand() % FUDGE;
+    if(r == 0){
+      for(k = 0; k < FUDGE; k++){
+        remove_head_job(j);
+      }
+    } else if((r % 3) == 0){
+      remove_head_job(j);
+    } else {
+      add_tail_job(j, (struct katcp_notice *) i);
+    }
+    dump_queue_job_katcp(j, stderr);
+  }
+
+  return 0;
+}
+#endif
