@@ -391,8 +391,8 @@ int undo_signals_shared_katcp(struct katcp_shared *s);
 void unlink_notices_katcp(struct katcp_dispatch *d);
 void destroy_notices_katcp(struct katcp_dispatch *d);
 int run_notices_katcp(struct katcp_dispatch *d);
-
 int notice_cmd_katcp(struct katcp_dispatch *d, int argc);
+int cancel_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 
 /* jobs */
 int load_jobs_katcp(struct katcp_dispatch *d);

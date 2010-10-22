@@ -21,10 +21,11 @@
 
 #define JOB_MAGIC 0x21525110
 
-#define JOB_MAY_IO      0x1
-#define JOB_MAY_WORK    0x2
-#define JOB_MAY_KILL    0x4
-#define JOB_MAY_COLLECT 0x8
+#define JOB_MAY_REQUEST 0x01
+#define JOB_MAY_IO      0x02
+#define JOB_MAY_WORK    0x04
+#define JOB_MAY_KILL    0x08
+#define JOB_MAY_COLLECT 0x10
 
 /******************************************************************/
 
@@ -286,7 +287,7 @@ struct katcp_job *create_job_katcp(struct katcp_dispatch *d, pid_t pid, int fd, 
   j->j_pid = pid;
   j->j_halt = halt;
 
-  j->j_state = JOB_MAY_IO | JOB_MAY_WORK;
+  j->j_state = JOB_MAY_REQUEST | JOB_MAY_IO | JOB_MAY_WORK;
   if(j->j_pid > 0){
     j->j_state |= JOB_MAY_KILL | JOB_MAY_COLLECT;
   }
@@ -360,9 +361,38 @@ int stop_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
   return result;
 }
 
+int issue_request_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
+{
+  struct katcp_notice *n;
+
+  if(j->j_count <= 0){
+    return 0; /* nothing to do */
+  }
+
+  if((j->j_state & JOB_MAY_REQUEST) == 0){
+    return 0; /* still waiting for a reply */
+  }
+
+  n = j->j_queue[j->j_head];
+  if(n == NULL){
+    /* TODO: somehow wake notice informing it of the failure */
+    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "queue of %u elements is empty at %u", j->j_count, j->j_head);
+    return -1;
+  }
+
+  if(append_msg_katcl(j->j_line, n->n_msg) < 0){
+    /* TODO: somehow wake notice informing it of the failure */
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to append request message to job");
+    return -1;
+  }
+
+  j->j_state &= ~(JOB_MAY_REQUEST);
+
+  return 0;
+}
+
 int submit_to_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, struct katcl_msg *m, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n))
 {
-  /* queue a message request to job */
   struct katcp_notice *n;
 
   n = create_message_notice_katcp(d, NULL, 0, m);
@@ -380,18 +410,10 @@ int submit_to_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, struct ka
     return -1;
   }
 
-  /* now kick the thing in case it is at the top of the queue */
+  issue_request_job_katcp(d, j); /* ignore return code, errors should come back as replies */
 
   return 0;
 }
-
-#if 0
-int request_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
-{
-  if(j->j_state & JOB_MAY_IO){
-  }
-}
-#endif
 
 static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
 {
@@ -731,9 +753,10 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
       log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%d jobs", s->s_number);
       for(i = 0; i < s->s_number; i++){
         j = s->s_tasks[i];
-        log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "job %p with %d notices %s, %s, %s and %s", 
+        log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "job %p with %d notices %s, %s, %s, %s and %s", 
         j, 
         j->j_count,
+        (j->j_state & JOB_MAY_REQUEST) ? "can issue requests" : "has a request pending", 
         (j->j_state & JOB_MAY_IO) ? "can do io" : "has finished io", 
         (j->j_state & JOB_MAY_WORK) ? "can process data" : "has no more data", 
         (j->j_state & JOB_MAY_KILL) ? "may be signalled" : "may not be signalled", 
@@ -765,27 +788,30 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
       }
 
       return KATCP_RESULT_OK;
-    } else if(!strcmp(name,"network")){ 
-      watch = arg_string_katcp(d,2);
-      host = arg_string_katcp(d,3);
-      port = arg_unsigned_long_katcp(d,4);
+    } else if(!strcmp(name, "network")){ 
+      watch = arg_string_katcp(d, 2);
+      host = arg_string_katcp(d, 3);
+      port = arg_unsigned_long_katcp(d, 4);
 
       if ((host == NULL) || (watch == NULL) || (port == 0)){
-        log_message_katcp(d,KATCP_LEVEL_INFO, NULL,"insufficient parameters for launch");
+        log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "insufficient parameters for launch");
         return KATCP_RESULT_FAIL;
       }
 
-      n = create_notice_katcp(d,watch,0);
+      n = create_notice_katcp(d, watch, 0);
       if (n==NULL){
-        log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"unable to create notice called %s",watch);
+        log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "unable to create notice called %s", watch);
         return KATCP_RESULT_FAIL;
       }
 
-      j = network_connect_job_katcp(d,host,port,n); 
+      j = network_connect_job_katcp(d, host, port, n); 
       
       if (j == NULL){
         return KATCP_RESULT_FAIL;
       }
+
+      return KATCP_RESULT_OK;
+    } else if(!strcmp(name, "watchdog")){
 
       return KATCP_RESULT_OK;
     } else {

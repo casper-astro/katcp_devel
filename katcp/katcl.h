@@ -56,6 +56,9 @@ int append_double_katcl(struct katcl_line *l, int flags, double v);
 #endif
 int append_buffer_katcl(struct katcl_line *l, int flags, void *buffer, int len);
 
+int append_msg_katcl(struct katcl_line *l, struct katcl_msg *m);
+
+
 int vsend_katcl(struct katcl_line *l, va_list ap);
 int send_katcl(struct katcl_line *l, ...);
 

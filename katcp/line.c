@@ -933,6 +933,55 @@ int append_buffer_katcl(struct katcl_line *l, int flags, void *buffer, int len)
   return queue_buffer_katcl(l->l_out, flags, buffer, len);
 }
 
+int append_msg_katcl(struct katcl_line *l, struct katcl_msg *m)
+{
+  struct katcl_msg *mx;
+  char *buffer;
+  unsigned int size, want;
+
+  mx = l->l_out;
+
+  if((mx->m_complete == 0) || (m->m_complete == 0)){
+    fprintf(stderr, "logic problem: attempting to queue messages to line while incomplete\n");
+    return -1;
+  }
+#ifdef DEBUG
+  if((m->m_want <= 0) || (m->m_size < m->m_want)){
+    fprintf(stderr, "logic problem: malproportioned message: want=%u, size=%u\n", m->m_want, m->m_size);
+    abort();
+  }
+#endif
+
+  if(mx->m_want == 0){ /* the line buffer is empty, so exchange it */
+    buffer = mx->m_buffer;
+    size = mx->m_size;
+    want = mx->m_want;
+
+    mx->m_buffer = m->m_buffer;
+    mx->m_size = m->m_size;
+    mx->m_want = m->m_want;
+
+    m->m_buffer = buffer;
+    m->m_size = size;
+    m->m_want = want;
+  } else { /* still something in buffer, append message */
+
+    want = mx->m_want + m->m_want;
+    if(want > mx->m_size){
+      buffer = realloc(mx->m_buffer, want);
+      if(buffer == NULL){
+        l->l_error = ENOMEM;
+        return -1;
+      }
+      mx->m_buffer = buffer;
+    }
+
+    memcpy(mx->m_buffer + mx->m_want, m->m_buffer, m->m_want);
+  }
+
+  return 0;
+}
+
 /**************************************************************/
 
 int vsend_katcl(struct katcl_line *l, va_list args)
