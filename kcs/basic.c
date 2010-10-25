@@ -358,7 +358,10 @@ int roach_cmd(struct katcp_dispatch *d, int argc){
       }     
       return KATCP_RESULT_FAIL;
     case 4:
-      
+      p_cmd = arg_string_katcp(d,1);
+      if (strcmp("mod",p_cmd) == 0){
+        return roachpool_mod(d);
+      }
       return KATCP_RESULT_FAIL;
     case 5:
       p_cmd = arg_string_katcp(d,1);

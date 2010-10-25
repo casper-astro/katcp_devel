@@ -8,36 +8,14 @@
 
 #define KCS_NOTICE_PYTHON   "python"
 
+
 struct kcs_basic
 {
   char *b_scripts;
   struct p_parser *b_parser;
-  struct kcs_node *b_pool_head;
+  struct kcs_ojb *b_pool_head;
 };
 
-struct kcs_node {
-  struct kcs_node *parent;
-  struct kcs_node **childnodes;
-  struct kcs_roach **childroaches;
-  int childcount;
-  char *desc;
-};
-
-struct kcs_roach {
-  struct kcs_node *parent;
-  char *hostname;
-  char *ip;
-  char *mac;
-  char *type;
-};
-
-/*
-struct kcs_roach_pool {
-  struct kcs_roach **krr;
-  int krrcount;
-  char *type;
-};
-*/
 
 struct p_parser {
   int state;
@@ -86,6 +64,7 @@ int parser_save(struct katcp_dispatch *d, char *filename, int force);
 struct p_value * parser_get(struct katcp_dispatch *d, char *srcl, char *srcs, unsigned long vidx);
 int parser_set(struct katcp_dispatch *d, char *srcl, char *srcs, unsigned long vidx, char *newval);
 
+
 struct e_state {
   int fd;
   fd_set insocks;
@@ -104,7 +83,42 @@ struct e_state {
 
 void execpy_do(char *filename, char **argv);
 
+#define KCS_ID_ROACH        2 
+#define KCS_ID_NODE         1
+#define KCS_ID_GENERIC      0
+
+struct kcs_obj {
+  int tid;
+  struct kcs_ojb *parent;
+  char *pool;
+  void *payload;
+};
+
+struct kcs_node {
+  struct kcs_obj **children;
+  int childcount;
+};
+
+struct kcs_roach {
+  char *hostname;
+  char *ip;
+  char *mac;
+};
+
+struct kcs_tree_operations {
+  struct kcs_obj* (*t_init)(void);
+  struct kcs_obj* (*t_create_node)(char *pool);
+  struct kcs_obj* (*t_create_leaf)(void *payload);
+  int (*t_add)(struct kcs_obj *parent, struct kcs_obj *child);
+  int (*t_del)(struct kcs_obj *obj);
+  struct kcs_obj* (*t_find)(char *sstr);
+  int (*t_destroy)(struct kcs_obj *root);
+};
+
 int roachpool_greeting(struct katcp_dispatch *d);
 int roachpool_add(struct katcp_dispatch *d);
+int roachpool_mod(struct katcp_dispatch *d);
+int roachpool_del(struct katcp_dispatch *d);
+int roachpool_list(struct katcp_dispatch *d);
 int roachpool_destroy(struct katcp_dispatch *d);
 #endif
