@@ -33,7 +33,7 @@ struct katcl_msg *create_msg_katcl(struct katcl_line *l)
 
   m->m_want = 0;
   m->m_tag = (-1);
-  m->m_complete = 0;
+  m->m_complete = 1;
 
   return m;
 }

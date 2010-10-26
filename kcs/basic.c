@@ -41,7 +41,7 @@ struct katcp_job *wrapper_process_create_job_katcp(struct katcp_dispatch *d, cha
     close(fds[0]);
     fcntl(fds[1], F_SETFD, FD_CLOEXEC);
 
-    j = create_job_katcp(d, pid, fds[1], halt);
+    j = create_job_katcp(d, file, pid, fds[1], halt);
     if(j == NULL){
       log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "unable to allocate job logic so terminating child process");
       kill(pid, SIGTERM);
@@ -88,36 +88,12 @@ struct katcp_job *wrapper_process_create_job_katcp(struct katcp_dispatch *d, cha
 
 int script_wildcard_resume(struct katcp_dispatch *d, struct katcp_notice *n)
 {
-  struct katcp_job *j;
-  int failed, code;
+  char *value;
 
-  failed = 1;
+  value = code_name_notice_katcp(d, n);
 
-  j = via_notice_job_katcp(d, n);
-  if(j){
-    if(WIFEXITED(j->j_status)){
-      code = WEXITSTATUS(j->j_status);
-      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "job exited with status code %d", code);
-      if(code == 0){
-        failed = 0;
-      }
-    } else {
-      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "job exited abnormally");
-    }
-  }
-
-#ifdef DEBUG
-  fprintf(stderr, "script resume: dispatch is %p\n", d);
-#endif
-
-#ifdef DEBUG
-  if(prepend_reply_katcp(d) < 0){
-    fprintf(stderr, "script resume: unable to prepend reply\n");
-  } 
-#else
   prepend_reply_katcp(d);
-#endif
-  append_string_katcp(d, KATCP_FLAG_LAST, failed ? KATCP_FAIL : KATCP_OK);
+  append_string_katcp(d, KATCP_FLAG_LAST, value ? value : KATCP_FAIL);
 
   resume_katcp(d);
 

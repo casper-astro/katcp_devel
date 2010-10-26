@@ -279,22 +279,32 @@ int end_type_shared_katcp(struct katcp_dispatch *d, int type, int force);
 
 struct katcp_notice *create_notice_katcp(struct katcp_dispatch *d, char *name, unsigned int tag);
 struct katcp_notice *create_message_notice_katcp(struct katcp_dispatch *d, char *name, unsigned int tag, struct katcl_msg *m);
+#if 0
+static void destroy_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
+#endif
 
 int add_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n));
 struct katcp_notice *register_notice_katcp(struct katcp_dispatch *d, char *name, unsigned int tag, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n));
 struct katcp_notice *find_notice_katcp(struct katcp_dispatch *d, char *name);
-struct katcl_msg *message_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 
-void wake_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
-int wake_name_notice_katcp(struct katcp_dispatch *d, char *name);
+struct katcl_msg *message_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
+int code_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
+char *code_name_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
+
+void wake_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int code);
+int wake_name_notice_katcp(struct katcp_dispatch *d, char *name, int code);
 
 /* job logic */
 
-struct katcp_job *create_job_katcp(struct katcp_dispatch *d, pid_t pid, int fd, struct katcp_notice *halt);
+struct katcp_job *create_job_katcp(struct katcp_dispatch *d, char *name, pid_t pid, int fd, struct katcp_notice *halt);
 struct katcp_job *via_notice_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 
 struct katcp_job *process_create_job_katcp(struct katcp_dispatch *d, char *file, char **argv, struct katcp_notice *halt);
+struct katcp_job *network_connect_job_katcp(struct katcp_dispatch *d, char *host, int port, struct katcp_notice *halt);
 
-int stop_job_katcp(struct katcp_dispatch *d, struct katcp_job *j);
+struct katcp_job *find_job_katcp(struct katcp_dispatch *d, char *name);
+
+
+int stop_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, int hard);
 
 #endif

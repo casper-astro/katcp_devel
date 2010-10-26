@@ -289,6 +289,8 @@ void shutdown_shared_katcp(struct katcp_dispatch *d)
   }
 #endif
 
+  /* TODO: what about destroying jobs, need to happen before sensors ? */
+
   destroy_notices_katcp(d);
   destroy_sensors_katcp(d);
 

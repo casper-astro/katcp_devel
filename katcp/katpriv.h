@@ -216,10 +216,12 @@ struct katcp_notice;
 
 struct katcp_job{
   unsigned int j_magic;
+  char *j_name;
+
   pid_t j_pid;
 
   int j_state; /* state machine */
-  int j_status; /* exit code */
+  int j_code; /* exit code */
 
   struct katcl_line *j_line;
 
@@ -260,12 +262,17 @@ struct katcp_notice{
   unsigned int n_count;
 
   int n_trigger;
+  int n_code;
   char *n_name;
 
   int n_tag;
   struct katcl_msg *n_msg;
+  int n_use;
+
+#if 0
   void *n_target;
   int (*n_release)(struct katcp_dispatch *d, struct katcp_notice *n, void *target);
+#endif
 };
 
 struct katcp_shared{
@@ -388,7 +395,7 @@ int init_signals_shared_katcp(struct katcp_shared *s);
 int undo_signals_shared_katcp(struct katcp_shared *s);
 
 /* notice logic */
-void unlink_notices_katcp(struct katcp_dispatch *d);
+void disown_notices_katcp(struct katcp_dispatch *d);
 void destroy_notices_katcp(struct katcp_dispatch *d);
 int run_notices_katcp(struct katcp_dispatch *d);
 int notice_cmd_katcp(struct katcp_dispatch *d, int argc);

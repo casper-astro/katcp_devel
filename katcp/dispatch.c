@@ -207,7 +207,7 @@ void shutdown_katcp(struct katcp_dispatch *d)
 
   destroy_nonsensors_katcp(d);
 
-  unlink_notices_katcp(d);
+  disown_notices_katcp(d);
 
   shutdown_shared_katcp(d);
 
@@ -886,7 +886,7 @@ void reset_katcp(struct katcp_dispatch *d, int fd)
 
   destroy_nonsensors_katcp(d);
 
-  unlink_notices_katcp(d);
+  disown_notices_katcp(d);
 
   d->d_run = 1;
   d->d_exit = KATCP_EXIT_ABORT; /* assume the worst */
