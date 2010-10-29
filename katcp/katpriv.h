@@ -23,9 +23,32 @@ struct katcl_msg{
   int m_complete;
 };
 
+struct katcl_parse{
+  unsigned int p_state;
+
+  char *p_buffer;
+  unsigned int p_size;
+  unsigned int p_have;
+  unsigned int p_used;
+  unsigned int p_kept;
+
+  struct katcl_larg *p_args;
+  struct katcl_larg *p_current;
+  unsigned int p_count;
+  unsigned int p_got;
+
+  int p_refs;
+  int p_tag;
+};
+
 struct katcl_line{
   int l_fd;
 
+  struct katcl_parse *l_ready;
+  struct katcl_parse *l_next;
+  struct katcl_parse *l_spare;
+
+#if 0
   char *l_input;
   unsigned int l_isize;
   unsigned int l_ihave;
@@ -37,6 +60,7 @@ struct katcl_line{
   struct katcl_larg *l_current;
   unsigned int l_asize;
   unsigned int l_ahave;
+#endif
 
 #if 0
   char *l_output;
@@ -51,8 +75,9 @@ struct katcl_line{
   unsigned int l_odone;
 
   int l_error;
+#if 0
   int l_problem;
-  unsigned int l_state;
+#endif
 };
 
 struct katcp_dispatch;
