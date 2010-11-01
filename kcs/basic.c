@@ -88,12 +88,18 @@ struct katcp_job *wrapper_process_create_job_katcp(struct katcp_dispatch *d, cha
 
 int script_wildcard_resume(struct katcp_dispatch *d, struct katcp_notice *n)
 {
-  char *value;
+  char *ptr;
+  struct katcl_parse *p;
 
-  value = code_name_notice_katcp(d, n);
+  ptr = NULL;
+
+  p = parsed_notice_katcp(d, n);
+  if(p){
+    ptr = parsed_string_katcl(p, 1);
+  }
 
   prepend_reply_katcp(d);
-  append_string_katcp(d, KATCP_FLAG_LAST, value ? value : KATCP_FAIL);
+  append_string_katcp(d, KATCP_FLAG_LAST, ptr ? ptr : KATCP_FAIL);
 
   resume_katcp(d);
 

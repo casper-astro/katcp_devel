@@ -294,6 +294,8 @@ struct katcp_notice{
   struct katcl_msg *n_msg;
   int n_use;
 
+  struct katcl_parse *n_parse;
+
 #if 0
   void *n_target;
   int (*n_release)(struct katcp_dispatch *d, struct katcp_notice *n, void *target);
@@ -432,5 +434,28 @@ int wait_jobs_katcp(struct katcp_dispatch *d);
 int run_jobs_katcp(struct katcp_dispatch *d);
 
 int job_cmd_katcp(struct katcp_dispatch *d, int argc);
+
+/* parse stuff */
+struct katcl_parse *create_parse_katcl();
+void destroy_parse_katcl(struct katcl_parse *p);
+void clear_parse_katcl(struct katcl_parse *p);
+
+int parse_katcl(struct katcl_line *l);
+
+unsigned int parsed_count_katcl(struct katcl_parse *p);
+int parsed_tag_katcl(struct katcl_parse *p);
+int parsed_type_katcl(struct katcl_parse *p, char mode);
+int parsed_request_katcl(struct katcl_parse *p);
+int parsed_reply_katcl(struct katcl_parse *p);
+int parsed_inform_katcl(struct katcl_parse *p);
+int parsed_null_katcl(struct katcl_parse *p, unsigned int index);
+
+char *parsed_string_katcl(struct katcl_parse *p, unsigned int index);
+char *parsed_copy_string_katcl(struct katcl_parse *p, unsigned int index);
+unsigned long parsed_unsigned_long_katcl(struct katcl_parse *p, unsigned int index);
+#ifdef KATCP_USE_FLOATS
+double parsed_double_katcl(struct katcl_parse *p, unsigned int index);
+#endif
+unsigned int parsed_buffer_katcl(struct katcl_parse *p, unsigned int index, void *buffer, unsigned int size);
 
 #endif

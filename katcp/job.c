@@ -624,6 +624,7 @@ int run_jobs_katcp(struct katcp_dispatch *d)
   struct katcp_shared *s;
   struct katcp_notice *n;
   struct katcp_job *j;
+  struct katcl_parse *p;
   int i, count, fd, result;
 
   s = d->d_shared;
@@ -701,8 +702,13 @@ int run_jobs_katcp(struct katcp_dispatch *d)
 
       n = remove_head_job(j);
       while(n != NULL){
+        p = create_parse_katcl();
+        if(p){
+          /* TODO */
+          log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "need to provide status");
+        }
         log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "waking notices still queued");
-        wake_notice_katcp(d, n, KATCP_RESULT_FAIL);
+        wake_notice_katcp(d, n, p);
         n = remove_head_job(j);
       }
 
@@ -711,8 +717,14 @@ int run_jobs_katcp(struct katcp_dispatch *d)
         n = j->j_halt;
         j->j_halt = NULL;
 
+        p = create_parse_katcl();
+        if(p){
+          /* TODO */
+          log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "need to provide status in return code");
+        }
+
         n->n_use--;
-        wake_notice_katcp(d, n, j->j_code);
+        wake_notice_katcp(d, n, p);
       }
 
       delete_job_katcp(d, j);
@@ -846,10 +858,16 @@ struct katcp_job *network_connect_job_katcp(struct katcp_dispatch *d, char *host
 int resume_job(struct katcp_dispatch *d, struct katcp_notice *n)
 { 
   char *ptr;
+  struct katcl_parse *p;
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "resuming after waiting for notice %p", n);
 
-  ptr = code_name_notice_katcp(d, n);
+  ptr = NULL;
+
+  p = parsed_notice_katcp(d, n);
+  if(p){
+    ptr = parsed_string_katcl(p, 1);
+  }  
 
   prepend_reply_katcp(d);
   append_string_katcp(d, KATCP_FLAG_LAST, ptr ? ptr : KATCP_FAIL);

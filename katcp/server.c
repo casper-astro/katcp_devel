@@ -188,11 +188,8 @@ static int pipe_from_file_katcp(struct katcp_dispatch *dl, char *file)
 #define S_DONE 3
   int fds[2], fd;
   pid_t pid;
-  char buffer[READ_BUFFER];
-  int rr, wr, hw;
   struct katcl_line *pl, *fl;
   int result;
-  char *cmd;
 
   if(socketpair(AF_UNIX, SOCK_STREAM, 0, fds) < 0){
     return -1;

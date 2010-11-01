@@ -45,8 +45,12 @@ static void deallocate_notice_katcp(struct katcp_dispatch *d, struct katcp_notic
       n->n_msg = NULL;
     }
 
+    if(n->n_parse){
+      destroy_parse_katcl(n->n_parse);
+      n->n_parse = NULL;
+    }
+
     n->n_tag = (-1);
-    n->n_code = KATCP_RESULT_INVALID;
 
 #if 0
     n->n_target = NULL;
@@ -281,12 +285,13 @@ struct katcp_notice *create_message_notice_katcp(struct katcp_dispatch *d, char 
   n->n_count = 0;
 
   n->n_trigger = 0;
-  n->n_code = KATCP_RESULT_INVALID;
   n->n_name = NULL;
 
   n->n_tag = tag;
   n->n_msg = NULL;
   n->n_use = 0;
+
+  n->n_parse = NULL;
 
 #if 0
   n->n_target = NULL;
@@ -397,6 +402,7 @@ struct katcl_msg *message_notice_katcp(struct katcp_dispatch *d, struct katcp_no
   return n->n_msg;
 }
 
+#if 0
 int code_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
 {
 #ifdef DEBUG
@@ -409,6 +415,7 @@ char *code_name_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
 {
   return code_to_name_katcm(n->n_code);
 }
+#endif
 
 /*******************************************************************************/
 
@@ -478,16 +485,16 @@ int cancel_name_notice_katcp(struct katcp_dispatch *d, char *name)
 
 /*******************************************************************************/
 
-void wake_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int code)
+void wake_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p)
 {
 
-  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "waking notice %p with code %d (used by %d)", n, code, n->n_use);
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "waking notice %p with parse %p (used by %d)", n, p, n->n_use);
 
-  n->n_code = code;
   n->n_trigger = 1;
+  n->n_parse = p;
 }
 
-int wake_name_notice_katcp(struct katcp_dispatch *d, char *name, int code)
+int wake_name_notice_katcp(struct katcp_dispatch *d, char *name, struct katcl_parse *p)
 {
   struct katcp_notice *n;
 
@@ -496,9 +503,14 @@ int wake_name_notice_katcp(struct katcp_dispatch *d, char *name, int code)
     return -1;
   }
 
-  wake_notice_katcp(d, n, code);
+  wake_notice_katcp(d, n, p);
 
   return 0;
+}
+
+struct katcl_parse *parsed_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
+{
+  return n->n_parse;
 }
 
 /*******************************************************************************/
