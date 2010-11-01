@@ -11,6 +11,7 @@
 struct katcl_larg{
   unsigned int a_begin;
   unsigned int a_end;
+  unsigned int a_escapes;
 };
 
 struct katcl_msg{
@@ -442,20 +443,21 @@ void clear_parse_katcl(struct katcl_parse *p);
 
 int parse_katcl(struct katcl_line *l);
 
-unsigned int parsed_count_katcl(struct katcl_parse *p);
-int parsed_tag_katcl(struct katcl_parse *p);
-int parsed_type_katcl(struct katcl_parse *p, char mode);
-int parsed_request_katcl(struct katcl_parse *p);
-int parsed_reply_katcl(struct katcl_parse *p);
-int parsed_inform_katcl(struct katcl_parse *p);
-int parsed_null_katcl(struct katcl_parse *p, unsigned int index);
+unsigned int get_count_parse_katcl(struct katcl_parse *p);
+int get_tag_parse_katcl(struct katcl_parse *p);
 
-char *parsed_string_katcl(struct katcl_parse *p, unsigned int index);
-char *parsed_copy_string_katcl(struct katcl_parse *p, unsigned int index);
-unsigned long parsed_unsigned_long_katcl(struct katcl_parse *p, unsigned int index);
+int is_type_parse_katcl(struct katcl_parse *p, char mode);
+int is_request_parse_katcl(struct katcl_parse *p);
+int is_reply_parse_katcl(struct katcl_parse *p);
+int is_inform_parse_katcl(struct katcl_parse *p);
+int is_null_parse_katcl(struct katcl_parse *p, unsigned int index);
+
+char *get_string_parse_katcl(struct katcl_parse *p, unsigned int index);
+char *copy_string_parse_katcl(struct katcl_parse *p, unsigned int index);
+unsigned long get_unsigned_long_parse_katcl(struct katcl_parse *p, unsigned int index);
 #ifdef KATCP_USE_FLOATS
-double parsed_double_katcl(struct katcl_parse *p, unsigned int index);
+double get_double_parse_katcl(struct katcl_parse *p, unsigned int index);
 #endif
-unsigned int parsed_buffer_katcl(struct katcl_parse *p, unsigned int index, void *buffer, unsigned int size);
+unsigned int get_buffer_parse_katcl(struct katcl_parse *p, unsigned int index, void *buffer, unsigned int size);
 
 #endif

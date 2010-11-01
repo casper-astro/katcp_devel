@@ -197,16 +197,18 @@ int queue_buffer_katcl(struct katcl_msg *m, int flags, void *buffer, int len)
 {
   /* returns greater than zero on success */
 
-  unsigned int newsize, had, want, need, result, i, problem;
+  unsigned int newsize, had, want, need, result, i;
   char *s, *tmp, v;
 
-  problem = KATCP_FLAG_MORE | KATCP_FLAG_LAST;
-  if((flags & problem) == problem){
+#if 0 /* phase out FLAG_MORE */
+  exclusive = KATCP_FLAG_MORE | KATCP_FLAG_LAST;
+  if((flags & exclusive) == exclusive){
 #ifdef DEBUG
     fprintf(stderr, "queue: usage problem: can not have last and more together\n");
 #endif
     return -1;
   }
+#endif
 
   if(len < 0){
     return -1;
@@ -280,7 +282,9 @@ int queue_buffer_katcl(struct katcl_msg *m, int flags, void *buffer, int len)
   }
 
   /* check if we are dealing with null args, if so put in null token */
+#if 0
   if(!(flags & KATCP_FLAG_MORE) || (flags & KATCP_FLAG_LAST)){
+#endif
     if((m->m_want > 0) && (m->m_buffer[m->m_want - 1] == ' ')){ /* WARNING: convoluted heuristic: add a null token if we haven't added anything sofar and more isn't comming */
 #ifdef DEBUG
       fprintf(stderr, "queue: warning: empty argument considered bad form\n");
@@ -288,15 +292,21 @@ int queue_buffer_katcl(struct katcl_msg *m, int flags, void *buffer, int len)
       m->m_buffer[m->m_want++] = '\\';
       m->m_buffer[m->m_want++] = '@';
     }
+#if 0
   }
+#endif
 
   if(flags & KATCP_FLAG_LAST){
     m->m_buffer[m->m_want++] = '\n';
     m->m_complete = 1;
   } else {
+#if 0
     if(!(flags & KATCP_FLAG_MORE)){
       m->m_buffer[m->m_want++] = ' ';
     }
+#else
+    m->m_buffer[m->m_want++] = ' ';
+#endif
     m->m_complete = 0;
   }
 
@@ -582,7 +592,7 @@ unsigned int arg_count_katcl(struct katcl_line *l)
     return 0;
   }
 
-  return parsed_count_katcl(l->l_ready);
+  return get_count_parse_katcl(l->l_ready);
 }
 
 int arg_tag_katcl(struct katcl_line *l)
@@ -591,7 +601,7 @@ int arg_tag_katcl(struct katcl_line *l)
     return -1;
   }
 
-  return parsed_tag_katcl(l->l_ready);
+  return get_tag_parse_katcl(l->l_ready);
 }
 
 static int arg_type_katcl(struct katcl_line *l, char mode)
@@ -600,7 +610,7 @@ static int arg_type_katcl(struct katcl_line *l, char mode)
     return -1;
   }
 
-  return parsed_type_katcl(l->l_ready, mode);
+  return is_type_parse_katcl(l->l_ready, mode);
 }
 
 int arg_request_katcl(struct katcl_line *l)
@@ -624,7 +634,7 @@ int arg_null_katcl(struct katcl_line *l, unsigned int index)
     return -1;
   }
 
-  return parsed_null_katcl(l->l_ready, index);
+  return is_null_parse_katcl(l->l_ready, index);
 }
 
 char *arg_string_katcl(struct katcl_line *l, unsigned int index)
@@ -633,7 +643,7 @@ char *arg_string_katcl(struct katcl_line *l, unsigned int index)
     return NULL;
   }
 
-  return parsed_string_katcl(l->l_ready, index);
+  return get_string_parse_katcl(l->l_ready, index);
 }
 
 char *arg_copy_string_katcl(struct katcl_line *l, unsigned int index)
@@ -642,7 +652,7 @@ char *arg_copy_string_katcl(struct katcl_line *l, unsigned int index)
     return NULL;
   }
 
-  return parsed_copy_string_katcl(l->l_ready, index);
+  return copy_string_parse_katcl(l->l_ready, index);
 }
 
 unsigned long arg_unsigned_long_katcl(struct katcl_line *l, unsigned int index)
@@ -651,7 +661,7 @@ unsigned long arg_unsigned_long_katcl(struct katcl_line *l, unsigned int index)
     return 0;
   }
 
-  return parsed_unsigned_long_katcl(l->l_ready, index);
+  return get_unsigned_long_parse_katcl(l->l_ready, index);
 }
 
 #ifdef KATCP_USE_FLOATS
@@ -661,7 +671,7 @@ double arg_double_katcl(struct katcl_line *l, unsigned int index)
     return 0.0; /* TODO: maybe NAN instead ? */
   }
 
-  return parsed_double_katcl(l->l_ready, index);
+  return get_double_parse_katcl(l->l_ready, index);
 }
 #endif
 
@@ -671,7 +681,7 @@ unsigned int arg_buffer_katcl(struct katcl_line *l, unsigned int index, void *bu
     return 0;
   }
 
-  return parsed_buffer_katcl(l->l_ready, index, buffer, size);
+  return get_buffer_parse_katcl(l->l_ready, index, buffer, size);
 }
 
 /******************************************************************/

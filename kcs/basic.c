@@ -95,7 +95,7 @@ int script_wildcard_resume(struct katcp_dispatch *d, struct katcp_notice *n)
 
   p = parsed_notice_katcp(d, n);
   if(p){
-    ptr = parsed_string_katcl(p, 1);
+    ptr = get_string_parse_katcl(p, 1);
   }
 
   prepend_reply_katcp(d);

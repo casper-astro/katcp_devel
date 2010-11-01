@@ -646,11 +646,14 @@ int call_katcp(struct katcp_dispatch *d)
     switch(s[0]){
       case KATCP_REQUEST :
         if(s[1] != '\0'){
+          extra_response_katcp(d, KATCP_RESULT_INVALID, "unknown command");
+#if 0
           send_katcp(d, 
               KATCP_FLAG_FIRST | KATCP_FLAG_MORE | KATCP_FLAG_STRING, "!", 
               KATCP_FLAG_STRING, s + 1, 
               KATCP_FLAG_STRING, KATCP_INVALID, 
               KATCP_FLAG_LAST | KATCP_FLAG_STRING, "unknown command");
+#endif
         }
         break;
       case KATCP_REPLY :
