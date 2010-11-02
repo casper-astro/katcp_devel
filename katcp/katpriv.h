@@ -460,4 +460,8 @@ double get_double_parse_katcl(struct katcl_parse *p, unsigned int index);
 #endif
 unsigned int get_buffer_parse_katcl(struct katcl_parse *p, unsigned int index, void *buffer, unsigned int size);
 
+#ifdef DEBUG
+int dump_parse_katcl(struct katcl_parse *p, char *prefix, FILE *fp);
+#endif
+
 #endif

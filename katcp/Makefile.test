@@ -1,0 +1,16 @@
+include ../Makefile.inc
+
+INC = -I.
+
+TESTS = test-parse test-line
+
+all: $(TESTS)
+
+test-parse: parse.c
+	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_PARSE -o $@ $^
+
+test-line: parse.c line.c
+	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_LINE -o $@ $^
+
+clean: 
+	$(RM) *.o core $(TESTS)

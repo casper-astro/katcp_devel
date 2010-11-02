@@ -1060,30 +1060,6 @@ int error_katcl(struct katcl_line *l)
 
 #ifdef UNIT_TEST_LINE
 
-void dump_parse_katcl(struct katcl_parse *p, char *prefix, FILE *fp)
-{
-  unsigned int i, j;
-
-  if(p == NULL){
-    fprintf(fp, "input %s is null\n", prefix);
-    return;
-  }
-
-  fprintf(fp, "input %s@%p: state=%d, kept=%u, used=%u, have=%u\n", prefix, p, p->p_state, p->p_kept, p->p_used, p->p_have);
-
-  for(i = 0; i < p->p_got; i++){
-    fprintf(fp, "arg[%u]: (%s) ", i, parsed_string_katcl(p, i));
-    for(j = p->p_args[i].a_begin; j < p->p_args[i].a_end; j++){
-      if(isprint(p->p_buffer[j])){
-        fprintf(fp, "%c", p->p_buffer[j]);
-      } else {
-        fprintf(fp, "\\%02x", p->p_buffer[j]);
-      }
-    }
-    fprintf(fp, "\n");
-  }
-}
-
 void dump_katcl(struct katcl_line *l, FILE *fp)
 {
   fprintf(fp, "input: fd=%d\n", l->l_fd);

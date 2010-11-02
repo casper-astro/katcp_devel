@@ -1,15 +1,12 @@
-CC = $(CROSS_COMPILE)gcc
-CFLAGS = -Wall
-CFLAGS += -DDEBUG
-CFLAGS += -ggdb
+include ../Makefile.inc
+
+INC = -I$(KATCP)
+LIB = -L$(KATCP) -lkatcp
 
 SERVER = kcs
 SRC = roachpool.c execpy.c parser.c kcserver.c basic.c
 
 OBJ = $(patsubst %.c,%.o,$(SRC))
-INC = -I$(KATCP)
-LIB = -L$(KATCP) -lkatcp
-
 all: $(SERVER)
 
 $(SERVER): $(OBJ) ../katcp/libkatcp.a
@@ -20,6 +17,9 @@ clean:
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@ $(INC)
+
+install: all
+	$(INSTALL) $(SERVER) $(PREFIX)/sbin
 
 test-parser: parser.c 
 	$(CC) $(CFLAGS) -DSTANDALONE -o $@ $^ -I../katcp
