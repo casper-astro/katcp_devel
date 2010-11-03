@@ -68,6 +68,8 @@ struct katcp_cmd;
 #define KATCP_CMD_HIDDEN    0x1
 #define KATCP_CMD_WILDCARD  0x2
 
+#define KATCP_INFORM_JOB    "#job"
+
 /******************* core api ********************/
 
 /* create a dispatch handler */
@@ -292,6 +294,7 @@ struct katcp_notice *find_notice_katcp(struct katcp_dispatch *d, char *name);
 
 struct katcl_msg *message_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 
+
 #if 0
 int code_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 char *code_name_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
@@ -299,7 +302,7 @@ char *code_name_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 
 void wake_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p);
 int wake_name_notice_katcp(struct katcp_dispatch *d, char *name, struct katcl_parse *p);
-struct katcl_parse *parsed_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
+struct katcl_parse *response_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 
 /* job logic */
 

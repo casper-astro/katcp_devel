@@ -402,6 +402,11 @@ struct katcl_msg *message_notice_katcp(struct katcp_dispatch *d, struct katcp_no
   return n->n_msg;
 }
 
+struct katcl_parse *response_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
+{
+  return n->n_parse;
+}
+
 #if 0
 int code_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
 {
@@ -506,11 +511,6 @@ int wake_name_notice_katcp(struct katcp_dispatch *d, char *name, struct katcl_pa
   wake_notice_katcp(d, n, p);
 
   return 0;
-}
-
-struct katcl_parse *parsed_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
-{
-  return n->n_parse;
 }
 
 /*******************************************************************************/
@@ -629,17 +629,26 @@ int run_notices_katcp(struct katcp_dispatch *d)
 
 int resume_notice(struct katcp_dispatch *d, struct katcp_notice *n)
 {
+  struct katcp_parse *p;
+  char *ptr;
+
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "resuming after waiting for notice");
 
 #if 0
   append_string_katcp(d, KATCP_FLAG_FIRST, "!notice");
 #endif
 
+  p = response_notice_katcp(d, n);
+  if(p){
+    ptr = get_string_parse_katcl(p, 1);
+  } else {
+    ptr = NULL;
+  }
+
   prepend_reply_katcp(d);
-  append_string_katcp(d, KATCP_FLAG_LAST, KATCP_OK);
+  append_string_katcp(d, KATCP_FLAG_LAST, ptr ? ptr : KATCP_FAIL);
 
   resume_katcp(d);
-
   return 0;
 }
 
