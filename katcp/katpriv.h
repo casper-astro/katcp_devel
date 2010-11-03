@@ -14,6 +14,7 @@ struct katcl_larg{
   unsigned int a_escapes;
 };
 
+#if 0
 struct katcl_msg{
   struct katcl_line *m_line;
 
@@ -23,6 +24,7 @@ struct katcl_msg{
   int m_tag;
   int m_complete;
 };
+#endif
 
 struct katcl_parse{
   unsigned int p_state;
@@ -32,6 +34,7 @@ struct katcl_parse{
   unsigned int p_have;
   unsigned int p_used;
   unsigned int p_kept;
+  unsigned int p_wrote;
 
   struct katcl_larg *p_args;
   struct katcl_larg *p_current;
@@ -40,6 +43,8 @@ struct katcl_parse{
 
   int p_refs;
   int p_tag;
+
+  struct katcp_parse *p_next;
 };
 
 struct katcl_line{
@@ -72,8 +77,14 @@ struct katcl_line{
   int l_ocomplete;
 #endif
 
+#if 0
   struct katcl_msg *l_out;
   unsigned int l_odone;
+#endif
+
+  struct katcl_parse *l_head;
+  struct katcl_parse *l_tail;
+  struct katcl_parse *l_stage;
 
   int l_error;
 #if 0
@@ -442,6 +453,7 @@ void destroy_parse_katcl(struct katcl_parse *p);
 void clear_parse_katcl(struct katcl_parse *p);
 
 int parse_katcl(struct katcl_line *l);
+int deparse_katcl(struct katcl_parse *p);
 
 unsigned int get_count_parse_katcl(struct katcl_parse *p);
 int get_tag_parse_katcl(struct katcl_parse *p);
