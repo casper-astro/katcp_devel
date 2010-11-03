@@ -44,7 +44,7 @@ struct katcl_parse{
   int p_refs;
   int p_tag;
 
-  struct katcp_parse *p_next;
+  struct katcl_parse *p_next;
 };
 
 struct katcl_line{

@@ -750,8 +750,6 @@ unsigned int arg_buffer_katcl(struct katcl_line *l, unsigned int index, void *bu
 
 static struct katcl_parse *before_append_katcl(struct katcl_line *l, int flags)
 {
-  struct katcl_parse *p;
-
   if(l->l_stage == NULL){
 
     if(!(flags & KATCP_FLAG_FIRST)){
@@ -815,6 +813,7 @@ static int after_append_katcl(struct katcl_line *l, int flags, int result)
 
 /******************************************************************/
 
+#ifdef TODO
 int append_vargs_katcl(struct katcl_line *l, int flags, char *fmt, va_list args)
 {
   return queue_vargs_katcl(l->l_out, flags, fmt, args);
@@ -831,10 +830,12 @@ int append_args_katcl(struct katcl_line *l, int flags, char *fmt, ...)
 
   return result;
 }
+#endif
 
 int append_string_katcl(struct katcl_line *l, int flags, char *buffer)
 {
-  struct katcp_parse *p;
+  struct katcl_parse *p;
+  int result;
 
   p = before_append_katcl(l, flags);
   if(p == NULL){
@@ -848,7 +849,8 @@ int append_string_katcl(struct katcl_line *l, int flags, char *buffer)
 
 int append_unsigned_long_katcl(struct katcl_line *l, int flags, unsigned long v)
 {
-  struct katcp_parse *p;
+  struct katcl_parse *p;
+  int result;
 
   p = before_append_katcl(l, flags);
   if(p == NULL){
@@ -862,7 +864,8 @@ int append_unsigned_long_katcl(struct katcl_line *l, int flags, unsigned long v)
 
 int append_signed_long_katcl(struct katcl_line *l, int flags, unsigned long v)
 {
-  struct katcp_parse *p;
+  struct katcl_parse *p;
+  int result;
 
   p = before_append_katcl(l, flags);
   if(p == NULL){
@@ -876,7 +879,8 @@ int append_signed_long_katcl(struct katcl_line *l, int flags, unsigned long v)
 
 int append_hex_long_katcl(struct katcl_line *l, int flags, unsigned long v)
 {
-  struct katcp_parse *p;
+  struct katcl_parse *p;
+  int result;
 
   p = before_append_katcl(l, flags);
   if(p == NULL){
@@ -891,7 +895,8 @@ int append_hex_long_katcl(struct katcl_line *l, int flags, unsigned long v)
 #ifdef KATCP_USE_FLOATS
 int append_double_katcl(struct katcl_line *l, int flags, double v)
 {
-  struct katcp_parse *p;
+  struct katcl_parse *p;
+  int result;
 
   p = before_append_katcl(l, flags);
   if(p == NULL){
@@ -906,7 +911,8 @@ int append_double_katcl(struct katcl_line *l, int flags, double v)
 
 int append_buffer_katcl(struct katcl_line *l, int flags, void *buffer, int len)
 {
-  struct katcp_parse *p;
+  struct katcl_parse *p;
+  int result;
 
   p = before_append_katcl(l, flags);
   if(p == NULL){
@@ -1163,6 +1169,8 @@ int print_katcl(struct katcl_line *l, int full, char *fmt, ...)
 }
 #endif
 
+
+#ifdef TODO
 int parsed_relay_katcl(struct katcl_parse *p, struct katcl_msg *m)
 {
   int i, flag, need, len;
@@ -1202,6 +1210,7 @@ int relay_katcl(struct katcl_line *lx, struct katcl_line *ly)
 
   return parsed_relay_katcl(lx->l_ready, ly->l_out);
 }
+#endif
 
 /***************************/
 
@@ -1212,9 +1221,9 @@ int write_katcl(struct katcl_line *l)
   int wr;
   struct katcl_parse *p;
 
-  p = l->l_head;
+  while(l->l_head){
+    p = l->l_head;
 
-  while(p){
     if(p->p_wrote < p->p_kept){
       wr = send(l->l_fd, p->p_buffer + p->p_wrote, p->p_kept - p->p_wrote, MSG_DONTWAIT | MSG_NOSIGNAL);
       if(wr < 0){
@@ -1236,12 +1245,10 @@ int write_katcl(struct katcl_line *l)
     clear_parse_katcl(p);
     p->p_next = l->l_spare;
     l->l_spare = p;
-
-    p->p_next;
   }
 
   /* done everything */
-  l->p_tail = NULL;
+  l->l_tail = NULL;
   return 1;
 }
 
