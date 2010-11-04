@@ -861,10 +861,32 @@ int relay_katcl(struct katcl_line *lx, struct katcl_line *ly)
 #define WRITE_STATE_FILL   1
 #define WRITE_STATE_SEND   2
 
-int escape_copy_katcl(char *dst, char *src, unsigned int want)
+static int escape_copy_katcl(char *dst, char *src, unsigned int want)
 {
-  /* returns amount actually consumed, presumes that dst has at least 2 + 2*want available */
-  return -1;
+  /* returns amount actually consumed, assumes that dst has at least 2 + 2*want available */
+  int i, j;
+  char v;
+
+  j = 0;
+
+  for(j = 0, i = 0; i < want; i++){
+    switch(src[i]){
+      case  27  : v = 'e';  break;
+      case '\n' : v = 'n';  break;
+      case '\r' : v = 'r';  break;
+      case '\0' : v = '0';  break;
+      case '\\' : v = '\\'; break;
+      case ' '  : v = '_';  break; 
+      case '\t' : v = 't';  break;
+      default   : 
+        dst[j++] = s[i];
+        continue; /* WARNING: restart loop */
+    }
+    dst[j++] = '\\';
+    dst[j++] = v;
+  }
+
+  return j;
 }
 
 int write_katcl(struct katcl_line *l)
@@ -893,15 +915,24 @@ int write_katcl(struct katcl_line *l)
 #endif
 
           la = &(p->p_args[l->l_arg]);
-
-          if(la->a_escape){
-          }
-
-          i = la-
           want = la->a_end - la->a_begin;
 
+          if(want == 0){ /* \@ - special case */
+#ifdef DEBUG
+            if(l->l_arg == 0){
+              fprintf(stderr, "write: problem - arg0 is null\n");
+            }
+#endif
+          } else {
+          }
 
-          
+#if 0
+          if(la->a_escape){
+          } else {
+          }
+#endif
+
+
         }
 
         break;
