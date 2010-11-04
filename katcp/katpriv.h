@@ -303,9 +303,9 @@ struct katcp_notice{
   char *n_name;
 
   int n_tag;
-  struct katcl_msg *n_msg;
   int n_use;
 
+  /* might get away with only one parse structure */
   struct katcl_parse *n_parse;
 
 #if 0

@@ -629,7 +629,7 @@ int run_notices_katcp(struct katcp_dispatch *d)
 
 int resume_notice(struct katcp_dispatch *d, struct katcp_notice *n)
 {
-  struct katcp_parse *p;
+  struct katcl_parse *p;
   char *ptr;
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "resuming after waiting for notice");
