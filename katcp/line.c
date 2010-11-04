@@ -16,186 +16,9 @@
 #include "katcl.h"
 #include "katcp.h"
 
-#if 0
-struct katcl_msg *create_msg_katcl(struct katcl_line *l)
-{
-  struct katcl_msg *m;
-
-  m = malloc(sizeof(struct katcl_msg));
-  if(m == NULL){
-    return NULL;
-  }
-
-  m->m_line = l;
-
-  m->m_buffer = NULL;
-  m->m_size = 0;
-
-  m->m_want = 0;
-  m->m_tag = (-1);
-  m->m_complete = 1;
-
-  return m;
-}
-
-void destroy_msg_katcl(struct katcl_msg *m)
-{
-  if(m == NULL){
-    return;
-  }
-
-  if(m->m_buffer){
-    free(m->m_buffer);
-    m->m_buffer = NULL;
-  }
-
-  m->m_size = 0;
-  m->m_want = 0;
-
-  free(m);
-}
-#endif
-
 /******************************************************************************/
 
-int queue_vargs_katcl(struct katcl_msg *m, int flags, char *fmt, va_list args)
-{
-  char *tmp, *buffer;
-  va_list copy;
-  int want, got, x, result;
-
-  got = strlen(fmt) + 16;
-#if DEBUG > 1
-  fprintf(stderr, "queue vargs: my fmt string is <%s>\n", fmt);
-#endif
-
-  /* in an ideal world this would be an insitu copy to save the malloc */
-  buffer = NULL;
-
-  for(x = 1; x < 8; x++){ /* paranoid nutter check */
-    tmp = realloc(buffer, sizeof(char) * got);
-    if(tmp == NULL){
-#ifdef DEBUG
-      fprintf(stderr, "queue vargs: unable to allocate %d tmp bytes\n", got);
-#endif
-      free(buffer);
-      return -1;
-    }
-
-    buffer = tmp;
-
-    va_copy(copy, args);
-    want = vsnprintf(buffer, got, fmt, copy);
-    va_end(copy);
-#if DEBUG > 1
-    fprintf(stderr, "queue vargs: printed <%s> (iteration=%d, want=%d, got=%d)\n", buffer, x, want, got);
-#endif
-
-    if((want >= 0) && ( want < got)){
-      result = queue_buffer_katcl(m, flags, buffer, want);
-      free(buffer);
-      return result;
-    }
-
-    if(want >= got){
-      got = want + 1;
-    } else {
-      /* old style return codes, with x termination check */
-      got *= 2;
-    }
-
-  }
-
-#ifdef DEBUG
-  fprintf(stderr, "queue vargs: sanity failure with %d bytes\n", got);
-  abort();
-#endif
-
-  return -1;
-}
-
 #if 0
-int queue_args_katcl(struct katcl_msg *m, int flags, char *fmt, ...)
-{
-  va_list args;
-  int result;
-
-  va_start(args, fmt);
-
-  result = queue_vargs_katcl(m, flags, fmt, args);
-
-  va_end(args);
-
-  return result;
-}
-
-int queue_string_katcl(struct katcl_msg *m, int flags, char *buffer)
-{
-  return queue_buffer_katcl(m, flags, buffer, strlen(buffer));
-}
-
-int queue_unsigned_long_katcl(struct katcl_msg *m, int flags, unsigned long v)
-{
-#define TMP_BUFFER 32
-  char buffer[TMP_BUFFER];
-  int result;
-
-  result = snprintf(buffer, TMP_BUFFER, "%lu", v);
-  if((result <= 0) || (result >= TMP_BUFFER)){
-    return -1;
-  }
-
-  return queue_buffer_katcl(m, flags, buffer, result);
-#undef TMP_BUFFER
-}
-
-int queue_signed_long_katcl(struct katcl_msg *m, int flags, unsigned long v)
-{
-#define TMP_BUFFER 32
-  char buffer[TMP_BUFFER];
-  int result;
-
-  result = snprintf(buffer, TMP_BUFFER, "%ld", v);
-  if((result <= 0) || (result >= TMP_BUFFER)){
-    return -1;
-  }
-
-  return queue_buffer_katcl(m, flags, buffer, result);
-#undef TMP_BUFFER
-}
-
-int queue_hex_long_katcl(struct katcl_msg *m, int flags, unsigned long v)
-{
-#define TMP_BUFFER 32
-  char buffer[TMP_BUFFER];
-  int result;
-
-  result = snprintf(buffer, TMP_BUFFER, "0x%lx", v);
-  if((result <= 0) || (result >= TMP_BUFFER)){
-    return -1;
-  }
-
-  return queue_buffer_katcl(m, flags, buffer, result);
-#undef TMP_BUFFER
-}
-
-#ifdef KATCP_USE_FLOATS
-int queue_double_katcl(struct katcl_msg *m, int flags, double v)
-{
-#define TMP_BUFFER 32
-  char buffer[TMP_BUFFER];
-  int result;
-
-  result = snprintf(buffer, TMP_BUFFER, "%e", v);
-  if((result <= 0) || (result >= TMP_BUFFER)){
-    return -1;
-  }
-
-  return queue_buffer_katcl(m, flags, buffer, result);
-#undef TMP_BUFFER
-}
-#endif
-
 int queue_buffer_katcl(struct katcl_msg *m, int flags, void *buffer, int len)
 {
   /* returns greater than zero on success */
@@ -319,29 +142,41 @@ int queue_buffer_katcl(struct katcl_msg *m, int flags, void *buffer, int len)
 }
 #endif
 
-#if 0
-void clear_msg_katcl(struct katcl_msg *m)
-{
-  m->m_want = 0;
-  m->m_complete = 1;
-}
-#endif
-
 /****************************************************************/
 
-int error_katcl(struct katcl_line *l)
+struct katcl_line *create_katcl(int fd)
 {
-  int result;
+  struct katcl_line *l;
 
+  l = malloc(sizeof(struct katcl_line));
   if(l == NULL){
-    return 1;
+    return NULL;
   }
 
-  result = l->l_error;
+  l->l_fd = fd;
+
+  l->l_ready = NULL;
+  l->l_next = NULL; 
+
+  l->l_head = NULL;
+  l->l_tail = NULL;
+  l->l_stage = NULL;
+
+  l->l_pending = 0;
+  l->l_arg = 0;
+  l->l_pos = 0;
+
+  l->l_spare = NULL;
 
   l->l_error = 0;
 
-  return result;
+  l->l_next = create_parse_katcl(l);
+  if(l->l_next == NULL){
+    destroy_katcl(l, 0);
+    return NULL;
+  }
+
+  return l;
 }
 
 void destroy_katcl(struct katcl_line *l, int mode)
@@ -349,21 +184,6 @@ void destroy_katcl(struct katcl_line *l, int mode)
   if(l == NULL){
     return;
   }
-
-#if 0
-  if(l->l_input){
-    free(l->l_input);
-    l->l_input = NULL;
-  }
-  l->l_isize = 0;
-
-  if(l->l_args){
-    free(l->l_args);
-    l->l_args = NULL;
-  }
-  l->l_asize = 0;
-  l->l_current = NULL;
-#endif
 
   /* in */
 
@@ -388,6 +208,10 @@ void destroy_katcl(struct katcl_line *l, int mode)
   }
   l->l_tail = NULL; /* tail part of linked list */
 
+  l->l_pending = 0;
+  l->l_arg = 0;
+  l->l_pos = 0;
+
   /* spares */
 
   if(l->l_spare){ /* WARNING: a linked list */
@@ -405,67 +229,11 @@ void destroy_katcl(struct katcl_line *l, int mode)
   free(l);
 }
 
-struct katcl_line *create_katcl(int fd)
-{
-  struct katcl_line *l;
-
-  l = malloc(sizeof(struct katcl_line));
-  if(l == NULL){
-    return NULL;
-  }
-
-  l->l_fd = fd;
-
-#if 0
-  l->l_input = NULL;
-  l->l_isize = 0;
-  l->l_ihave = 0;
-  l->l_iused = 0;
-  l->l_ikept = 0;
-  l->l_itag = (-1);
-
-  l->l_args = NULL;
-  l->l_current = NULL;
-  l->l_asize = 0;
-  l->l_ahave = 0;
-#endif
-
-  l->l_ready = NULL;
-  l->l_next = NULL; 
-
-  l->l_head = NULL;
-  l->l_tail = NULL;
-  l->l_stage = NULL;
-
-  l->l_spare = NULL;
-
-#if 0
-  l->l_out = NULL;
-  l->l_odone = 0;
-#endif
-
-  l->l_error = 0;
-
-
-  /* WARNING: not all fields allocated */
-
-  l->l_next = create_parse_katcl(l);
-  if(l->l_next == NULL){
-    destroy_katcl(l, 0);
-    return NULL;
-  }
-
-  return l;
-}
-
-int fileno_katcl(struct katcl_line *l)
-{
-  return l ? l->l_fd : (-1);
-}
-
 void exchange_katcl(struct katcl_line *l, int fd)
 {
   struct katcl_parse *p;
+
+  /* WARNING: exchanging fds forces discarding of pending io */
 
 #ifdef DEBUG
   if(l->l_head && (l->l_tail == NULL)){
@@ -487,26 +255,16 @@ void exchange_katcl(struct katcl_line *l, int fd)
   }
   l->l_fd = fd;
 
-  /* WARNING: exchanging fds forces discarding of pending io */
-#if 0
-  l->l_ihave = 0;
-  l->l_iused = 0;
-  l->l_ikept = 0;
-  l->l_itag = (-1);
-  /* WARNING: shouldn't we also forget parsed stuff ? */
-#endif
-
-
-  if(l->l_next){
-    clear_parse_katcl(l->l_next);
-  }
-
   /* move ready to spare */
   if(l->l_ready){
     clear_parse_katcl(l->l_ready);
     l->l_ready->p_next = l->l_spare;
     l->l_spare = l->l_ready;
     l->l_ready = NULL;
+  }
+
+  if(l->l_next){
+    clear_parse_katcl(l->l_next);
   }
 
   /* move all of head to spare */
@@ -528,13 +286,32 @@ void exchange_katcl(struct katcl_line *l, int fd)
     l->l_stage = NULL;
   }
 
-#if 0
-  l->l_odone = 0;
-  if(l->l_out){
-    clear_msg_katcl(l->l_out);
-  }
-#endif
+  l->l_pending = 0;
+  l->l_arg = 0;
+  l->l_pos = 0;
 }
+
+int fileno_katcl(struct katcl_line *l)
+{
+  return l ? l->l_fd : (-1);
+}
+
+int error_katcl(struct katcl_line *l)
+{
+  int result;
+
+  if(l == NULL){
+    return 1;
+  }
+
+  result = l->l_error;
+
+  l->l_error = 0;
+
+  return result;
+}
+
+/***********************************************************************************/
 
 int read_katcl(struct katcl_line *l)
 {
@@ -552,17 +329,17 @@ int read_katcl(struct katcl_line *l)
   p = l->l_next;
 
   if(p->p_size <= p->p_have){
-    ptr = realloc(p->p_buffer, p->p_size + KATCP_BUFFER_INC);
+    ptr = realloc(p->p_buffer, p->p_size + KATCL_BUFFER_INC);
     if(ptr == NULL){
 #ifdef DEBUG
-      fprintf(stderr, "read: realloc to %d failed\n", p->p_size + KATCP_BUFFER_INC);
+      fprintf(stderr, "read: realloc to %d failed\n", p->p_size + KATCL_BUFFER_INC);
 #endif
       l->l_error = ENOMEM;
       return -1;
     }
 
     p->p_buffer = ptr;
-    p->p_size += KATCP_BUFFER_INC;
+    p->p_size += KATCL_BUFFER_INC;
   }
 
   rr = read(l->l_fd, p->p_buffer + p->p_have, p->p_size - p->p_have);
@@ -614,24 +391,6 @@ void clear_katcl(struct katcl_line *l) /* discard a full line */
 
   p->p_next = l->l_spare;
   l->l_spare = p;
-
-#if 0
-  if(l->l_iused >= l->l_ihave){
-    l->l_ihave = 0;
-  } else if(l->l_iused > 0){
-    memmove(l->l_input, l->l_input + l->l_iused, l->l_ihave - l->l_iused);
-    l->l_ihave -= l->l_iused;
-  }
-
-  l->l_iused = 0;
-  l->l_ikept = 0;
-  l->l_itag = (-1);
-
-  l->l_ahave = 0;
-  l->l_current = NULL;
-
-  l->l_state = STATE_FRESH;
-#endif
 }
 
 int have_katcl(struct katcl_line *l)
@@ -646,7 +405,7 @@ int have_katcl(struct katcl_line *l)
   return parse_katcl(l);
 }
 
-/******************************************************************/
+/***********************************************************************************/
 
 unsigned int arg_count_katcl(struct katcl_line *l)
 {
@@ -795,7 +554,9 @@ static int after_append_katcl(struct katcl_line *l, int flags, int result)
     return -1;
   }
 
+#if 0
   deparse_katcl(l->l_stage); /* WARNING: assumed that will not fail */
+#endif
 
   /* things went ok, now queue the complete message */
   if(l->l_tail == NULL){
@@ -813,24 +574,39 @@ static int after_append_katcl(struct katcl_line *l, int flags, int result)
 
 /******************************************************************/
 
-#ifdef TODO
 int append_vargs_katcl(struct katcl_line *l, int flags, char *fmt, va_list args)
 {
-  return queue_vargs_katcl(l->l_out, flags, fmt, args);
+  struct katcl_parse *p;
+  int result;
+
+  p = before_append_katcl(l, flags);
+  if(p == NULL){
+    return -1;
+  }
+
+  result = add_vargs_parse_katcl(p, flags, fmt, args);
+
+  return after_append_katcl(l, flags, result);
 }
 
 int append_args_katcl(struct katcl_line *l, int flags, char *fmt, ...)
 {
   va_list args;
+  struct katcl_parse *p;
   int result;
 
+  p = before_append_katcl(l, flags);
+  if(p == NULL){
+    return -1;
+  }
+
+
   va_start(args, fmt);
-  result =  queue_vargs_katcl(l->l_out, flags, fmt, args);
+  result = add_vargs_parse_katcl(p, flags, fmt, args);
   va_end(args);
 
-  return result;
+  return after_append_katcl(l, flags, result);
 }
-#endif
 
 int append_string_katcl(struct katcl_line *l, int flags, char *buffer)
 {
@@ -928,8 +704,11 @@ int append_parse_katcl(struct katcl_line *l, struct katcl_parse *p)
 {
   /* WARNING: assumes ownership of parse */
 
+  fprintf(stderr, "line grabbing ownership of parse\n");
+  abort();
+
 #ifdef DEBUG
-  if(p->p_state != STATE_DONE){
+  if(p->p_state != KATCL_PARSE_DONE){
     fprintf(stderr, "problem: attempting to append a message in state %u\n", p->p_state);
     abort();
   }
@@ -945,57 +724,6 @@ int append_parse_katcl(struct katcl_line *l, struct katcl_parse *p)
 
   return 0;
 }
-
-#if 0
-int append_msg_katcl(struct katcl_line *l, struct katcl_msg *m)
-{
-  struct katcl_msg *mx;
-  char *buffer;
-  unsigned int size, want;
-
-  mx = l->l_out;
-
-  if((mx->m_complete == 0) || (m->m_complete == 0)){
-    fprintf(stderr, "logic problem: attempting to queue messages to line while incomplete\n");
-    return -1;
-  }
-#ifdef DEBUG
-  if((m->m_want <= 0) || (m->m_size < m->m_want)){
-    fprintf(stderr, "logic problem: malproportioned message: want=%u, size=%u\n", m->m_want, m->m_size);
-    abort();
-  }
-#endif
-
-  if(mx->m_want == 0){ /* the line buffer is empty, so exchange it */
-    buffer = mx->m_buffer;
-    size = mx->m_size;
-    want = mx->m_want;
-
-    mx->m_buffer = m->m_buffer;
-    mx->m_size = m->m_size;
-    mx->m_want = m->m_want;
-
-    m->m_buffer = buffer;
-    m->m_size = size;
-    m->m_want = want;
-  } else { /* still something in buffer, append message */
-
-    want = mx->m_want + m->m_want;
-    if(want > mx->m_size){
-      buffer = realloc(mx->m_buffer, want);
-      if(buffer == NULL){
-        l->l_error = ENOMEM;
-        return -1;
-      }
-      mx->m_buffer = buffer;
-    }
-
-    memcpy(mx->m_buffer + mx->m_want, m->m_buffer, m->m_want);
-  }
-
-  return 0;
-}
-#endif
 
 /**************************************************************/
 
@@ -1085,91 +813,6 @@ int send_katcl(struct katcl_line *l, ...)
   return result;
 }
 
-#if 0
-/* vprint and print are deprecated */
-int vprint_katcl(struct katcl_line *l, int full, char *fmt, va_list args)
-{
-  unsigned int newsize, delta;
-  int actual;
-  char *tmp;
-  va_list copy;
-
-  /* Warning: no string escaping happens in here, would need to 
-   * provide other routines to escape data */
-
-  for(;;){
-
-#ifdef DEBUG
-    if(l->l_osize < l->l_owant){
-      fprintf(stderr, "vprint: logic problem: want(%u) to clobber maximum(%u)\n", l->l_owant, l->l_osize);
-      abort();
-    }
-#endif
-
-    va_copy(copy, args);
-
-    delta = l->l_osize - l->l_owant; 
-    actual = vsnprintf(l->l_output + l->l_owant, delta, fmt, copy);
-
-    va_end(copy);
-
-    if((actual >= 0) && (actual < delta)){
-      if(full){
-        switch(l->l_output[l->l_owant]){
-          case KATCP_INFORM  :
-          case KATCP_REPLY   :
-          case KATCP_REQUEST :
-            break;
-          default :
-            return -1;
-        }
-      }
-      l->l_owant += actual;
-      if(full){
-        if(l->l_output[l->l_owant - 1] != '\n'){
-          l->l_output[l->l_owant++] = '\n';
-        }
-      }
-#ifdef DEBUG
-      fprintf(stderr, "vprint: new buffer <%s>\n", l->l_output);
-#endif
-      return 0;
-    } 
-
-#if 0
-    newsize = (actual >= 0) ? (l->l_owant + actual + 2) : (l->l_osize + KATCP_BUFFER_INC);
-#endif
-
-    newsize = l->l_osize + KATCP_BUFFER_INC;
-    tmp = realloc(l->l_output, newsize);
-    if(tmp == NULL){
-#ifdef DEBUG
-      fprintf(stderr, "vprint: unable to resize output to <%u> bytes\n", newsize);
-#endif
-      return -1;
-    } 
-
-    l->l_output = tmp;
-    l->l_osize = newsize;
-  }
-}
-
-int print_katcl(struct katcl_line *l, int full, char *fmt, ...)
-{
-  va_list args;
-  int result;
-
-  va_start(args, fmt);
-
-  result = vprint_katcl(l, full, fmt, args);
-
-  va_end(args);
-
-  return result;
-}
-#endif
-
-
 #ifdef TODO
 int parsed_relay_katcl(struct katcl_parse *p, struct katcl_msg *m)
 {
@@ -1214,8 +857,112 @@ int relay_katcl(struct katcl_line *lx, struct katcl_line *ly)
 
 /***************************/
 
-#define FLUSH_LIMIT (1024 * 1024)
+#define WRITE_STATE_DONE   0
+#define WRITE_STATE_FILL   1
+#define WRITE_STATE_SEND   2
 
+int escape_copy_katcl(char *dst, char *src, unsigned int want)
+{
+  /* returns amount actually consumed, presumes that dst has at least 2 + 2*want available */
+  return -1;
+}
+
+int write_katcl(struct katcl_line *l)
+{
+  int wr;
+  int state, want;
+  unsigned int i, j;
+  struct katcl_parse *p;
+  struct katcl_larg *la;
+
+  for(state = WRITE_STATE_FILL; state != WRITE_STATE_DONE; ){
+    switch(state){
+
+      case WRITE_STATE_FILL :
+ 
+        if(l->l_head == NULL){
+          state = (l->l_pending > 0) ? WRITE_STATE_SEND : WRITE_STATE_DONE;
+        } else {
+          p = l->l_head;
+
+#ifdef DEBUG
+          if((l->l_arg >= p->got) || (l->l_pos >= p->p_kept)){
+            fprintf(stderr, "write: logic problem: arg=%u >= got=%u or pos=%u >= kept=%u\n", l->l_arg, p->p_got, l->l_pos, p->p_kept);
+            abort();
+          }
+#endif
+
+          la = &(p->p_args[l->l_arg]);
+
+          if(la->a_escape){
+          }
+
+          i = la-
+          want = la->a_end - la->a_begin;
+
+
+          
+        }
+
+        break;
+
+      case WRITE_STATE_SEND : /* do io */
+
+        if(l->l_pending > 0){ /* do we have something in write buffer ? */
+          wr = send(l->l_fd, l->l_buffer, l->l_pending, MSG_DONTWAIT | MSG_NOSIGNAL);
+
+          if(wr < 0){
+            switch(errno){
+              case EAGAIN :
+              case EINTR  :
+                return 0; /* returns zero if still more to do */
+              default :
+                l->l_error = errno;
+                return -1;
+            }
+          }
+
+          if(wr > 0){
+            if(wr < l->l_pending){ /* a tad expensive, but we expect this to be rare */
+              memmove(l->l_buffer, l->l_buffer + wr, l->l_pending - wr);
+              l->l_pending -= wr;
+            } else {
+              l->l_pending = 0;
+              state = l->l_head ? WRITE_STATE_FILL : WRITE_STATE_DONE;
+            }
+          }
+
+          break;
+        }
+    }
+  }
+
+  while(l->l_head && (l->l_pending > 0)){
+
+    if(l->l_pending < (KATCL_IO_SIZE / 2)){
+
+      if(l->l_arg == 0){
+
+      } else {
+
+      }
+    }
+
+
+    }
+
+    l->l_head = p->p_next;
+
+    clear_parse_katcl(p);
+    p->p_next = l->l_spare;
+    l->l_spare = p;
+  }
+
+  /* done everything */
+  l->l_tail = NULL;
+  return 1;
+}
+#if 0
 int write_katcl(struct katcl_line *l)
 {
   int wr;
@@ -1251,6 +998,7 @@ int write_katcl(struct katcl_line *l)
   l->l_tail = NULL;
   return 1;
 }
+#endif
 
 int flushing_katcl(struct katcl_line *l)
 {

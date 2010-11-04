@@ -6,12 +6,27 @@
 #include <sys/time.h>
 #include <sys/types.h>
 
-#define KATCP_NAME_LENGTH  64
+#define KATCP_NAME_LENGTH     64
+
+#define KATCL_IO_SIZE       4096  /* block we want to write out */
+#define KATCL_BUFFER_INC     512  /* amount by which we resize read */
+#define KATCL_ARGS_INC         8  /* grow the vector by this amount */
+
+#define KATCL_PARSE_FRESH      0  /* newly allocated or cleared */
+#define KATCL_PARSE_COMMAND    1  /* parsing first argument */
+#define KATCL_PARSE_WHITESPACE 2  /* parsing between arguments */
+#define KATCL_PARSE_ARG        3  /* parsing argument */
+#define KATCL_PARSE_TAG        4  /* parsing optional tag */
+#define KATCL_PARSE_ESCAPE     5  /* parsing escape sequence */
+#define KATCL_PARSE_FAKE       6  /* generated manually, not parsed */
+#define KATCL_PARSE_DONE       7  /* a complete message */
+
+/***************************************************************************/
 
 struct katcl_larg{
   unsigned int a_begin;
   unsigned int a_end;
-  unsigned int a_escapes;
+  unsigned int a_escape;
 };
 
 #if 0
@@ -34,7 +49,6 @@ struct katcl_parse{
   unsigned int p_have;
   unsigned int p_used;
   unsigned int p_kept;
-  unsigned int p_wrote;
 
   struct katcl_larg *p_args;
   struct katcl_larg *p_current;
@@ -52,44 +66,19 @@ struct katcl_line{
 
   struct katcl_parse *l_ready;
   struct katcl_parse *l_next;
-  struct katcl_parse *l_spare;
-
-#if 0
-  char *l_input;
-  unsigned int l_isize;
-  unsigned int l_ihave;
-  unsigned int l_iused;
-  unsigned int l_ikept;
-  int l_itag;
-
-  struct katcl_larg *l_args;
-  struct katcl_larg *l_current;
-  unsigned int l_asize;
-  unsigned int l_ahave;
-#endif
-
-#if 0
-  char *l_output;
-  unsigned int l_osize;
-  unsigned int l_owant;
-  unsigned int l_odone;
-  int l_otag;
-  int l_ocomplete;
-#endif
-
-#if 0
-  struct katcl_msg *l_out;
-  unsigned int l_odone;
-#endif
 
   struct katcl_parse *l_head;
   struct katcl_parse *l_tail;
   struct katcl_parse *l_stage;
 
+  char l_buffer[KATCL_IO_SIZE];
+  unsigned int l_pending;
+  unsigned int l_arg;
+  unsigned int l_pos;
+
+  struct katcl_parse *l_spare;
+
   int l_error;
-#if 0
-  int l_problem;
-#endif
 };
 
 struct katcp_dispatch;
@@ -388,9 +377,6 @@ struct katcp_dispatch{
   char d_name[KATCP_NAME_LENGTH];
 };
 
-#define KATCP_BUFFER_INC 512
-#define KATCP_ARGS_INC     8
-
 void exchange_katcl(struct katcl_line *l, int fd);
 
 void component_time_katcp(struct timeval *result, unsigned int ms);
@@ -447,14 +433,24 @@ int run_jobs_katcp(struct katcp_dispatch *d);
 
 int job_cmd_katcp(struct katcp_dispatch *d, int argc);
 
-/* parse stuff */
+/* parse: setup */
 struct katcl_parse *create_parse_katcl();
 void destroy_parse_katcl(struct katcl_parse *p);
 void clear_parse_katcl(struct katcl_parse *p);
+struct katcl_parse *copy_parse_katcl(struct katcl_parse *pd, struct katcl_parse *ps);
 
-int parse_katcl(struct katcl_line *l);
-int deparse_katcl(struct katcl_parse *p);
+/* parse: adding fields */
+int add_plain_parse_katcl(struct katcl_parse *p, int flags, char *string);
+int add_string_parse_katcl(struct katcl_parse *p, int flags, char *buffer);
+int add_unsigned_long_parse_katcl(struct katcl_parse *p, int flags, unsigned long v);
+int add_signed_long_parse_katcl(struct katcl_parse *p, int flags, unsigned long v);
+int add_hex_long_parse_katcl(struct katcl_parse *p, int flags, unsigned long v);
+#ifdef KATCP_USE_FLOATS
+int add_double_parse_katcl(struct katcl_parse *p, int flags, double v);
+#endif
+int add_buffer_parse_katcl(struct katcl_parse *p, int flags, void *buffer, unsigned int len);
 
+/* parse: extracting, testing fields */
 unsigned int get_count_parse_katcl(struct katcl_parse *p);
 int get_tag_parse_katcl(struct katcl_parse *p);
 
@@ -471,6 +467,14 @@ unsigned long get_unsigned_long_parse_katcl(struct katcl_parse *p, unsigned int 
 double get_double_parse_katcl(struct katcl_parse *p, unsigned int index);
 #endif
 unsigned int get_buffer_parse_katcl(struct katcl_parse *p, unsigned int index, void *buffer, unsigned int size);
+
+/* parse: parsing from line */
+int parse_katcl(struct katcl_line *l);
+
+#include <stdarg.h>
+
+int add_vargs_parse_katcl(struct katcl_parse *p, int flags, char *fmt, va_list args);
+int add_args_parse_katcl(struct katcl_parse *p, int flags, char *fmt, ...);
 
 #ifdef DEBUG
 int dump_parse_katcl(struct katcl_parse *p, char *prefix, FILE *fp);

@@ -40,10 +40,12 @@ static void deallocate_notice_katcp(struct katcp_dispatch *d, struct katcp_notic
       n->n_name = NULL;
     }
 
+#if 0
     if(n->n_msg){
       destroy_msg_katcl(n->n_msg);
       n->n_msg = NULL;
     }
+#endif
 
     if(n->n_parse){
       destroy_parse_katcl(n->n_parse);
@@ -248,7 +250,7 @@ void destroy_notices_katcp(struct katcp_dispatch *d)
 
 /**********************************************************************************/
 
-struct katcp_notice *create_message_notice_katcp(struct katcp_dispatch *d, char *name, unsigned int tag, struct katcl_msg *m)
+struct katcp_notice *create_parse_notice_katcp(struct katcp_dispatch *d, char *name, unsigned int tag, struct katcl_parse *p)
 {
   struct katcp_notice *n;
   struct katcp_notice **t;
@@ -260,7 +262,7 @@ struct katcp_notice *create_message_notice_katcp(struct katcp_dispatch *d, char 
     log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "creating anonymous notice with tag %d", tag);
   }
 
-  if(m == NULL){
+  if(p == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "creating a notice without a message is a usage problem");
     return NULL;
   }
@@ -288,8 +290,11 @@ struct katcp_notice *create_message_notice_katcp(struct katcp_dispatch *d, char 
   n->n_name = NULL;
 
   n->n_tag = tag;
-  n->n_msg = NULL;
   n->n_use = 0;
+
+#if 0
+  n->n_msg = NULL;
+#endif
 
   n->n_parse = NULL;
 
@@ -314,7 +319,7 @@ struct katcp_notice *create_message_notice_katcp(struct katcp_dispatch *d, char 
     return NULL;
   }
 
-  n->n_msg = m;
+  n->n_parse = p;
 
   s->s_notices = t;
 
@@ -326,17 +331,17 @@ struct katcp_notice *create_message_notice_katcp(struct katcp_dispatch *d, char 
 
 struct katcp_notice *create_notice_katcp(struct katcp_dispatch *d, char *name, unsigned int tag)
 {
-  struct katcl_msg *m;
+  struct katcl_parse *p;
   struct katcp_notice *n;
 
-  m = create_msg_katcl(NULL);
-  if(m == NULL){
+  p = create_parse_katcl(NULL);
+  if(p == NULL){
     return NULL;
   }
 
-  n = create_message_notice_katcp(d, name, tag, m);
+  n = create_parse_notice_katcp(d, name, tag, p);
   if(n == NULL){
-    destroy_msg_katcl(m);
+    destroy_parse_katcl(p);
     return NULL;
   }
 
@@ -397,12 +402,14 @@ struct katcp_notice *register_notice_katcp(struct katcp_dispatch *d, char *name,
 
 /*******************************************************************************/
 
+#if 0
 struct katcl_msg *message_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
 {
   return n->n_msg;
 }
+#endif
 
-struct katcl_parse *response_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
+struct katcl_parse *parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
 {
   return n->n_parse;
 }
@@ -638,7 +645,7 @@ int resume_notice(struct katcp_dispatch *d, struct katcp_notice *n)
   append_string_katcp(d, KATCP_FLAG_FIRST, "!notice");
 #endif
 
-  p = response_notice_katcp(d, n);
+  p = parse_notice_katcp(d, n);
   if(p){
     ptr = get_string_parse_katcl(p, 1);
   } else {

@@ -179,6 +179,7 @@ int append_args_katcp(struct katcp_dispatch *d, int flags, char *fmt, ...);
 #ifdef KATCP_USE_FLOATS
 int append_double_katcp(struct katcp_dispatch *d, int flags, double v);
 #endif
+int append_parse_katcl(struct katcl_line *l, struct katcl_parse *p);
 
 /* sensor writes */
 #if 0
@@ -283,7 +284,7 @@ int end_type_shared_katcp(struct katcp_dispatch *d, int type, int force);
 /* notice logic */
 
 struct katcp_notice *create_notice_katcp(struct katcp_dispatch *d, char *name, unsigned int tag);
-struct katcp_notice *create_message_notice_katcp(struct katcp_dispatch *d, char *name, unsigned int tag, struct katcl_msg *m);
+struct katcp_notice *create_parse_notice_katcp(struct katcp_dispatch *d, char *name, unsigned int tag, struct katcl_parse *p);
 #if 0
 static void destroy_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 #endif
@@ -302,7 +303,7 @@ char *code_name_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 
 void wake_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p);
 int wake_name_notice_katcp(struct katcp_dispatch *d, char *name, struct katcl_parse *p);
-struct katcl_parse *response_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
+struct katcl_parse *parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 
 /* job logic */
 
