@@ -73,8 +73,8 @@ struct katcl_line{
 
   char l_buffer[KATCL_IO_SIZE];
   unsigned int l_pending;
-  unsigned int l_arg;
-  unsigned int l_pos;
+  unsigned int l_arg;  /* argument */
+  unsigned int l_offset; /* offset into argument */
 
   struct katcl_parse *l_spare;
 

@@ -179,7 +179,7 @@ int append_args_katcp(struct katcp_dispatch *d, int flags, char *fmt, ...);
 #ifdef KATCP_USE_FLOATS
 int append_double_katcp(struct katcp_dispatch *d, int flags, double v);
 #endif
-int append_parse_katcl(struct katcl_line *l, struct katcl_parse *p);
+int append_parse_katcl(struct katcl_line *l, struct katcl_parse *p, int move);
 
 /* sensor writes */
 #if 0

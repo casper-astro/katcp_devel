@@ -1035,12 +1035,15 @@ int dump_parse_katcl(struct katcl_parse *p, char *prefix, FILE *fp)
 
   for(i = 0; i < p->p_got; i++){
     la = &(p->p_args[i]);
+#if 0
     fprintf(fp, "parse[%u]: (%s) <", i, get_string_parse_katcl(p, i)); 
+#endif
+    fprintf(fp, "parse[%u]: <", i);
     for(j = la->a_begin; j < la->a_end; j++){
       if(isprint(p->p_buffer[j])){
         fprintf(fp, "%c", p->p_buffer[j]);
       } else {
-        fprintf(fp, "[%02x]", (unsigned int)(p->p_buffer[j]));
+        fprintf(fp, "[%02x]", 0xff & ((unsigned int)(p->p_buffer[j])));
       }
     }
     fprintf(fp, ">, begin=%u, end=%u, [%s]\n", la->a_begin, la->a_end, la->a_escape ? "may need escaping" : "no escaping needed");
