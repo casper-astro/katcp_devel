@@ -423,7 +423,7 @@ int issue_request_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
     return -1;
   }
 
-  if(append_parse_katcl(j->j_line, n->n_parse) < 0){
+  if(append_parse_katcl(j->j_line, n->n_parse, 0) < 0){
     /* TODO: somehow wake notice informing it of the failure */
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to append request message to job");
     return -1;

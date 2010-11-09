@@ -719,21 +719,23 @@ int parsed_relay_katcl(struct katcl_parse *p, struct katcl_msg *m)
   }
 
 #ifdef DEBUG
-  fprintf(stderr, "copyied line of %d args from %p (%d arg bytes) to %p (status: %d)\n", i, p, need, m, status);
+  fprintf(stderr, "copied line of %d args from %p (%d arg bytes) to %p (status: %d)\n", i, p, need, m, status);
 #endif
 
   return status;
 }
+#endif
 
 int relay_katcl(struct katcl_line *lx, struct katcl_line *ly)
 {
+  struct katcl_parse *p;
+
   if(lx->l_ready == NULL){
     return -1;
   }
 
-  return parsed_relay_katcl(lx->l_ready, ly->l_out);
+  return append_parse_katcl(ly, lx->l_ready, 0);
 }
-#endif
 
 /***************************/
 

@@ -234,7 +234,7 @@ static int pipe_from_file_katcp(struct katcp_dispatch *dl, char *file)
     if(have_katcl(fl)){
       if(arg_request_katcl(fl)){
         
-        rsvp = relay_katcl(fl,pl);
+        rsvp = relay_katcl(fl, pl);
 
         if (rsvp < 0){
           fprintf(stderr,"init: relay_katcl: Unable to relay\n");

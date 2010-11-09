@@ -91,11 +91,11 @@ int script_wildcard_resume(struct katcp_dispatch *d, struct katcp_notice *n)
   char *ptr;
   struct katcl_parse *p;
 
-  ptr = NULL;
-
-  p = parsed_notice_katcp(d, n);
+  p = parse_notice_katcp(d, n);
   if(p){
     ptr = get_string_parse_katcl(p, 1);
+  } else {
+    ptr = NULL;
   }
 
   prepend_reply_katcp(d);
