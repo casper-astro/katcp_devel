@@ -470,7 +470,7 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
   int result, code;
   char *cmd, *module, *message, *priority;
   struct katcp_notice *n;
-  struct katcl_parse *pq, *pp;
+  struct katcl_parse *p;
 
   result = have_katcl(j->j_line);
 
@@ -501,9 +501,15 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
 
     case KATCP_REPLY   :
 
-      /* TODO: get reply, wake up item in queue */
       if(j->j_state & JOB_MAY_REQUEST){
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "received spurious reply, no request was issued");
+        return -1;
+      }
+
+      p = ready_katcl(j->j_line);
+      if(p == NULL){
+        /* if we got this far, we should really have a ready data structure */
+        log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "unable to retrieve parsed job data");
         return -1;
       }
 
@@ -514,8 +520,7 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
         return -1;
       }
 
-      log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "need to gather reply and add it to notice");
-      wake_notice_katcp(d, n, 0);
+      wake_notice_katcp(d, n, p);
 
       j->j_state |= JOB_MAY_REQUEST;
 
@@ -705,9 +710,9 @@ int run_jobs_katcp(struct katcp_dispatch *d)
 
       n = remove_head_job(j);
       while(n != NULL){
+#if 0
         pq = parse_notice_katcp(d, n);
         pp = NULL;
-#if 0
         if(m){
           p = create_parse_katcl();
           if(p){
@@ -717,7 +722,7 @@ int run_jobs_katcp(struct katcp_dispatch *d)
         }
         log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "waking notices still queued");
 #endif
-        wake_notice_katcp(d, n, pp);
+        wake_notice_katcp(d, n, NULL);
         n = remove_head_job(j);
       }
 
@@ -868,13 +873,19 @@ int resume_job(struct katcp_dispatch *d, struct katcp_notice *n)
 { 
   struct katcl_parse *p;
   char *ptr;
+#if 0
   int i;
+#endif
 
   log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "got something from job via notice %p", n);
 
   p = parse_notice_katcp(d, n);
   if(p){
     ptr = get_string_parse_katcl(p, 1);
+#ifdef DEBUG
+    fprintf(stderr, "resume: parameter %d is %s\n", 1, ptr);
+#endif
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "got something from job via notice %p", n);
   } else {
     ptr = NULL;
   }
@@ -909,7 +920,7 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
     if(!strcmp(name, "list")){
       for(i = 0; i < s->s_number; i++){
         j = s->s_tasks[i];
-        log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "job on %s (%p) with %d notices %s, %s, %s, %s, %s and %s", 
+        log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "job on %s (%p) with %d notices in queue, %s, %s, %s, %s, %s and %s", 
         j->j_name, j, j->j_count,
         (j->j_state & JOB_MAY_REQUEST) ? "can issue requests" : "has a request pending", 
         (j->j_state & JOB_MAY_WRITE) ? "can write data" : "has finished writing", 
@@ -1030,19 +1041,6 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
 
       for(i = 2; i < count; i++){
         /* should have a nicer way of transferring arg from one to another */
-      }
-
-
-      if(queue_string_katcl(m, KATCP_FLAG_FIRST | KATCP_FLAG_LAST | KATCP_FLAG_STRING, "?watchdog") < 0){
-        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to assemble message");
-        destroy_msg_katcl(m);
-        return KATCP_RESULT_FAIL;
-      }
-
-      if(submit_to_job_katcp(d, j, m, &resume_job) < 0){
-        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to submit message to job");
-        destroy_msg_katcl(m);
-        return KATCP_RESULT_FAIL;
       }
 
       return KATCP_RESULT_PAUSE;

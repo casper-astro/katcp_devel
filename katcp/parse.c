@@ -6,11 +6,30 @@
 #include "katpriv.h"
 #include "katcp.h"
 
+#define PARSE_MAGIC 0xff7f1273
+
 /****************************************************************/
 
 static int check_array_parse_katcl(struct katcl_parse *p);
 
 /****************************************************************/
+
+#ifdef DEBUG
+static void sane_parse_katcl(struct katcl_parse *p)
+{
+  if(p == NULL){
+    fprintf(stderr, "sane: parse is null\n");
+    abort();
+  }
+  if(p->p_magic != PARSE_MAGIC){
+    fprintf(stderr, "sane: bad parse magic for %p\n", p);
+    abort();
+  }
+}
+#else
+#define sane_parse_katcl(p)
+#endif
+
 
 struct katcl_parse *create_parse_katcl()
 {
@@ -21,6 +40,7 @@ struct katcl_parse *create_parse_katcl()
     return NULL;
   }
 
+  p->p_magic = PARSE_MAGIC;
   p->p_state = KATCL_PARSE_FRESH;
 
   p->p_buffer = NULL;
@@ -49,6 +69,11 @@ void destroy_parse_katcl(struct katcl_parse *p)
 
   while(p){
     px = p->p_next;
+
+    sane_parse_katcl(p);
+
+    p->p_magic = 0;
+    p->p_state = (-1);
 
     if(p->p_buffer){
       free(p->p_buffer);
@@ -80,6 +105,8 @@ void destroy_parse_katcl(struct katcl_parse *p)
 
 void clear_parse_katcl(struct katcl_parse *p)
 {
+  sane_parse_katcl(p);
+
   p->p_state = KATCL_PARSE_FRESH;
 
   p->p_have = 0;
@@ -102,6 +129,8 @@ struct katcl_parse *copy_parse_katcl(struct katcl_parse *pd, struct katcl_parse 
   char *buffer;
   int i;
 
+  sane_parse_katcl(ps);
+
   if(ps->p_state != KATCL_PARSE_DONE){
 #ifdef DEBUG
     fprintf(stderr, "warning: expected complete source parse in copy\n");
@@ -115,6 +144,7 @@ struct katcl_parse *copy_parse_katcl(struct katcl_parse *pd, struct katcl_parse 
       return NULL;
     }
   } else {
+    sane_parse_katcl(pd);
     pt = pd;
     clear_parse_katcl(pt);
   }
@@ -181,6 +211,8 @@ struct katcl_parse *copy_parse_katcl(struct katcl_parse *pd, struct katcl_parse 
 
 static int before_add_parse_katcl(struct katcl_parse *p, unsigned int flags)
 {
+  sane_parse_katcl(p);
+
   if(flags & KATCP_FLAG_FIRST){
 #ifdef PARANOID
     if(p->p_got > 0){
@@ -252,6 +284,7 @@ static int after_add_parse_katcl(struct katcl_parse *p, unsigned int data, unsig
 
 static unsigned int actual_space_parse_katcl(struct katcl_parse *p)
 {
+  sane_parse_katcl(p);
 #ifdef DEBUG
   if(p->p_size < p->p_kept){
     fprintf(stderr, "logic problem: size smaller than data kept\n");
@@ -316,6 +349,10 @@ int add_buffer_parse_katcl(struct katcl_parse *p, int flags, void *buffer, unsig
   if(before_add_parse_katcl(p, flags) < 0){
     return -1;
   }
+
+#if DEBUG > 1
+  fprintf(stderr, "adding %u bytes to parse %p\n", len, p);
+#endif
 
   if(len > 0){
     dst = request_space_parse_katcl(p, len + 1);
@@ -472,7 +509,7 @@ int add_vargs_parse_katcl(struct katcl_parse *p, int flags, char *fmt, va_list a
     want = vsnprintf(ptr, got, fmt, copy);
     va_end(copy);
 #if DEBUG > 1
-    fprintf(stderr, "add vargs: printed <%s> (iteration=%d, want=%d, got=%d)\n", buffer, x, want, got);
+    fprintf(stderr, "add vargs: printed <%s> (iteration=%d, want=%d, got=%d)\n", ptr, x, want, got);
 #endif
 
     if((want >= 0) && ( want < got)){
@@ -652,6 +689,8 @@ static int check_array_parse_katcl(struct katcl_parse *p)
 {
   struct katcl_larg *tmp;
 
+  sane_parse_katcl(p);
+
   if(p->p_got < p->p_count){
     p->p_current = &(p->p_args[p->p_got]);
     return 0;
@@ -673,6 +712,8 @@ static int stash_remainder_parse_katcl(struct katcl_parse *p, char *buffer, unsi
 {
   char *tmp;
   unsigned int need;
+
+  sane_parse_katcl(p);
 
 #ifdef DEBUG
   fprintf(stderr, "stashing %u bytes starting with <%c...> for next line\n", len, buffer[0]);
@@ -749,6 +790,8 @@ int parse_katcl(struct katcl_line *l) /* transform buffer -> args */
 
   fprintf(stderr, "invoking parse (state=%d, have=%d, used=%d, kept=%d)\n", p->p_state, p->p_have, p->p_used, p->p_kept);
 #endif
+
+  sane_parse_katcl(p);
 
   while((p->p_used < p->p_have) && (p->p_state != KATCL_PARSE_DONE)){
 

@@ -499,11 +499,35 @@ int cancel_name_notice_katcp(struct katcp_dispatch *d, char *name)
 
 void wake_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p)
 {
+  int fail;
 
-  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "waking notice %p with parse %p (used by %d)", n, p, n->n_use);
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "waking notice %p (used by %d) with parse %p (used by %d)", n, n->n_use, p);
 
   n->n_trigger = 1;
-  n->n_parse = p;
+  fail = 0;
+
+  if(n->n_parse){ /* have something */
+    if(p){ /* copy the new stuff to it */
+      if(copy_parse_katcl(n->n_parse, p) == NULL){
+        fail = 1;
+      }
+    } else {
+      destroy_parse_katcl(n->n_parse);
+      n->n_parse = NULL;
+    }
+  } else { /* nothing there */
+    if(p){ /* make a copy of it */
+      n->n_parse = copy_parse_katcl(NULL, p);
+      if(n->n_parse == NULL){
+        fail = 1;
+      }
+    } /* else have nothing, want nothing */
+  }
+
+  if(fail){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to wake notice %p (%s)", n, n->n_name);
+  }
+
 }
 
 int wake_name_notice_katcp(struct katcp_dispatch *d, char *name, struct katcl_parse *p)

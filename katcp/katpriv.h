@@ -42,6 +42,7 @@ struct katcl_msg{
 #endif
 
 struct katcl_parse{
+  unsigned int p_magic;
   unsigned int p_state;
 
   char *p_buffer;
@@ -470,6 +471,7 @@ unsigned int get_buffer_parse_katcl(struct katcl_parse *p, unsigned int index, v
 
 /* parse: parsing from line */
 int parse_katcl(struct katcl_line *l);
+struct katcl_parse *ready_katcl(struct katcl_line *l);
 
 #include <stdarg.h>
 

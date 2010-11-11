@@ -617,6 +617,7 @@ int call_katcp(struct katcp_dispatch *d)
 
 #ifdef DEBUG
   if(d == NULL){
+    fprintf(stderr, "call: null dispatch argument\n");
     return -1;
   }
 #endif
@@ -629,6 +630,10 @@ int call_katcp(struct katcp_dispatch *d)
 
   if(d->d_current){
     r = (*(d->d_current))(d, n);
+
+#ifdef DEBUG
+    fprintf(stderr, "call: dispatch function returned %d\n", r);
+#endif
 
     if(r <= 0){
       extra_response_katcp(d, r, NULL);
@@ -643,6 +648,10 @@ int call_katcp(struct katcp_dispatch *d)
       d->d_pause = 1;
     }
   } else { /* force a fail for unknown commands */
+
+#ifdef DEBUG
+    fprintf(stderr, "call: no dispatch function for %s\n", s);
+#endif
     switch(s[0]){
       case KATCP_REQUEST :
         if(s[1] != '\0'){
@@ -789,17 +798,6 @@ int read_katcp(struct katcp_dispatch *d)
   return -1;
 }
 
-#if 0
-int have_katcp(struct katcp_dispatch *d)
-{
-  if(d && d->d_line){
-    return have_katcl(d->d_line);
-  }
-  
-  return 0;
-}
-#endif
-
 int error_katcp(struct katcp_dispatch *d)
 {
   if(d && d->d_line){
@@ -808,13 +806,6 @@ int error_katcp(struct katcp_dispatch *d)
   
   return EINVAL;
 }
-
-#if 0
-void pause_katcp(struct katcp_dispatch *d)
-{
-  d->d_pause = 1;
-}
-#endif
 
 void resume_katcp(struct katcp_dispatch *d)
 {
@@ -916,6 +907,10 @@ int help_cmd_katcp(struct katcp_dispatch *d, int argc)
 
   count = 0;
   match = (argc <= 1) ? NULL : arg_string_katcp(d, 1);
+
+#ifdef DEBUG
+  fprintf(stderr, "printing help\n");
+#endif
 
   log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "printing available commands for mode %d", d->d_shared->s_mode);
 
