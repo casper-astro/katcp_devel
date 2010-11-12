@@ -85,7 +85,7 @@ struct katcl_line *create_katcl(int fd)
 
   l->l_error = 0;
 
-  l->l_next = create_parse_katcl(l);
+  l->l_next = create_parse_katcl(l); /* we require that next is always valid */
   if(l->l_next == NULL){
     destroy_katcl(l, 0);
     return NULL;
@@ -746,7 +746,7 @@ int send_katcl(struct katcl_line *l, ...)
   return result;
 }
 
-#ifdef TODO
+#if 0
 int parsed_relay_katcl(struct katcl_parse *p, struct katcl_msg *m)
 {
   int i, flag, need, len;
@@ -781,8 +781,6 @@ int parsed_relay_katcl(struct katcl_parse *p, struct katcl_msg *m)
 
 int relay_katcl(struct katcl_line *lx, struct katcl_line *ly)
 {
-  struct katcl_parse *p;
-
   if(lx->l_ready == NULL){
     return -1;
   }
@@ -829,7 +827,7 @@ int write_katcl(struct katcl_line *l)
 {
   int wr;
   int state;
-  unsigned int i, j, space, want, can, actual;
+  unsigned int space, want, can, actual;
   struct katcl_parse *p;
   struct katcl_larg *la;
 #define TMP_MARGIN 32

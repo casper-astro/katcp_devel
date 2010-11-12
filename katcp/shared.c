@@ -806,6 +806,20 @@ int listen_shared_katcp(struct katcp_dispatch *d, int count, char *host, int por
   return count;
 }
 
+struct katcp_dispatch *template_shared_katcp(struct katcp_dispatch *d)
+{
+  struct katcp_shared *s;
+
+  sane_shared_katcp(d);
+
+  s = d->d_shared;
+  if(s == NULL){
+    return NULL;
+  }
+
+  return s->s_template;
+}
+
 /***********************************************************************/
 
 int mode_cmd_katcp(struct katcp_dispatch *d, int argc)

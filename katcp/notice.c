@@ -501,7 +501,7 @@ void wake_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct 
 {
   int fail;
 
-  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "waking notice %p (used by %d) with parse %p (used by %d)", n, n->n_use, p);
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "waking notice %s@%p (source=%d, client=%d) with parse %p (%s ...)", n->n_name, n, n->n_use, n->n_count, p, p ? get_string_parse_katcl(p, 0) : "<null>");
 
   n->n_trigger = 1;
   fail = 0;

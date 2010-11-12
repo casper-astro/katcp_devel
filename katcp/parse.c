@@ -546,6 +546,41 @@ int add_args_parse_katcl(struct katcl_parse *p, int flags, char *fmt, ...)
   return result;
 }
 
+int turnaround_parse_katcl(struct katcl_parse *p, int code)
+{
+  char *string;
+
+#ifdef DEBUG
+  if(p->p_state != KATCL_PARSE_DONE){
+    fprintf(stderr, "logic problem: attempting to turn around incomplete parse\n");
+    abort();
+  }
+#endif
+
+  string = copy_string_parse_katcl(p, 0);
+  if(string == NULL){
+    return -1;
+  }
+
+#ifdef DEBUG
+  if(string[0] != KATCP_REQUEST){
+    fprintf(stderr, "logic problem: attempting to turn around <%s>\n", string);
+    abort();
+  }
+#endif
+
+  clear_parse_katcl(p);
+
+  string[0] = KATCP_REPLY;
+  add_string_parse_katcl(p, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, string);
+  free(string);
+
+  string = code_to_name_katcm(code);
+  add_plain_parse_katcl(p, KATCP_FLAG_LAST | KATCP_FLAG_STRING, string ? string : KATCP_FAIL);
+
+  return 0;
+}
+
 /******************************************************************/
 /* end of adding to parse, now functions to get things out of it **/
 

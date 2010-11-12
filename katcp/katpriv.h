@@ -439,6 +439,7 @@ struct katcl_parse *create_parse_katcl();
 void destroy_parse_katcl(struct katcl_parse *p);
 void clear_parse_katcl(struct katcl_parse *p);
 struct katcl_parse *copy_parse_katcl(struct katcl_parse *pd, struct katcl_parse *ps);
+int turnaround_parse_katcl(struct katcl_parse *p, int code);
 
 /* parse: adding fields */
 int add_plain_parse_katcl(struct katcl_parse *p, int flags, char *string);

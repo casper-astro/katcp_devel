@@ -564,7 +564,7 @@ int wait_jobs_katcp(struct katcp_dispatch *d)
 {
   struct katcp_shared *s;
   struct katcp_job *j;
-  int status;
+  int status, code;
   pid_t pid;
   int i;
 
@@ -582,9 +582,17 @@ int wait_jobs_katcp(struct katcp_dispatch *d)
 
       if((j->j_pid == pid) && (j->j_state & JOB_MAY_COLLECT)){
         if(WIFEXITED(status)){
-           j->j_code = WEXITSTATUS(status) ? KATCP_RESULT_FAIL : KATCP_RESULT_OK;
+          code = WEXITSTATUS(status);
+          log_message_katcp(d, code ? KATCP_LEVEL_INFO : KATCP_LEVEL_DEBUG, NULL, "process %d exited with code", j->j_pid, code);
+          j->j_code = code ? KATCP_RESULT_FAIL : KATCP_RESULT_OK;
+        } else if(WIFSIGNALED(status)){
+          code = WTERMSIG(status);
+          log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "process %d terminated by signal %d", j->j_pid, code);
+          j->j_code = KATCP_RESULT_FAIL;
+        } else {
+          log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "process %d exited abnormally", j->j_pid, code);
+          j->j_code = KATCP_RESULT_FAIL;
         }
-
         j->j_state &= ~(JOB_MAY_KILL | JOB_MAY_COLLECT);
       }
 
@@ -629,9 +637,8 @@ int run_jobs_katcp(struct katcp_dispatch *d)
 {
   struct katcp_shared *s;
   struct katcp_notice *n;
-  struct katcp_msg *m;
   struct katcp_job *j;
-  struct katcl_parse *pq, *pp; /* reQuest, rePly */
+  struct katcl_parse *p;
   int i, count, fd, result;
   char *string;
 
@@ -710,19 +717,18 @@ int run_jobs_katcp(struct katcp_dispatch *d)
 
       n = remove_head_job(j);
       while(n != NULL){
-#if 0
-        pq = parse_notice_katcp(d, n);
-        pp = NULL;
-        if(m){
-          p = create_parse_katcl();
-          if(p){
-            /* TODO */
-            log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "need to provide status");
+        log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "failing pending notice for job %s", j->j_name);
+
+        p = parse_notice_katcp(d, n);
+
+        if(p){
+          if(turnaround_parse_katcl(p, KATCP_RESULT_FAIL)){
+            log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to generate failed response on disconnect");
+            p = NULL;
           }
         }
-        log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "waking notices still queued");
-#endif
-        wake_notice_katcp(d, n, NULL);
+
+        wake_notice_katcp(d, n, p);
         n = remove_head_job(j);
       }
 
@@ -731,14 +737,15 @@ int run_jobs_katcp(struct katcp_dispatch *d)
         n = j->j_halt;
         j->j_halt = NULL;
 
-        pp = create_parse_katcl();
-        if(pp){
-          add_plain_parse_katcl(pp, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, KATCP_INFORM_JOB);
-          add_plain_parse_katcl(pp, KATCP_FLAG_STRING | KATCP_FLAG_LAST, "stop");
+        p = create_parse_katcl();
+        if(p){
+          add_plain_parse_katcl(p, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, KATCP_INFORM_JOB);
+          string = code_to_name_katcm(j->j_code);
+          add_plain_parse_katcl(p, KATCP_FLAG_STRING | KATCP_FLAG_LAST, string ? string : KATCP_FAIL);
         }
 
         n->n_use--;
-        wake_notice_katcp(d, n, pp);
+        wake_notice_katcp(d, n, p);
       }
 
       delete_job_katcp(d, j);
@@ -885,7 +892,6 @@ int resume_job(struct katcp_dispatch *d, struct katcp_notice *n)
 #ifdef DEBUG
     fprintf(stderr, "resume: parameter %d is %s\n", 1, ptr);
 #endif
-    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "got something from job via notice %p", n);
   } else {
     ptr = NULL;
   }
@@ -903,9 +909,9 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
   struct katcp_job *j;
   struct katcp_notice *n;
   struct katcl_parse *p;
-  char *name, *watch, *cmd, *host, *label;
+  char *name, *watch, *cmd, *host, *label, *buffer, *tmp;
   char *vector[2];
-  int i, port, count;
+  int i, port, count, len, flags, special;
 
   s = d->d_shared;
 
@@ -1012,8 +1018,7 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
       }
 
       return KATCP_RESULT_PAUSE;
-#if 0
-    } else if(!strcmp(name, "quote")){
+    } else if(!strcmp(name, "relay")){
 
       label = arg_string_katcp(d, 2);
       if(label == NULL){
@@ -1028,24 +1033,79 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
       }
 
       count = arg_count_katcp(d);
-      if(count < 3){
+      if(count < 4){
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a command to send");
         return KATCP_RESULT_FAIL;
       }
 
-      m = create_msg_katcl(NULL);
-      if(m == NULL){
+      p = create_parse_katcl();
+      if(p == NULL){
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to create message");
         return KATCP_RESULT_FAIL;
       }
+      
+      flags = KATCP_FLAG_FIRST;
+      buffer = NULL;
+      i = 3;
+      special = 1;
 
-      for(i = 2; i < count; i++){
-        /* should have a nicer way of transferring arg from one to another */
+      while(i < count){
+        len = arg_buffer_katcp(d, i, NULL, 0);
+        if(len < 0){
+          log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "bad length %d for argument %d", len, i);
+          if(buffer){
+            free(buffer);
+          }
+          destroy_parse_katcl(p);
+          return KATCP_RESULT_FAIL;
+        }
+        tmp = realloc(buffer, len + special);
+        if(tmp == NULL){
+          if(buffer){
+            free(buffer);
+          }
+          destroy_parse_katcl(p);
+          return KATCP_RESULT_FAIL;
+        }
+        buffer = tmp;
+        arg_buffer_katcp(d, i, buffer + special, len);
+        if(special){
+          if(buffer[special] != KATCP_REQUEST){
+            buffer[0] = KATCP_REQUEST;
+            special = 0;
+            len++;
+          }
+        }
+
+        i++;
+        if(i == count){
+          flags |= KATCP_FLAG_LAST;
+        }
+
+        if(add_buffer_parse_katcl(p, flags | KATCP_FLAG_BUFFER, buffer + special, len) < 0){
+          log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to assemble message");
+          free(buffer);
+          destroy_parse_katcl(p);
+          return KATCP_RESULT_FAIL;
+        }
+
+        flags = 0;
+        special = 0;
+      }
+
+      if(buffer){
+        free(buffer);
+      }
+
+      if(submit_to_job_katcp(d, j, p, &resume_job) < 0){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to submit message to job");
+        destroy_parse_katcl(p);
+        return KATCP_RESULT_FAIL;
       }
 
       return KATCP_RESULT_PAUSE;
-#endif
     } else {
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unknown job request %s", name);
       return KATCP_RESULT_FAIL;
     }
   }
