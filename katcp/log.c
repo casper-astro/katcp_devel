@@ -169,6 +169,7 @@ int basic_inform_katcl(struct katcl_line *cl, char *name, char *arg)
 }
 #endif
 
+#if 0
 int extra_response_katcl(struct katcl_line *cl, int code, char *fmt, ...)
 {
   va_list args;
@@ -207,4 +208,5 @@ int vextra_response_katcl(struct katcl_line *cl, int code, char *fmt, va_list ar
 
   return vector_sum(result, 3);
 }
+#endif
 

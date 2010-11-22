@@ -188,11 +188,8 @@ static int pipe_from_file_katcp(struct katcp_dispatch *dl, char *file)
 #define S_DONE 3
   int fds[2], fd;
   pid_t pid;
-  char buffer[READ_BUFFER];
-  int rr, wr, hw;
   struct katcl_line *pl, *fl;
   int result;
-  char *cmd;
 
   if(socketpair(AF_UNIX, SOCK_STREAM, 0, fds) < 0){
     return -1;
@@ -225,7 +222,6 @@ static int pipe_from_file_katcp(struct katcp_dispatch *dl, char *file)
     exit(EX_UNAVAILABLE);
   }
 
-
   int state, rsvp;
 
   for(;;){
@@ -238,7 +234,7 @@ static int pipe_from_file_katcp(struct katcp_dispatch *dl, char *file)
     if(have_katcl(fl)){
       if(arg_request_katcl(fl)){
         
-        rsvp = relay_katcl(fl,pl);
+        rsvp = relay_katcl(fl, pl);
 
         if (rsvp < 0){
           fprintf(stderr,"init: relay_katcl: Unable to relay\n");
@@ -423,8 +419,8 @@ int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, ch
   register_flag_mode_katcp(dl, "?notice",  "notice operations (?notice [list|create|watch|wake])", &notice_cmd_katcp, KATCP_CMD_HIDDEN, 0);
   register_flag_mode_katcp(dl, "?job",     "job operations (?job [list|process notice-name executable-file])", &job_cmd_katcp, KATCP_CMD_HIDDEN, 0);
 #else
-  register_flag_mode_katcp(dl, "?notice",  "notice operations (?notice [list|create|watch|wake])", &notice_cmd_katcp, 0, 0);
-  register_flag_mode_katcp(dl, "?job",     "job operations (?job [list|process notice-name executable-file])", &job_cmd_katcp, 0, 0);
+  register_flag_mode_katcp(dl, "?notice",  "notice operations (?notice [list|watch|wake])", &notice_cmd_katcp, 0, 0);
+  register_flag_mode_katcp(dl, "?job",     "job operations (?job [list|process notice-name executable-file|network notice-name net-host remote-port|watchdog job-name])", &job_cmd_katcp, 0, 0);
 #endif
 
   register_katcp(dl, "?sensor-list",       "lists available sensors (?sensor-list [sensor])", &sensor_list_cmd_katcp);
@@ -641,7 +637,7 @@ int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, ch
 
         } else {
 
-          /* WARNING: will run a busy loop, terminating one entry each cycle until space becomes available. We expect an exit to happen quickly, otherwise this could empty out all clients (though there is a backoff, since we pick things randomly) */
+          /* WARNING: will run a busy loop, terminating one entry each cycle until space becomes available. We expect an exit to happen quickly, otherwise this could empty out all clients (though there is a backoff, since we pick a slot randomly) */
           perforate_client_server_katcp(dl);
 
         }

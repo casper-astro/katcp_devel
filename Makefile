@@ -1,16 +1,8 @@
-CFLAGS = -Wall
-#CFLAGS += -O2
-CFLAGS += -ggdb
-
-# where to find the KATCP library (change this in case katcp isn't included locally)
-KATCP = katcp
+include Makefile.inc 
 
 ###############################################################################
 
 SUB = katcp cmd kcs examples
-
-CC = $(CROSS_COMPILE)gcc
-RM = rm -f
 
 ###############################################################################
 

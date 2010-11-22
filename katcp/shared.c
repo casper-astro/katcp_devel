@@ -289,6 +289,8 @@ void shutdown_shared_katcp(struct katcp_dispatch *d)
   }
 #endif
 
+  /* TODO: what about destroying jobs, need to happen before sensors ? */
+
   destroy_notices_katcp(d);
   destroy_sensors_katcp(d);
 
@@ -802,6 +804,20 @@ int listen_shared_katcp(struct katcp_dispatch *d, int count, char *host, int por
 #endif
 
   return count;
+}
+
+struct katcp_dispatch *template_shared_katcp(struct katcp_dispatch *d)
+{
+  struct katcp_shared *s;
+
+  sane_shared_katcp(d);
+
+  s = d->d_shared;
+  if(s == NULL){
+    return NULL;
+  }
+
+  return s->s_template;
 }
 
 /***********************************************************************/

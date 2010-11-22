@@ -1,9 +1,7 @@
-CC = $(CROSS_COMPILE)gcc
-CFLAGS = -Wall
-#CFLAGS += -DDEBUG -ggdb
+include ../Makefile.inc
+
 INC = -I$(KATCP)
 LIB = -L$(KATCP) -lkatcp
-RM = rm -f
 BUILD = unknown-0.1
 
 EXE = client-example server-example 
@@ -18,3 +16,7 @@ server-example: server-example.c
 
 clean: 
 	$(RM) $(EXE)
+
+install: $(EXE)
+	$(ECHO) "not installing examples"
+

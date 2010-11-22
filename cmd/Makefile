@@ -1,9 +1,4 @@
-RM = rm -f
-CC = $(CROSS_COMPILE)gcc
-CFLAGS = -Wall
-#CFLAGS += -DDEBUG
-CFLAGS += -ggdb
-LDFLAGS = 
+include ../Makefile.inc
 
 INC = -I$(KATCP)
 LIB = -L$(KATCP) -lkatcp
@@ -23,3 +18,6 @@ $(EXE): $(OBJ)
 
 clean:
 	$(RM) $(OBJ) core $(EXE)
+
+install: all
+	$(INSTALL) $(EXE) $(PREFIX)/bin

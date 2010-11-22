@@ -7,6 +7,21 @@
 
 struct katcl_larg;
 struct katcl_line;
+struct katcl_msg;
+
+struct katcl_msg *create_msg_katcl(struct katcl_line *l);
+void destroy_msg_katcl(struct katcl_msg *m);
+
+int queue_string_katcl(struct katcl_msg *m, int flags, char *buffer);
+int queue_unsigned_long_katcl(struct katcl_msg *m, int flags, unsigned long v);
+int queue_signed_long_katcl(struct katcl_msg *m, int flags, unsigned long v);
+int queue_hex_long_katcl(struct katcl_msg *m, int flags, unsigned long v);
+int queue_vargs_katcl(struct katcl_msg *m, int flags, char *fmt, va_list args);
+int queue_args_katcl(struct katcl_msg *m, int flags, char *fmt, ...);
+#ifdef KATCP_USE_FLOATS
+int queue_double_katcl(struct katcl_msg *m, int flags, double v);
+#endif
+int queue_buffer_katcl(struct katcl_msg *m, int flags, void *buffer, int len);
 
 struct katcl_line *create_katcl(int fd);
 void destroy_katcl(struct katcl_line *l, int mode);
@@ -34,18 +49,23 @@ int append_string_katcl(struct katcl_line *l, int flags, char *buffer);
 int append_unsigned_long_katcl(struct katcl_line *l, int flags, unsigned long v);
 int append_signed_long_katcl(struct katcl_line *l, int flags, unsigned long v);
 int append_hex_long_katcl(struct katcl_line *l, int flags, unsigned long v);
-int append_buffer_katcl(struct katcl_line *l, int flags, void *buffer, int len);
 int append_vargs_katcl(struct katcl_line *l, int flags, char *fmt, va_list args);
 int append_args_katcl(struct katcl_line *l, int flags, char *fmt, ...);
 #ifdef KATCP_USE_FLOATS
 int append_double_katcl(struct katcl_line *l, int flags, double v);
 #endif
+int append_buffer_katcl(struct katcl_line *l, int flags, void *buffer, int len);
+
+int append_msg_katcl(struct katcl_line *l, struct katcl_msg *m);
+
 
 int vsend_katcl(struct katcl_line *l, va_list ap);
 int send_katcl(struct katcl_line *l, ...);
 
+#if 0
 int vprint_katcl(struct katcl_line *l, int full, char *fmt, va_list args);
 int print_katcl(struct katcl_line *l, int full, char *fmt, ...);
+#endif
 
 int relay_katcl(struct katcl_line *lx, struct katcl_line *ly);
 
