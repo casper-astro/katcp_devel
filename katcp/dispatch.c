@@ -22,6 +22,7 @@
 
 #define KATCP_READY_MAGIC 0x7d68352c
 
+int setenv_cmd_katcp(struct katcp_dispatch *d, int argc);
 int help_cmd_katcp(struct katcp_dispatch *d, int argc);
 int halt_cmd_katcp(struct katcp_dispatch *d, int argc);
 int restart_cmd_katcp(struct katcp_dispatch *d, int argc);
@@ -113,6 +114,8 @@ struct katcp_dispatch *setup_katcp(int fd)
     shutdown_katcp(d);
     return NULL;
   }
+
+  register_flag_mode_katcp(d, "?setenv", "sets/clears an enviroment variable (?setenv [label [value]]", &setenv_cmd_katcp, KATCP_CMD_HIDDEN, 0);
 
   register_katcp(d, "?halt", "shuts the system down (?halt)", &halt_cmd_katcp);
   register_katcp(d, "?restart", "restarts the system (?restart)", &restart_cmd_katcp);
@@ -894,6 +897,42 @@ void reset_katcp(struct katcp_dispatch *d, int fd)
 }
 
 /**************************************************************/
+
+int setenv_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  char *label, *value;
+
+  if(d->d_shared == NULL){
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(argc < 2){
+    extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
+    return KATCP_RESULT_OWN;
+  }
+
+  label = arg_string_katcp(d, 1);
+  if(argc == 2){
+    if(unsetenv(label) < 0){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to clear variable %s : %s", label, strerror(errno));
+      return KATCP_RESULT_FAIL;
+    }
+    return KATCP_RESULT_OK;
+  }
+
+  value = arg_string_katcp(d, 2);
+  if(value == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire value for variable %s", label);
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(setenv(label, value, 1) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to set variable %s : %s", label, strerror(errno));
+    return KATCP_RESULT_FAIL;
+  }
+
+  return KATCP_RESULT_OK;
+}
 
 int help_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
