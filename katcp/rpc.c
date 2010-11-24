@@ -4,11 +4,13 @@
 #include <errno.h>
 #include <string.h>
 #include <time.h>
+#include <stdarg.h>
 
 #include <sys/types.h>
 
 #include "katcl.h"
 #include "katpriv.h"
+#include "katcp.h"
 #include "netc.h"
 
 struct katcl_line *create_name_katcl(char *name)
@@ -64,11 +66,14 @@ int finished_request_katcl(struct katcl_line *l, struct timeval *until)
 
     if(until){
       gettimeofday(&now, NULL);
+#ifdef DEBUG
+      fprintf(stderr, "now %lu.%lds, until %lu.%lds\n", now.tv_sec, now.tv_usec, until->tv_sec, until->tv_usec);
+#endif
       if(cmp_time_katcp(&now, until) < 0){
         sub_time_katcp(&tv, until, &now);
       } else {
         tv.tv_sec = 0;
-        tv.tv_usec = 1;
+        tv.tv_usec = 12;
       }
       result = select(fd + 1, &fsr, &fsw, NULL, &tv);
     } else {
@@ -115,141 +120,77 @@ int finished_request_katcl(struct katcl_line *l, struct timeval *until)
   }
 }
 
-#if 0
-static int dispatch_client(struct katcl_line *l, char *msgname, int verbose, unsigned int timeout)
+int issue_request_katcl(struct katcl_line *l, unsigned int timeout, ...)
 {
-  fd_set fsr, fsw;
-  struct timeval tv;
   int result;
-  char *ptr, *match, *prev;
-  int prefix;
-  int i,j;
-  int fd;
+  va_list args;
+  struct timeval until, delta, now;
+  char *ptr;
 
-  fd = fileno_katcl(l);
+  va_start(args, timeout);
+  result = vsend_katcl(l, args);
+  va_end(args);
 
-  if(msgname){
-    switch(msgname[0]){
-      case '!' :
-      case '?' :
-        prefix = strlen(msgname + 1);
-        match = msgname + 1;
-        break;
-      default :
-        prefix = strlen(msgname);
-        match = msgname;
-        break;
-    }
-  } else {
-    prefix = 0;
-    match = NULL;
+  if(result < 0){
+#ifdef DEBUG
+    fprintf(stderr, "issue: vsend failed\n");
+#endif
+    return -1;
   }
 
-  for(;;){
+  delta.tv_sec = timeout / 1000;
+  delta.tv_usec = (timeout - delta.tv_sec * 1000) * 1000;
+  gettimeofday(&now, NULL);
+  add_time_katcp(&until, &now, &delta);
 
-    FD_ZERO(&fsr);
-    FD_ZERO(&fsw);
+#ifdef DEBUG
+  fprintf(stderr, "now is %lu.%lds, finish at %lu.%lds\n", now.tv_sec, now.tv_usec, until.tv_sec, until.tv_usec);
+#endif
 
-    if(match){ /* only look for data if we need it */
-      FD_SET(fd, &fsr);
-    }
+  while((result = finished_request_katcl(l, &until)) == 0);
 
-    if(flushing_katcl(l)){ /* only write data if we have some */
-      FD_SET(fd, &fsw);
-    }
-
-    tv.tv_sec  = timeout / 1000;
-    tv.tv_usec = (timeout % 1000) * 1000;
-
-    result = select(fd + 1, &fsr, &fsw, NULL, &tv);
-    switch(result){
-      case -1 :
-        switch(errno){
-          case EAGAIN :
-          case EINTR  :
-            continue; /* WARNING */
-          default  :
-            return -1;
-        }
-        break;
-      case  0 :
-        if(verbose){
-          fprintf(stderr, "dispatch: no io activity within %u ms\n", timeout);
-        }
-        return -1;
-    }
-
-    if(FD_ISSET(fd, &fsw)){
-      result = write_katcl(l);
-      if(result < 0){
-      	fprintf(stderr, "dispatch: write failed: %s\n", strerror(error_katcl(l)));
-      	return -1;
-      }
-      if((result > 0) && (match == NULL)){ /* if we finished writing and don't expect a match then quit */
-      	return 0;
-      }
-    }
-
-    if(FD_ISSET(fd, &fsr)){
-      if(read_katcl(l) < 0){
-      	fprintf(stderr, "dispatch: read failed: %s\n", strerror(error_katcl(l)));
-      	return -1;
-      }
-    }
-
-    while(have_katcl(l) > 0){
-
-      if (verbose) {
-        i = arg_count_katcl(l);
-        prev = arg_string_katcl(l,0);
-        for( j = 0; j < i; j++ ) {
-          ptr = arg_string_katcl(l,j);
-          if(ptr && prev){
-            /*prevent writing out binary data from read*/
-            if( j == 2 && !strcmp("read", match) && !strcmp(prev, KATCP_OK) ){
-              /*TODO do this properly*/
-              fprintf(stdout," <binary data>");
-            } else {
-              if(j != 0) {
-                fprintf(stdout, " ");
-              } 
-              fprintf(stdout,"%s", ptr);
-              prev = ptr;  
-            }
-          }
-        }
-        fprintf(stdout,"\n");
-      }
-
-      ptr = arg_string_katcl(l, 0);
-      if(ptr){
-      	switch(ptr[0]){
-          case KATCP_INFORM : 
-            break;
-          case KATCP_REPLY : 
-            if(match){
-              if(strncmp(match, ptr + 1, prefix) || ((ptr[prefix + 1] != '\0') && (ptr[prefix + 1] != ' '))){
-      	        fprintf(stderr, "dispatch: warning, encountered reply <%s> does not match <%s>\n", ptr, match);
-              } else {
-              	ptr = arg_string_katcl(l, 1);
-              	if(ptr && !strcmp(ptr, KATCP_OK)){
-              	  return 0;
-                } else {
-                  return -1;
-                }
-              }
-            }
-            break;
-          case KATCP_REQUEST : 
-      	    fprintf(stderr, "dispatch: warning, encountered an unanswerable request <%s>\n", ptr);
-            break;
-          default :
-            fprintf(stderr, "dispatch: read malformed message <%s>\n", ptr);
-            break;
-        }
-      }
-    }
+  if(result < 0){
+    /* TODO: end connection, request/replies potentially out of sync */
+    return -1;
   }
+
+  ptr = arg_string_katcl(l, 1);
+  if(ptr == NULL){
+    return -1;
+  }
+
+  if(strcmp(ptr, KATCP_OK)){
+    return 1;
+  }
+
+  return 0;
+}
+
+#ifdef UNIT_TEST_RPC
+
+int main()
+{
+  struct katcl_line *l;
+  int result;
+
+  l = create_name_katcl(NULL);
+  if(l == NULL){
+    fprintf(stderr, "unable to create line\n");
+    return 1;
+  }
+
+  result = issue_request_katcl(l, 10000, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, "?help", KATCP_FLAG_STRING | KATCP_FLAG_LAST, "fred");
+
+  if(result < 0){
+    fprintf(stderr, "request failed\n");
+    return 1;
+  }
+
+  printf("request %s\n", result ? "failed" : "ok");
+
+  destroy_katcl(l, 0);
+
+  return 0;
 }
 #endif
 
