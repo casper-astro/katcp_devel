@@ -26,3 +26,6 @@ test-parser: parser.c
 
 test-execpy: execpy.c 
 	$(CC) $(CFLAGS) -DSTANDALONE -o $@ $^ -I../katcp -L../katcp -lkatcp
+
+test-roachpool: roachpool.c 
+	$(CC) $(CFLAGS) -DSTANDALONE -o $@ $^ -I../katcp

@@ -412,7 +412,7 @@ void show_tree(struct katcp_dispatch *d, struct p_parser *p){
 #endif
 
 #ifndef STANDALONE
-        prepend_reply_katcp(d);
+        prepend_inform_katcp(d);
         append_string_katcp(d,KATCP_FLAG_STRING,"list");
         append_string_katcp(d,KATCP_FLAG_STRING,cl->str);
         append_string_katcp(d,KATCP_FLAG_STRING,cs->str);

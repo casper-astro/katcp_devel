@@ -13,7 +13,7 @@ struct kcs_basic
 {
   char *b_scripts;
   struct p_parser *b_parser;
-  struct kcs_ojb *b_pool_head;
+  struct kcs_obj *b_pool_head;
 };
 
 
@@ -87,10 +87,13 @@ void execpy_do(char *filename, char **argv);
 #define KCS_ID_NODE         1
 #define KCS_ID_GENERIC      0
 
+#define KCS_OK    0
+#define KCS_FAIL  1
+
 struct kcs_obj {
   int tid;
-  struct kcs_ojb *parent;
-  char *pool;
+  struct kcs_obj *parent;
+  char *name;
   void *payload;
 };
 
@@ -100,11 +103,12 @@ struct kcs_node {
 };
 
 struct kcs_roach {
-  char *hostname;
+  /*char *hostname;*/
   char *ip;
   char *mac;
 };
 
+/*
 struct kcs_tree_operations {
   struct kcs_obj* (*t_init)(void);
   struct kcs_obj* (*t_create_node)(char *pool);
@@ -114,6 +118,7 @@ struct kcs_tree_operations {
   struct kcs_obj* (*t_find)(char *sstr);
   int (*t_destroy)(struct kcs_obj *root);
 };
+*/
 
 int roachpool_greeting(struct katcp_dispatch *d);
 int roachpool_add(struct katcp_dispatch *d);
