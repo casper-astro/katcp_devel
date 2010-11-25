@@ -874,6 +874,193 @@ struct katcp_job *network_connect_job_katcp(struct katcp_dispatch *d, char *host
   return j;
 }
 
+/***********************************************************************************/
+
+#define KATCP_JOB_UNLOCK   0x1
+#define KATCP_JOB_LOCAL    0x2
+#define KATCP_JOB_GLOBAL   0x3
+
+#define KATCP_GLOBAL_NOTICE "any-job-exit"
+#define KATCP_LOCAL_NOTICE  "job-%s-exit"
+
+int subprocess_resume_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
+{
+  char *ptr;
+  struct katcl_parse *p;
+  unsigned int count, i;
+
+  p = parse_notice_katcp(d, n);
+  if(p){
+    ptr = get_string_parse_katcl(p, 1);
+  } else {
+    ptr = NULL;
+  }
+
+  count = get_count_parse_katcl(p);
+
+  prepend_reply_katcp(d);
+
+  if(count < 2){
+    append_string_katcp(d, KATCP_FLAG_LAST, KATCP_FAIL);
+  } else {
+    for(i = 1; i < (count - 1); i++){
+      append_parameter_katcp(d, KATCP_FLAG_BUFFER, p, i);
+    }
+    append_parameter_katcp(d, KATCP_FLAG_LAST, p, i);
+  }
+
+  resume_katcp(d);
+
+  return 0;
+}
+
+int subprocess_start_job_katcp(struct katcp_dispatch *d, int argc, int options)
+{
+  char **vector;
+  struct katcp_job *j;
+  struct katcp_notice *n;
+  char *name, *ptr;
+  int i, len;
+
+  name = arg_string_katcp(d, 0);
+  if(name == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire name");
+    return KATCP_RESULT_FAIL;
+  }
+  name++;
+
+  switch(options){
+    case KATCP_JOB_UNLOCK  : /* run all instances concurrently */
+      n = create_notice_katcp(d, NULL, 0);
+      break;
+
+    case KATCP_JOB_LOCAL  : /* only run one instance of this command */
+
+      len = strlen(KATCP_LOCAL_NOTICE) + strlen(name);
+      ptr = malloc(len + 1);
+      if(ptr == NULL){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate %d bytes", len + 1);
+        return KATCP_RESULT_FAIL;
+      }
+
+      snprintf(ptr, len, KATCP_LOCAL_NOTICE, name);
+      ptr[len] = '\0';
+
+      n = find_used_notice_katcp(d, ptr);
+      if(n){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "still waiting for %s", ptr);
+        free(ptr);
+        return KATCP_RESULT_FAIL;
+      }
+
+      n = create_notice_katcp(d, ptr, 0);
+      free(ptr);
+
+      break;
+
+    case KATCP_JOB_GLOBAL  : /* only run one instance of any command */
+      n = find_notice_katcp(d, KATCP_GLOBAL_NOTICE);
+      if(n){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "still waiting for %s", KATCP_GLOBAL_NOTICE);
+        return KATCP_RESULT_FAIL;
+      }
+      n = create_notice_katcp(d, KATCP_GLOBAL_NOTICE, 0);
+      break;
+  }
+
+  if(n == NULL){
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "unable to create notice");
+    return KATCP_RESULT_FAIL;
+  }
+
+  vector = malloc(sizeof(char *) * (argc + 1));
+  if(vector == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate %d bytes", sizeof(char *) * (argc + 1));
+    return KATCP_RESULT_FAIL;
+  }
+
+  vector[0] = name;
+  for(i = 1; i < argc; i++){
+    /* WARNING: won't deal with arguments containing \0, but then again, the command-line doesn't do either */
+    vector[i] = arg_string_katcp(d, i);
+  }
+
+  vector[i] = NULL;
+  j = process_create_job_katcp(d, name, vector, n);
+  free(vector);
+
+  if(j == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to create job for command %s", name);
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(add_notice_katcp(d, n, &subprocess_resume_job_katcp)){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to watch notice");
+    return KATCP_RESULT_FAIL;
+  }
+
+  return KATCP_RESULT_PAUSE;
+}
+
+int unlocked_subprocess_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  return subprocess_start_job_katcp(d, argc, KATCP_JOB_UNLOCK);
+}
+
+#if 0
+int register_unlocked_subprocess_katcp(struct katcp_dispatch *d, char *match, char *help, int flags, int mode)
+{
+  /* this could be construed as excessive layering */
+  return register_flag_mode_katcp(d, match, help, &unlocked_subprocess_cmd_katcp, flags, mode);
+}
+#endif
+
+int register_subprocess_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  char *name, *help, *mode;
+  int fail, code;
+
+  if(argc < 3){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "insufficient parameters");
+    return KATCP_RESULT_FAIL;
+  }
+
+  fail = 0;
+
+  name = arg_string_katcp(d, 1);
+  help = arg_string_katcp(d, 2);
+  if((name == NULL) || (help == NULL)){
+    fail = 1;
+  }
+
+  if(argc < 4){
+    mode = NULL;
+  } else {
+    mode = arg_string_katcp(d, 3);
+    if(mode == NULL){
+      fail = 1;
+    }
+  }
+
+  if(fail){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire parameters");
+    return KATCP_RESULT_FAIL;
+  }
+
+  code = query_mode_code_katcp(d, mode);
+  if(code < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unknown mode %s", mode);
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(register_flag_mode_katcp(d, name, help, &unlocked_subprocess_cmd_katcp, 0, code) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to register handler for command %s", name);
+    return KATCP_RESULT_FAIL;
+  }
+
+  return KATCP_RESULT_OK;
+}
+
 /* debug/diagnositic access to job logic **************************/
 
 int resume_job(struct katcp_dispatch *d, struct katcp_notice *n)
@@ -1111,7 +1298,7 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
 }
 
-#ifdef UNIT_TEST
+#ifdef UNIT_TEST_JOB
 
 #include <unistd.h>
 
@@ -1121,6 +1308,7 @@ int main()
 {
   struct katcp_job *j;
   struct katcp_dispatch *d;
+  struct katcp_notice *n;
   int i, k, r;
 
   srand(getpid());
@@ -1132,9 +1320,15 @@ int main()
     return 1;
   }
 
-  j = create_job_katcp(d, 0, -1, NULL);
+  j = create_job_katcp(d, "test", 0, -1, NULL);
   if(j == NULL){
     fprintf(stderr, "unable to create job\n");
+    return 1;
+  }
+
+  n = create_notice_katcp(d, "test", 0);
+  if(n == NULL){
+    fprintf(stderr, "unable to create notice\n");
     return 1;
   }
 
@@ -1147,7 +1341,7 @@ int main()
     } else if((r % 3) == 0){
       remove_head_job(j);
     } else {
-      add_tail_job(j, (struct katcp_notice *) i);
+      add_tail_job(j, n);
     }
     dump_queue_job_katcp(j, stderr);
   }

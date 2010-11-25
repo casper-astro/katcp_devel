@@ -421,6 +421,7 @@ int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, ch
 #else
   register_flag_mode_katcp(dl, "?notice",  "notice operations (?notice [list|watch|wake])", &notice_cmd_katcp, 0, 0);
   register_flag_mode_katcp(dl, "?job",     "job operations (?job [list|process notice-name executable-file|network notice-name net-host remote-port|watchdog job-name])", &job_cmd_katcp, 0, 0);
+  register_flag_mode_katcp(dl, "?process", "register a process command (?process executable help-string [mode]", &register_subprocess_cmd_katcp, 0, 0);
 #endif
 
   register_katcp(dl, "?sensor-list",       "lists available sensors (?sensor-list [sensor])", &sensor_list_cmd_katcp);

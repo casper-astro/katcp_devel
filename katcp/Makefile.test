@@ -2,7 +2,7 @@ include ../Makefile.inc
 
 INC = -I.
 
-TESTS = test-parse test-line test-rpc
+TESTS = test-parse test-line test-rpc test-job
 
 all: $(TESTS)
 
@@ -14,6 +14,9 @@ test-line: misc.c parse.c line.c
 
 test-rpc: misc.c parse.c line.c time.c netc.c rpc.c
 	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_RPC -o $@ $^
+
+test-job: misc.c parse.c line.c time.c netc.c dispatch.c shared.c ts.c log.c notice.c nonsense.c job.c
+	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_JOB -o $@ $^
 
 clean: 
 	$(RM) *.o core $(TESTS)

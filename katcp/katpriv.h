@@ -373,6 +373,8 @@ struct katcp_dispatch{
   struct katcp_notice **d_notices;
   unsigned int d_count;
 
+  struct katcp_notice *d_end;
+
   int d_clone;
 
   char d_name[KATCP_NAME_LENGTH];
@@ -433,6 +435,7 @@ int wait_jobs_katcp(struct katcp_dispatch *d);
 int run_jobs_katcp(struct katcp_dispatch *d);
 
 int job_cmd_katcp(struct katcp_dispatch *d, int argc);
+int register_subprocess_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 /* parse: setup */
 struct katcl_parse *create_parse_katcl();
@@ -451,6 +454,7 @@ int add_hex_long_parse_katcl(struct katcl_parse *p, int flags, unsigned long v);
 int add_double_parse_katcl(struct katcl_parse *p, int flags, double v);
 #endif
 int add_buffer_parse_katcl(struct katcl_parse *p, int flags, void *buffer, unsigned int len);
+int add_parameter_parse_katcl(struct katcl_parse *pd, int flags, struct katcl_parse *ps, unsigned int index);
 
 /* parse: extracting, testing fields */
 unsigned int get_count_parse_katcl(struct katcl_parse *p);
