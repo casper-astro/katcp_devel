@@ -117,6 +117,8 @@ int add_obj_to_node(struct kcs_obj *pno, struct kcs_obj *cno){
   parent->children = realloc(parent->children,sizeof(struct kcs_obj*)*++(parent->childcount));
   parent->children[parent->childcount-1] = cno;
 
+  cno->parent = pno;
+
   return KCS_OK;
 }
 
@@ -271,7 +273,80 @@ void destroy_tree(struct kcs_obj *o){
 #endif
   if (o->name) { free(o->name); o->name = NULL; }
   free(o);
+}
 
+int remove_obj_from_current_pool(struct kcs_obj *ro){
+  struct kcs_node *opn;
+  int i;
+
+  if (ro->parent->tid != KCS_ID_NODE){
+#ifdef DEBUG
+    fprintf(stderr,"The Parent obj is not NODE type\n");
+#endif
+    return KCS_FAIL;
+  }
+
+  opn = (struct kcs_node*) ro->parent->payload;
+
+  for (i=0;i<opn->childcount;i++){
+    if (opn->children[i] == ro){
+      opn->children[i] = opn->children[opn->childcount-1];
+      opn->children = realloc(opn->children,sizeof(struct kcs_obj*)*--(opn->childcount));
+      break;
+    }
+  }
+  
+  ro->parent = NULL;
+
+  return KCS_OK;
+}
+
+int mod_roach_to_new_pool(struct kcs_obj *root, char *pool, char *hostname){
+  
+  struct kcs_obj *ro;
+  struct kcs_obj *po;
+  
+  ro = search_tree(root,hostname);
+
+  if (!ro)
+    return KCS_FAIL;
+  
+  po = search_tree(root,pool);
+
+  if (!po){
+#ifdef DEBUG
+    fprintf(stderr,"New pool doesn't exist so create new one\n");
+#endif
+    po = new_kcs_node_obj(root,create_str(pool));
+    if (!po)
+      return KCS_FAIL;
+    if (add_obj_to_node(root,po) == KCS_FAIL){
+#ifdef DEBUG
+      fprintf(stderr,"Could not add new pool to node\n");
+#endif
+      return KCS_FAIL;
+    }
+  }
+
+  if (remove_obj_from_current_pool(ro) == KCS_FAIL){
+#ifdef DEBUG
+    fprintf(stderr,"Couldn't remove obj from pool\n");
+#endif
+    return KCS_FAIL;
+  }
+  
+  if (add_obj_to_node(po,ro) == KCS_FAIL){
+#ifdef DEBUG
+    fprintf(stderr,"Couldn't add obj to new node\n");
+#endif
+    return KCS_FAIL;
+  }
+
+#ifdef DEBUG
+  fprintf(stderr,"SUCCESS: %s is in pool %s\n",ro->name,po->name);
+#endif
+ 
+  return KCS_OK;
 }
 
 #ifndef STANDALONE
@@ -309,11 +384,19 @@ int roachpool_mod(struct katcp_dispatch *d){
   
   struct kcs_basic *kb;
   struct kcs_obj *root;
-  char *hostname;
+  char *hostname, *newpool;
 
   kb = need_current_mode_katcp(d,KCS_MODE_BASIC);
 
   root = kb->b_pool_head;
+  if (!root)
+    return KATCP_RESULT_FAIL;
+
+  hostname = arg_string_katcp(d,2);
+  newpool  = arg_string_katcp(d,3);
+
+  if (mod_roach_to_new_pool(root,newpool,hostname) == KCS_FAIL)
+    return KATCP_RESULT_FAIL;
   
   return KATCP_RESULT_OK;
 }
