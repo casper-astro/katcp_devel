@@ -1135,8 +1135,6 @@ int parse_katcl(struct katcl_line *l) /* transform buffer -> args */
 /******************************************************************/
 /* end of core library logic, now debug and test routines *********/
 
-#ifdef DEBUG
-
 #include <ctype.h>
 
 int dump_parse_katcl(struct katcl_parse *p, char *prefix, FILE *fp)
@@ -1171,7 +1169,6 @@ int dump_parse_katcl(struct katcl_parse *p, char *prefix, FILE *fp)
 
   return 0;
 }
-#endif
 
 #ifdef UNIT_TEST_PARSE
 

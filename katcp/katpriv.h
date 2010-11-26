@@ -483,8 +483,6 @@ struct katcl_parse *ready_katcl(struct katcl_line *l);
 int add_vargs_parse_katcl(struct katcl_parse *p, int flags, char *fmt, va_list args);
 int add_args_parse_katcl(struct katcl_parse *p, int flags, char *fmt, ...);
 
-#ifdef DEBUG
 int dump_parse_katcl(struct katcl_parse *p, char *prefix, FILE *fp);
-#endif
 
 #endif
