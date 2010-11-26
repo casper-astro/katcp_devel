@@ -112,6 +112,7 @@ int register_katcp(struct katcp_dispatch *d, char *match, char *help, int (*call
 /* if mode > 1, this command is only available if in that mode, 0 implies always */
 int register_mode_katcp(struct katcp_dispatch *d, char *match, char *help, int (*call)(struct katcp_dispatch *d, int argc), int mode);
 int register_flag_mode_katcp(struct katcp_dispatch *d, char *match, char *help, int (*call)(struct katcp_dispatch *d, int argc), int flags, int mode);
+int deregister_command_katcp(struct katcp_dispatch *d, char *match);
 
 /* invoke function run as subprocess, invoke function call in parent on its exit */ 
 pid_t spawn_child_katcp(struct katcp_dispatch *d, char *name, int (*run)(void *data), void *data, void (*call)(struct katcp_dispatch *d, int status));

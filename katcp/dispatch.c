@@ -24,6 +24,7 @@
 
 int setenv_cmd_katcp(struct katcp_dispatch *d, int argc);
 int chdir_cmd_katcp(struct katcp_dispatch *d, int argc);
+int forget_cmd_katcp(struct katcp_dispatch *d, int argc);
 int help_cmd_katcp(struct katcp_dispatch *d, int argc);
 int halt_cmd_katcp(struct katcp_dispatch *d, int argc);
 int restart_cmd_katcp(struct katcp_dispatch *d, int argc);
@@ -120,6 +121,7 @@ struct katcp_dispatch *setup_katcp(int fd)
 
   register_flag_mode_katcp(d, "?setenv", "sets/clears an enviroment variable (?setenv [label [value]]", &setenv_cmd_katcp, KATCP_CMD_HIDDEN, 0);
   register_flag_mode_katcp(d, "?chdir", "change directory (?chdir directory)", &chdir_cmd_katcp, KATCP_CMD_HIDDEN, 0);
+  register_flag_mode_katcp(d, "?forget", "deregister a command (?forget command)", &forget_cmd_katcp, KATCP_CMD_HIDDEN, 0);
 
   register_katcp(d, "?halt", "shuts the system down (?halt)", &halt_cmd_katcp);
   register_katcp(d, "?restart", "restarts the system (?restart)", &restart_cmd_katcp);
@@ -478,6 +480,45 @@ pid_t spawn_child_katcp(struct katcp_dispatch *d, char *name, int (*run)(void *d
 /* Need a call back for a sensor - unclear how to do this, as
  * sensors can happen over intervals, when values change, etc 
  */
+
+int deregister_command_katcp(struct katcp_dispatch *d, char *match)
+{
+  struct katcp_cmd *c, *prv, *nxt;
+  struct katcp_shared *s;
+
+  if((d == NULL) || (d->d_shared == NULL)){
+    return -1;
+  }
+
+  s = d->d_shared;
+
+  prv = NULL;
+  c = s->s_commands;
+
+  /* WARNING: if we add state to a _cmd function, deletion may have troublesome side effects */
+
+  while(c){
+    nxt = c->c_next;
+    if(!strcmp(c->c_name, match)){
+      if(prv){
+        prv->c_next = nxt;
+      } else {
+        s->s_commands = nxt;
+      }
+      shutdown_cmd_katcp(c);
+      return 0;
+    } else {
+      prv = c;
+    }
+    c = nxt;
+  }
+
+#ifdef DEBUG
+  fprintf(stderr, "no match found for %s while deregistering command\n");
+#endif
+
+  return -1;
+}
 
 int register_flag_mode_katcp(struct katcp_dispatch *d, char *match, char *help, int (*call)(struct katcp_dispatch *d, int argc), int flags, int mode)
 {
@@ -906,6 +947,33 @@ void reset_katcp(struct katcp_dispatch *d, int fd)
 }
 
 /**************************************************************/
+
+int forget_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  char *match;
+
+  if(d->d_shared == NULL){
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(argc < 2){
+    extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
+    return KATCP_RESULT_OWN;
+  }
+
+  match = arg_string_katcp(d, 1);
+  if(match == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a command to forget");
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(deregister_command_katcp(d, match) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to deregister command");
+    return KATCP_RESULT_FAIL;
+  }
+
+  return KATCP_RESULT_OK;
+}
 
 int chdir_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
