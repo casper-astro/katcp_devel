@@ -1137,11 +1137,8 @@ int parse_katcl(struct katcl_line *l) /* transform buffer -> args */
 
 #include <ctype.h>
 
-#endif
-
 int dump_parse_katcl(struct katcl_parse *p, char *prefix, FILE *fp)
 {
-#ifdef DEBUG
   unsigned int i, j;
   struct katcl_larg *la;
 
@@ -1170,7 +1167,6 @@ int dump_parse_katcl(struct katcl_parse *p, char *prefix, FILE *fp)
     fprintf(fp, ">, begin=%u, end=%u, [%s]\n", la->a_begin, la->a_end, la->a_escape ? "may need escaping" : "no escaping needed");
   }
 
-#endif
   return 0;
 }
 

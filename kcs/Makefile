@@ -4,7 +4,7 @@ INC = -I$(KATCP)
 LIB = -L$(KATCP) -lkatcp
 
 SERVER = kcs
-SRC = roachpool.c execpy.c parser.c kcserver.c basic.c
+SRC = fork-parent.c roachpool.c execpy.c parser.c kcserver.c basic.c
 
 OBJ = $(patsubst %.c,%.o,$(SRC))
 all: $(SERVER)
