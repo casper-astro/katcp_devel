@@ -179,7 +179,7 @@ int append_args_katcp(struct katcp_dispatch *d, int flags, char *fmt, ...);
 #ifdef KATCP_USE_FLOATS
 int append_double_katcp(struct katcp_dispatch *d, int flags, double v);
 #endif
-int append_parse_katcl(struct katcl_line *l, struct katcl_parse *p, int move);
+int append_parameter_katcp(struct katcp_dispatch *d, int flags, struct katcl_parse *p, unsigned int index);
 
 /* sensor writes */
 #if 0
@@ -266,6 +266,7 @@ int enter_mode_katcp(struct katcp_dispatch *d, unsigned int mode, char *flags);
 int enter_name_mode_katcp(struct katcp_dispatch *d, char *name, char *flags);
 int query_mode_katcp(struct katcp_dispatch *d);
 char *query_mode_name_katcp(struct katcp_dispatch *d);
+int query_mode_code_katcp(struct katcp_dispatch *d, char *name);
 void *need_current_mode_katcp(struct katcp_dispatch *d, unsigned int mode);
 
 /* timing callbacks */
@@ -294,6 +295,7 @@ static void destroy_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *
 int add_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n));
 struct katcp_notice *register_notice_katcp(struct katcp_dispatch *d, char *name, unsigned int tag, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n));
 struct katcp_notice *find_notice_katcp(struct katcp_dispatch *d, char *name);
+struct katcp_notice *find_used_notice_katcp(struct katcp_dispatch *d, char *name);
 
 struct katcl_msg *message_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 

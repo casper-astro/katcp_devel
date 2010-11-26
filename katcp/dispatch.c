@@ -22,6 +22,8 @@
 
 #define KATCP_READY_MAGIC 0x7d68352c
 
+int setenv_cmd_katcp(struct katcp_dispatch *d, int argc);
+int chdir_cmd_katcp(struct katcp_dispatch *d, int argc);
 int help_cmd_katcp(struct katcp_dispatch *d, int argc);
 int halt_cmd_katcp(struct katcp_dispatch *d, int argc);
 int restart_cmd_katcp(struct katcp_dispatch *d, int argc);
@@ -86,6 +88,8 @@ static struct katcp_dispatch *setup_internal_katcp(int fd)
   d->d_notices = NULL;
   d->d_count = 0;
 
+  d->d_end = NULL;
+
   d->d_clone = (-1);
 
   d->d_name[0] = '\0';
@@ -113,6 +117,9 @@ struct katcp_dispatch *setup_katcp(int fd)
     shutdown_katcp(d);
     return NULL;
   }
+
+  register_flag_mode_katcp(d, "?setenv", "sets/clears an enviroment variable (?setenv [label [value]]", &setenv_cmd_katcp, KATCP_CMD_HIDDEN, 0);
+  register_flag_mode_katcp(d, "?chdir", "change directory (?chdir directory)", &chdir_cmd_katcp, KATCP_CMD_HIDDEN, 0);
 
   register_katcp(d, "?halt", "shuts the system down (?halt)", &halt_cmd_katcp);
   register_katcp(d, "?restart", "restarts the system (?restart)", &restart_cmd_katcp);
@@ -882,6 +889,11 @@ void reset_katcp(struct katcp_dispatch *d, int fd)
 
   disown_notices_katcp(d);
 
+  if(d->d_end){
+    /* todo: record exit information via a parse */
+    wake_notice_katcp(d, d->d_end, NULL);
+  }
+
   d->d_run = 1;
   d->d_exit = KATCP_EXIT_ABORT; /* assume the worst */
   d->d_pause = 0;
@@ -894,6 +906,69 @@ void reset_katcp(struct katcp_dispatch *d, int fd)
 }
 
 /**************************************************************/
+
+int chdir_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  char *dir;
+
+  if(d->d_shared == NULL){
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(argc < 2){
+    extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
+    return KATCP_RESULT_OWN;
+  }
+
+  dir = arg_string_katcp(d, 1);
+  if(dir == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to retrive directory argument");
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(chdir(dir) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to change to %s %s", dir, strerror(errno));
+    return KATCP_RESULT_FAIL;
+  }
+
+  return KATCP_RESULT_OK;
+}
+
+int setenv_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  char *label, *value;
+
+  if(d->d_shared == NULL){
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(argc < 2){
+    extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
+    return KATCP_RESULT_OWN;
+  }
+
+  label = arg_string_katcp(d, 1);
+  if(argc == 2){
+    if(unsetenv(label) < 0){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to clear variable %s : %s", label, strerror(errno));
+      return KATCP_RESULT_FAIL;
+    }
+    return KATCP_RESULT_OK;
+  }
+
+  value = arg_string_katcp(d, 2);
+  if(value == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire value for variable %s", label);
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(setenv(label, value, 1) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to set variable %s : %s", label, strerror(errno));
+    return KATCP_RESULT_FAIL;
+  }
+
+  return KATCP_RESULT_OK;
+}
 
 int help_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
@@ -1386,6 +1461,13 @@ int append_buffer_katcp(struct katcp_dispatch *d, int flags, void *buffer, int l
   sane_katcp(d);
 
   return append_buffer_katcl(d->d_line, flags, buffer, len);
+}
+
+int append_parameter_katcp(struct katcp_dispatch *d, int flags, struct katcl_parse *p, unsigned int index)
+{
+  sane_katcp(d);
+
+  return append_parameter_katcl(d->d_line, flags, p, index);
 }
 
 int append_vargs_katcp(struct katcp_dispatch *d, int flags, char *fmt, va_list args)

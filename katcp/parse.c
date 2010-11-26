@@ -365,6 +365,48 @@ int add_buffer_parse_katcl(struct katcl_parse *p, int flags, void *buffer, unsig
   return after_add_parse_katcl(p, len, 1);
 }
 
+int add_parameter_parse_katcl(struct katcl_parse *pd, int flags, struct katcl_parse *ps, unsigned int index)
+{
+  char *src, *dst;
+  unsigned int len;
+
+#ifdef PARANOID
+  if(ps->p_state != KATCL_PARSE_DONE){
+    fprintf(stderr, "warning: copy argument %u from incomplete parse (state=%u)\n", index, ps->p_state);
+  }
+#endif
+
+  if(index >= ps->p_got){
+    return -1;
+  }
+
+  if(ps->p_args[index].a_begin >= ps->p_args[index].a_end){
+    len = 0; 
+    src = NULL;
+  } else {
+    len = ps->p_args[index].a_end - ps->p_args[index].a_begin;
+    src = ps->p_buffer + ps->p_args[index].a_begin;
+  }
+
+  if(before_add_parse_katcl(pd, flags) < 0){
+    return -1;
+  }
+
+#if DEBUG > 1
+  fprintf(stderr, "adding %u bytes to parse %p\n", len, pd);
+#endif
+
+  if(src){
+    dst = request_space_parse_katcl(pd, len + 1);
+    if(dst == NULL){
+      return -1;
+    }
+    memcpy(dst, src, len);
+  } /* else single \@ case */
+
+  return after_add_parse_katcl(pd, len, 1);
+}
+
 /*********************************************************************/
 
 int add_plain_parse_katcl(struct katcl_parse *p, int flags, char *string)
@@ -1092,8 +1134,6 @@ int parse_katcl(struct katcl_line *l) /* transform buffer -> args */
 
 /******************************************************************/
 /* end of core library logic, now debug and test routines *********/
-
-#ifdef DEBUG
 
 #include <ctype.h>
 

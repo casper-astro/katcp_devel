@@ -1,0 +1,12 @@
+#!/bin/sh
+
+set -e 
+
+if [ $# -lt 1 ] ; then
+  echo "require a parameter"
+  exit 1
+fi
+
+katcpcmd -r tx-start
+source k7-retrieve-log
+

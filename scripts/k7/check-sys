@@ -1,0 +1,2 @@
+#!/bin/sh
+katcpcmd -t 60 check-sys

@@ -7,7 +7,7 @@
 
 struct katcl_larg;
 struct katcl_line;
-struct katcl_msg;
+struct katcl_parse;
 
 struct katcl_msg *create_msg_katcl(struct katcl_line *l);
 void destroy_msg_katcl(struct katcl_msg *m);
@@ -55,9 +55,12 @@ int append_args_katcl(struct katcl_line *l, int flags, char *fmt, ...);
 int append_double_katcl(struct katcl_line *l, int flags, double v);
 #endif
 int append_buffer_katcl(struct katcl_line *l, int flags, void *buffer, int len);
+int append_parameter_katcl(struct katcl_line *l, int flags, struct katcl_parse *px, unsigned int index); /* single field */
+int append_parse_katcl(struct katcl_line *l, struct katcl_parse *p, int move); /* the whole line */
 
+#if 0
 int append_msg_katcl(struct katcl_line *l, struct katcl_msg *m);
-
+#endif
 
 int vsend_katcl(struct katcl_line *l, va_list ap);
 int send_katcl(struct katcl_line *l, ...);
@@ -89,5 +92,10 @@ int vextra_response_katcl(struct katcl_line *cl, int code, char *fmt, va_list ar
 #if 0
 int basic_inform_katcl(struct katcl_line *cl, char *name, char *arg);
 #endif
+
+/* client side rpc logic */
+
+struct katcl_line *create_name_katcl(char *name);
+int finished_request_katcl(struct katcl_line *l, struct timeval *until);
 
 #endif

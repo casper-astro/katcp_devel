@@ -621,6 +621,24 @@ int append_buffer_katcl(struct katcl_line *l, int flags, void *buffer, int len)
   return after_append_katcl(l, flags, result);
 }
 
+int append_parameter_katcl(struct katcl_line *l, int flags, struct katcl_parse *px, unsigned int index)
+{
+  struct katcl_parse *p;
+  int result;
+
+  p = before_append_katcl(l, flags);
+  if(p == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "append: before_append failed\n");
+#endif
+    return -1;
+  }
+
+  result = add_parameter_parse_katcl(p, flags, px, index);
+
+  return after_append_katcl(l, flags, result);
+}
+
 int append_parse_katcl(struct katcl_line *l, struct katcl_parse *p, int move)
 {
   struct katcl_parse *px;
@@ -677,6 +695,9 @@ int vsend_katcl(struct katcl_line *l, va_list args)
     flags = va_arg(args, int);
     if((check & flags) != check){
       /* WARNING: tests first arg for FLAG_FIRST */
+#ifdef DEBUG
+      fprintf(stderr, "vsend: flag check failed 0x%x\n", flags);
+#endif
       return -1;
     }
     check = 0;
@@ -710,12 +731,19 @@ int vsend_katcl(struct katcl_line *l, va_list args)
         break;
 #endif
       default :
+#ifdef DEBUG
+        fprintf(stderr, "vsend: bad type flag 0x%x\n", flags);
+#endif
         result = (-1);
+        break;
     }
 #if DEBUG > 1
     fprintf(stderr, "vsend: appended: flags=0x%02x, result=%d\n", flags, result);
 #endif
     if(result <= 0){
+#ifdef DEBUG
+      fprintf(stderr, "vsend: bad result for type 0x%x\n", flags);
+#endif
       return -1;
     }
   } while(!(flags & KATCP_FLAG_LAST));
@@ -962,6 +990,10 @@ int write_katcl(struct katcl_line *l)
         }
 
         wr = send(l->l_fd, l->l_buffer, l->l_pending, MSG_DONTWAIT | MSG_NOSIGNAL);
+        if((wr < 0) && (errno == ENOTSOCK)){
+          wr = write(l->l_fd, l->l_buffer, l->l_pending);
+        }
+
         if(wr < 0){
           switch(errno){
             case EAGAIN :
@@ -1031,7 +1063,7 @@ int write_katcl(struct katcl_line *l)
 
 int flushing_katcl(struct katcl_line *l)
 {
-#if DEBUG > 1
+#if DEBUG
   fprintf(stderr, "flushing: %p->l_head=%p\n", l, l->l_head);
 #endif
   return l->l_head ? 1 : 0;

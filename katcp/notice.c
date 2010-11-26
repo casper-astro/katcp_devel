@@ -453,6 +453,22 @@ struct katcp_notice *find_notice_katcp(struct katcp_dispatch *d, char *name)
   return NULL;
 }
 
+struct katcp_notice *find_used_notice_katcp(struct katcp_dispatch *d, char *name)
+{
+  struct katcp_notice *n;
+
+  n = find_notice_katcp(d, name);
+  if(n == NULL){
+    return NULL;
+  }
+
+  if(n->n_use <= 0){
+    return NULL;
+  }
+
+  return n;
+}
+
 /*******************************************************************************/
 
 int cancel_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)

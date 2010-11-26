@@ -1,0 +1,2 @@
+katcpcmd -r get-log
+katcpcmd -r clr-log

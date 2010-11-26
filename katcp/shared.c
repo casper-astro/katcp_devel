@@ -1057,6 +1057,28 @@ void *get_current_mode_katcp(struct katcp_dispatch *d)
   return get_mode_katcp(d, s->s_mode);
 }
 
+int query_mode_code_katcp(struct katcp_dispatch *d, char *name)
+{
+  struct katcp_shared *s;
+  unsigned int i;
+
+  sane_shared_katcp(d);
+
+  s = d->d_shared;
+
+  if(name == NULL){
+    return s->s_mode;
+  }
+
+  for(i = 0; i < s->s_size; i++){
+    if(s->s_vector[i].e_name && !(strcmp(s->s_vector[i].e_name, name))){
+      return i;
+    }
+  }
+
+  return -1;
+}
+
 int enter_name_mode_katcp(struct katcp_dispatch *d, char *name, char *flags)
 {
   struct katcp_shared *s;
