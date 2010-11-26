@@ -8,6 +8,18 @@
 
 #define KCS_NOTICE_PYTHON   "python"
 
+#ifdef DEBUG
+
+#define KCS_FOREGROUND 1
+#define KCS_LOGFILE "kcslog"
+
+#else
+
+#define KCS_FOREGROUND 0
+#define KCS_LOGFILE "/var/log/kcslog"
+
+#endif
+
 
 struct kcs_basic
 {
