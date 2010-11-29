@@ -1,0 +1,26 @@
+#!/bin/sh
+
+set -e 
+source functions.sh
+
+kcs_arg_check $# 1
+if [ "$1" != "k7" ] ; then
+  kcs_error "expected k7 not $1"
+  return 1
+fi
+
+kcs_debug "about to run tx-stop"
+
+status=1
+if [ $# -gt 1 ] ; then
+  if kcpcmd -r tx-stop $2 ; then
+    status=0
+  fi
+else 
+  if kcpcmd -r tx-stop ; then
+    status=0
+  fi 
+fi
+
+kcs_corr_log
+exit $status

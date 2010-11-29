@@ -1,9 +1,4 @@
-RM = rm -f
-CC = $(CROSS_COMPILE)gcc
-CFLAGS = -Wall
-#CFLAGS += -DDEBUG
-CFLAGS += -ggdb
-LDFLAGS = 
+include ../Makefile.inc
 
 INC = -I$(KATCP)
 LIB = -L$(KATCP) -lkatcp
@@ -17,6 +12,9 @@ all: $(EXE)
 
 $(EXE): $(OBJ)
 	$(CC) $(LDFLAGS) -o $@ $(OBJ) $(LIB)
+
+install: all
+	$(INSTALL) $(EXE) $(PREFIX)/bin
 
 %.o: %.c $(wildcard *.h)
 	$(CC) $(CFLAGS) -c $< $(INC)

@@ -1,0 +1,14 @@
+#!/bin/sh
+
+set -e 
+source functions.sh
+
+kcs_arg_check $# 2
+
+status=1
+if kcpcmd -r eq-set $* ; then
+  status = 0
+fi
+
+kcs_corr_log
+exit $status

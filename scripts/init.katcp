@@ -1,0 +1,12 @@
+?setenv KATCP_SERVER dbek7c:1235
+?setenv PATH /usr/bin:/usr/local/bin:/bin:/usr/local/lib/kcs/
+?chdir /usr/local/lib/kcs
+
+?process ?capture-start start\_a\_capture\_(?capture-start\_name\_[time])
+?process ?capture-stop stop\_a\_capture\_(?capture-start\_name\_[time])
+
+?process ?k7-accumulation-length sets\_the\_accumulation\_length\_(?k7-accumlation-length\_accumulation-period)
+
+?process ?corr-init initialise\_packetised\_correlator
+
+?corr-init

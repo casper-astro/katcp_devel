@@ -1,7 +1,10 @@
 #!/bin/sh
 
+source functions.sh
+
 sleep 1
 echo "#log info $(date +%s)000 k7-test simple\_test\_script"
 sleep 1
+kcs_error "some error test example"
 
 exit 0

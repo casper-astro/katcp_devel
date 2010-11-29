@@ -1,8 +1,0 @@
-#!/bin/sh
-
-set -e 
-
-kcpcmd -r -t 120 connect /home/jmanley/k7.conf 1000
-kcpcmd -r -t 120 initialise 2
-
-source k7-retrieve-log      

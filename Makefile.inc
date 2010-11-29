@@ -16,10 +16,7 @@ CFLAGS += -ggdb
 CC = $(CROSS_COMPILE)gcc
 LOCALCC = gcc
 
-RM = rm -f
-
-AR = ar
-
-RM = rm -f
-
 INSTALL = install
+RM = rm -f
+AR = ar
+ECHO = echo
