@@ -15,6 +15,7 @@ kcs_arg_check () {
 }
 
 kcs_corr_log () {
+  kcs_debug "retriving correlator logs"
   if kcpcmd -r get-log ; then
     kcpcmd -r clr-log
   fi
