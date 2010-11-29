@@ -1,0 +1,5 @@
+#!/bin/bash
+
+echo "#capture-list k7"
+
+exit 0
