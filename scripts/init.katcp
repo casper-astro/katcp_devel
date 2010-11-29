@@ -6,3 +6,7 @@
 ?process ?capture-stop stop\_a\_capture\_(?capture-start\_name\_[time])
 
 ?process ?k7-accumulation-length sets\_the\_accumulation\_length\_(?k7-accumlation-length\_accumulation-period)
+
+?process ?corr-init initialise\_packetised\_correlator
+
+?corr-init
