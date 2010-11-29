@@ -8,6 +8,6 @@ if [ $# -lt 1 ] ; then
   exit 1
 fi
 
-katcpcmd -r acc-time $(echo ${1}*1000 | bc -l)
+kcpcmd -r acc-time $(echo ${1}*1000 | bc -l)
 fetchlog
 

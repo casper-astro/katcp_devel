@@ -8,5 +8,5 @@ if [ $# -lt 2 ] ; then
   exit 1
 fi
 
-katcpcmd -r eq-set $*
+kcpcmd -r eq-set $*
 fetchlog

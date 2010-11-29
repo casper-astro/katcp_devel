@@ -15,8 +15,8 @@ kcs_arg_check () {
 }
 
 kcs_corr_log () {
-  if katcpcmd -r get-log ; then
-    katcpcmd -r clr-log
+  if kcpcmd -r get-log ; then
+    kcpcmd -r clr-log
   fi
   return 0
 }

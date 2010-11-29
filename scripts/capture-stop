@@ -13,11 +13,11 @@ kcs_debug "about to run tx-stop"
 
 status=1
 if [ $# -gt 1 ] ; then
-  if katcpcmd -r tx-stop $2 ; then
+  if kcpcmd -r tx-stop $2 ; then
     status=0
   fi
 else 
-  if katcpcmd -r tx-stop ; then
+  if kcpcmd -r tx-stop ; then
     status=0
   fi 
 fi
