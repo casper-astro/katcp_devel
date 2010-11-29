@@ -18,6 +18,9 @@ all: $(EXE)
 $(EXE): $(OBJ)
 	$(CC) $(LDFLAGS) -o $@ $(OBJ) $(LIB)
 
+install: all
+	$(INSTALL) $(EXE) $(PREFIX)/bin
+
 %.o: %.c $(wildcard *.h)
 	$(CC) $(CFLAGS) -c $< $(INC)
 

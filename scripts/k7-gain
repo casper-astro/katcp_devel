@@ -1,6 +1,7 @@
 #!/bin/sh
 
 set -e 
+source functions.sh
 
 if [ $# -lt 2 ] ; then
   echo "require antennaPolarisation real+imaginaryj"
@@ -8,5 +9,4 @@ if [ $# -lt 2 ] ; then
 fi
 
 katcpcmd -r eq-set $*
-source k7-retrieve-log
-
+fetchlog

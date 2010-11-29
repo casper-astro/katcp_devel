@@ -1,12 +1,13 @@
 #!/bin/sh
 
 set -e 
+source functions.sh
 
 if [ $# -lt 1 ] ; then
   echo "require a parameter"
   exit 1
 fi
 
-katcpcmd -r tx-start
-source k7-retrieve-log
+katcpcmd -r acc-time $(echo ${1}*1000 | bc -l)
+fetchlog
 
