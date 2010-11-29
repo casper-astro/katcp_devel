@@ -24,5 +24,4 @@ else
 fi
 
 kcs_corr_log
-
 exit $status

@@ -3,10 +3,12 @@
 set -e 
 source functions.sh
 
-if [ $# -lt 2 ] ; then
-  echo "require antennaPolarisation real+imaginaryj"
-  exit 1
+kcs_arg_check $# 2
+
+status=1
+if kcpcmd -r eq-set $* ; then
+  status = 0
 fi
 
-kcpcmd -r eq-set $*
-fetchlog
+kcs_corr_log
+exit $status

@@ -1,4 +1,4 @@
 #!/bin/sh
 set -e 
 source functions.sh
-fetchlog
+kcs_corr_log

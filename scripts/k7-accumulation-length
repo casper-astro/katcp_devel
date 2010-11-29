@@ -3,11 +3,13 @@
 set -e 
 source functions.sh
 
-if [ $# -lt 1 ] ; then
-  echo "require a parameter"
-  exit 1
+kcs_arg_check $# 1
+
+status=1
+if kcpcmd -r acc-time $(echo ${1}*1000 | bc -l) ; then
+  status=0
 fi
 
-kcpcmd -r acc-time $(echo ${1}*1000 | bc -l)
-fetchlog
+kcs_corr_log
+exit $status
 
