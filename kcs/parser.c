@@ -272,12 +272,16 @@ int start_parser(struct p_parser *p, char *f) {
   buffer = mmap(NULL,p->fsize,PROT_READ,MAP_SHARED,fd,0);
 
   if (buffer == MAP_FAILED){
+#ifdef DEBUG
     fprintf(stderr,"mmap failed: %s\n",strerror(errno));
+#endif
     fclose(file);
     return EIO;
   }
 
+#ifdef DEBUG
   fprintf(stderr,"fd: %d st_atime:%d st_size:%d mmap:%p\n",fd,(int)p->open_time,(int)p->fsize,buffer);
+#endif
 
   p->state = S_START; 
   pos=0;
@@ -597,6 +601,24 @@ struct p_value * get_label_setting_value(struct katcp_dispatch *d,struct p_parse
   return NULL;
 }
 
+struct p_value **parser_get_values(struct p_parser *p, char *s, int *count){
+  int i,j;
+  struct p_label *cl;
+  struct p_setting *cs;
+
+  for (i=0;i<p->lcount;i++){
+    cl = p->labels[i];
+    for (j=0;j<cl->scount;j++){
+      cs = cl->settings[j];
+      if (strcmp(s,cs->str) == 0){
+        *count = cs->vcount;
+        return cs->values;
+      }
+    }
+  }
+  return NULL;
+}
+
 int set_label_setting_value(struct katcp_dispatch *d,struct p_parser *p, char *srcl, char *srcs, unsigned long vidx, char *newval){
 
   int i,j;
@@ -829,9 +851,9 @@ int parser_destroy(struct katcp_dispatch *d){
   struct p_parser *p;
   kb = need_current_mode_katcp(d,KCS_MODE_BASIC);
   p = kb->b_parser;
-  
+#ifdef DEBUG  
   fprintf(stderr,"PARSER Destroy called\n");
-
+#endif
   if (p != NULL){
     clean_up_parser(p);
     return KATCP_RESULT_OK;
@@ -918,9 +940,9 @@ int main(int argc, char **argv) {
   tkb = malloc(sizeof(struct kcs_basic));
 
   tkb->b_parser=NULL;
-  
+#ifdef DEBUG  
   fprintf(stderr,"filename: %s\n",filename);
-
+#endif
   parser_load(NULL,filename);
   //parser_list(NULL);
   //parser_save(NULL,"output.conf");

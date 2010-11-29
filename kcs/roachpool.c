@@ -93,7 +93,7 @@ struct kcs_obj *search_tree(struct kcs_obj *o, char *str){
         return NULL;
       for (i=0;i<n->childcount;i++) {
 #ifdef DEBUG
-        fprintf(stderr,"Searching children of %s (%p)\n",o->name,o);
+        fprintf(stderr,"Searching children of %s (%p) for %s\n",o->name,o,str);
 #endif
         co = search_tree(n->children[i],str);
         if (co) 
@@ -350,6 +350,58 @@ int mod_roach_to_new_pool(struct kcs_obj *root, char *pool, char *hostname){
 }
 
 #ifndef STANDALONE
+int roachpool_getconf(struct katcp_dispatch *d){
+  char *confsetting;
+  struct kcs_basic *kb;
+  struct p_value **pv;
+  int pvc,i,errc;
+
+  pv   = NULL;
+  pvc  = 0;
+  errc = 0;
+
+  kb = need_current_mode_katcp(d, KCS_MODE_BASIC);
+
+  confsetting = arg_string_katcp(d,2);
+  
+  if (!kb->b_parser){
+    log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"Config file has not been parsed");
+    return KATCP_RESULT_FAIL;
+  }
+  pv = parser_get_values(kb->b_parser,confsetting,&pvc);
+
+  if (!pv){
+    log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"Cannot get values for setting: %s",confsetting);
+    return KATCP_RESULT_FAIL;
+  }
+
+#ifdef DEBUG
+  fprintf(stderr,"%s has %d values\n",confsetting,pvc);
+#endif
+  
+  if (!kb->b_pool_head){
+    log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"Roach pool has not been created");
+    return KATCP_RESULT_FAIL;
+  }
+  
+  for (i=0;i<pvc;i++){
+    if (mod_roach_to_new_pool(kb->b_pool_head,confsetting,pv[i]->str) == KCS_FAIL){
+      log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"ROACH: %s is not available",pv[i]->str);
+      errc++;
+    }
+  }
+  
+  errc = pvc-errc;
+  if (errc == 0){
+    log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"None of the roaches from the config are available in the pool");
+    return KATCP_RESULT_FAIL;
+  }
+  
+  log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"%d of %d ROACHES moved to %s pool",errc,pvc,confsetting);
+
+  return KATCP_RESULT_OK;
+}
+
 int roachpool_add(struct katcp_dispatch *d){
 
   struct kcs_basic *kb;
@@ -430,6 +482,8 @@ int roachpool_greeting(struct katcp_dispatch *d){
   //append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST ,"del [roach hostname | pool type]");
   prepend_inform_katcp(d);
   append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST ,"mod [roach hostname] [new pool type]");
+  prepend_inform_katcp(d);
+  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, "get-conf [config settings (servers_x / servers_f)]");
   prepend_inform_katcp(d);
   append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, "list");
   /*prepend_inform_katcp(d);

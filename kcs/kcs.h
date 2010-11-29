@@ -75,7 +75,7 @@ int parser_list(struct katcp_dispatch *d);
 int parser_save(struct katcp_dispatch *d, char *filename, int force);
 struct p_value * parser_get(struct katcp_dispatch *d, char *srcl, char *srcs, unsigned long vidx);
 int parser_set(struct katcp_dispatch *d, char *srcl, char *srcs, unsigned long vidx, char *newval);
-
+struct p_value **parser_get_values(struct p_parser *p, char *s, int *count);
 
 struct e_state {
   int fd;
@@ -138,4 +138,5 @@ int roachpool_mod(struct katcp_dispatch *d);
 int roachpool_del(struct katcp_dispatch *d);
 int roachpool_list(struct katcp_dispatch *d);
 int roachpool_destroy(struct katcp_dispatch *d);
+int roachpool_getconf(struct katcp_dispatch *d);
 #endif
