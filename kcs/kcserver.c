@@ -8,6 +8,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <unistd.h>
 
 #include <sys/select.h>
 #include <sys/socket.h>
@@ -21,6 +22,7 @@
 #include <katsensor.h>
 
 #include "kcs.h"
+#include "fork-parent.h"
 
 void usage(char *app)
 {
@@ -31,6 +33,8 @@ void usage(char *app)
   printf("-p network-port  network port to listen on\n");
   printf("-s script-dir    directory to load scripts from\n");
   printf("-i init-file     file containing commands to run at startup\n");
+  printf("-l log-file      log file name\n");
+  printf("-f               run in foreground (default is background)\n");
 
 }
 
@@ -40,14 +44,17 @@ int main(int argc, char **argv)
   struct katcp_dispatch *d;
   struct utsname un;
   int status;
-  int i, j, c;
-  char *port, *scripts, *mode, *init;
+  int i, j, c, foreground, lfd;
+  char *port, *scripts, *mode, *init, *lfile;
   char uname_buffer[UNAME_BUFFER];
+  time_t now;
 
   scripts = ".";
   port = "7147";
   mode = KCS_MODE_BASIC_NAME;
   init = NULL;
+  lfile = KCS_LOGFILE;
+  foreground = KCS_FOREGROUND;
 
   i = 1;
   j = 1;
@@ -66,6 +73,12 @@ int main(int argc, char **argv)
           usage(argv[0]);
           return EX_OK;
 
+        case 'f' :
+          j++;
+          foreground = 1 - foreground;
+          break;
+
+        case 'l' :
         case 'm' :
         case 's' :
         case 'p' :
@@ -91,6 +104,9 @@ int main(int argc, char **argv)
             case 'i' :
               init = argv[i] + j;
               break;
+            case 'l':
+              lfile = argv[i] + j;  
+              break;
           }
           i++;
           j = 1;
@@ -102,6 +118,13 @@ int main(int argc, char **argv)
       }
     } else {
       fprintf(stderr, "%s: extra argument %s\n", argv[0], argv[i]);
+      return 1;
+    }
+  }
+
+  if (!foreground){
+    if(fork_parent() < 0){
+      fprintf(stderr, "%s: unable to fork_parent\n", argv[0]);
       return 1;
     }
   }
@@ -138,6 +161,22 @@ int main(int argc, char **argv)
   }
 
   signal(SIGPIPE, SIG_DFL);
+
+  if (!foreground){
+    lfd = open(lfile, O_WRONLY | O_APPEND | O_CREAT | O_NOCTTY, S_IWUSR | S_IRUSR | S_IRGRP | S_IWGRP);
+      
+    if (lfd < 0){
+      fprintf(stderr,"%s: unable to open %s: %s\n",argv[0], KCS_LOGFILE,strerror(errno));
+      return 1;
+    } else {
+      fflush(stderr);
+      if (dup2(lfd,STDERR_FILENO) >= 0){
+        now = time(NULL);
+        fprintf(stderr,"Logging to file started at %s\n",ctime(&now));
+      }
+      close(lfd);
+    }
+  }
 
   if(run_config_server_katcp(d, init, KCS_MAX_CLIENTS, port, 0) < 0){
     fprintf(stderr, "server: run failed\n");
