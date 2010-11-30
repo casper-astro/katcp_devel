@@ -553,6 +553,10 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
         log_message_katcp(d, code, module, "%s", message);
       } else if(!strcmp(cmd, KATCP_RETURN_JOB)){
 
+#ifdef DEBUG
+        fprintf(stderr, "job: saw return inform message\n");
+#endif
+
         /* WARNING: may have to terminate job to maintain consistency, otherwise halt notices may no longer assume that job is gone */
 #if 0
         j->j_state &= ~(JOB_MAY_READ | JOB_MAY_WRITE | JOB_MAY_WORK); /* if job returns, clearly doesn't want to give us more */
@@ -571,6 +575,10 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
             log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "unable to retrieve parsed return data");
             return -1;
           }
+
+#ifdef DEBUG
+          fprintf(stderr, "job: waking notice %p\n", n);
+#endif
 
           n->n_use--;
           wake_notice_katcp(d, n, p);
