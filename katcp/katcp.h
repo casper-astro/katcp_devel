@@ -68,7 +68,7 @@ struct katcp_cmd;
 #define KATCP_CMD_HIDDEN    0x1
 #define KATCP_CMD_WILDCARD  0x2
 
-#define KATCP_INFORM_JOB    "#job"
+#define KATCP_RETURN_JOB    "#return"
 
 /******************* core api ********************/
 
