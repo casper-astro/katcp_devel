@@ -24,7 +24,7 @@ kcs_debug "fringe offset ${5}rad mapped to ${fringe}deg"
 kcs_debug "fringe rate ${6}rads/ms mapped to ${frate}rotations/s"
 
 status=1
-if kcpcmd -r fr-delay-set $antpol $fringe $frate $delay $drate $time now ; then 
+if kcpcmd -k -r fr-delay-set $antpol $fringe $frate $delay $drate $time now ; then 
   status=0
 fi
 

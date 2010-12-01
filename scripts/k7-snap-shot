@@ -6,7 +6,7 @@ source functions.sh
 
 kcs_arg_check $# 1
 
-kcpcmd get-adc-snapshot ${1} | sed -e 's/^!get-adc-snapshot/#return/'
+kcpcmd -k get-adc-snapshot ${1} | sed -e 's/^!get-adc-snapshot/#return/'
 
 kcs_corr_log
 

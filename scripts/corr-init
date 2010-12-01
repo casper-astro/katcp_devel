@@ -5,9 +5,9 @@ source functions.sh
 
 status=1
 kcs_debug "running connect"
-if kcpcmd -r -t 120 connect /home/jmanley/k7.conf 1000 ; then
+if kcpcmd -k -r -t 120 connect /home/jmanley/k7.conf 1000 ; then
   kcs_debug "running initialise"
-  if kcpcmd -r -t 120 initialise 2 ; then
+  if kcpcmd -k -r -t 120 initialise 2 ; then
     status=0
   fi
 fi
