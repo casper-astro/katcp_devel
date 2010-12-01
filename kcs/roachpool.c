@@ -53,18 +53,24 @@ struct kcs_obj *new_kcs_roach_obj(struct kcs_obj *parent, char *hostname, char *
   /*kr->hostname = hostname;*/
   kr->ip       = ip;
   kr->mac      = mac;
+  kr->jl       = NULL;
   ko = new_kcs_obj(parent,hostname,KCS_ID_ROACH,kr);
   return ko;
 }
-
+/*
 char *create_str(char *s){
   char *nstr;
+  if (!s)
+    return NULL;
+  nstr = NULL;
   nstr = malloc(sizeof(char)*(strlen(s)+1));
+  if (!nstr)
+    return NULL;
   nstr = strcpy(nstr,s);
   nstr[strlen(s)] = '\0';
   return nstr;
 }
-
+*/
 struct kcs_obj *init_tree(){
   struct kcs_obj *root;
   root = new_kcs_node_obj(NULL,create_str("root"));
@@ -365,13 +371,13 @@ int roachpool_getconf(struct katcp_dispatch *d){
   confsetting = arg_string_katcp(d,2);
   
   if (!kb->b_parser){
-    log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"Config file has not been parsed");
+    log_message_katcp(d,KATCP_LEVEL_ERROR,NULL,"Config file has not been parsed");
     return KATCP_RESULT_FAIL;
   }
   pv = parser_get_values(kb->b_parser,confsetting,&pvc);
 
   if (!pv){
-    log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"Cannot get values for setting: %s",confsetting);
+    log_message_katcp(d,KATCP_LEVEL_ERROR,NULL,"Cannot get values for setting: %s",confsetting);
     return KATCP_RESULT_FAIL;
   }
 
@@ -380,7 +386,7 @@ int roachpool_getconf(struct katcp_dispatch *d){
 #endif
   
   if (!kb->b_pool_head){
-    log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"Roach pool has not been created");
+    log_message_katcp(d,KATCP_LEVEL_ERROR,NULL,"Roach pool has not been created");
     return KATCP_RESULT_FAIL;
   }
   
@@ -393,7 +399,7 @@ int roachpool_getconf(struct katcp_dispatch *d){
   
   errc = pvc-errc;
   if (errc == 0){
-    log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"None of the roaches from the config are available in the pool");
+    log_message_katcp(d,KATCP_LEVEL_ERROR,NULL,"None of the roaches from the config are available in the pool");
     return KATCP_RESULT_FAIL;
   }
   

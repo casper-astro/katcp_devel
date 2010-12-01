@@ -1,6 +1,8 @@
 #ifndef KCS_H_
 #define KCS_H_
 
+#include <katcp.h>
+
 #define KCS_MAX_CLIENTS          32
 
 #define KCS_MODE_BASIC            0 
@@ -20,6 +22,9 @@
 
 #endif
 
+char *create_str(char *s);
+
+int setup_basic_kcs(struct katcp_dispatch *d, char *scripts);
 
 struct kcs_basic
 {
@@ -67,7 +72,6 @@ struct p_value {
   //int vsize;
 };
 
-int setup_basic_kcs(struct katcp_dispatch *d, char *scripts);
 
 int parser_load(struct katcp_dispatch *d,char *filename);
 int parser_destroy(struct katcp_dispatch *d);
@@ -118,6 +122,7 @@ struct kcs_roach {
   /*char *hostname;*/
   char *ip;
   char *mac;
+  char *jl;
 };
 
 /*
@@ -139,4 +144,19 @@ int roachpool_del(struct katcp_dispatch *d);
 int roachpool_list(struct katcp_dispatch *d);
 int roachpool_destroy(struct katcp_dispatch *d);
 int roachpool_getconf(struct katcp_dispatch *d);
+
+
+struct kcs_url {
+  char *scheme;
+  char *host;
+  int port;
+  char *path;
+};
+
+char *kurl_string(struct kcs_url *ku);
+struct kcs_url *kurl_create_url_from_string(char *url);
+struct kcs_url *kurl_create_url(char *scheme, char *host, int port, char *path);
+void kurl_destroy(struct kcs_url *ku);
+
+
 #endif
