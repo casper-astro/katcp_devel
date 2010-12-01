@@ -513,6 +513,7 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
         return -1;
       }
 
+      /* WARNING: remove head decrements n_use */
       n = remove_head_job(j);
       if(n == NULL){
         /* as long as there are references, notices should not go away */
@@ -550,6 +551,39 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
         }
 
         log_message_katcp(d, code, module, "%s", message);
+      } else if(!strcmp(cmd, KATCP_RETURN_JOB)){
+
+#ifdef DEBUG
+        fprintf(stderr, "job: saw return inform message\n");
+#endif
+
+        /* WARNING: may have to terminate job to maintain consistency, otherwise halt notices may no longer assume that job is gone */
+#if 0
+        j->j_state &= ~(JOB_MAY_READ | JOB_MAY_WRITE | JOB_MAY_WORK); /* if job returns, clearly doesn't want to give us more */
+        exchange_katcl(j->j_line, -1); /* but close fd's so that termination happens  just to be save */
+
+#endif
+
+        if(j->j_halt){
+          log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "relaying return value");
+          n = j->j_halt;
+          j->j_halt = NULL;
+
+          p = ready_katcl(j->j_line);
+          if(p == NULL){
+            /* if we got this far, we should really have a ready data structure */
+            log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "unable to retrieve parsed return data");
+            return -1;
+          }
+
+#ifdef DEBUG
+          fprintf(stderr, "job: waking notice %p\n", n);
+#endif
+
+          n->n_use--;
+          wake_notice_katcp(d, n, p);
+        }
+
       }
 
     break;
@@ -739,7 +773,7 @@ int run_jobs_katcp(struct katcp_dispatch *d)
 
         p = create_parse_katcl();
         if(p){
-          add_plain_parse_katcl(p, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, KATCP_INFORM_JOB);
+          add_plain_parse_katcl(p, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, KATCP_RETURN_JOB);
           string = code_to_name_katcm(j->j_code);
           add_plain_parse_katcl(p, KATCP_FLAG_STRING | KATCP_FLAG_LAST, string ? string : KATCP_FAIL);
         }
