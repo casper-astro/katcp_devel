@@ -182,14 +182,14 @@ static int client_list_cmd_katcp(struct katcp_dispatch *d, int argc)
 
 static int pipe_from_file_katcp(struct katcp_dispatch *dl, char *file)
 {
-#define READ_BUFFER 512
 #define S_READ 1
 #define S_PARSE 2
 #define S_DONE 3
   int fds[2], fd;
   pid_t pid;
   struct katcl_line *pl, *fl;
-  int result;
+  int result, done;
+  int state, rsvp;
 
   if(socketpair(AF_UNIX, SOCK_STREAM, 0, fds) < 0){
     return -1;
@@ -208,6 +208,8 @@ static int pipe_from_file_katcp(struct katcp_dispatch *dl, char *file)
     return fds[1];
   }
 
+  /* now in child */
+
   close(fds[1]);
 
   fd = open(file, O_RDONLY);
@@ -222,28 +224,24 @@ static int pipe_from_file_katcp(struct katcp_dispatch *dl, char *file)
     exit(EX_UNAVAILABLE);
   }
 
-  int state, rsvp;
+  for(done = 0; done == 0;){
 
-  for(;;){
-
-    result = read_katcl(fl);
-    if(result < 0){
+    done = read_katcl(fl);
+    if(done < 0){
       exit(EX_UNAVAILABLE);
     }
     
-    if(have_katcl(fl)){
+    while(have_katcl(fl)){
       if(arg_request_katcl(fl)){
         
         rsvp = relay_katcl(fl, pl);
 
-        if (rsvp < 0){
+        if(rsvp < 0){
           fprintf(stderr,"init: relay_katcl: Unable to relay\n");
-          sync_message_katcl(pl,KATCP_LEVEL_ERROR,"init","unable to relay katcl from init script");
           exit(EX_UNAVAILABLE);
         }
-        else {
-          if(!write_katcl(pl))
-            exit(EX_UNAVAILABLE);
+        else if(!write_katcl(pl)){
+          exit(EX_UNAVAILABLE);
         }
         
         for (state = S_READ; state != S_DONE; ){
@@ -277,9 +275,6 @@ static int pipe_from_file_katcp(struct katcp_dispatch *dl, char *file)
           }
         }
       }
-    }
-    if (result == 1){
-      break;
     }
 
 #if 0 
@@ -321,9 +316,8 @@ static int pipe_from_file_katcp(struct katcp_dispatch *dl, char *file)
 #endif
   }
 
-  exit(EX_SOFTWARE);
+  exit(EX_OK);
   return -1;
-#undef READ_BUFFER
 }
 
 void add_client_server_katcp(struct katcp_dispatch *dl, int fd, char *label)
