@@ -531,21 +531,28 @@ int main(int argc, char **argv)
             break;
         }
         if(display){
-          max = arg_count_katcl(l);
-          if(pos < 0){
-            for(i = 0; i < max; i++){
-              if(print_arg(l, i, fmt) < 0){
-                fprintf(stderr, "%s: failed to print argument %d\n", app, i);
-                return 2;
-              }
-              fputc(((i + 1) == max) ? '\n' : ' ' , stdout);
-            }
+#ifdef DEBUG
+          fprintf(stderr, "need to display\n");
+#endif
+          if(k){
+            relay_katcl(l, k);
           } else {
-            if(pos < max){
-              i = pos;
-              if(print_arg(l, i, fmt) < 0){
-                fprintf(stderr, "%s: failed to print argument %d\n", app, i);
-                return 2;
+            max = arg_count_katcl(l);
+            if(pos < 0){
+              for(i = 0; i < max; i++){
+                if(print_arg(l, i, fmt) < 0){
+                  fprintf(stderr, "%s: failed to print argument %d\n", app, i);
+                  return 2;
+                }
+                fputc(((i + 1) == max) ? '\n' : ' ' , stdout);
+              }
+            } else {
+              if(pos < max){
+                i = pos;
+                if(print_arg(l, i, fmt) < 0){
+                  fprintf(stderr, "%s: failed to print argument %d\n", app, i);
+                  return 2;
+                }
               }
             }
           }
@@ -556,6 +563,8 @@ int main(int argc, char **argv)
 
   destroy_katcl(l, 1);
   if(k){
+    while(write_katcl(k) == 0);
+
     destroy_katcl(k, 0);
   }
 
