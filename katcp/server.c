@@ -233,7 +233,9 @@ static int pipe_from_file_katcp(struct katcp_dispatch *dl, char *file)
     
     while(have_katcl(fl)){
       if(arg_request_katcl(fl)){
-        
+#ifdef DEBUG
+        fprintf(stderr,"init: found request: %s\n",arg_string_katcl(fl,0));
+#endif
         rsvp = relay_katcl(fl, pl);
 
         if(rsvp < 0){
@@ -246,12 +248,12 @@ static int pipe_from_file_katcp(struct katcp_dispatch *dl, char *file)
         
         for (state = S_READ; state != S_DONE; ){
 #ifdef DEBUG
-          fprintf(stderr,"STATE: %d\n",state);
+          //fprintf(stderr,"STATE: %d\n",state);
 #endif
           switch (state){
             case S_READ:
 #ifdef DEBUG
-                fprintf(stderr,"ABOUT TO READ pl\n");
+                //ifprintf(stderr,"ABOUT TO READ pl\n");
 #endif
                 rsvp = read_katcl(pl);
                 if (rsvp == 0)

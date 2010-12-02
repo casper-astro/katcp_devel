@@ -358,6 +358,66 @@ int roach_cmd(struct katcp_dispatch *d, int argc){
   return KATCP_RESULT_FAIL;
 }
 
+int k7_resume_job(struct katcp_dispatch *d, struct katcp_notice *n){
+  struct katcl_parse *p;
+  char *ptr;
+
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL,"remote has responed on job via notice %p", n);
+
+  p = parse_notice_katcp(d,n);
+
+  if (p) {
+    ptr = get_string_parse_katcl(p,1);
+#ifdef DEBUG
+    fprintf(stderr,"k7-resume: parameter %d is %s\n", 1, ptr);
+#endif    
+  } else {
+    ptr = NULL;
+  }
+  
+  prepend_reply_katcp(d);
+  append_string_katcp(d, KATCP_FLAG_LAST, ptr ? ptr : KATCP_FAIL);
+
+  resume_katcp(d);
+  return 0;
+
+}
+
+int k7_snap_shot_cmd(struct katcp_dispatch *d, int argc){
+#define JOBLABEL "localhost"
+  struct katcp_job *j;
+  struct katcl_parse *p;
+
+  if (argc != 2)
+    return KATCP_RESULT_FAIL;
+  
+  j = find_job_katcp(d, JOBLABEL);
+  if (j == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to find job labelled %s", JOBLABEL);
+    return KATCP_RESULT_FAIL;
+  }
+  
+  p = create_parse_katcl();
+  if (p == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to create message");
+    return KATCP_RESULT_FAIL;
+  }
+    
+  if (add_string_parse_katcl(p, KATCP_FLAG_FIRST | KATCP_FLAG_LAST | KATCP_FLAG_STRING, "?k7-snap-shot") < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to assemble message");
+    destroy_parse_katcl(p);
+    return KATCP_RESULT_FAIL;
+  }
+
+  if (submit_to_job_katcp(d,j,p, &k7_resume_job) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to submit message to job");
+    destroy_parse_katcl(p);
+    return KATCP_RESULT_FAIL;
+  }
+  
+  return KATCP_RESULT_PAUSE;
+#undef JOBLABEL
+}
 
 int setup_basic_kcs(struct katcp_dispatch *d, char *scripts)
 {
@@ -395,6 +455,7 @@ int setup_basic_kcs(struct katcp_dispatch *d, char *scripts)
   result += register_flag_mode_katcp(d, NULL, "python script handler", &script_wildcard_cmd, KATCP_CMD_HIDDEN | KATCP_CMD_WILDCARD, KCS_MODE_BASIC);
   result += register_flag_mode_katcp(d, "?parser" , "ROACH Configuration file parser (?parser [load|save|get|set|list])", &parser_cmd, 0, KCS_MODE_BASIC);
   result += register_flag_mode_katcp(d, "?roach" , "Control the pool of roaches (?roach [add|del|start|stop|start-pool|stop-pool])", &roach_cmd, 0, KCS_MODE_BASIC);
+  result += register_flag_mode_katcp(d, "?k7-snap-shot" , "Grab a snap shot (?k7-snap-shot [antenna polarisation])", &k7_snap_shot_cmd, 0, KCS_MODE_BASIC);
   
   if(result < 0){
     fprintf(stderr, "setup: unable to register command handlers for basic mode\n");

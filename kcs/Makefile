@@ -4,8 +4,8 @@ INC = -I$(KATCP)
 LIB = -L$(KATCP) -lkatcp
 
 SERVER = kcs
-SRC = shared.c
-SRC += kurl.c roachpool.c fork-parent.c execpy.c parser.c kcserver.c basic.c
+SRCSHARED = shared.c
+SRC = $(SRCSHARED) kurl.c roachpool.c fork-parent.c execpy.c parser.c kcserver.c basic.c
 
 OBJ = $(patsubst %.c,%.o,$(SRC))
 all: $(SERVER)
@@ -28,8 +28,8 @@ test-parser: parser.c
 test-execpy: execpy.c 
 	$(CC) $(CFLAGS) -DSTANDALONE -o $@ $^ -I../katcp -L../katcp -lkatcp
 
-test-roachpool: roachpool.c 
+test-roachpool: $(SRCSHARED) roachpool.c 
 	$(CC) $(CFLAGS) -DSTANDALONE -o $@ $^ -I../katcp
   
-test-kurl: kurl.c 
+test-kurl: $(SRCSHARED) kurl.c 
 	$(CC) $(CFLAGS) -DSTANDALONE -o $@ $^ -I../katcp
