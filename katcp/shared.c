@@ -13,6 +13,7 @@
 #include <unistd.h>
 
 #include "katcp.h"
+#include "katcl.h"
 #include "katpriv.h"
 #include "katsensor.h"
 #include "netc.h"
@@ -370,6 +371,64 @@ void shutdown_shared_katcp(struct katcp_dispatch *d)
 
 /***********************************************************************/
 
+static void release_clone(struct katcp_dispatch *d)
+{
+  struct katcp_dispatch *dt;
+  struct katcp_shared *s;
+  int fd, i, it;
+
+  s = d->d_shared;
+  if(s == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "major logic failure: no shared state\n");
+    abort();
+#endif
+    return;
+  }
+
+#ifdef DEBUG
+  if((d->d_clone < 0) || (d->d_clone >= s->s_used)){
+    fprintf(stderr, "major logic failure: clone value %d out of range\n", d->d_clone);
+    abort();
+  }
+  if(s->s_clients[d->d_clone] != d){
+    fprintf(stderr, "major logic failure: clone %p not at location %d\n", d, d->d_clone);
+    abort();
+  }
+#endif
+
+  fd = fileno_katcl(d->d_line);
+
+  reset_katcp(d, -1);
+
+#ifdef DEBUG
+  fprintf(stderr, "release: released %d/%d\n", d->d_clone, s->s_used);
+#endif
+
+  s->s_used--;
+
+  if(d->d_clone < s->s_used){
+
+    i = d->d_clone;
+    it = s->s_used;
+
+    dt = s->s_clients[it];
+#ifdef DEBUG
+    if(d != s->s_clients[i]){
+      fprintf(stderr, "release: logic problem: %p not at %d\n", d, i);
+      abort();
+    }
+#endif
+
+    /* exchange entries to keep used ones contiguous, and to make it safe to use release clone while iterating in ascending order over client table */
+    s->s_clients[i] = dt;
+    s->s_clients[it] = d;
+
+    dt->d_clone = i;
+    d->d_clone = it;
+  }
+}
+
 int link_shared_katcp(struct katcp_dispatch *d, struct katcp_dispatch *cd)
 {
   struct katcp_shared *s;
@@ -412,348 +471,161 @@ int link_shared_katcp(struct katcp_dispatch *d, struct katcp_dispatch *cd)
   return 0;
 }
 
+
 /***********************************************************************/
 
-#if 0
-int watch_shared_katcp(struct katcp_dispatch *d, char *name, pid_t pid, void (*call)(struct katcp_dispatch *d, int status))
+int load_shared_katcp(struct katcp_dispatch *d)
 {
-  return watch_type_shared_katcp(d, name, pid, 0, call);
-}
-
-int watch_type_shared_katcp(struct katcp_dispatch *d, char *name, pid_t pid, int type, void (*call)(struct katcp_dispatch *d, int status))
-{
-  struct katcp_process *pt;
   struct katcp_shared *s;
-  int i;
+  struct katcp_dispatch *dx;
+  int i, result, fd, status;
 
   sane_shared_katcp(d);
-
   s = d->d_shared;
-  if(s == NULL){
-    return -1;
-  }
 
-  if((pid <= 0) && (name == NULL)){
-    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "usage problem of watch shared");
-    return -1;
-  }
-
-  for(i = 0; i < s->s_entries; i++){
-    if(((pid > 0) && (s->s_table[i].p_pid == pid)) || (name && !strcmp(s->s_table[i].p_name, name))){
-      log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "found match for process at %d", s->s_table[i].p_pid);
-      if(call){ /* overwrite */
-        s->s_table[i].p_call = call; 
-      } else { /* delete */
-        s->s_entries--;
-        if(s->s_table[i].p_name){
-          free(s->s_table[i].p_name);
-        }
-        if(i < s->s_entries){
-          s->s_table[i].p_call  = s->s_table[s->s_entries].p_call;
-          s->s_table[i].p_pid   = s->s_table[s->s_entries].p_pid;
-          s->s_table[i].p_name  = s->s_table[s->s_entries].p_name;
-          s->s_table[i].p_type  = s->s_table[s->s_entries].p_type;
-          s->s_table[i].p_state = s->s_table[s->s_entries].p_state;
-        }
-      }
-      return 0;
-    } 
-  }
-  
-  if(call == NULL){
 #ifdef DEBUG
-    fprintf(stderr, "watch: attemping to delete nonexistant entry\n");
+  if(s->s_template != d){
+    fprintf(stderr, "load shared: not invoked with template %p != %p\n", d, s->s_template);
+    abort();
+  }
 #endif
-    return -1;
-  }
 
-  /* new, insert */
+  result = 0;
 
-  if(pid <= 0){
-    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "need a valid process id to insert into watch");
-    return -1;
-  }
-
-  pt = realloc(s->s_table, (s->s_entries + 1) * sizeof(struct katcp_process));
-  if(pt == NULL){
-    return -1;
-  }
-
-  s->s_table = pt;
-
-  s->s_table[s->s_entries].p_pid = pid;
-  s->s_table[s->s_entries].p_type = type;
-  s->s_table[s->s_entries].p_call = call;
-  s->s_table[s->s_entries].p_state = KATCP_PS_UP;
-
-  if(name){
-    s->s_table[s->s_entries].p_name = strdup(name);
-    if(s->s_table[s->s_entries].p_name == NULL){
-      return -1;
+  /* WARNING: all clients contiguous */
+  for(i = 0; i < s->s_used; i++){
+    dx = s->s_clients[i];
+    fd = fileno_katcl(dx->d_line);
+#ifdef DEBUG
+    if(fd < 0){
+      fprintf(stderr, "load shared[%d]=%p: bad fd\n", i, dx);
+      abort();
     }
-  } else {
-    s->s_table[s->s_entries].p_name = NULL;
+#endif
+
+    status = exited_katcp(dx);
+#ifdef DEBUG
+    fprintf(stderr, "load shared[%d]: status is %d, fd=%d\n", i, status, fd);
+#endif
+    switch(status){
+      case KATCP_EXIT_NOTYET : /* still running */
+        FD_SET(fd, &(s->s_read));
+        if(fd > s->s_max){
+          s->s_max = fd;
+        }
+        break;
+
+      case KATCP_EXIT_QUIT : /* only this connection is shutting down */
+        on_disconnect_katcp(dx, NULL);
+        break;
+
+      default : /* global shutdown */
+#ifdef DEBUG
+        fprintf(stderr, "load shared[%d]: termination initiated\n", i);
+#endif
+
+        result = (-1); /* pre shutdown mode */
+        terminate_katcp(d, status); /* have the shutdown code go to template */
+
+        on_disconnect_katcp(dx, NULL);
+
+        break;
+    }
+
+    if(flushing_katcp(dx)){ /* if flushing ensure that we get called if space becomes available later */
+#ifdef DEBUG
+      fprintf(stderr, "load shared[%d]: want to flush data\n", i);
+#endif
+      FD_SET(fd, &(s->s_write));
+      if(fd > s->s_max){
+        s->s_max = fd;
+      }
+    }
   }
 
-  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "inserted new process watch at %d", s->s_entries);
+  return result;
+}
 
-  s->s_entries++;
+int run_shared_katcp(struct katcp_dispatch *d)
+{
+  struct katcp_shared *s;
+  struct katcp_dispatch *dx;
+  int i, fd;
+
+  sane_shared_katcp(d);
+  s = d->d_shared;
+
+  /* WARNING: all clients contiguous */
+  for(i = 0; i < s->s_used; i++){
+    dx = s->s_clients[i];
+    fd = fileno_katcl(dx->d_line);
+
+#ifdef DEBUG
+    fprintf(stderr, "run shared[%d/%d]: %p, fd=%d\n", i, s->s_used, dx, fd);
+#endif
+
+    if(FD_ISSET(fd, &(s->s_write))){
+      if(write_katcp(dx) < 0){
+        release_clone(dx);
+        continue; /* WARNING: after release_clone, d will be invalid, forcing a continue */
+      }
+    }
+
+    /* don't read or process if we are flushing on exit */
+    if(exited_katcp(dx)){
+      if(!flushing_katcp(dx)){
+        release_clone(dx);
+      }
+      continue;
+    }
+
+    if(FD_ISSET(fd, &(s->s_read))){
+      if(read_katcp(dx)){
+        release_clone(dx);
+        continue;
+      }
+    }
+
+    if(dispatch_katcp(dx) < 0){
+      release_clone(dx);
+      continue;
+    }
+  }
 
   return 0;
 }
 
-int reap_children_shared_katcp(struct katcp_dispatch *d, pid_t pid, int force)
+int ended_shared_katcp(struct katcp_dispatch *d)
 {
-  int count, pending, status, i, found, retries, result, attempts;
-  struct timespec period;
-  pid_t got;
   struct katcp_shared *s;
-  void (*call)(struct katcp_dispatch *d, int status);
+  struct katcp_dispatch *dx;
+  int i, status;
 
+  sane_shared_katcp(d);
   s = d->d_shared;
 
-  count = 0;
-  found = 0;
-  result = 0;
-  pending = 0;
-  retries = 0;
-
-  attempts = force ? KATCP_WAITPID_CHECKS : 1;
-
-  if(force){
-    for(i = 0; i < s->s_entries; i++){
-      if(s->s_table[i].p_state == KATCP_PS_TERM){
-        pending++;
-      }
-    }
-    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "%d terminated processes need to be collected", pending);
+#ifdef DEBUG
+  if(s->s_template != d){
+    fprintf(stderr, "ended shared: not invoked with template %p != %p\n", d, s->s_template);
+    abort();
   }
-
-  do {
-
-    if(retries > 0){
-
-      log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "collected %d of %d tasks so far", count, pending);
-
-      period.tv_sec = 0;
-      period.tv_nsec = KATCP_WAITPID_POLL;
-      pselect(0, NULL, NULL, NULL, &period, &(s->s_mask_current));
-    }
-
-    retries++;
-
-    while((got = waitpid(WAIT_ANY, &status, WNOHANG)) > 0){
-      if((pid > 0) && (pid == got)){
-        found = pid;
-      }
-      i = 0;
-      while(i < s->s_entries){
-        if(s->s_table[i].p_pid == got){
-
-          if(s->s_table[i].p_state == KATCP_PS_UP){
-            log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "reaping running entry %d of %d with callback", i, s->s_entries);
-            call = s->s_table[i].p_call;
-          } else {
-            log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "reaping terminated entry %d of %d", i, s->s_entries);
-            call = NULL;
-          }
-
-          s->s_entries--;
-
-          if(s->s_table[i].p_name){
-            free(s->s_table[i].p_name);
-            s->s_table[i].p_name = NULL;
-          }
-
-          if(i < s->s_entries){
-            s->s_table[i].p_call  = s->s_table[s->s_entries].p_call;
-            s->s_table[i].p_pid   = s->s_table[s->s_entries].p_pid;
-            s->s_table[i].p_name  = s->s_table[s->s_entries].p_name;
-            s->s_table[i].p_type  = s->s_table[s->s_entries].p_type;
-            s->s_table[i].p_state = s->s_table[s->s_entries].p_state;
-          }
-
-          if(call){
-            (*call)(d, status);
-          }
-
-          count++;
-        } else {
-          i++;
-        }
-      }
-    }
-    /* WARNING: intricate exit condition: found is zero if no match and pid zero if not looking for a pariticular one */
-  } while((retries < attempts) && ((found != pid) || (count < pending)));
-
-  result = count;
-
-  if(force){
-    if(pid != found){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to reap process with id %u in table of %d entries", pid, s->s_entries);
-      result = (-1);
-    } 
-
-    if(count < pending){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "only terminated %d processes, %d still not terminated", count, pending - count);
-      result = (-1);
-    }
-  }
-
-  return result;
-}
-
-/* returns the number of non-terminated processes killed (0 or 1) or -1 on failure */
-
-static int signal_child_katcp(struct katcp_dispatch *d, struct katcp_process *p, int signal)
-{
-  int result;
-
-  if(p->p_state != KATCP_PS_UP){
-    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "attemping to terminate process %u which is already terminating", p->p_pid);
-    result = 0;
-  } else {
-    result = 1;
-  }
-
-  if(kill(p->p_pid, SIGTERM) < 0){
-    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to kill process %u: %s", p->p_pid, strerror(errno));
-
-    return -1;
-  }
-
-  p->p_state = KATCP_PS_TERM;
-  return result;
-}
-
-int end_type_shared_katcp(struct katcp_dispatch *d, int type, int force)
-{
-  int i, result, value;
-  struct katcp_shared *s;
-
-  result = 0;
-
-  if(d == NULL){
-    return -1;
-  }
-
-  if(type == 0){
-    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "terminating all subprocesses");
-  } else {
-    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "terminating subprocesses matching type %d", type);
-  }
-
-  s = d->d_shared;
-  if(s == NULL){
-    return -1;
-  }
-
-  for(i = 0; i < s->s_entries; i++){
-    if((type == 0) || (s->s_table[i].p_type == type)){
-      value = signal_child_katcp(d, &(s->s_table[i]), SIGTERM);
-      if(value < 0){
-        result = value;
-      } else {
-        result += value;
-      }
-    }
-  }
-
-  value = reap_children_shared_katcp(d, 0, force);
-  if(value < 0){
-    result = value;
-  }
-
-  return result;
-}
 #endif
 
-#if 0
-int end_pid_shared_katcp(struct katcp_dispatch *d, pid_t pid, int force)
-{
-  int i, result, value;
-  struct katcp_shared *s;
-
-  result = 0;
-
-  if(d == NULL){
-    return -1;
-  }
-
-  s = d->d_shared;
-  if(s == NULL){
-    return -1;
-  }
-
-  if(pid <= 0){
-    return -1;
-  }
-
-  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "terminating process %u", pid);
-
-  for(i = 0; i < s->s_entries; i++){
-    if(s->s_table[i].p_pid == pid){
-
-      value = signal_child_katcp(d, &(s->s_table[i]), SIGTERM);
-      if(value < 0){
-        result = value;
-      } else {
-        result += value;
-      }
+  status = exited_katcp(d);
+  for(i = 0; i < s->s_used; i++){
+    dx = s->s_clients[i];
+    if(!exited_katcp(dx)){
+#ifdef DEBUG
+      fprintf(stderr, "ended[%d]: unsolicted disconnect with code %d\n", i, status);
+#endif
+      terminate_katcp(dx, status); /* have the shutdown code go others */
+      on_disconnect_katcp(dx, NULL);
     }
   }
 
-  value = reap_children_shared_katcp(d, 0, force);
-  if(value < 0){
-    result = value;
-  }
-
-  return result;
+  return (s->s_used > 0) ? 0 : 1;
 }
-#endif
 
-#if 0
-int end_name_shared_katcp(struct katcp_dispatch *d, char *name, int force)
-{
-  int i, result, value;
-  struct katcp_shared *s;
-
-  result = 0;
-
-  if(d == NULL){
-    return -1;
-  }
-
-  s = d->d_shared;
-  if(s == NULL){
-    return -1;
-  }
-
-  if(name == NULL){
-    return -1;
-  }
-
-  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "attempting to terminate child process %s", name);
-
-  for(i = 0; i < s->s_entries; i++){
-    if(!strcmp(s->s_table[i].p_name, name)){
-      value = signal_child_katcp(d, &(s->s_table[i]), SIGTERM);
-      if(value < 0){
-        result = value;
-      } else {
-        result += value;
-      }
-    }
-  }
-
-  value = reap_children_shared_katcp(d, 0, force);
-  if(value < 0){
-    result = value;
-  }
-
-  return result;
-}
-#endif
 
 /*******************************************************************/
 

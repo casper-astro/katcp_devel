@@ -372,9 +372,11 @@ struct katcp_job *via_notice_job_katcp(struct katcp_dispatch *d, struct katcp_no
 }
 #endif
 
-/* manually stop a task, trigger notice as if stopped on its own, hard makes it unsafe **/
 
-int stop_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, int hard)
+#if 0
+
+/* manually stop a task, trigger notice as if stopped on its own, hard makes it unsafe **/
+int stop_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
 {
   int result;
 
@@ -385,7 +387,7 @@ int stop_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, int hard)
   /* WARNING: maybe: only kill jobs which have a pid, wait for the child to close - that ensures that we receive all messages */
 
   if((j->j_state & JOB_MAY_KILL) && (j->j_pid > 0)){
-    if(kill(j->j_pid, hard ? SIGKILL : SIGTERM) < 0){
+    if(kill(j->j_pid, SIGTERM) < 0){
       log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to kill process %u: %s", j->j_pid, strerror(errno));
       result = (-1);
     }
@@ -397,6 +399,39 @@ int stop_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, int hard)
   }
 
   return result;
+}
+#endif
+
+int zap_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
+{
+  sane_job_katcp(j);
+
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "terminating job %p (%s)", j, j->j_name ? j->j_name : "<anonymous>");
+
+  j->j_state = 0;
+
+  return 0;
+}
+
+int ended_jobs_katcp(struct katcp_dispatch *d)
+{
+  int i;
+  struct katcp_job *j;
+  struct katcp_shared *s;
+
+  s = d->d_shared;
+
+  for(i = 0; i < s->s_number; i++){
+    j = s->s_tasks[i];
+
+    sane_job_katcp(j);
+
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "ending job [%d]=%p (%s) immediately", i, j, j->j_name ? j->j_name : "<anonymous>");
+
+    j->j_state = 0;
+  }
+
+  return (s->s_number > 0) ? 0 : 1;
 }
 
 int issue_request_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
@@ -521,7 +556,7 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
         return -1;
       }
 
-      wake_notice_katcp(d, n, p);
+      wake_notice_copy_katcp(d, n, p);
 
       j->j_state |= JOB_MAY_REQUEST;
 
@@ -581,9 +616,12 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
 #endif
 
           n->n_use--;
-          wake_notice_katcp(d, n, p);
+          wake_notice_copy_katcp(d, n, p);
         }
 
+        /* terminating job, otherwise halt notice can not assume that job is gone */
+
+        zap_job_katcp(d, j);
       }
 
     break;
@@ -762,7 +800,7 @@ int run_jobs_katcp(struct katcp_dispatch *d)
           }
         }
 
-        wake_notice_katcp(d, n, p);
+        wake_notice_grab_katcp(d, n, p); /* WARNING: we are submitting what we have already */
         n = remove_head_job(j);
       }
 
@@ -779,7 +817,7 @@ int run_jobs_katcp(struct katcp_dispatch *d)
         }
 
         n->n_use--;
-        wake_notice_katcp(d, n, p);
+        wake_notice_grab_katcp(d, n, p);
       }
 
       delete_job_katcp(d, j);

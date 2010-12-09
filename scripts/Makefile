@@ -5,6 +5,8 @@ SRC = init.katcp functions.sh corr-init capture-start capture-stop capture-list 
 
 all:
 
+clean:
+
 install: all
 	$(INSTALL) -d $(DST)
 	$(INSTALL) $(SRC) $(DST)

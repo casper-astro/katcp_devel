@@ -72,6 +72,9 @@ static void reap_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
   }
 
   if((n->n_use > 0) || (n->n_count > 0)){
+#ifdef DEBUG
+    fprintf(stderr, "notice: still in use\n");
+#endif
     log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "major corruption: refusing to destroy notice which is in use");
     return;
   }
@@ -100,13 +103,6 @@ static void reap_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
       
     } else {
       i++;
-    }
-  }
-
-  if(s->s_pending <= 0){
-    if(s->s_notices){
-      free(s->s_notices);
-      s->s_notices = NULL;
     }
   }
 
@@ -239,12 +235,17 @@ void destroy_notices_katcp(struct katcp_dispatch *d)
 
   s = d->d_shared;
 
-  while((s->s_pending > 0) && (s->s_notices != NULL)){
+#ifdef DEBUG
+  fprintf(stderr, "notice: final cleanup: pending=%d, notices=%p\n", s->s_pending, s->s_notices);
+#endif
+
+  while(s->s_pending > 0){
     reap_notice_katcp(d, s->s_notices[0]);
   }
 
-  if((s->s_pending != 0) || (s->s_notices != NULL)){
-    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "cleared notice list left inconsistent");
+  if(s->s_notices){
+    free(s->s_notices);
+    s->s_notices = NULL;
   }
 }
 
@@ -318,10 +319,9 @@ struct katcp_notice *create_parse_notice_katcp(struct katcp_dispatch *d, char *n
     deallocate_notice_katcp(d, n);
     return NULL;
   }
+  s->s_notices = t;
 
   n->n_parse = p;
-
-  s->s_notices = t;
 
   s->s_notices[s->s_pending] = n;
   s->s_pending++;
@@ -513,7 +513,7 @@ int cancel_name_notice_katcp(struct katcp_dispatch *d, char *name)
 
 /*******************************************************************************/
 
-void wake_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p)
+void wake_notice_copy_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p)
 {
   int fail;
 
@@ -524,8 +524,10 @@ void wake_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct 
 
   if(n->n_parse){ /* have something */
     if(p){ /* copy the new stuff to it */
-      if(copy_parse_katcl(n->n_parse, p) == NULL){
-        fail = 1;
+      if(p != n->n_parse){ /* guard against clobbering same instance */
+        if(copy_parse_katcl(n->n_parse, p) == NULL){
+          fail = 1;
+        }
       }
     } else {
       destroy_parse_katcl(n->n_parse);
@@ -546,6 +548,27 @@ void wake_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct 
 
 }
 
+void wake_notice_grab_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p)
+{
+  int fail;
+
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "waking notice %s@%p (source=%d, client=%d) with grabbbed parse %p (%s ...)", n->n_name, n, n->n_use, n->n_count, p, p ? get_string_parse_katcl(p, 0) : "<null>");
+
+  n->n_trigger = 1;
+  fail = 0;
+
+  if(n->n_parse){ /* have old stuff, make it go away */
+    if(p == n->n_parse){
+      return;
+    }
+    destroy_parse_katcl(n->n_parse);
+    n->n_parse = NULL;
+  }
+
+  n->n_parse = p;
+}
+
+#if 0
 int wake_name_notice_katcp(struct katcp_dispatch *d, char *name, struct katcl_parse *p)
 {
   struct katcp_notice *n;
@@ -559,6 +582,7 @@ int wake_name_notice_katcp(struct katcp_dispatch *d, char *name, struct katcl_pa
 
   return 0;
 }
+#endif
 
 /*******************************************************************************/
 
@@ -567,11 +591,12 @@ int run_notices_katcp(struct katcp_dispatch *d)
   struct katcp_shared *s;
   struct katcp_notice *n;
   struct katcp_invoke *v;
-  int i, j, remove;
+  int i, j, remove, result;
 
   s = d->d_shared;
   i = 0;
   remove = 0;
+  result = 0;
 
 #ifdef DEBUG
   fprintf(stderr, "notice: running %d pending entries\n", s->s_pending);
@@ -616,7 +641,7 @@ int run_notices_katcp(struct katcp_dispatch *d)
     }
   }
 
-  return 0;
+  return result;
 }
 
 #if 0
@@ -764,17 +789,19 @@ int notice_cmd_katcp(struct katcp_dispatch *d, int argc)
 
       value = arg_string_katcp(d, 2);
       if(value == NULL){
-        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "require a notice to watch");
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "require a notice to wake");
         return KATCP_RESULT_FAIL;
       }
 
-      if(wake_name_notice_katcp(d, value, KATCP_RESULT_OK) < 0){
+      n = find_notice_katcp(d, name);
+      if(n == NULL){
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "notice %s not found", value);
         return KATCP_RESULT_FAIL;
       }
 
-      return KATCP_RESULT_OK;
+      wake_notice_grab_katcp(d, n, NULL);
 
+      return KATCP_RESULT_OK;
     } else {
       return KATCP_RESULT_FAIL;
     }

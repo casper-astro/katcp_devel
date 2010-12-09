@@ -306,7 +306,8 @@ int code_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 char *code_name_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 #endif
 
-void wake_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p);
+void wake_notice_copy_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p);
+void wake_notice_grab_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p);
 int wake_name_notice_katcp(struct katcp_dispatch *d, char *name, struct katcl_parse *p);
 struct katcl_parse *parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 
@@ -320,7 +321,8 @@ struct katcp_job *network_connect_job_katcp(struct katcp_dispatch *d, char *host
 
 struct katcp_job *find_job_katcp(struct katcp_dispatch *d, char *name);
 
-
-int stop_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, int hard);
+#if 0
+int stop_job_katcp(struct katcp_dispatch *d, struct katcp_job *j);
+#endif
 
 #endif

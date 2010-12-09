@@ -364,7 +364,9 @@ void on_disconnect_katcp(struct katcp_dispatch *d, char *fmt, ...)
 
 #ifdef DEBUG
   fprintf(stderr, "disconnect: run=%d\n", d->d_run);
+#endif
 
+#ifdef PARANOID
   if(d->d_run > 0){
     fprintf(stderr, "disconnect: not yet terminated\n");
     abort();
@@ -513,8 +515,8 @@ int deregister_command_katcp(struct katcp_dispatch *d, char *match)
     c = nxt;
   }
 
-#ifdef DEBUG
-  fprintf(stderr, "no match found for %s while deregistering command\n");
+#ifdef REPORT
+  fprintf(stderr, "no match found for %s while deregistering command\n", match);
 #endif
 
   return -1;
@@ -532,7 +534,7 @@ int register_flag_mode_katcp(struct katcp_dispatch *d, char *match, char *help, 
   s = d->d_shared;
 
   if(mode >= s->s_size){
-#ifdef DEBUG
+#ifdef REPORT
     fprintf(stderr, "register: registering command for oversized mode number %u\n", mode);
 #endif
     return -1;
@@ -615,8 +617,9 @@ int lookup_katcp(struct katcp_dispatch *d)
   int r;
   struct katcp_cmd *search;
 
-#ifdef DEBUG
+#ifdef REPORT
   if((d == NULL) || (d->d_shared == NULL)){
+    fprintf(stderr, "lookup: state is null\n");
     return -1;
   }
 #endif
@@ -663,7 +666,7 @@ int call_katcp(struct katcp_dispatch *d)
   int r, n;
   char *s;
 
-#ifdef DEBUG
+#ifdef REPORT
   if(d == NULL){
     fprintf(stderr, "call: null dispatch argument\n");
     return -1;
@@ -696,8 +699,7 @@ int call_katcp(struct katcp_dispatch *d)
       d->d_pause = 1;
     }
   } else { /* force a fail for unknown commands */
-
-#ifdef DEBUG
+#ifdef REPORT
     fprintf(stderr, "call: no dispatch function for %s\n", s);
 #endif
     switch(s[0]){
@@ -894,7 +896,7 @@ int terminate_katcp(struct katcp_dispatch *d, int code)
   d->d_run = (-1);
 
   if(code < 0){
-#ifdef DEBUG
+#ifdef REPORT
     fprintf(stderr, "terminate: logic failure: values no longer negative\n");
 #endif
     d->d_exit = KATCP_EXIT_ABORT;
@@ -931,8 +933,8 @@ void reset_katcp(struct katcp_dispatch *d, int fd)
   disown_notices_katcp(d);
 
   if(d->d_end){
-    /* todo: record exit information via a parse */
-    wake_notice_katcp(d, d->d_end, NULL);
+    /* TODO: record exit information via a parse */
+    wake_notice_grab_katcp(d, d->d_end, NULL);
   }
 
   d->d_run = 1;
@@ -1220,7 +1222,7 @@ int log_message_katcp(struct katcp_dispatch *d, unsigned int priority, char *nam
 
   s = d->d_shared;
   if(s == NULL){
-#ifdef DEBUG
+#ifdef REPORT
     fprintf(stderr, "log: no shared state available\n");
 #endif
     return -1;
@@ -1459,7 +1461,7 @@ static int prepend_generic_katcp(struct katcp_dispatch *d, int reply)
 
   message = arg_string_katcl(d->d_line, 0);
   if((message == NULL) || (message[0] != KATCP_REQUEST)){
-#ifdef DEBUG
+#ifdef REPORT
     fprintf(stderr, "prepend: arg0 is unavailable (%p)\n", message);
 #endif
     return -1;
