@@ -14,11 +14,11 @@ kcs_debug "about to run tx-start"
 status=1
 
 if [ $# -gt 1 ] ; then
-  if kcpcmd -r tx-start $2 ; then
+  if kcpcmd -k -r tx-start $2 ; then
     status=0
   fi
 else 
-  if kcpcmd -r tx-start ; then
+  if kcpcmd -k -r tx-start ; then
     status=0
   fi 
 fi
