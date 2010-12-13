@@ -64,6 +64,8 @@ int net_connect(char *name, int port, int verbose)
     sa.sin_addr = *(struct in_addr *) he->h_addr;
   }
 
+  free(host);
+
   sa.sin_port = htons(p);
   sa.sin_family = AF_INET;
 

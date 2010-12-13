@@ -392,7 +392,9 @@ void shutdown_shared_katcp(struct katcp_dispatch *d);
 int listen_shared_katcp(struct katcp_dispatch *d, int count, char *host, int port);
 int link_shared_katcp(struct katcp_dispatch *d, struct katcp_dispatch *cd);
 
-int reap_shared_katcp(struct katcp_dispatch *d, pid_t pid, int status);
+int load_shared_katcp(struct katcp_dispatch *d);
+int run_shared_katcp(struct katcp_dispatch *d);
+int ended_shared_katcp(struct katcp_dispatch *d);
 
 void shutdown_cmd_katcp(struct katcp_cmd *c);
 
@@ -437,6 +439,7 @@ int run_jobs_katcp(struct katcp_dispatch *d);
 int job_cmd_katcp(struct katcp_dispatch *d, int argc);
 int register_subprocess_cmd_katcp(struct katcp_dispatch *d, int argc);
 int submit_to_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, struct katcl_parse *p, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n));
+int ended_jobs_katcp(struct katcp_dispatch *d);
 
 /* parse: setup */
 struct katcl_parse *create_parse_katcl();

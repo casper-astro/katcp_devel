@@ -149,6 +149,10 @@ struct katcl_parse *copy_parse_katcl(struct katcl_parse *pd, struct katcl_parse 
     clear_parse_katcl(pt);
   }
 
+  if(pt == ps){
+    return pt;
+  }
+
   if(pt->p_size < ps->p_kept){
     buffer = realloc(pt->p_buffer, ps->p_kept);
     if(buffer == NULL){

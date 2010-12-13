@@ -243,7 +243,7 @@ int read_katcl(struct katcl_line *l)
   if(p->p_size <= p->p_have){
     ptr = realloc(p->p_buffer, p->p_size + KATCL_BUFFER_INC);
     if(ptr == NULL){
-#ifdef DEBUG
+#ifdef REPORT
       fprintf(stderr, "read: realloc to %d failed\n", p->p_size + KATCL_BUFFER_INC);
 #endif
       l->l_error = ENOMEM;
@@ -262,7 +262,7 @@ int read_katcl(struct katcl_line *l)
         return 0; /* more to be read */
       default : /* serious error */
         l->l_error = errno;
-#ifdef DEBUG
+#ifdef REPORT
         fprintf(stderr, "read: read error: %s\n", strerror(errno));
 #endif
         return -1;

@@ -25,64 +25,6 @@
 #define KATCP_POLL_WAIT    5
 #define KATCP_HALT_WAIT    1
 
-static void release_clone(struct katcp_dispatch *d)
-{
-  struct katcp_dispatch *dt;
-  struct katcp_shared *s;
-  int fd, i, it;
-
-  s = d->d_shared;
-  if(s == NULL){
-#ifdef DEBUG
-    fprintf(stderr, "major logic failure: no shared state\n");
-    abort();
-#endif
-    return;
-  }
-
-#ifdef DEBUG
-  if((d->d_clone < 0) || (d->d_clone >= s->s_used)){
-    fprintf(stderr, "major logic failure: clone value %d out of range\n", d->d_clone);
-    abort();
-  }
-  if(s->s_clients[d->d_clone] != d){
-    fprintf(stderr, "major logic failure: clone %p not at location %d\n", d, d->d_clone);
-    abort();
-  }
-#endif
-
-  fd = fileno_katcl(d->d_line);
-
-  reset_katcp(d, -1);
-
-#ifdef DEBUG
-  fprintf(stderr, "release: released %d/%d\n", d->d_clone, s->s_used);
-#endif
-
-  s->s_used--;
-
-  if(d->d_clone < s->s_used){
-
-    i = d->d_clone;
-    it = s->s_used;
-
-    dt = s->s_clients[it];
-#ifdef DEBUG
-    if(d != s->s_clients[i]){
-      fprintf(stderr, "release: logic problem: %p not at %d\n", d, i);
-      abort();
-    }
-#endif
-
-    /* exchange entries to keep used ones contiguous, and to make it safe to use release clone while iterating in ascending order over client table */
-    s->s_clients[i] = dt;
-    s->s_clients[it] = d;
-
-    dt->d_clone = i;
-    d->d_clone = it;
-  }
-}
-
 static int inform_client_connect_katcp(struct katcp_dispatch *d)
 {
   int i;
@@ -188,7 +130,7 @@ static int pipe_from_file_katcp(struct katcp_dispatch *dl, char *file)
   int fds[2], fd;
   pid_t pid;
   struct katcl_line *pl, *fl;
-  int result, done;
+  int done;
   int state, rsvp;
 
   if(socketpair(AF_UNIX, SOCK_STREAM, 0, fds) < 0){
@@ -367,11 +309,10 @@ void perforate_client_server_katcp(struct katcp_dispatch *dl)
 int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, char *host, int port)
 {
 #define LABEL_BUFFER 32
-  int run, i, nfd, fd, result, suspend, status;
+  int run, nfd, fd, result, suspend;
   unsigned int len;
   struct sockaddr_in sa;
   struct timespec delta;
-  struct katcp_dispatch *d;
   struct katcp_shared *s;
   char label[LABEL_BUFFER];
 #if 0
@@ -463,75 +404,19 @@ int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, ch
 
     load_jobs_katcp(dl);
 
-    /* WARNING: all clients contiguous */
-    for(i = 0; i < s->s_used; i++){
-      d = s->s_clients[i];
-      fd = fileno_katcl(d->d_line);
-#ifdef DEBUG
-      if(fd < 0){
-        fprintf(stderr, "multi[%d]: bad fd\n", i);
-        abort();
-      }
-#endif
-
-      status = exited_katcp(d);
-#ifdef DEBUG
-      fprintf(stderr, "multi[%d]: preselect: status is %d, fd=%d\n", i, status, fd);
-#endif
-      switch(status){
-        case KATCP_EXIT_NOTYET : /* still running */
-          FD_SET(fd, &(s->s_read));
-          if(fd > s->s_max){
-            s->s_max = fd;
-          }
-          break;
-        case KATCP_EXIT_QUIT : /* only this connection is shutting down */
-          
-          on_disconnect_katcp(d, NULL);
-          break;
-        default : /* global shutdown */
-#ifdef DEBUG
-          fprintf(stderr, "multi[%d]: termination initiated\n", i);
-#endif
-
-          run = (-1); /* pre shutdown mode */
-          terminate_katcp(dl, status); /* have the shutdown code go to template */
-
-          on_disconnect_katcp(d, NULL);
-
-          break;
-      }
-
-      if(flushing_katcp(d)){ /* if flushing ensure that we get called if space becomes available later */
-#ifdef DEBUG
-        fprintf(stderr, "multi[%d]: want to flush data\n", i);
-#endif
-        FD_SET(fd, &(s->s_write));
-        if(fd > s->s_max){
-          s->s_max = fd;
-        }
-      }
+    if(load_shared_katcp(dl) < 0){ /* want to shut down */
+      run = (-1);
     }
 
     if(run < 0){
-#ifdef DEBUG
-      fprintf(stderr, "multi: busy shutting down\n");
-#endif
 
-      status = exited_katcp(dl);
-      for(i = 0; i < s->s_used; i++){
-        d = s->s_clients[i];
-        if(!exited_katcp(d)){
-#ifdef DEBUG
-          fprintf(stderr, "multi[%d]: unsolicted disconnect with code %d\n", i, status);
-#endif
-          terminate_katcp(d, status); /* have the shutdown code go others */
-          on_disconnect_katcp(d, NULL);
-        }
+      run = 0; /* assume we have stopped, revert to stopping if the below still need to do work */
+
+      if(ended_shared_katcp(dl) <= 0){
+        run = (-1);
       }
-
-      if(s->s_used <= 0){
-        run = 0;
+      if(ended_jobs_katcp(dl) <= 0){
+        run = (-1);
       }
 
       delta.tv_sec = KATCP_HALT_WAIT;
@@ -556,6 +441,10 @@ int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, ch
 #endif
 
     if(result < 0){
+
+      FD_ZERO(&(s->s_read));
+      FD_ZERO(&(s->s_write));
+
       switch(errno){
         case EAGAIN :
         case EINTR  :
@@ -567,8 +456,6 @@ int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, ch
           fprintf(stderr, "select failed: %s\n", strerror(errno));
 #endif
           run = 0; 
-          FD_ZERO(&(s->s_read));
-          FD_ZERO(&(s->s_write));
           break;
       }
     }
@@ -580,70 +467,29 @@ int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, ch
       wait_jobs_katcp(dl);
     }
 
-    if(result > 0){ /* don't look at connections if no activity */
-
-      /* WARNING: all clients contiguous */
-      for(i = 0; i < s->s_used; i++){
-        d = s->s_clients[i];
-        fd = fileno_katcl(d->d_line);
-
-#ifdef DEBUG
-        fprintf(stderr, "multi[%d/%d]: postselect: location=%p, fd=%d\n", i, s->s_used, d, fd);
-#endif
-
-        if(FD_ISSET(fd, &(s->s_write))){
-          if(write_katcp(d) < 0){
-            release_clone(d);
-            continue; /* WARNING: after release_clone, d will be invalid, forcing a continue */
-          }
-        }
-
-        /* don't read or process if we are flushing on exit */
-        if(exited_katcp(d)){
-          if(!flushing_katcp(d)){
-            release_clone(d);
-          }
-          continue;
-        }
-
-        if(FD_ISSET(fd, &(s->s_read))){
-          if(read_katcp(d)){
-            release_clone(d);
-            continue;
-          }
-        }
-
-        if(dispatch_katcp(d) < 0){
-          release_clone(d);
-          continue;
-        }
-      }
-
-      if(FD_ISSET(s->s_lfd, &(s->s_read))){
-        if(s->s_used < s->s_count){
-
-          len = sizeof(struct sockaddr_in);
-          nfd = accept(s->s_lfd, (struct sockaddr *) &sa, &len);
-
-          if(nfd >= 0){
-            snprintf(label, LABEL_BUFFER, "%s:%d", inet_ntoa(sa.sin_addr), ntohs(sa.sin_port));
-            label[LABEL_BUFFER - 1] = '\0';
-
-            add_client_server_katcp(dl, nfd, label);
-          }
-
-        } else {
-
-          /* WARNING: will run a busy loop, terminating one entry each cycle until space becomes available. We expect an exit to happen quickly, otherwise this could empty out all clients (though there is a backoff, since we pick a slot randomly) */
-          perforate_client_server_katcp(dl);
-
-        }
-      }
-
-    }
-
+    run_shared_katcp(dl);
     run_jobs_katcp(dl);
     run_notices_katcp(dl);
+
+    if(FD_ISSET(s->s_lfd, &(s->s_read))){
+      if(s->s_used < s->s_count){
+
+        len = sizeof(struct sockaddr_in);
+        nfd = accept(s->s_lfd, (struct sockaddr *) &sa, &len);
+
+        if(nfd >= 0){
+          snprintf(label, LABEL_BUFFER, "%s:%d", inet_ntoa(sa.sin_addr), ntohs(sa.sin_port));
+          label[LABEL_BUFFER - 1] = '\0';
+
+          add_client_server_katcp(dl, nfd, label);
+        }
+
+      } else {
+        /* WARNING: will run a busy loop, terminating one entry each cycle until space becomes available. We expect an exit to happen quickly, otherwise this could empty out all clients (though there is a backoff, since we pick a slot randomly) */
+        perforate_client_server_katcp(dl);
+      }
+    }
+
   }
 
 #ifdef DEBUG
