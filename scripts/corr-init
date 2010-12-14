@@ -3,9 +3,15 @@
 set -e 
 source functions.sh
 
+if [ $# -gt 0 ] ; then
+  config=/home/jmanley/${1}.conf
+else
+  config=/home/jmanley/k7-dbes.conf
+fi
+
 status=1
 kcs_debug "running connect"
-if kcpcmd -k -r -t 120 connect /home/jmanley/k7.conf 1000 ; then
+if kcpcmd -k -r -t 120 connect $config 1000 ; then
   kcs_debug "running initialise"
   if kcpcmd -k -r -t 120 initialise 2 ; then
     status=0
