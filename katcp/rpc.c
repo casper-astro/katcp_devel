@@ -13,13 +13,13 @@
 #include "katcp.h"
 #include "netc.h"
 
-struct katcl_line *create_name_katcl(char *name)
+struct katcl_line *create_rpc_katcl(char *name)
 {
   int fd;
   struct katcl_line *l;
 
   if(name){
-    fd = net_connect(name, 0, 1);
+    fd = net_connect(name, 0, 0);
     if(fd < 0){
 #if 0
       fprintf(stderr, "connect: unable to contact %s: %s\n", name, strerror(errno));
@@ -27,21 +27,28 @@ struct katcl_line *create_name_katcl(char *name)
       return NULL;
     }
   } else {
-    fd = STDIN_FILENO;
+    fd = dup(STDIN_FILENO);
+    if(fd < 0){
+      return NULL;
+    }
   }
 
   l = create_katcl(fd);
   if(l == NULL){
-    if(name){
-      close(fd);
-    }
+    close(fd);
     return NULL;
   }
 
   return l;
 }
 
-int finished_request_katcl(struct katcl_line *l, struct timeval *until)
+void destroy_rpc_katcl(struct katcl_line *l)
+{
+  /* can close things regardless, we dup STDIN in the create case */
+  destroy_katcl(l, 1);
+}
+
+int complete_rpc_katcl(struct katcl_line *l, unsigned int flags, struct timeval *until)
 {
   fd_set fsr, fsw;
   struct timeval tv, now;
@@ -120,7 +127,7 @@ int finished_request_katcl(struct katcl_line *l, struct timeval *until)
   }
 }
 
-int issue_request_katcl(struct katcl_line *l, unsigned int timeout, ...)
+int send_rpc_katcl(struct katcl_line *l, unsigned int timeout, ...)
 {
   int result;
   va_list args;
@@ -147,7 +154,7 @@ int issue_request_katcl(struct katcl_line *l, unsigned int timeout, ...)
   fprintf(stderr, "now is %lu.%lds, finish at %lu.%lds\n", now.tv_sec, now.tv_usec, until.tv_sec, until.tv_usec);
 #endif
 
-  while((result = finished_request_katcl(l, &until)) == 0);
+  while((result = complete_rpc_katcl(l, 0, &until)) == 0);
 
   if(result < 0){
     /* TODO: end connection, request/replies potentially out of sync */
@@ -173,13 +180,13 @@ int main()
   struct katcl_line *l;
   int result;
 
-  l = create_name_katcl(NULL);
+  l = create_rpc_katcl(NULL);
   if(l == NULL){
     fprintf(stderr, "unable to create line\n");
     return 1;
   }
 
-  result = issue_request_katcl(l, 10000, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, "?help", KATCP_FLAG_STRING | KATCP_FLAG_LAST, "fred");
+  result = send_rpc_katcl(l, 10000, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, "?help", KATCP_FLAG_STRING | KATCP_FLAG_LAST, "fred");
 
   if(result < 0){
     fprintf(stderr, "request failed\n");
@@ -188,7 +195,7 @@ int main()
 
   printf("request %s\n", result ? "failed" : "ok");
 
-  destroy_katcl(l, 0);
+  destroy_rpc_katcl(l);
 
   return 0;
 }

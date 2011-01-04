@@ -21,12 +21,12 @@ int net_connect(char *name, int port, int verbose)
   /* WARNING: this function may call resolvers, and blocks for those */
   /* WARNING: uses ipv4 API */
 
-  int p, len, fd;
+  int p, len, fd, se;
   char *ptr, *host;
   struct hostent *he;
   struct sockaddr_in sa;
 
-  p = 23;
+  p = 7147;
 
   ptr = strchr(name, ':');
   if(ptr){
@@ -39,12 +39,14 @@ int net_connect(char *name, int port, int verbose)
 
   if(p == 0){
     if(verbose) fprintf(stderr, "connect: unable to acquire a port number\n");
+    errno = EINVAL;
     return -2;
   }
 
   host = strdup(name);
   if(host == NULL){
     if(verbose) fprintf(stderr, "connect: unable to duplicate string\n");
+    errno = ENOMEM;
     return -1;
   }
 
@@ -58,6 +60,7 @@ int net_connect(char *name, int port, int verbose)
     if((he == NULL) || (he->h_addrtype != AF_INET)){
       if(verbose) fprintf(stderr, "connect: unable to map %s to ipv4 address\n", host);
       free(host);
+      errno = EINVAL;
       return -1;
     }
 
@@ -71,7 +74,11 @@ int net_connect(char *name, int port, int verbose)
 
   fd = socket(AF_INET, SOCK_STREAM, 0);
   if(fd < 0){
-    if(verbose) fprintf(stderr, "connect: unable to allocate socket: %s\n", strerror(errno));
+    if(verbose){
+      se = errno;
+      fprintf(stderr, "connect: unable to allocate socket: %s\n", strerror(errno));
+      errno = se;
+    }
     return -1;
   }
    
@@ -83,11 +90,13 @@ int net_connect(char *name, int port, int verbose)
   len = sizeof(struct sockaddr_in);
 
   if(connect(fd, (struct sockaddr *)(&sa), len)){
+    se = errno;
     close(fd);
     if(verbose){
       ptr = inet_ntoa(sa.sin_addr);
       fprintf(stderr, "connect: connect to %s:%u failed: %s\n", ptr, p, strerror(errno));
     }
+    errno = se;
     return -1;
   }
 
@@ -100,7 +109,7 @@ int net_connect(char *name, int port, int verbose)
 
 int net_listen(char *name, int port, int verbose)
 {
-  int p, len, fd;
+  int p, len, fd, se;
   char *ptr, *host;
   struct hostent *he;
   struct sockaddr_in sa;
@@ -113,6 +122,7 @@ int net_listen(char *name, int port, int verbose)
     host = strdup(name);
     if(host == NULL){
       if(verbose) fprintf(stderr, "listen: unable to duplicate string\n");
+      errno = ENOMEM;
       return -1;
     }
 
@@ -132,7 +142,7 @@ int net_listen(char *name, int port, int verbose)
   }
 
   if(p == 0){
-    p = 23;
+    p = 7147;
   }
 
   if(host){
@@ -141,6 +151,7 @@ int net_listen(char *name, int port, int verbose)
       if((he == NULL) || (he->h_addrtype != AF_INET)){
         if(verbose) fprintf(stderr, "listen: unable to map %s to ipv4 address\n", host);
         free(host);
+        errno = EINVAL;
         return -1;
       }
       sa.sin_addr = *(struct in_addr *) he->h_addr;
@@ -155,7 +166,11 @@ int net_listen(char *name, int port, int verbose)
 
   fd = socket(AF_INET, SOCK_STREAM, 0);
   if(fd < 0){
-    if(verbose) fprintf(stderr, "listen: unable to allocate socket: %s\n", strerror(errno));
+    if(verbose){
+      se = errno;
+      fprintf(stderr, "listen: unable to allocate socket: %s\n", strerror(errno));
+      errno = se;
+    }
     return -1;
   }
 
@@ -170,14 +185,18 @@ int net_listen(char *name, int port, int verbose)
 
   len = sizeof(struct sockaddr_in);
   if(bind(fd, (struct sockaddr *)(&sa), len)){
+    se = errno;
     close(fd);
     if(verbose) fprintf(stderr, "listen: bind to %u failed: %s\n", p, strerror(errno));
+    errno = se;
     return -1;
   }
 
   if(listen(fd, 3)){
+    se = errno;
     close(fd);
     if(verbose) fprintf(stderr, "listen: unable to listen on port %u: %s\n", p, strerror(errno));
+    errno = se;
     return -1;
   }
 

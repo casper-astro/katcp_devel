@@ -42,24 +42,6 @@ static void sane_job_katcp(struct katcp_job *j)
 #define sane_job_katcp(j)
 #endif
 
-/* functions given to notice to unlink itself from job ************/
-
-#if 0
-int unlink_halt_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *target)
-{
-  struct katcp_job *j;
-
-  j = target;
-
-  j->j_halt = NULL;
-  
-  /* TODO: maybe initiate destruction of job */
-
-  return 0;
-}
-#endif
-
-
 /* manage the job queue notice logic *************************************************/
 
 static int add_tail_job(struct katcp_job *j, struct katcp_notice *n)
@@ -437,6 +419,7 @@ int ended_jobs_katcp(struct katcp_dispatch *d)
 int issue_request_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
 {
   struct katcp_notice *n;
+  struct katcl_parse *p;
 
   if(j->j_count <= 0){
     return 0; /* nothing to do */
@@ -458,15 +441,22 @@ int issue_request_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
     return -1;
   }
 
-  if(append_parse_katcl(j->j_line, n->n_parse, 0) < 0){
-    /* TODO: somehow wake notice informing it of the failure */
+  p = parse_notice_katcp(d, n);
+  if(p){
+    if(append_parse_katcl(j->j_line, n->n_parse, 0) >= 0){
+      j->j_state &= ~(JOB_MAY_REQUEST);
+      return 0;
+    }
+
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to append request message to job");
-    return -1;
+
+    turnaround_parse_katcl(p, KATCP_RESULT_FAIL);
   }
 
-  j->j_state &= ~(JOB_MAY_REQUEST);
+  wake_notice_grab_katcp(d, n, p); /* WARNING: we are submitting what we have already */
+  n = remove_head_job(j);
 
-  return 0;
+  return -1;
 }
 
 int submit_to_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, struct katcl_parse *p, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n))
