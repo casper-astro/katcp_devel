@@ -1,0 +1,9 @@
+#!/bin/sh
+
+set -e 
+source functions.sh
+
+kcs_info "initiating halt"
+shutdown -h now
+
+exit 0
