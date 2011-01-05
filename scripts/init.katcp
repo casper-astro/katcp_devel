@@ -1,5 +1,5 @@
 ?setenv KATCP_SERVER localhost:1235
-?setenv PATH /usr/bin:/usr/local/bin:/bin:/usr/local/lib/kcs/
+?setenv PATH /usr/local/lib/kcs:/usr/bin:/usr/local/bin:/bin:/sbin:/usr/sbin
 ?chdir /usr/local/lib/kcs
 ?forget ?halt
 ?forget ?restart
