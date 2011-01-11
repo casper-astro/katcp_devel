@@ -339,7 +339,9 @@ int roach_cmd(struct katcp_dispatch *d, int argc){
 
       } else if (strcmp("get-conf",p_cmd) == 0){
         return roachpool_getconf(d);
-      }
+      } else if (strcmp("connect",p_cmd) == 0){
+        return roachpool_connect_pool(d);
+      } 
       return KATCP_RESULT_FAIL;
     case 4:
       p_cmd = arg_string_katcp(d,1);

@@ -936,6 +936,7 @@ struct katcp_job *network_connect_job_katcp(struct katcp_dispatch *d, char *host
   }
   
   /* WARNING: j->j_name is can not be taken as a unique key if we connect to the same host more than once */
+  /* this host is the search string for job and notice */
   j = create_job_katcp(d, host, 0, fd, halt);
 
   if (j == NULL){

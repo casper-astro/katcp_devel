@@ -25,6 +25,14 @@ char *kurl_string(struct kcs_url *ku){
   return str;
 }
 
+void kurl_print(struct kcs_url *ku){
+  fprintf(stderr,"KURL Scheme: %s\n",ku->scheme);
+  fprintf(stderr,"KURL Host  : %s\n",ku->host);
+  fprintf(stderr,"KURL Port  : %d\n",ku->port);
+  fprintf(stderr,"KURL Path  : %s\n",ku->path);
+  fprintf(stderr,"KURL String: %s\n",ku->str);
+}
+
 struct kcs_url *kurl_create_url_from_string(char *url){
   int i, state, spos, epos, len;
   char c;
@@ -34,6 +42,7 @@ struct kcs_url *kurl_create_url_from_string(char *url){
   ku = malloc(sizeof(struct kcs_url));
   if (!ku)
     return NULL;
+  ku->str    = create_str(url);
   ku->scheme = NULL;
   ku->host   = NULL;
   ku->port   = 0;
@@ -51,12 +60,15 @@ struct kcs_url *kurl_create_url_from_string(char *url){
       case S_SCHEME:
         c = url[i];
         switch(c){
+          case '\0':
+            kurl_destroy(ku);
+            return NULL;
           case COL:
             epos = i+1;
             len = epos-spos;
-            ku->scheme = malloc(sizeof(char)*len+1);
+            ku->scheme = malloc(sizeof(char)*len);
             ku->scheme = strncpy(ku->scheme,url+spos,len-1);
-            ku->scheme[len] = '\0';
+            ku->scheme[len-1] = '\0';
             //fprintf(stderr,"scheme: %s %d\n",ku->scheme,epos);
             state = S_HOST;
             spos = i+1;
@@ -67,6 +79,9 @@ struct kcs_url *kurl_create_url_from_string(char *url){
       case S_HOST:
         c = url[i];
         switch(c){
+          case '\0':
+            kurl_destroy(ku);
+            return NULL;
           case WAK:
             spos = i+1;
             break;
@@ -75,9 +90,9 @@ struct kcs_url *kurl_create_url_from_string(char *url){
           case COL:
             epos = i+1;
             len = epos-spos;
-            ku->host = malloc(sizeof(char)*len+1);
+            ku->host = malloc(sizeof(char)*len);
             ku->host = strncpy(ku->host,url+spos,len-1);
-            ku->host[len] = '\0';
+            ku->host[len-1] = '\0';
            // fprintf(stderr,"host: %s %d\n",ku->host,epos);
             state = S_PORT;
             spos = i+1;
@@ -97,9 +112,9 @@ struct kcs_url *kurl_create_url_from_string(char *url){
           case WAK:
             epos = i+1;
             len = epos-spos;
-            temp = malloc(sizeof(char)*len+1);
+            temp = malloc(sizeof(char)*len);
             temp = strncpy(temp,url+spos,len-1);
-            temp[len] = '\0';
+            temp[len-1] = '\0';
             ku->port = atoi(temp);
             //fprintf(stderr,"port: %s %d %d\n",temp,ku->port,epos);
             state = S_PATH;
@@ -118,9 +133,9 @@ struct kcs_url *kurl_create_url_from_string(char *url){
           case '\r':
             epos = i+1;
             len = epos-spos;
-            ku->path = malloc(sizeof(char)*len+1);
+            ku->path = malloc(sizeof(char)*len);
             ku->path = strncpy(ku->path,url+spos,len-1);
-            ku->path[len] = '\0';
+            ku->path[len-1] = '\0';
            // fprintf(stderr,"path: %s %d\n",ku->path,epos);
             state = S_END;
             break;
@@ -151,11 +166,15 @@ struct kcs_url *kurl_create_url(char *scheme, char *host, int port, char *path){
 void kurl_destroy(struct kcs_url *ku){
   if (!ku)
     return;
+  if (ku->str)    { free(ku->str);    ku->str = NULL; }
   if (ku->scheme) { free(ku->scheme); ku->scheme = NULL; }
   if (ku->host)   { free(ku->host);   ku->host = NULL; }
   ku->port = 0;
   if (ku->path)   { free(ku->path);   ku->path = NULL; }
   if (ku)         { free(ku);         ku = NULL; }
+#ifdef DEBUG
+  fprintf(stderr,"KURL: Destroyed a kurl\n");
+#endif
 }
 
 #ifdef STANDALONE
@@ -163,14 +182,21 @@ int main(int argc, char **argv){
   
   struct kcs_url *ku;
 
-  ku = kurl_create_url_from_string("katcp://host.domain:7141/");
+  ku = kurl_create_url_from_string("katcp://host.domain:7147");
   
-  char *temp;
-  temp = kurl_string(ku);
-  fprintf(stderr,"%s\n",temp);
-  free(temp);
+  if (ku != NULL){
+    char *temp;
+    temp = kurl_string(ku);
+    fprintf(stderr,"%s\n",temp);
+    free(temp);
+    
+    kurl_print(ku);
 
-  kurl_destroy(ku);
+    kurl_destroy(ku);
+  } else{
+    fprintf(stderr,"kurl did not parse\n");
+  }
+
 
   return 0;
 }

@@ -99,6 +99,20 @@ struct e_state {
 
 void execpy_do(char *filename, char **argv);
 
+struct kcs_url {
+  char *str;
+  char *scheme;
+  char *host;
+  int port;
+  char *path;
+};
+
+char *kurl_string(struct kcs_url *ku);
+void kurl_print(struct kcs_url *ku);
+struct kcs_url *kurl_create_url_from_string(char *url);
+struct kcs_url *kurl_create_url(char *scheme, char *host, int port, char *path);
+void kurl_destroy(struct kcs_url *ku);
+
 #define KCS_ID_ROACH        2 
 #define KCS_ID_NODE         1
 #define KCS_ID_GENERIC      0
@@ -123,6 +137,7 @@ struct kcs_roach {
   char *ip;
   char *mac;
   char *jl;
+  struct kcs_url *kurl;
 };
 
 /*
@@ -145,18 +160,6 @@ int roachpool_list(struct katcp_dispatch *d);
 int roachpool_destroy(struct katcp_dispatch *d);
 int roachpool_getconf(struct katcp_dispatch *d);
 
-
-struct kcs_url {
-  char *scheme;
-  char *host;
-  int port;
-  char *path;
-};
-
-char *kurl_string(struct kcs_url *ku);
-struct kcs_url *kurl_create_url_from_string(char *url);
-struct kcs_url *kurl_create_url(char *scheme, char *host, int port, char *path);
-void kurl_destroy(struct kcs_url *ku);
 
 
 #endif
