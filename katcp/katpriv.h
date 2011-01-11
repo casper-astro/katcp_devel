@@ -382,6 +382,8 @@ struct katcp_dispatch{
 
 void exchange_katcl(struct katcl_line *l, int fd);
 
+int dispatch_cmd_katcp(struct katcp_dispatch *d, int argc);
+
 void component_time_katcp(struct timeval *result, unsigned int ms);
 int sub_time_katcp(struct timeval *delta, struct timeval *alpha, struct timeval *beta);
 int add_time_katcp(struct timeval *sigma, struct timeval *alpha, struct timeval *beta);

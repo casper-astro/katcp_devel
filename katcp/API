@@ -10,8 +10,10 @@ compiler flag)
 The katcp API has several "layers"
 
  - A top level where the service main loop is implemented 
-   inside an API function. Examples using this are the 
-   examples/client-example.c and examples/server-example.c code. 
+   inside an API function. An example which uses this
+   API can be found in examples/server-example.c code. 
+   The tcpborphserver and kcs source tree also use this
+   api.
 
    At this level, the user only provides function and sensor
    callbacks. The mainloop is implemented by the library,
@@ -29,7 +31,7 @@ The katcp API has several "layers"
      register_*_sensor_katcp functions. 
    
    * After all callbacks are registered, the main loop is started with
-     run_server_katcp, run_multi_server_katcp and run_client_katcp.
+     functions such as run_server_katcp, run_multi_server_katcp and run_client_katcp.
    
    * After the main loop completes, final clean ups are done
      by invoking the shutdown_katcp function.
@@ -59,5 +61,4 @@ The katcp API has several "layers"
    used to parse the protocol are defined in line.c and
    are distinguished by a *_katcl (*not* a *_katcp) suffix. Thus
    it is sufficient to include only katcl.h
-
 

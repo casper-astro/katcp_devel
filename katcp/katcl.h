@@ -95,7 +95,17 @@ int basic_inform_katcl(struct katcl_line *cl, char *name, char *arg);
 
 /* client side rpc logic */
 
-struct katcl_line *create_name_katcl(char *name);
+#define KATCL_RPC_LOG_TEXT   0x1
+#define KATCL_RPC_LOG_KATCP  0x2
+
+struct katcl_line *create_name_rpc_katcl(char *name);
+void destroy_rpc_katcl(struct katcl_line *l);
+
+int complete_rpc_katcl(struct katcl_line *l, unsigned int flags, struct timeval *until);
+int send_rpc_katcl(struct katcl_line *l, unsigned int timeout, ...);
+
+#if 0
 int finished_request_katcl(struct katcl_line *l, struct timeval *until);
+#endif
 
 #endif

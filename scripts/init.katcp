@@ -1,6 +1,10 @@
-?setenv KATCP_SERVER dbek7c:1235
-?setenv PATH /usr/bin:/usr/local/bin:/bin:/usr/local/lib/kcs/
+?setenv KATCP_SERVER localhost:1235
+?setenv PATH /usr/local/lib/kcs:/usr/bin:/usr/local/bin:/bin:/sbin:/usr/sbin
 ?chdir /usr/local/lib/kcs
+?forget ?halt
+?forget ?restart
+?process ?halt halt\_the\_control\_server_\(?halt)
+?process ?restart restart\_the\_system\_(?restart)
 ?process ?capture-start start\_a\_capture\_(?capture-start\_name\_[time])
 ?process ?capture-stop stop\_a\_capture\_(?capture-start\_name\_[time])
 ?process ?capture-list list\_available\_data\_streams\_(?capture-list)
