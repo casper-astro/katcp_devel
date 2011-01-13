@@ -73,7 +73,7 @@ int yield_check_cmd(struct katcp_dispatch *d, int argc)
 
 int pause_check_cmd(struct katcp_dispatch *d, int argc)
 {
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "ran pause check");
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "ran pause check, will not return");
 
   return KATCP_RESULT_PAUSE;
 }

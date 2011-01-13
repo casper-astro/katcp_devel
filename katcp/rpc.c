@@ -13,7 +13,7 @@
 #include "katcp.h"
 #include "netc.h"
 
-struct katcl_line *create_rpc_katcl(char *name)
+struct katcl_line *create_name_rpc_katcl(char *name)
 {
   int fd;
   struct katcl_line *l;

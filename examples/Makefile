@@ -4,9 +4,12 @@ INC = -I$(KATCP)
 LIB = -L$(KATCP) -lkatcp
 BUILD = unknown-0.1
 
-EXE = client-example server-example 
+EXE = new-client-example client-example server-example 
 
 all: $(EXE)
+
+new-client-example: new-client-example.c
+	$(CC) -DBUILD=\"$(BUILD)\" $(CFLAGS) $(INC) -o $@ $^ $(LIB)
 
 client-example: client-example.c
 	$(CC) -DBUILD=\"$(BUILD)\" $(CFLAGS) $(INC) -o $@ $^ $(LIB)
