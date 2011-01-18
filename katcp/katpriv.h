@@ -115,6 +115,7 @@ struct katcp_integer_acquire{
   int ia_current;
   int (*ia_get)(struct katcp_dispatch *d, void *local);
   void *ia_local;
+  void (*ia_release)(struct katcp_dispatch *d, void *local);
 };
 
 struct katcp_acquire{

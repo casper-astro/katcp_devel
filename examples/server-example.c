@@ -82,7 +82,7 @@ int subprocess_check_callback(struct katcp_dispatch *d, struct katcp_notice *n)
 {
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "was woken by child process exit");
 
-  /* a callback can not used KATCP_RESULT_* codes, it has to generate its messages by hand */
+  /* a callback can not use KATCP_RESULT_* codes, it has to generate its messages by hand */
   send_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "!check-subprocess", KATCP_FLAG_LAST | KATCP_FLAG_STRING, KATCP_OK);
 
   /* unpause the client instance, so that it can parse new commands */

@@ -223,6 +223,7 @@ int create_acquire_intbool_katcp(struct katcp_dispatch *d, struct katcp_acquire 
   ia->ia_current = 0;
   ia->ia_get = NULL;
   ia->ia_local = NULL;
+  ia->ia_release = NULL;
 
   a->a_more = ia;
   a->a_type = type;
@@ -583,6 +584,7 @@ void destroy_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a)
 {
   int i;
   struct katcp_sensor *s;
+  struct katcp_integer_acquire *ia;
 
   for(i = 0; i < a->a_count; i++){
     s = a->a_sensors[i];
@@ -603,8 +605,28 @@ void destroy_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a)
     a->a_up = 0;
   }
 
-  /* MAYBE have to run registered shutdown logic */
   if(a->a_more){
+    switch(a->a_type){
+      case KATCP_SENSOR_INTEGER :
+      case KATCP_SENSOR_BOOLEAN :
+        log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "destroing acquire %p type %d", a, a->a_type);
+
+        ia = a->a_more;
+
+        ia->ia_get = NULL;
+
+        if(ia->ia_release){
+          (*(ia->ia_release))(d, ia->ia_local);
+          ia->ia_release = NULL;
+        }
+        ia->ia_local = NULL;
+
+        break;
+
+      default : 
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unsupported sensor type %d while destroying", a->a_type);
+        break;
+    }
     free(a->a_more);
     a->a_more = NULL;
   }
@@ -855,6 +877,76 @@ int run_acquire_katcp(struct katcp_dispatch *d, void *data)
     a->a_last.tv_sec  = now.tv_sec;
     a->a_last.tv_usec = now.tv_usec;
   }
+
+#if 0
+  for(j = 0; j < a->a_count; j++){
+
+    sn = a->a_sensors[j];
+    sane_sensor(sn);
+
+#ifdef DEBUG
+    if(sn->s_extract == NULL){
+      fprintf(stderr, "run: logic problem: null sensor acquire function\n");
+      abort();
+    }
+#endif
+
+    if((*(sn->s_extract))(d, sn) >= 0){ /* got a useful value */
+
+      log_message_katcp(d, KATCP_LEVEL_TRACE | KATCP_LEVEL_LOCAL, NULL, "checking %d clients of %s", sn->s_refs, sn->s_name);
+
+      for(i = 0; i < sn->s_refs; i++){
+        ns = sn->s_nonsense[i];
+        sane_nonsense(ns);
+#ifdef DEBUG
+        if((ns == NULL) || (ns->n_client == NULL)){
+          fprintf(stderr, "run: logic problem: null nonsense fields\n");
+          abort();
+        }
+#endif
+        dx = ns->n_client;
+
+#ifdef DEBUG
+        if((ns->n_strategy < 0) || (ns->n_strategy >= KATCP_STRATEGIES_COUNT)){
+          fprintf(stderr, "run: logic problem: invalid strategy %d\n", ns->n_strategy);
+          abort();
+        }
+#endif
+
+        sn->s_recent.tv_sec = now.tv_sec;
+        sn->s_recent.tv_usec = now.tv_usec;
+
+        log_message_katcp(d, KATCP_LEVEL_TRACE | KATCP_LEVEL_LOCAL, NULL, "calling check function %p (type %d, strategy %d)", type_lookup_table[sn->s_type].c_checks[ns->n_strategy], sn->s_type, ns->n_strategy);
+
+        if(type_lookup_table[sn->s_type].c_checks[ns->n_strategy]){
+          
+          if((*(type_lookup_table[sn->s_type].c_checks[ns->n_strategy]))(ns)){
+            log_message_katcp(d, KATCP_LEVEL_TRACE | KATCP_LEVEL_LOCAL, NULL, "strategy %d reports a match", ns->n_strategy);
+            /* TODO: needs work for having tags in katcp messages */
+            generic_sensor_update_katcp(dx, sn, (ns->n_strategy == KATCP_STRATEGY_FORCED) ? "#sensor-value" : "#sensor-status");
+          }
+        }
+      }
+    } else {
+      log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "extract function for sensor %s failed", sn->s_name);
+    }
+  }
+#endif
+
+  propagate_acquire_katcp(d, a);
+
+  return 0;
+}
+
+int propagate_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a)
+{
+  int j, i;
+  struct katcp_sensor *sn;
+  struct katcp_nonsense *ns;
+  struct katcp_dispatch *dx;
+  struct timeval now;
+
+  gettimeofday(&now, NULL);
 
   for(j = 0; j < a->a_count; j++){
 
@@ -1107,6 +1199,7 @@ static int reload_sensor_katcp(struct katcp_dispatch *d, struct katcp_sensor *sz
   if(register_every_tv_katcp(d, &(a->a_current), &run_acquire_katcp, a) < 0){
     return -1;
   }
+
   return 0;
 }
 
