@@ -223,27 +223,36 @@ int exiting_katcp(struct katcp_dispatch *d); /* run cleanup functions once */
 #define KATCP_STATUS_FAILURE   4
 #define KATCP_STATA_COUNT      5
 
+#if 0 /* unclear where this was used */
 #define KATCP_PHASE_PREPARE    0
 #define KATCP_PHASE_ACQUIRE    1
 #define KATCP_PHASES_COUNT     2
-
-
-void adjust_acquire_katcp(struct katcp_acquire *a, struct timeval *defpoll, struct timeval *maxrate);
-
-int register_integer_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, int (*get)(struct katcp_dispatch *d, void *local), void *local, int min, int max);
-int register_multi_integer_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, int min, int max, struct katcp_acquire *a, int (*extract)(struct katcp_dispatch *d, struct katcp_sensor *sn));
-struct katcp_acquire *setup_integer_acquire_katcp(struct katcp_dispatch *d, int (*get)(struct katcp_dispatch *d, void *local), void *local);
+#endif
 
 void destroy_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a);
 
+int set_status_sensor_katcp(struct katcp_sensor *sn, int status);
+void *get_local_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a);
+void generic_release_local_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a);
 
-int register_boolean_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, int (*get)(struct katcp_dispatch *d, void *local), void *local);
+int is_up_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a);
+
+void adjust_acquire_katcp(struct katcp_acquire *a, struct timeval *defpoll, struct timeval *maxrate);
+int propagate_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a);
+
+int register_integer_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, int (*get)(struct katcp_dispatch *d, struct katcp_acquire *a), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a), int min, int max);
+int register_multi_integer_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, int min, int max, struct katcp_acquire *a, int (*extract)(struct katcp_dispatch *d, struct katcp_sensor *sn));
+
+struct katcp_acquire *setup_integer_acquire_katcp(struct katcp_dispatch *d, int (*get)(struct katcp_dispatch *d, struct katcp_acquire *), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a));
+
+
+int register_boolean_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, int (*get)(struct katcp_dispatch *d, struct katcp_acquire *a), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a));
+
 int register_direct_multi_boolean_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, struct katcp_acquire *a);
 int register_invert_multi_boolean_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, struct katcp_acquire *a);
 int register_multi_boolean_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, struct katcp_acquire *a, int (*extract)(struct katcp_dispatch *d, struct katcp_sensor *sn));
-struct katcp_acquire *setup_boolean_acquire_katcp(struct katcp_dispatch *d, int (*get)(struct katcp_dispatch *d, void *local), void *local);
 
-int set_status_sensor_katcp(struct katcp_sensor *sn, int status);
+struct katcp_acquire *setup_boolean_acquire_katcp(struct katcp_dispatch *d, int (*get)(struct katcp_dispatch *d, struct katcp_acquire *a), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a));
 
 #if 0
 int register_discrete_sensor_katcp(struct katcp_dispatch *d, char *name, char *description, char *units, int preferred, int (*get)(struct katcp_sensor *s, void *local), ...);
@@ -253,6 +262,8 @@ int register_double_sensor_katcp(struct katcp_dispatch *d, char *name, char *des
 #endif
 
 #endif
+
+/***************************************************************************/
 
 struct katcp_dispatch *template_shared_katcp(struct katcp_dispatch *d);
 

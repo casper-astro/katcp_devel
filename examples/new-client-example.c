@@ -38,7 +38,7 @@ int main(int argc, char **argv)
 
   /* you can examine the content of the reply with the following functions */
   total = arg_count_katcl(l);
-  printf("have %d arguments in reply\n");
+  printf("have %d arguments in reply\n", total);
   for(i = 0; i < total; i++){
     /* for binary data use the arg_buffer_katcl, string will stop at the first occurrence of a \0 */
     ptr = arg_string_katcl(l, i);

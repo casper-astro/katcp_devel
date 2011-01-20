@@ -30,7 +30,7 @@
 /* these functions return the value immediately. This approach is acceptable */
 /* when it is cheap to query a sensor value                                  */
 
-int simple_integer_check_sensor(struct katcp_dispatch *d, void *local)
+int simple_integer_check_sensor(struct katcp_dispatch *d, struct katcp_acquire *a)
 {
 #if 0
   set_status_sensor_katcp(s, KATCP_STATUS_NOMINAL);
@@ -151,7 +151,7 @@ int main(int argc, char **argv)
 
   /* example sensor */
 
-  if(register_integer_sensor_katcp(d, 0, "check.integer.simple", "unix time in decaseconds", "Ds", &simple_integer_check_sensor, NULL, 0, INT_MAX)){
+  if(register_integer_sensor_katcp(d, 0, "check.integer.simple", "unix time in decaseconds", "Ds", &simple_integer_check_sensor, NULL, NULL, 0, INT_MAX)){
     fprintf(stderr, "server: unable to register sensors\n");
     return 1;
   }

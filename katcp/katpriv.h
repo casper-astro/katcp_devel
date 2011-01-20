@@ -110,12 +110,11 @@ struct katcp_cmd{
 
 struct katcp_sensor;
 struct katcp_nonsense;
+struct katcp_acquire;
 
 struct katcp_integer_acquire{
   int ia_current;
-  int (*ia_get)(struct katcp_dispatch *d, void *local);
-  void *ia_local;
-  void (*ia_release)(struct katcp_dispatch *d, void *local);
+  int (*ia_get)(struct katcp_dispatch *d, struct katcp_acquire *a);
 };
 
 struct katcp_acquire{
@@ -129,6 +128,9 @@ struct katcp_acquire{
   struct timeval a_current; /* current rate */
   struct timeval a_limit;   /* fastest update rate */
   struct timeval a_last;    /* last time value was acquired */
+
+  void *a_local;
+  void (*a_release)(struct katcp_dispatch *d, struct katcp_acquire *a);
 
   void *a_more; /* could be a union */
 };
