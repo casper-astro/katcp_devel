@@ -30,7 +30,6 @@ static void sane_parse_katcl(struct katcl_parse *p)
 #define sane_parse_katcl(p)
 #endif
 
-
 struct katcl_parse *create_parse_katcl()
 {
   struct katcl_parse *p;
@@ -58,55 +57,35 @@ struct katcl_parse *create_parse_katcl()
   p->p_count = 0;
   p->p_got = 0;
 
+  return p;
+}
+
+struct katcl_parse *copy_parse_katcl(struct katcl_parse *p)
+{
+  sane_parse_katcl(p);
+
+  if(p->p_state != KATCL_PARSE_DONE){
+#ifdef DEBUG
+    fprintf(stderr, "warning: expected complete source parse in copy\n");
+#endif
+    return NULL;
+  }
+
+  p->p_refs++;
 
   return p;
 }
 
-void destroy_parse_katcl(struct katcl_parse *p)
-{
-	sane_parse_katcl(p);
-
-#ifdef DEBUG
-	fprintf(stderr, "destroy parse: %p with refs %d\n", p, p->p_refs);
-#endif
-
-	/*****************NEW*******************************/
-	p->p_refs--;
-
-	if(p->p_refs <= 0){
-#ifdef DEBUG
-	fprintf(stderr, "destroyed parse: %p:obsolete now\n", p);
-#endif
-		p->p_magic = 0xdead;
-		p->p_state = (-1);
-
-		if(p->p_buffer){
-			free(p->p_buffer);
-			p->p_buffer = NULL;
-		}
-		p->p_size = 0;
-		p->p_have = 0;
-		p->p_used = 0;
-		p->p_kept = 0;
-
-		if(p->p_args){
-			free(p->p_args);
-			p->p_args = NULL;
-		}
-		p->p_current = NULL;
-		p->p_count = 0;
-		p->p_got = 0;
-
-		p->p_refs = 1;
-		p->p_tag = (-1);
-
-		free(p);
-	}
-}
-
-void clear_parse_katcl(struct katcl_parse *p)
+static void clear_parse_katcl(struct katcl_parse *p)
 {
   sane_parse_katcl(p);
+
+#ifdef DEBUG
+  if(p->p_refs != 1){
+    fprintf(stderr, "logic problem: clearing parse used in multiple places\n");
+    abort();
+  }
+#endif
 
   p->p_state = KATCL_PARSE_FRESH;
 
@@ -119,10 +98,65 @@ void clear_parse_katcl(struct katcl_parse *p)
   p->p_current = NULL;
 
   p->p_tag = (-1);
-
-  /* WARNING: will not clear trailing p->p_next */
 }
 
+struct katcl_parse *reuse_parse_katcl(struct katcl_parse *p)
+{
+  struct katcl_parse *px;
+  
+  if((p != NULL) && (p->p_refs == 1)){
+    clear_parse_katcl(p);
+    return p;
+  }
+
+  px = create_parse_katcl();
+  destroy_parse_katcl(p);
+
+  return px;
+}
+
+void destroy_parse_katcl(struct katcl_parse *p)
+{
+  sane_parse_katcl(p);
+
+#ifdef DEBUG
+  fprintf(stderr, "destroy parse: %p with refs %d\n", p, p->p_refs);
+#endif
+
+  p->p_refs--;
+
+  if(p->p_refs <= 0){
+#ifdef DEBUG
+    fprintf(stderr, "destroyed parse: %p: no more references\n", p);
+#endif
+    p->p_magic = 0xdead;
+    p->p_state = (-1);
+
+    if(p->p_buffer){
+      free(p->p_buffer);
+      p->p_buffer = NULL;
+    }
+    p->p_size = 0;
+    p->p_have = 0;
+    p->p_used = 0;
+    p->p_kept = 0;
+
+    if(p->p_args){
+      free(p->p_args);
+      p->p_args = NULL;
+    }
+    p->p_current = NULL;
+    p->p_count = 0;
+    p->p_got = 0;
+
+    p->p_refs = 1;
+    p->p_tag = (-1);
+
+    free(p);
+  }
+}
+
+#if 0
 struct katcl_parse *copy_parse_katcl(struct katcl_parse *pd, struct katcl_parse *ps)
 {
   struct katcl_larg *tmp, *as, *at;
@@ -200,6 +234,7 @@ struct katcl_parse *copy_parse_katcl(struct katcl_parse *pd, struct katcl_parse 
 
   return pt;
 }
+#endif
 
 /******************************************************************/
 /* logic to populate the parse ************************************/
@@ -583,9 +618,10 @@ int add_args_parse_katcl(struct katcl_parse *p, int flags, char *fmt, ...)
   return result;
 }
 
-int turnaround_parse_katcl(struct katcl_parse *p, int code)
+struct katcl_parse *turnaround_parse_katcl(struct katcl_parse *p, int code)
 {
   char *string;
+  struct katcl_parse *px;
 
 #ifdef DEBUG
   if(p->p_state != KATCL_PARSE_DONE){
@@ -596,7 +632,7 @@ int turnaround_parse_katcl(struct katcl_parse *p, int code)
 
   string = copy_string_parse_katcl(p, 0);
   if(string == NULL){
-    return -1;
+    return NULL;
   }
 
 #ifdef DEBUG
@@ -606,16 +642,20 @@ int turnaround_parse_katcl(struct katcl_parse *p, int code)
   }
 #endif
 
-  clear_parse_katcl(p);
+  px = reuse_parse_katcl(p);
+  if(px == NULL){
+    destroy_parse_katcl(p);
+    return NULL;
+  }
 
   string[0] = KATCP_REPLY;
-  add_string_parse_katcl(p, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, string);
+  add_string_parse_katcl(px, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, string);
   free(string);
 
   string = code_to_name_katcm(code);
-  add_plain_parse_katcl(p, KATCP_FLAG_LAST | KATCP_FLAG_STRING, string ? string : KATCP_FAIL);
+  add_plain_parse_katcl(px, KATCP_FLAG_LAST | KATCP_FLAG_STRING, string ? string : KATCP_FAIL);
 
-  return 0;
+  return px;
 }
 
 /******************************************************************/
@@ -1187,7 +1227,7 @@ int main()
     return 1;
   }
 
-  pc = copy_parse_katcl(NULL, p);
+  pc = copy_parse_katcl(p);
   if(pc == NULL){
     fprintf(stderr, "unable to copy parse\n");
     return 1;

@@ -56,11 +56,7 @@ int append_double_katcl(struct katcl_line *l, int flags, double v);
 #endif
 int append_buffer_katcl(struct katcl_line *l, int flags, void *buffer, int len);
 int append_parameter_katcl(struct katcl_line *l, int flags, struct katcl_parse *px, unsigned int index); /* single field */
-int append_parse_katcl(struct katcl_line *l, struct katcl_parse *p, int move); /* the whole line */
-
-#if 0
-int append_msg_katcl(struct katcl_line *l, struct katcl_msg *m);
-#endif
+int append_parse_katcl(struct katcl_line *l, struct katcl_parse *p); /* the whole line */
 
 int vsend_katcl(struct katcl_line *l, va_list ap);
 int send_katcl(struct katcl_line *l, ...);

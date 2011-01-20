@@ -180,7 +180,7 @@ int main()
   struct katcl_line *l;
   int result;
 
-  l = create_rpc_katcl(NULL);
+  l = create_name_rpc_katcl(NULL);
   if(l == NULL){
     fprintf(stderr, "unable to create line\n");
     return 1;

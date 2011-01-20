@@ -993,7 +993,7 @@ void reset_katcp(struct katcp_dispatch *d, int fd)
 
   if(d->d_end){
     /* TODO: record exit information via a parse */
-    wake_notice_grab_katcp(d, d->d_end, NULL);
+    wake_notice_katcp(d, d->d_end, NULL);
   }
 
   d->d_run = 1;

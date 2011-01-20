@@ -316,11 +316,14 @@ struct katcl_msg *message_notice_katcp(struct katcp_dispatch *d, struct katcp_no
 int code_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 char *code_name_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 #endif
-
-void wake_notice_copy_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p);
+#if 0
 void wake_notice_grab_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p);
+#endif
+
+void wake_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p);
+void forget_parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 int wake_name_notice_katcp(struct katcp_dispatch *d, char *name, struct katcl_parse *p);
-struct katcl_parse *parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
+struct katcl_parse *get_parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 
 /* job logic */
 

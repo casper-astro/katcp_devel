@@ -82,18 +82,16 @@ struct katcl_line *create_katcl(int fd)
 
   l->l_queue = NULL;
 
-  /*****************NEW*******************************/
-  l->l_queue = create_queue_katcl();
-  if(l->l_queue == NULL){
-    destroy_katcl(l, 0);
-    return NULL;
-  }
-  /***************************************************/
-
   l->l_error = 0;
 
   l->l_next = create_parse_katcl(l); /* we require that next is always valid */
   if(l->l_next == NULL){
+    destroy_katcl(l, 0);
+    return NULL;
+  }
+
+  l->l_queue = create_queue_katcl();
+  if(l->l_queue == NULL){
     destroy_katcl(l, 0);
     return NULL;
   }
@@ -129,10 +127,10 @@ void destroy_katcl(struct katcl_line *l, int mode)
   l->l_arg = 0;
   l->l_offset = 0;
 
-  /*****************NEW*******************************/
-  destroy_queue_katcl(l->l_queue);
-  l->l_queue = NULL;
-  /***************************************************/
+  if(l->l_queue){
+    destroy_queue_katcl(l->l_queue);
+    l->l_queue = NULL;
+  }
 
   if(mode){
     if(l->l_fd >= 0){
@@ -141,16 +139,16 @@ void destroy_katcl(struct katcl_line *l, int mode)
     }
   }
 
+  l->l_error = EINVAL;
+
   free(l);
 }
 
 void exchange_katcl(struct katcl_line *l, int fd)
 {
-
   sane_line_katcl(l);
 
   /* WARNING: exchanging fds forces discarding of pending io */
-
 
   if(l->l_fd >= 0){
     close(l->l_fd);
@@ -164,12 +162,9 @@ void exchange_katcl(struct katcl_line *l, int fd)
   }
 
   if(l->l_next){
-    clear_parse_katcl(l->l_next);
+    l->l_next = reuse_parse_katcl(l->l_next);
   }
 
-  /*****************NEW*******************************/
-  clear_queue_katcl(l->l_queue);
-  /***************************************************/
   if(l->l_stage){
     destroy_parse_katcl(l->l_stage);
     l->l_stage = NULL;
@@ -178,6 +173,10 @@ void exchange_katcl(struct katcl_line *l, int fd)
   l->l_pending = 0;
   l->l_arg = 0;
   l->l_offset = 0;
+
+  clear_queue_katcl(l->l_queue);
+
+  l->l_error = 0;
 }
 
 int fileno_katcl(struct katcl_line *l)
@@ -190,7 +189,7 @@ int error_katcl(struct katcl_line *l)
   int result;
 
   if(l == NULL){
-    return 1;
+    return EINVAL;
   }
 
   result = l->l_error;
@@ -212,6 +211,13 @@ int read_katcl(struct katcl_line *l)
 
 #if DEBUG > 1
   fprintf(stderr, "line: invoking read on line %p\n", l);
+#endif
+
+#ifdef DEBUG
+  if(l->l_next == NULL){
+    fprintf(stderr, "line: logic failure, l_next should always be valid\n");
+    abort();
+  }
 #endif
 
   p = l->l_next;
@@ -439,7 +445,6 @@ static int after_append_katcl(struct katcl_line *l, int flags, int result)
     return -1;
   }
 
-
   add_tail_queue(l->l_queue, l->l_stage);
   l->l_stage = NULL;
 
@@ -594,27 +599,21 @@ int append_parameter_katcl(struct katcl_line *l, int flags, struct katcl_parse *
   return after_append_katcl(l, flags, result);
 }
 
-int append_parse_katcl(struct katcl_line *l, struct katcl_parse *p, int move)
+int append_parse_katcl(struct katcl_line *l, struct katcl_parse *p)
 {
-  struct katcl_parse *px;
-
 #ifdef DEBUG
+  if(l->l_stage){
+    fprintf(stderr, "warning: appending full message to line which contains partial staged message (ordering will be odd)\n");
+  }
+
   if(p->p_state != KATCL_PARSE_DONE){
     fprintf(stderr, "problem: attempting to append a message in state %u\n", p->p_state);
     abort();
   }
 #endif
 
-  if(move){
-#ifdef DEBUG
-    //fprintf(stderr, "append: grabbing %p (with next %p)\n", p, p->p_next);
-#endif
-    px = p;
-  } else {
-    /*Replacing linked list with queue logic*/
-    add_tail_queue(l->l_queue, p);	
-    p->p_refs++;/*incrementing ref count for rec instances accessing same parse structure*/
-  }
+  add_tail_queue(l->l_queue, p);	
+  p->p_refs++; /* incrementing ref count for rec instances accessing same parse structure */
 
   return 0;
 }
@@ -756,7 +755,7 @@ int relay_katcl(struct katcl_line *lx, struct katcl_line *ly)
     return -1;
   }
 
-  return append_parse_katcl(ly, lx->l_ready, 0);
+  return append_parse_katcl(ly, lx->l_ready);
 }
 
 /***************************/
@@ -812,10 +811,9 @@ int write_katcl(struct katcl_line *l)
     switch(state){
 
       case WRITE_STATE_FILL : 
-        /*****************NEW*******************************/
+
         p = get_head_katcl(l->l_queue);
         if(p == NULL){
-          /***************************************************/
           state = (l->l_pending > 0) ? WRITE_STATE_SEND : WRITE_STATE_DONE;
           continue; /* WARNING */
         } 
@@ -896,10 +894,8 @@ int write_katcl(struct katcl_line *l)
       case WRITE_STATE_NEXT : /* move onto next */
         /* gets a proposed position, updates to next parse or end if needed, adding separators and tags */
 
-        /*****************NEW*******************************/
         p = get_head_katcl(l->l_queue);
         if(p == NULL){
-          /***************************************************/
           l->l_offset = 0;
           l->l_arg = 0;
           state = WRITE_STATE_SEND;
@@ -930,25 +926,23 @@ int write_katcl(struct katcl_line *l)
         l->l_arg = 0;
         l->l_buffer[l->l_pending++] = '\n';
 
-#if DEBUG > 1
-        fprintf(stderr, "write: wrote out parse %p\n", p);
+#ifdef DEBUG
+        fprintf(stderr, "write: wrote out parse %p (refs %d)\n", p, p->p_refs);
 #endif
 
-        /*****************NEW*******************************/
-        /* let go of processed item */
         p = remove_head_queue(l->l_queue);
         destroy_parse_katcl(p);
         state = p ? WRITE_STATE_FILL : WRITE_STATE_SEND;
-        /***************************************************/
+
         break;
 
       case WRITE_STATE_SEND : /* do io */
-        /*****************NEW*******************************/
+
         p = get_head_katcl(l->l_queue);
         if(l->l_pending <= 0){ /* nothing more to write ? */
           state = p ? WRITE_STATE_FILL : WRITE_STATE_DONE;
         }
-        /***************************************************/
+
         wr = send(l->l_fd, l->l_buffer, l->l_pending, MSG_DONTWAIT | MSG_NOSIGNAL);
         if((wr < 0) && (errno == ENOTSOCK)){
           wr = write(l->l_fd, l->l_buffer, l->l_pending);
@@ -983,44 +977,6 @@ int write_katcl(struct katcl_line *l)
 #undef TMP_MARGIN
 }
 
-#if 0
-int write_katcl(struct katcl_line *l)
-{
-  int wr;
-  struct katcl_parse *p;
-
-  while(l->l_head){
-    p = l->l_head;
-
-    if(p->p_wrote < p->p_kept){
-      wr = send(l->l_fd, p->p_buffer + p->p_wrote, p->p_kept - p->p_wrote, MSG_DONTWAIT | MSG_NOSIGNAL);
-      if(wr < 0){
-        switch(errno){
-          case EAGAIN :
-          case EINTR  :
-            return 0; /* returns zero if still more to do */
-          default :
-            l->l_error = errno;
-            return -1;
-        }
-      } else {
-        p->p_wrote += wr;
-      }
-    }
-
-    l->l_head = p->p_next;
-
-    clear_parse_katcl(p);
-    p->p_next = l->l_spare;
-    l->l_spare = p;
-  }
-
-  /* done everything */
-  l->l_tail = NULL;
-  return 1;
-}
-#endif
-
 int flushing_katcl(struct katcl_line *l)
 {
   int result;
@@ -1037,12 +993,6 @@ int flushing_katcl(struct katcl_line *l)
 /***************************/
 
 #if 0
-int error_katcl(struct katcl_line *l)
-{
-  return l->l_error;
-}
-#endif
-
 void dump_katcl(struct katcl_line *l, FILE *fp)
 {
   fprintf(fp, "input: fd=%d\n", l->l_fd);
@@ -1052,9 +1002,10 @@ void dump_katcl(struct katcl_line *l, FILE *fp)
 
   fflush(fp);
 
-  append_parse_katcl(l, l->l_ready, 0);
+  append_parse_katcl(l, l->l_ready);
   write_katcl(l);
 }
+#endif
 
 #ifdef UNIT_TEST_LINE
 
@@ -1163,13 +1114,13 @@ int echobuffer(int fd)
       if(rr > 0){
         have += rr;
       } else if(rr == 0){
+        free(ptr);
         return 0;
       } else {
         fprintf(stderr, "read failed: %s\n", strerror(errno));
         return -1;
       }
     }
-
   }
 }
 
@@ -1226,7 +1177,6 @@ int main()
       return 1;
     }
 
-    p->p_refs++;
 #ifdef DEBUG
     fprintf(stderr, "test: ref before submission %d\n", p->p_refs);
 #endif
@@ -1234,7 +1184,7 @@ int main()
     fill_random_test(p);
     dump_parse_katcl(p, "random", stderr);
 
-    if(append_parse_katcl(l, p, 0) < 0){ /* leak */
+    if(append_parse_katcl(l, p) < 0){ 
       fprintf(stderr, "unable to add parse %d\n", i);
       return 1;
     }
@@ -1285,6 +1235,9 @@ int main()
     }
 
     fprintf(stderr, "parsed a line with %d words\n", count);
+
+    destroy_parse_katcl(p);
+
   }
 
   destroy_katcl(l, 1);

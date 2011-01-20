@@ -409,9 +409,14 @@ struct katcl_msg *message_notice_katcp(struct katcp_dispatch *d, struct katcp_no
 }
 #endif
 
-struct katcl_parse *parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
+struct katcl_parse *get_parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
 {
   return n->n_parse;
+}
+
+void forget_parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
+{
+  n->n_parse = NULL;
 }
 
 #if 0
@@ -513,41 +518,41 @@ int cancel_name_notice_katcp(struct katcp_dispatch *d, char *name)
 
 /*******************************************************************************/
 
-void wake_notice_copy_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p)
+void wake_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p)
 {
+#if 0
   int fail;
+#endif
 
   log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "waking notice %s@%p (source=%d, client=%d) with parse %p (%s ...)", n->n_name, n, n->n_use, n->n_count, p, p ? get_string_parse_katcl(p, 0) : "<null>");
 
   n->n_trigger = 1;
-  fail = 0;
 
-  if(n->n_parse){ /* have something */
-    if(p){ /* copy the new stuff to it */
-      if(p != n->n_parse){ /* guard against clobbering same instance */
-        if(copy_parse_katcl(n->n_parse, p) == NULL){
-          fail = 1;
-        }
-      }
-    } else {
-      destroy_parse_katcl(n->n_parse);
-      n->n_parse = NULL;
-    }
-  } else { /* nothing there */
-    if(p){ /* make a copy of it */
-      n->n_parse = copy_parse_katcl(NULL, p);
-      if(n->n_parse == NULL){
-        fail = 1;
-      }
-    } /* else have nothing, want nothing */
+  if(n->n_parse){
+#ifdef DEBUG
+    fprintf(stderr, "wake notice: problem: have not removed old parse %p of notice %p\n", n->n_parse, n);
+    abort();
+#endif
   }
 
-  if(fail){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to wake notice %p (%s)", n, n->n_name);
-  }
-
+  n->n_parse = p;
 }
 
+int wake_name_notice_katcp(struct katcp_dispatch *d, char *name, struct katcl_parse *p)
+{
+  struct katcp_notice *n;
+
+  n = find_notice_katcp(d, name);
+  if(n == NULL){
+    return -1;
+  }
+
+  wake_notice_katcp(d, n, p);
+
+  return 0;
+}
+
+#if 0
 void wake_notice_grab_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p)
 {
   int fail;
@@ -566,21 +571,6 @@ void wake_notice_grab_katcp(struct katcp_dispatch *d, struct katcp_notice *n, st
   }
 
   n->n_parse = p;
-}
-
-#if 0
-int wake_name_notice_katcp(struct katcp_dispatch *d, char *name, struct katcl_parse *p)
-{
-  struct katcp_notice *n;
-
-  n = find_notice_katcp(d, name);
-  if(n == NULL){
-    return -1;
-  }
-
-  wake_notice_katcp(d, n, p);
-
-  return 0;
 }
 #endif
 
@@ -710,7 +700,7 @@ int resume_notice(struct katcp_dispatch *d, struct katcp_notice *n)
   append_string_katcp(d, KATCP_FLAG_FIRST, "!notice");
 #endif
 
-  p = parse_notice_katcp(d, n);
+  p = get_parse_notice_katcp(d, n);
   if(p){
     ptr = get_string_parse_katcl(p, 1);
   } else {
@@ -799,7 +789,7 @@ int notice_cmd_katcp(struct katcp_dispatch *d, int argc)
         return KATCP_RESULT_FAIL;
       }
 
-      wake_notice_grab_katcp(d, n, NULL);
+      wake_notice_katcp(d, n, NULL);
 
       return KATCP_RESULT_OK;
     } else {
