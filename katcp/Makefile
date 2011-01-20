@@ -4,7 +4,7 @@ INC = -I.
 LIB = libkatcp.a
 
 SUB = examples utils
-SRC = line.c netc.c dispatch.c loop.c log.c time.c shared.c misc.c server.c client.c ts.c nonsense.c notice.c job.c parse.c rpc.c
+SRC = line.c netc.c dispatch.c loop.c log.c time.c shared.c misc.c server.c client.c ts.c nonsense.c notice.c job.c parse.c rpc.c queue.c
 HDR = katcp.h katcl.h katsensor.h katpriv.h
 
 OBJ = $(patsubst %.c,%.o,$(SRC))

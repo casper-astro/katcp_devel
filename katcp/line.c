@@ -21,6 +21,8 @@
 #ifdef DEBUG
 static void sane_line_katcl(struct katcl_line *l)
 {
+  struct katcl_parse *p;
+
   if(l == NULL){
     fprintf(stderr, "sane: line is null\n");
     abort();
@@ -29,35 +31,35 @@ static void sane_line_katcl(struct katcl_line *l)
     fprintf(stderr, "sane: line has no valid next\n");
     abort();
   }
+
+  p = l->l_next;
+  if(p->p_magic != KATCL_PARSE_MAGIC){
+    fprintf(stderr, "sane: bad magic for next\n");
+    abort();
+  }
+
+  p = l->l_ready;
+  if(p){
+    if(p->p_magic != KATCL_PARSE_MAGIC){
+      fprintf(stderr, "sane: bad magic for ready\n");
+      abort();
+    }
+  }
+
+  p = l->l_stage;
+  if(p){
+    if(p->p_magic != KATCL_PARSE_MAGIC){
+      fprintf(stderr, "sane: bad magic for stage\n");
+      abort();
+    }
+  }
+
 }
 #else
 #define sane_line_katcl(l)
 #endif
 
 /****************************************************************/
-
-static void cache_spare_katcl(struct katcl_line *l, struct katcl_parse *p)
-{
-  clear_parse_katcl(p);
-
-  p->p_next = l->l_spare;
-  l->l_spare = p;
-}
-
-static struct katcl_parse *fetch_spare_katcl(struct katcl_line *l)
-{
-  struct katcl_parse *p;
-
-  if(l->l_spare){
-    p = l->l_spare;
-    l->l_spare = p->p_next;
-    p->p_next = NULL;
-  } else {
-    p = create_parse_katcl();
-  }
-
-  return p;
-}
 
 struct katcl_line *create_katcl(int fd)
 {
@@ -72,16 +74,21 @@ struct katcl_line *create_katcl(int fd)
 
   l->l_ready = NULL;
   l->l_next = NULL; 
-
-  l->l_head = NULL;
-  l->l_tail = NULL;
   l->l_stage = NULL;
 
   l->l_pending = 0;
   l->l_arg = 0;
   l->l_offset = 0;
 
-  l->l_spare = NULL;
+  l->l_queue = NULL;
+
+  /*****************NEW*******************************/
+  l->l_queue = create_queue_katcl();
+  if(l->l_queue == NULL){
+    destroy_katcl(l, 0);
+    return NULL;
+  }
+  /***************************************************/
 
   l->l_error = 0;
 
@@ -117,22 +124,15 @@ void destroy_katcl(struct katcl_line *l, int mode)
     destroy_parse_katcl(l->l_stage);
     l->l_stage = NULL;
   }
-  if(l->l_head){ /* WARNING: a linked list */
-    destroy_parse_katcl(l->l_head);
-    l->l_head = NULL;
-  }
-  l->l_tail = NULL; /* tail part of linked list */
 
   l->l_pending = 0;
   l->l_arg = 0;
   l->l_offset = 0;
 
-  /* spares */
-
-  if(l->l_spare){ /* WARNING: a linked list */
-    destroy_parse_katcl(l->l_spare);
-    l->l_spare = NULL;
-  }
+  /*****************NEW*******************************/
+  destroy_queue_katcl(l->l_queue);
+  l->l_queue = NULL;
+  /***************************************************/
 
   if(mode){
     if(l->l_fd >= 0){
@@ -146,26 +146,11 @@ void destroy_katcl(struct katcl_line *l, int mode)
 
 void exchange_katcl(struct katcl_line *l, int fd)
 {
-  struct katcl_parse *p;
 
   sane_line_katcl(l);
 
   /* WARNING: exchanging fds forces discarding of pending io */
 
-#ifdef DEBUG
-  if(l->l_head && (l->l_tail == NULL)){
-    fprintf(stderr, "logic problem: line has a head but no tail\n");
-    abort();
-  }
-  if(l->l_tail && (l->l_head == NULL)){
-    fprintf(stderr, "logic problem: line has a tail but no head\n");
-    abort();
-  }
-  if(l->l_tail && (l->l_tail->p_next != NULL)){
-    fprintf(stderr, "logic problem: tail is not tail\n");
-    abort();
-  }
-#endif
 
   if(l->l_fd >= 0){
     close(l->l_fd);
@@ -174,7 +159,7 @@ void exchange_katcl(struct katcl_line *l, int fd)
 
   /* move ready to spare */
   if(l->l_ready){
-    cache_spare_katcl(l, l->l_ready);
+    destroy_parse_katcl(l->l_ready);
     l->l_ready = NULL;
   }
 
@@ -182,17 +167,11 @@ void exchange_katcl(struct katcl_line *l, int fd)
     clear_parse_katcl(l->l_next);
   }
 
-  /* move all of head to spare */
-  while(l->l_head){
-    p = l->l_head;
-    l->l_head = p->p_next;
-
-    cache_spare_katcl(l, p);
-  }
-  l->l_tail = NULL;
-
+  /*****************NEW*******************************/
+  clear_queue_katcl(l->l_queue);
+  /***************************************************/
   if(l->l_stage){
-    cache_spare_katcl(l, l->l_stage);
+    destroy_parse_katcl(l->l_stage);
     l->l_stage = NULL;
   }
 
@@ -231,11 +210,8 @@ int read_katcl(struct katcl_line *l)
 
   sane_line_katcl(l);
 
-#ifdef DEBUG
-  if(l->l_next == NULL){
-    fprintf(stderr, "read: logic problem: no next parse allocated\n");
-    abort();
-  }
+#if DEBUG > 1
+  fprintf(stderr, "line: invoking read on line %p\n", l);
 #endif
 
   p = l->l_next;
@@ -243,7 +219,7 @@ int read_katcl(struct katcl_line *l)
   if(p->p_size <= p->p_have){
     ptr = realloc(p->p_buffer, p->p_size + KATCL_BUFFER_INC);
     if(ptr == NULL){
-#ifdef REPORT
+#ifdef DEBUG 
       fprintf(stderr, "read: realloc to %d failed\n", p->p_size + KATCL_BUFFER_INC);
 #endif
       l->l_error = ENOMEM;
@@ -262,7 +238,7 @@ int read_katcl(struct katcl_line *l)
         return 0; /* more to be read */
       default : /* serious error */
         l->l_error = errno;
-#ifdef REPORT
+#ifdef DEBUG
         fprintf(stderr, "read: read error: %s\n", strerror(errno));
 #endif
         return -1;
@@ -294,7 +270,7 @@ void clear_katcl(struct katcl_line *l) /* discard a full line */
     return;
   }
 
-  cache_spare_katcl(l, l->l_ready);
+  destroy_parse_katcl(l->l_ready);
   l->l_ready = NULL;
 }
 
@@ -414,6 +390,12 @@ unsigned int arg_buffer_katcl(struct katcl_line *l, unsigned int index, void *bu
 
 static struct katcl_parse *before_append_katcl(struct katcl_line *l, int flags)
 {
+  sane_line_katcl(l);
+
+#if DEBUG > 1
+  fprintf(stderr, "line: about to append 0x%x to %p\n", flags, l);
+#endif
+
   if(l->l_stage == NULL){
 
     if(!(flags & KATCP_FLAG_FIRST)){
@@ -423,7 +405,7 @@ static struct katcl_parse *before_append_katcl(struct katcl_line *l, int flags)
       return NULL;
     }
 
-    l->l_stage = fetch_spare_katcl(l);
+    l->l_stage = create_parse_katcl();
   }
 
   return l->l_stage;
@@ -436,7 +418,7 @@ static int after_append_katcl(struct katcl_line *l, int flags, int result)
     fprintf(stderr, "append failed, discarding stage\n");
 #endif
     if(l->l_stage){
-      cache_spare_katcl(l, l->l_stage);
+      destroy_parse_katcl(l->l_stage);
       l->l_stage = NULL;
     }
     return result;
@@ -457,35 +439,8 @@ static int after_append_katcl(struct katcl_line *l, int flags, int result)
     return -1;
   }
 
-#ifdef DEBUG
-  if(l->l_stage->p_next){
-    fprintf(stderr, "logic problem: stage %p should not have a next\n", l->l_stage); 
-    abort();
-  }
-#endif
 
-  /* things went ok, now queue the complete message */
-  if(l->l_tail == NULL){
-#ifdef DEBUG
-    fprintf(stderr, "after append: adding first parse %p to queue\n", l->l_stage);
-    if(l->l_head){
-      fprintf(stderr, "logic problem: tail=%p, head=%p\n", l->l_tail, l->l_head);
-      abort();
-    }
-#endif
-    l->l_tail = l->l_stage;
-    l->l_head = l->l_tail;
-  } else {
-#ifdef DEBUG
-    fprintf(stderr, "after append: %p->p_next=%p\n", l->l_tail, l->l_stage);
-    if(l->l_tail->p_next){
-      fprintf(stderr, "logic problem: tail=%p has next=%p\n", l->l_tail, l->l_tail->p_next);
-    }
-#endif
-    l->l_tail->p_next = l->l_stage;
-    l->l_tail = l->l_stage;
-  }
-
+  add_tail_queue(l->l_queue, l->l_stage);
   l->l_stage = NULL;
 
   return result;
@@ -652,25 +607,13 @@ int append_parse_katcl(struct katcl_line *l, struct katcl_parse *p, int move)
 
   if(move){
 #ifdef DEBUG
-    fprintf(stderr, "append: grabbing %p (with next %p)\n", p, p->p_next);
+    //fprintf(stderr, "append: grabbing %p (with next %p)\n", p, p->p_next);
 #endif
     px = p;
   } else {
-    px = copy_parse_katcl(NULL, p);
-    if(px == NULL){
-#ifdef DEBUG
-      fprintf(stderr, "append: unable to duplicate parse\n");
-#endif
-      return -1;
-    }
-  }
-
-  if(l->l_tail == NULL){
-    l->l_tail = px;
-    l->l_head = l->l_tail;
-  } else {
-    l->l_tail->p_next = px;
-    l->l_tail = px;
+    /*Replacing linked list with queue logic*/
+    add_tail_queue(l->l_queue, p);	
+    p->p_refs++;/*incrementing ref count for rec instances accessing same parse structure*/
   }
 
   return 0;
@@ -869,12 +812,20 @@ int write_katcl(struct katcl_line *l)
     switch(state){
 
       case WRITE_STATE_FILL : 
-
-        if(l->l_head == NULL){
+        /*****************NEW*******************************/
+        p = get_head_katcl(l->l_queue);
+        if(p == NULL){
+          /***************************************************/
           state = (l->l_pending > 0) ? WRITE_STATE_SEND : WRITE_STATE_DONE;
           continue; /* WARNING */
         } 
-        p = l->l_head;
+
+#ifdef DEBUG
+        if(p->p_magic != KATCL_PARSE_MAGIC){
+          fprintf(stderr, "write: bad magic returned from get_head (%x, expected %x)\n", p->p_magic, KATCL_PARSE_MAGIC);
+          abort();
+        }
+#endif
 
         if((l->l_pending + TMP_MARGIN) > KATCL_IO_SIZE){
           state = WRITE_STATE_SEND; /* drain if no margin */
@@ -945,20 +896,27 @@ int write_katcl(struct katcl_line *l)
       case WRITE_STATE_NEXT : /* move onto next */
         /* gets a proposed position, updates to next parse or end if needed, adding separators and tags */
 
-        if(l->l_head == NULL){ /* done */
-          l->l_tail = NULL;
+        /*****************NEW*******************************/
+        p = get_head_katcl(l->l_queue);
+        if(p == NULL){
+          /***************************************************/
           l->l_offset = 0;
           l->l_arg = 0;
           state = WRITE_STATE_SEND;
           continue;
         }
 
+#ifdef DEBUG
+        if(p->p_magic != KATCL_PARSE_MAGIC){
+          fprintf(stderr, "write: bad magic returned from get_head (%x, expected %x)\n", p->p_magic, KATCL_PARSE_MAGIC);
+          abort();
+        }
+#endif
+
         if(l->l_pending >= KATCL_IO_SIZE){
           fprintf(stderr, "write: logic problem: pending=%u, no space left\n", l->l_pending);
         }
       
-        p = l->l_head;
- 
         if((p->p_tag >= 0) && (l->l_arg == 1)){
           /* !#$ : TODO: enter tag printing state */
         }
@@ -972,23 +930,25 @@ int write_katcl(struct katcl_line *l)
         l->l_arg = 0;
         l->l_buffer[l->l_pending++] = '\n';
 
+#if DEBUG > 1
+        fprintf(stderr, "write: wrote out parse %p\n", p);
+#endif
+
+        /*****************NEW*******************************/
         /* let go of processed item */
-        l->l_head = p->p_next;
-        cache_spare_katcl(l, p);
-
-        if(l->l_head == NULL){
-          l->l_tail = NULL;
-        }
-
-        state = l->l_head ? WRITE_STATE_FILL : WRITE_STATE_SEND;
+        p = remove_head_queue(l->l_queue);
+        destroy_parse_katcl(p);
+        state = p ? WRITE_STATE_FILL : WRITE_STATE_SEND;
+        /***************************************************/
         break;
 
       case WRITE_STATE_SEND : /* do io */
-
+        /*****************NEW*******************************/
+        p = get_head_katcl(l->l_queue);
         if(l->l_pending <= 0){ /* nothing more to write ? */
-          state = l->l_head ? WRITE_STATE_FILL : WRITE_STATE_DONE;
+          state = p ? WRITE_STATE_FILL : WRITE_STATE_DONE;
         }
-
+        /***************************************************/
         wr = send(l->l_fd, l->l_buffer, l->l_pending, MSG_DONTWAIT | MSG_NOSIGNAL);
         if((wr < 0) && (errno == ENOTSOCK)){
           wr = write(l->l_fd, l->l_buffer, l->l_pending);
@@ -1063,10 +1023,15 @@ int write_katcl(struct katcl_line *l)
 
 int flushing_katcl(struct katcl_line *l)
 {
+  int result;
+
+  result = is_empty_queue_katcl(l->l_queue);
+
 #if DEBUG
-  fprintf(stderr, "flushing: %p->l_head=%p\n", l, l->l_head);
+  fprintf(stderr, "flushing: is empty returns %d\n", result);
 #endif
-  return l->l_head ? 1 : 0;
+
+  return result ? 0 : 1;
 }
 
 /***************************/
@@ -1084,7 +1049,6 @@ void dump_katcl(struct katcl_line *l, FILE *fp)
 
   dump_parse_katcl(l->l_ready, "ready", fp);
   dump_parse_katcl(l->l_next, "next", fp);
-  dump_parse_katcl(l->l_spare, "spare", fp);
 
   fflush(fp);
 
@@ -1251,11 +1215,21 @@ int main()
   }
 
   for(i = 0; i < TEST_RUNS; i++){
+
+#ifdef DEBUG
+    fprintf(stderr, "line test: iteration %d\n", i);
+#endif
+
     p = create_parse_katcl();
     if(p == NULL){
       fprintf(stderr, "unable to create parse instance %d\n", i);
       return 1;
     }
+
+    p->p_refs++;
+#ifdef DEBUG
+    fprintf(stderr, "test: ref before submission %d\n", p->p_refs);
+#endif
 
     fill_random_test(p);
     dump_parse_katcl(p, "random", stderr);
@@ -1265,7 +1239,15 @@ int main()
       return 1;
     }
 
+#ifdef DEBUG
+    fprintf(stderr, "test: ref after submission %d\n", p->p_refs);
+#endif
+
     while((result = write_katcl(l)) == 0);
+
+#ifdef DEBUG
+    fprintf(stderr, "test: ref after write %d\n", p->p_refs);
+#endif
 
     if(result < 0){
       fprintf(stderr, "unable to write data\n");
