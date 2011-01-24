@@ -33,3 +33,8 @@ test-roachpool: $(SRCSHARED) roachpool.c
   
 test-kurl: $(SRCSHARED) kurl.c 
 	$(CC) $(CFLAGS) -DSTANDALONE -o $@ $^ -I../katcp
+
+test-statemachine: statemachine.c 
+	$(CC) $(CFLAGS) -DSTANDALONE -o $@ $^ -I../katcp
+
+
