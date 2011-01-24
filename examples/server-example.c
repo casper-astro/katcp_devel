@@ -30,7 +30,7 @@
 /* these functions return the value immediately. This approach is acceptable */
 /* when it is cheap to query a sensor value                                  */
 
-int simple_integer_check_sensor(struct katcp_dispatch *d, void *local)
+int simple_integer_check_sensor(struct katcp_dispatch *d, struct katcp_acquire *a)
 {
 #if 0
   set_status_sensor_katcp(s, KATCP_STATUS_NOMINAL);
@@ -73,7 +73,7 @@ int yield_check_cmd(struct katcp_dispatch *d, int argc)
 
 int pause_check_cmd(struct katcp_dispatch *d, int argc)
 {
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "ran pause check");
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "ran pause check, will not return");
 
   return KATCP_RESULT_PAUSE;
 }
@@ -82,7 +82,7 @@ int subprocess_check_callback(struct katcp_dispatch *d, struct katcp_notice *n)
 {
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "was woken by child process exit");
 
-  /* a callback can not used KATCP_RESULT_* codes, it has to generate its messages by hand */
+  /* a callback can not use KATCP_RESULT_* codes, it has to generate its messages by hand */
   send_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "!check-subprocess", KATCP_FLAG_LAST | KATCP_FLAG_STRING, KATCP_OK);
 
   /* unpause the client instance, so that it can parse new commands */
@@ -151,7 +151,7 @@ int main(int argc, char **argv)
 
   /* example sensor */
 
-  if(register_integer_sensor_katcp(d, 0, "check.integer.simple", "unix time in decaseconds", "Ds", &simple_integer_check_sensor, NULL, 0, INT_MAX)){
+  if(register_integer_sensor_katcp(d, 0, "check.integer.simple", "unix time in decaseconds", "Ds", &simple_integer_check_sensor, NULL, NULL, 0, INT_MAX)){
     fprintf(stderr, "server: unable to register sensors\n");
     return 1;
   }

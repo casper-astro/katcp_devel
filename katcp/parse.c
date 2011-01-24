@@ -21,15 +21,14 @@ static void sane_parse_katcl(struct katcl_parse *p)
     fprintf(stderr, "sane: parse is null\n");
     abort();
   }
-  if(p->p_magic != PARSE_MAGIC){
-    fprintf(stderr, "sane: bad parse magic for %p\n", p);
+  if(p->p_magic != KATCL_PARSE_MAGIC){
+    fprintf(stderr, "sane: bad parse magic for %p (magic 0x%0x, expected 0x%x)\n", p, p->p_magic, KATCL_PARSE_MAGIC);
     abort();
   }
 }
 #else
 #define sane_parse_katcl(p)
 #endif
-
 
 struct katcl_parse *create_parse_katcl()
 {
@@ -40,7 +39,7 @@ struct katcl_parse *create_parse_katcl()
     return NULL;
   }
 
-  p->p_magic = PARSE_MAGIC;
+  p->p_magic = KATCL_PARSE_MAGIC;
   p->p_state = KATCL_PARSE_FRESH;
 
   p->p_buffer = NULL;
@@ -52,27 +51,85 @@ struct katcl_parse *create_parse_katcl()
   p->p_args = NULL;
   p->p_current = NULL;
 
-  p->p_refs = 0;
+  p->p_refs = 1;/*Starting ref count with 1*/
   p->p_tag = (-1);
 
   p->p_count = 0;
   p->p_got = 0;
 
-  p->p_next = NULL;
+  return p;
+}
+
+struct katcl_parse *copy_parse_katcl(struct katcl_parse *p)
+{
+  sane_parse_katcl(p);
+
+  if(p->p_state != KATCL_PARSE_DONE){
+#ifdef DEBUG
+    fprintf(stderr, "warning: expected complete source parse in copy\n");
+#endif
+    return NULL;
+  }
+
+  p->p_refs++;
 
   return p;
 }
 
-void destroy_parse_katcl(struct katcl_parse *p)
+static void clear_parse_katcl(struct katcl_parse *p)
+{
+  sane_parse_katcl(p);
+
+#ifdef DEBUG
+  if(p->p_refs != 1){
+    fprintf(stderr, "logic problem: clearing parse used in multiple places\n");
+    abort();
+  }
+#endif
+
+  p->p_state = KATCL_PARSE_FRESH;
+
+  p->p_have = 0;
+  p->p_used = 0;
+  p->p_kept = 0;
+  p->p_tag = (-1);
+
+  p->p_got = 0;
+  p->p_current = NULL;
+
+  p->p_tag = (-1);
+}
+
+struct katcl_parse *reuse_parse_katcl(struct katcl_parse *p)
 {
   struct katcl_parse *px;
+  
+  if((p != NULL) && (p->p_refs == 1)){
+    clear_parse_katcl(p);
+    return p;
+  }
 
-  while(p){
-    px = p->p_next;
+  px = create_parse_katcl();
+  destroy_parse_katcl(p);
 
-    sane_parse_katcl(p);
+  return px;
+}
 
-    p->p_magic = 0;
+void destroy_parse_katcl(struct katcl_parse *p)
+{
+  sane_parse_katcl(p);
+
+#ifdef DEBUG
+  fprintf(stderr, "destroy parse: %p with refs %d\n", p, p->p_refs);
+#endif
+
+  p->p_refs--;
+
+  if(p->p_refs <= 0){
+#ifdef DEBUG
+    fprintf(stderr, "destroyed parse: %p: no more references\n", p);
+#endif
+    p->p_magic = 0xdead;
     p->p_state = (-1);
 
     if(p->p_buffer){
@@ -92,36 +149,14 @@ void destroy_parse_katcl(struct katcl_parse *p)
     p->p_count = 0;
     p->p_got = 0;
 
-    p->p_refs = 0;
+    p->p_refs = 1;
     p->p_tag = (-1);
 
-    p->p_next = NULL;
-
     free(p);
-
-    p = px;
   }
 }
 
-void clear_parse_katcl(struct katcl_parse *p)
-{
-  sane_parse_katcl(p);
-
-  p->p_state = KATCL_PARSE_FRESH;
-
-  p->p_have = 0;
-  p->p_used = 0;
-  p->p_kept = 0;
-  p->p_tag = (-1);
-
-  p->p_got = 0;
-  p->p_current = NULL;
-
-  p->p_tag = (-1);
-
-  /* WARNING: will not clear trailing p->p_next */
-}
-
+#if 0
 struct katcl_parse *copy_parse_katcl(struct katcl_parse *pd, struct katcl_parse *ps)
 {
   struct katcl_larg *tmp, *as, *at;
@@ -147,10 +182,6 @@ struct katcl_parse *copy_parse_katcl(struct katcl_parse *pd, struct katcl_parse 
     sane_parse_katcl(pd);
     pt = pd;
     clear_parse_katcl(pt);
-  }
-
-  if(pt == ps){
-    return pt;
   }
 
   if(pt->p_size < ps->p_kept){
@@ -201,14 +232,9 @@ struct katcl_parse *copy_parse_katcl(struct katcl_parse *pd, struct katcl_parse 
 
   pt->p_tag   = ps->p_tag;
 
-#ifdef DEBUG
-  if(pt->p_next){
-    fprintf(stderr, "warning: copying parse to target %p with next %p\n", pt, pt->p_next);
-  }
-#endif
-
   return pt;
 }
+#endif
 
 /******************************************************************/
 /* logic to populate the parse ************************************/
@@ -592,9 +618,10 @@ int add_args_parse_katcl(struct katcl_parse *p, int flags, char *fmt, ...)
   return result;
 }
 
-int turnaround_parse_katcl(struct katcl_parse *p, int code)
+struct katcl_parse *turnaround_parse_katcl(struct katcl_parse *p, int code)
 {
   char *string;
+  struct katcl_parse *px;
 
 #ifdef DEBUG
   if(p->p_state != KATCL_PARSE_DONE){
@@ -605,7 +632,7 @@ int turnaround_parse_katcl(struct katcl_parse *p, int code)
 
   string = copy_string_parse_katcl(p, 0);
   if(string == NULL){
-    return -1;
+    return NULL;
   }
 
 #ifdef DEBUG
@@ -615,16 +642,20 @@ int turnaround_parse_katcl(struct katcl_parse *p, int code)
   }
 #endif
 
-  clear_parse_katcl(p);
+  px = reuse_parse_katcl(p);
+  if(px == NULL){
+    destroy_parse_katcl(p);
+    return NULL;
+  }
 
   string[0] = KATCP_REPLY;
-  add_string_parse_katcl(p, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, string);
+  add_string_parse_katcl(px, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, string);
   free(string);
 
   string = code_to_name_katcm(code);
-  add_plain_parse_katcl(p, KATCP_FLAG_LAST | KATCP_FLAG_STRING, string ? string : KATCP_FAIL);
+  add_plain_parse_katcl(px, KATCP_FLAG_LAST | KATCP_FLAG_STRING, string ? string : KATCP_FAIL);
 
-  return 0;
+  return px;
 }
 
 /******************************************************************/
@@ -748,6 +779,8 @@ double get_double_parse_katcl(struct katcl_parse *p, unsigned int index)
 unsigned int get_buffer_parse_katcl(struct katcl_parse *p, unsigned int index, void *buffer, unsigned int size)
 {
   unsigned int got, done;
+
+  sane_parse_katcl(p);
 
   if(index >= p->p_got){
     return 0;
@@ -1098,30 +1131,16 @@ int parse_katcl(struct katcl_line *l) /* transform buffer -> args */
   l->l_next = NULL; /* value kept in p */
 #endif
 
-  /* now find or make spare entry */
-  if(l->l_spare == NULL){
-    l->l_spare = create_parse_katcl();
-    if(l->l_spare == NULL){
-      l->l_error = ENOMEM;
-      return -1; /* is it safe to call parse with a next which is DONE ? */
-    }
+  /* we now need a next entry */
+  l->l_next = create_parse_katcl();
+  if(l->l_next == NULL){
+    l->l_error = ENOMEM;
+    return -1; /* is it safe to call parse with a next which is DONE ? */
   }
 
-  /* at this point we have a cleared spare which we can make the next entry */
-  l->l_next = l->l_spare;
-  l->l_spare = l->l_next->p_next;
-
-  /* forget about the chain */
-  l->l_next->p_next = NULL;
-
-  /* move ready to spare, in case there is one */
+  /* ready is about to be replaced, delete the old copy */
   if(l->l_ready){
-#ifdef DEBUG
-    fprintf(stderr, "unsual: expected ready to be cleared before attempting a new parse\n");
-#endif
-
-    l->l_ready->p_next = l->l_spare;
-    l->l_spare = l->l_ready;
+    destroy_parse_katcl(l->l_ready);
     l->l_ready = NULL;
   }
 
@@ -1151,9 +1170,11 @@ int dump_parse_katcl(struct katcl_parse *p, char *prefix, FILE *fp)
     return -1;
   }
 
-  fprintf(fp, "parse %s: state=%d, next=%p\n", prefix, p->p_state, p->p_next);
+  fprintf(fp, "parse %s: state=%d\n", prefix, p->p_state);
   fprintf(fp, "parse %s: buffer size=%u, have=%u, used=%u, kept=%u\n", prefix, p->p_size, p->p_have, p->p_used, p->p_kept);
   fprintf(fp, "parse %s: count=%u, got=%u\n", prefix, p->p_count, p->p_got);
+
+  sane_parse_katcl(p);
 
   for(i = 0; i < p->p_got; i++){
     la = &(p->p_args[i]);
@@ -1206,7 +1227,7 @@ int main()
     return 1;
   }
 
-  pc = copy_parse_katcl(NULL, p);
+  pc = copy_parse_katcl(p);
   if(pc == NULL){
     fprintf(stderr, "unable to copy parse\n");
     return 1;

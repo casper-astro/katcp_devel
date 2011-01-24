@@ -2,20 +2,23 @@ include ../Makefile.inc
 
 INC = -I.
 
-TESTS = test-parse test-line test-rpc test-job
+TESTS = test-parse test-line test-rpc test-job test-queue
 
 all: $(TESTS)
+
+test-queue: misc.c queue.c parse.c line.c 
+	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_QUEUE -o $@ $^
 
 test-parse: misc.c parse.c
 	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_PARSE -o $@ $^
 
-test-line: misc.c parse.c line.c
+test-line: misc.c parse.c line.c queue.c
 	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_LINE -o $@ $^
 
-test-rpc: misc.c parse.c line.c time.c netc.c rpc.c
+test-rpc: misc.c parse.c line.c time.c netc.c rpc.c queue.c
 	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_RPC -o $@ $^
 
-test-job: misc.c parse.c line.c time.c netc.c dispatch.c shared.c ts.c log.c notice.c nonsense.c job.c
+test-job: misc.c parse.c line.c time.c netc.c dispatch.c shared.c ts.c log.c notice.c nonsense.c job.c queue.c
 	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_JOB -o $@ $^
 
 clean: 

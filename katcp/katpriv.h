@@ -29,6 +29,14 @@ struct katcl_larg{
   unsigned int a_escape;
 };
 
+struct katcl_queue
+{
+  struct katcl_parse **q_queue;/*parse array*/
+  unsigned int q_size;/*size of queue*/
+  unsigned int q_head;/*current position*/
+  unsigned int q_count;/*No of entries*/
+};
+
 #if 0
 struct katcl_msg{
   struct katcl_line *m_line;
@@ -58,8 +66,6 @@ struct katcl_parse{
 
   int p_refs;
   int p_tag;
-
-  struct katcl_parse *p_next;
 };
 
 struct katcl_line{
@@ -68,8 +74,6 @@ struct katcl_line{
   struct katcl_parse *l_ready;
   struct katcl_parse *l_next;
 
-  struct katcl_parse *l_head;
-  struct katcl_parse *l_tail;
   struct katcl_parse *l_stage;
 
   char l_buffer[KATCL_IO_SIZE];
@@ -77,7 +81,7 @@ struct katcl_line{
   unsigned int l_arg;  /* argument */
   unsigned int l_offset; /* offset into argument */
 
-  struct katcl_parse *l_spare;
+  struct katcl_queue *l_queue;
 
   int l_error;
 };
@@ -110,11 +114,11 @@ struct katcp_cmd{
 
 struct katcp_sensor;
 struct katcp_nonsense;
+struct katcp_acquire;
 
 struct katcp_integer_acquire{
   int ia_current;
-  int (*ia_get)(struct katcp_dispatch *d, void *local);
-  void *ia_local;
+  int (*ia_get)(struct katcp_dispatch *d, struct katcp_acquire *a);
 };
 
 struct katcp_acquire{
@@ -128,6 +132,9 @@ struct katcp_acquire{
   struct timeval a_current; /* current rate */
   struct timeval a_limit;   /* fastest update rate */
   struct timeval a_last;    /* last time value was acquired */
+
+  void *a_local;
+  void (*a_release)(struct katcp_dispatch *d, struct katcp_acquire *a);
 
   void *a_more; /* could be a union */
 };
@@ -446,9 +453,9 @@ int ended_jobs_katcp(struct katcp_dispatch *d);
 /* parse: setup */
 struct katcl_parse *create_parse_katcl();
 void destroy_parse_katcl(struct katcl_parse *p);
-void clear_parse_katcl(struct katcl_parse *p);
-struct katcl_parse *copy_parse_katcl(struct katcl_parse *pd, struct katcl_parse *ps);
-int turnaround_parse_katcl(struct katcl_parse *p, int code);
+struct katcl_parse *reuse_parse_katcl(struct katcl_parse *p);
+struct katcl_parse *copy_parse_katcl(struct katcl_parse *p);
+struct katcl_parse *turnaround_parse_katcl(struct katcl_parse *p, int code);
 
 /* parse: adding fields */
 int add_plain_parse_katcl(struct katcl_parse *p, int flags, char *string);
@@ -490,5 +497,22 @@ int add_vargs_parse_katcl(struct katcl_parse *p, int flags, char *fmt, va_list a
 int add_args_parse_katcl(struct katcl_parse *p, int flags, char *fmt, ...);
 
 int dump_parse_katcl(struct katcl_parse *p, char *prefix, FILE *fp);
+
+/*Queue logic*/
+struct katcl_parse *get_head_katcl(struct katcl_queue *q);
+struct katcl_parse *get_tail_katcl(struct katcl_queue *q);
+struct katcl_queue *create_queue_katcl(void);
+void destroy_queue_katcl(struct katcl_queue *q);
+void clear_queue_katcl(struct katcl_queue *q);
+unsigned int is_empty_queue_katcl(struct katcl_queue *q);
+
+int add_tail_queue(struct katcl_queue *q, struct katcl_parse *p);
+struct katcl_parse *remove_index_queue(struct katcl_queue *q, unsigned int index);
+struct katcl_parse *remove_head_queue(struct katcl_queue *q);
+void dump_queue_parse_katcp(struct katcl_queue *q, FILE *fp);
+
+/******************************************/
+
+#define KATCL_PARSE_MAGIC 0xff7f1273
 
 #endif

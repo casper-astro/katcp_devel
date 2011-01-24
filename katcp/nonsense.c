@@ -82,7 +82,10 @@ static void sane_sensor(struct katcp_sensor *sn)
 
 /**********************************************************************************************/
 
+#if 0
 static struct katcp_acquire *create_acquire_katcp(struct katcp_dispatch *d, int type);
+#endif
+
 static int link_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a, struct katcp_sensor *sn, int (*extract)(struct katcp_dispatch *d, struct katcp_sensor *sn));
 static int del_acquire_katcp(struct katcp_dispatch *d, struct katcp_sensor *sn);
 
@@ -222,7 +225,6 @@ int create_acquire_intbool_katcp(struct katcp_dispatch *d, struct katcp_acquire 
 
   ia->ia_current = 0;
   ia->ia_get = NULL;
-  ia->ia_local = NULL;
 
   a->a_more = ia;
   a->a_type = type;
@@ -583,6 +585,7 @@ void destroy_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a)
 {
   int i;
   struct katcp_sensor *s;
+  struct katcp_integer_acquire *ia;
 
   for(i = 0; i < a->a_count; i++){
     s = a->a_sensors[i];
@@ -603,8 +606,26 @@ void destroy_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a)
     a->a_up = 0;
   }
 
-  /* MAYBE have to run registered shutdown logic */
+  if(a->a_release){
+    (*(a->a_release))(d, a);
+    a->a_release = NULL;
+  }
+  a->a_local = NULL;
+
   if(a->a_more){
+    switch(a->a_type){
+      case KATCP_SENSOR_INTEGER :
+      case KATCP_SENSOR_BOOLEAN :
+        log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "destroing acquire %p type %d", a, a->a_type);
+
+        ia = a->a_more;
+        ia->ia_get = NULL;
+        break;
+
+      default : 
+        log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "destroying unsupported sensor type %d", a->a_type);
+        break;
+    }
     free(a->a_more);
     a->a_more = NULL;
   }
@@ -633,7 +654,7 @@ void adjust_acquire_katcp(struct katcp_acquire *a, struct timeval *defpoll, stru
   }
 }
 
-static struct katcp_acquire *extended_create_acquire_katcp(struct katcp_dispatch *d, int type, struct timeval *defpoll, struct timeval *maxrate)
+static struct katcp_acquire *extended_create_acquire_katcp(struct katcp_dispatch *d, int type, void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a), struct timeval *defpoll, struct timeval *maxrate)
 {
   struct katcp_acquire *a;
 
@@ -660,6 +681,9 @@ static struct katcp_acquire *extended_create_acquire_katcp(struct katcp_dispatch
   a->a_last.tv_sec = 0;
   a->a_last.tv_usec = 0;
 
+  a->a_local = local;
+  a->a_release = release;
+
   a->a_more = NULL; 
 
   if((*(type_lookup_table[type].c_create_acquire))(d, a, type) < 0){
@@ -670,19 +694,21 @@ static struct katcp_acquire *extended_create_acquire_katcp(struct katcp_dispatch
   return a;
 }
 
+#if 0
 static struct katcp_acquire *create_acquire_katcp(struct katcp_dispatch *d, int type)
 {
-  return extended_create_acquire_katcp(d, type, NULL, NULL);
+  return extended_create_acquire_katcp(d, type, NULL, NULL, NULL, NULL);
 }
+#endif
 
 /**************************************************************************/
 
-struct katcp_acquire *setup_intbool_acquire_katcp(struct katcp_dispatch *d, int (*get)(struct katcp_dispatch *d, void *local), void *local, int type)
+struct katcp_acquire *setup_intbool_acquire_katcp(struct katcp_dispatch *d, int (*get)(struct katcp_dispatch *d, struct katcp_acquire *a), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a), int type)
 {
   struct katcp_acquire *a;
   struct katcp_integer_acquire *ia;
 
-  a = create_acquire_katcp(d, type);
+  a = extended_create_acquire_katcp(d, type, local, release, NULL, NULL);
   if(a == NULL){
     return NULL;
   }
@@ -691,23 +717,22 @@ struct katcp_acquire *setup_intbool_acquire_katcp(struct katcp_dispatch *d, int 
 
   ia->ia_current = 0;
   ia->ia_get = get;
-  ia->ia_local = local;
 
 #ifdef DEBUG
-  fprintf(stderr, "intbool: acquire %p populated with get %p and local %p\n", ia, ia->ia_get, ia->ia_local);
+  fprintf(stderr, "intbool: acquire %p populated with get %p\n", ia, ia->ia_get);
 #endif
 
   return a;
 }
 
-struct katcp_acquire *setup_integer_acquire_katcp(struct katcp_dispatch *d, int (*get)(struct katcp_dispatch *d, void *local), void *local)
+struct katcp_acquire *setup_integer_acquire_katcp(struct katcp_dispatch *d, int (*get)(struct katcp_dispatch *d, struct katcp_acquire *a), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a))
 {
-  return setup_intbool_acquire_katcp(d, get, local, KATCP_SENSOR_INTEGER);
+  return setup_intbool_acquire_katcp(d, get, local, release, KATCP_SENSOR_INTEGER);
 }
 
-struct katcp_acquire *setup_boolean_acquire_katcp(struct katcp_dispatch *d, int (*get)(struct katcp_dispatch *d, void *local), void *local)
+struct katcp_acquire *setup_boolean_acquire_katcp(struct katcp_dispatch *d, int (*get)(struct katcp_dispatch *d, struct katcp_acquire *a), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a))
 {
-  return setup_intbool_acquire_katcp(d, get, local, KATCP_SENSOR_BOOLEAN);
+  return setup_intbool_acquire_katcp(d, get, local, release, KATCP_SENSOR_BOOLEAN);
 }
 
 /* link acquire to sensor, have acquire adopt type of sensor if emtpy */
@@ -800,15 +825,17 @@ static int del_acquire_katcp(struct katcp_dispatch *d, struct katcp_sensor *sn)
 
 int run_acquire_katcp(struct katcp_dispatch *d, void *data)
 {
-  struct katcp_sensor *sn;
   struct katcp_acquire *a;
-  struct katcp_nonsense *ns;
-  struct katcp_dispatch *dx;
+  struct katcp_integer_acquire *ia;
+  struct timeval now, legal;
   struct katcp_shared *s;
 
-  struct katcp_integer_acquire *ia;
+#if 0
+  struct katcp_sensor *sn;
+  struct katcp_nonsense *ns;
+  struct katcp_dispatch *dx;
   int i, j;
-  struct timeval now, legal;
+#endif
 
   a = data;
   if(a == NULL){
@@ -845,7 +872,7 @@ int run_acquire_katcp(struct katcp_dispatch *d, void *data)
           abort();
         }
 #endif
-        ia->ia_current = (*(ia->ia_get))(d, ia->ia_local);
+        ia->ia_current = (*(ia->ia_get))(d, a);
         log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "acquired integer result %d for %p", ia->ia_current, a);
         break;
       default :
@@ -855,6 +882,76 @@ int run_acquire_katcp(struct katcp_dispatch *d, void *data)
     a->a_last.tv_sec  = now.tv_sec;
     a->a_last.tv_usec = now.tv_usec;
   }
+
+#if 0
+  for(j = 0; j < a->a_count; j++){
+
+    sn = a->a_sensors[j];
+    sane_sensor(sn);
+
+#ifdef DEBUG
+    if(sn->s_extract == NULL){
+      fprintf(stderr, "run: logic problem: null sensor acquire function\n");
+      abort();
+    }
+#endif
+
+    if((*(sn->s_extract))(d, sn) >= 0){ /* got a useful value */
+
+      log_message_katcp(d, KATCP_LEVEL_TRACE | KATCP_LEVEL_LOCAL, NULL, "checking %d clients of %s", sn->s_refs, sn->s_name);
+
+      for(i = 0; i < sn->s_refs; i++){
+        ns = sn->s_nonsense[i];
+        sane_nonsense(ns);
+#ifdef DEBUG
+        if((ns == NULL) || (ns->n_client == NULL)){
+          fprintf(stderr, "run: logic problem: null nonsense fields\n");
+          abort();
+        }
+#endif
+        dx = ns->n_client;
+
+#ifdef DEBUG
+        if((ns->n_strategy < 0) || (ns->n_strategy >= KATCP_STRATEGIES_COUNT)){
+          fprintf(stderr, "run: logic problem: invalid strategy %d\n", ns->n_strategy);
+          abort();
+        }
+#endif
+
+        sn->s_recent.tv_sec = now.tv_sec;
+        sn->s_recent.tv_usec = now.tv_usec;
+
+        log_message_katcp(d, KATCP_LEVEL_TRACE | KATCP_LEVEL_LOCAL, NULL, "calling check function %p (type %d, strategy %d)", type_lookup_table[sn->s_type].c_checks[ns->n_strategy], sn->s_type, ns->n_strategy);
+
+        if(type_lookup_table[sn->s_type].c_checks[ns->n_strategy]){
+          
+          if((*(type_lookup_table[sn->s_type].c_checks[ns->n_strategy]))(ns)){
+            log_message_katcp(d, KATCP_LEVEL_TRACE | KATCP_LEVEL_LOCAL, NULL, "strategy %d reports a match", ns->n_strategy);
+            /* TODO: needs work for having tags in katcp messages */
+            generic_sensor_update_katcp(dx, sn, (ns->n_strategy == KATCP_STRATEGY_FORCED) ? "#sensor-value" : "#sensor-status");
+          }
+        }
+      }
+    } else {
+      log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "extract function for sensor %s failed", sn->s_name);
+    }
+  }
+#endif
+
+  propagate_acquire_katcp(d, a);
+
+  return 0;
+}
+
+int propagate_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a)
+{
+  int j, i;
+  struct katcp_sensor *sn;
+  struct katcp_nonsense *ns;
+  struct katcp_dispatch *dx;
+  struct timeval now;
+
+  gettimeofday(&now, NULL);
 
   for(j = 0; j < a->a_count; j++){
 
@@ -910,6 +1007,37 @@ int run_acquire_katcp(struct katcp_dispatch *d, void *data)
   }
 
   return 0;
+}
+
+void *get_local_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a)
+{
+  if(a == NULL){
+    return NULL;
+  }
+
+  return a->a_local;
+}
+
+void generic_release_local_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a)
+{
+  if(a == NULL){
+    return;
+  }
+
+  if(a->a_local == NULL){
+    return;
+  }
+
+  free(a->a_local);
+}
+
+int is_up_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a)
+{
+  if(a == NULL){
+    return 0;
+  }
+
+  return a->a_up;
 }
 
 /*************************************************************************/
@@ -1107,6 +1235,7 @@ static int reload_sensor_katcp(struct katcp_dispatch *d, struct katcp_sensor *sz
   if(register_every_tv_katcp(d, &(a->a_current), &run_acquire_katcp, a) < 0){
     return -1;
   }
+
   return 0;
 }
 
@@ -1367,7 +1496,7 @@ void destroy_nonsensors_katcp(struct katcp_dispatch *d)
 
 /* plain vanillia integer registration ***********************************/
 
-int register_integer_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, int (*get)(struct katcp_dispatch *d, void *local), void *local, int min, int max)
+int register_integer_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, int (*get)(struct katcp_dispatch *d, struct katcp_acquire *a), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a), int min, int max)
 {
   struct katcp_sensor *sn;
   struct katcp_acquire *a;
@@ -1382,7 +1511,7 @@ int register_integer_sensor_katcp(struct katcp_dispatch *d, int mode, char *name
     return -1;
   }
 
-  a = setup_integer_acquire_katcp(d, get, local);
+  a = setup_integer_acquire_katcp(d, get, local, release);
   if(a == NULL){
     destroy_sensor_katcp(d, sn);
     return -1;
@@ -1423,7 +1552,7 @@ int register_multi_integer_sensor_katcp(struct katcp_dispatch *d, int mode, char
 
 /* plain vanillia boolean registration ***********************************/
 
-int register_boolean_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, int (*get)(struct katcp_dispatch *d, void *local), void *local)
+int register_boolean_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, int (*get)(struct katcp_dispatch *d, struct katcp_acquire *a), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a))
 {
   struct katcp_sensor *sn;
   struct katcp_acquire *a;
@@ -1438,7 +1567,7 @@ int register_boolean_sensor_katcp(struct katcp_dispatch *d, int mode, char *name
     return -1;
   }
 
-  a = setup_boolean_acquire_katcp(d, get, local);
+  a = setup_boolean_acquire_katcp(d, get, local, release);
   if(a == NULL){
     destroy_sensor_katcp(d, sn);
     return -1;
@@ -2151,7 +2280,7 @@ int sensor_dump_cmd_katcp(struct katcp_dispatch *d, int argc)
       case KATCP_SENSOR_INTEGER :
       case KATCP_SENSOR_BOOLEAN :
         ia = a->a_more;
-        log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "acquire current value %d, get %p and local state %p", ia->ia_current, ia->ia_get, ia->ia_local);
+        log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "acquire current value %d, get %p and local state %p", ia->ia_current, ia->ia_get, a->a_local);
         break;
     }
     if(got == 0){

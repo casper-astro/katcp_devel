@@ -13,7 +13,7 @@
 #include "katcp.h"
 #include "netc.h"
 
-struct katcl_line *create_rpc_katcl(char *name)
+struct katcl_line *create_name_rpc_katcl(char *name)
 {
   int fd;
   struct katcl_line *l;
@@ -180,7 +180,7 @@ int main()
   struct katcl_line *l;
   int result;
 
-  l = create_rpc_katcl(NULL);
+  l = create_name_rpc_katcl(NULL);
   if(l == NULL){
     fprintf(stderr, "unable to create line\n");
     return 1;
