@@ -414,10 +414,12 @@ struct katcl_parse *get_parse_notice_katcp(struct katcp_dispatch *d, struct katc
   return n->n_parse;
 }
 
+#if 0
 void forget_parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
 {
   n->n_parse = NULL;
 }
+#endif
 
 #if 0
 int code_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
@@ -520,22 +522,30 @@ int cancel_name_notice_katcp(struct katcp_dispatch *d, char *name)
 
 void wake_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p)
 {
-#if 0
-  int fail;
-#endif
+  struct katcl_parse *tmp;
 
   log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "waking notice %s@%p (source=%d, client=%d) with parse %p (%s ...)", n->n_name, n, n->n_use, n->n_count, p, p ? get_string_parse_katcl(p, 0) : "<null>");
 
   n->n_trigger = 1;
 
-  if(n->n_parse){
+  /* WARNING: deals with case where tmp == p */
+  tmp = n->n_parse;
+
+  if(p){
+    n->n_parse = copy_parse_katcl(p);
 #ifdef DEBUG
-    fprintf(stderr, "wake notice: problem: have not removed old parse %p of notice %p\n", n->n_parse, n);
-    abort();
+    if(n->n_parse == NULL){
+      fprintf(stderr, "wake notice: copy parse failed, which should not happen");
+      abort();
+    }
 #endif
+  } else {
+    n->n_parse = NULL;
   }
 
-  n->n_parse = p;
+  if(tmp){
+    destroy_parse_katcl(tmp);
+  }
 }
 
 int wake_name_notice_katcp(struct katcp_dispatch *d, char *name, struct katcl_parse *p)
@@ -551,28 +561,6 @@ int wake_name_notice_katcp(struct katcp_dispatch *d, char *name, struct katcl_pa
 
   return 0;
 }
-
-#if 0
-void wake_notice_grab_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p)
-{
-  int fail;
-
-  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "waking notice %s@%p (source=%d, client=%d) with grabbbed parse %p (%s ...)", n->n_name, n, n->n_use, n->n_count, p, p ? get_string_parse_katcl(p, 0) : "<null>");
-
-  n->n_trigger = 1;
-  fail = 0;
-
-  if(n->n_parse){ /* have old stuff, make it go away */
-    if(p == n->n_parse){
-      return;
-    }
-    destroy_parse_katcl(n->n_parse);
-    n->n_parse = NULL;
-  }
-
-  n->n_parse = p;
-}
-#endif
 
 /*******************************************************************************/
 
@@ -594,6 +582,11 @@ int run_notices_katcp(struct katcp_dispatch *d)
 
   while(i < s->s_pending){
     n = s->s_notices[i];
+
+#ifdef DEBUG
+    fprintf(stderr, "notice: running notice %p, trigger=%d (with parse %p)\n", n, n->n_trigger, n->n_parse);
+#endif
+
     if(n->n_trigger){
 
       j = 0;

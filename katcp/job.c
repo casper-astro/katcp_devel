@@ -449,7 +449,6 @@ int issue_request_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
     }
 
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to append request message to job");
-    forget_parse_notice_katcp(d, n);
 
     /* WARNING: after turnaround, p never valid */
     px = turnaround_parse_katcl(p, KATCP_RESULT_FAIL);
@@ -457,8 +456,10 @@ int issue_request_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
     px = NULL;
   }
 
-  wake_notice_katcp(d, n, px); /* WARNING: we may be submitting what we already have */
+  wake_notice_katcp(d, n, px);
   n = remove_head_job(j);
+
+  /* TODO: try next item if this one fails */
 
   return -1;
 }
@@ -499,7 +500,7 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
   int result, code;
   char *cmd, *module, *message, *priority;
   struct katcp_notice *n;
-  struct katcl_parse *p, *px;
+  struct katcl_parse *p;
 
   result = have_katcl(j->j_line);
 
@@ -550,9 +551,7 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
         return -1;
       }
 
-      forget_parse_notice_katcp(d, n);
-      px = copy_parse_katcl(p);
-      wake_notice_katcp(d, n, px);
+      wake_notice_katcp(d, n, p);
 
       j->j_state |= JOB_MAY_REQUEST;
 
@@ -612,16 +611,7 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
 #endif
 
           n->n_use--;
-
-          px = get_parse_notice_katcp(d, n);
-          if(px){
-            destroy_parse_katcl(px);
-          }
-
-          forget_parse_notice_katcp(d, n);
-
-          px = copy_parse_katcl(p);
-          wake_notice_katcp(d, n, px);
+          wake_notice_katcp(d, n, p);
         }
 
         /* terminating job, otherwise halt notice can not assume that job is gone */
@@ -798,9 +788,8 @@ int run_jobs_katcp(struct katcp_dispatch *d)
 
         p = get_parse_notice_katcp(d, n);
         if(p){
-          forget_parse_notice_katcp(d, n);
-
           px = turnaround_parse_katcl(p, KATCP_RESULT_FAIL);
+          /* p = NULL; */
           if(px == NULL){
             log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to generate failed response on disconnect");
           }
@@ -817,21 +806,18 @@ int run_jobs_katcp(struct katcp_dispatch *d)
         n = j->j_halt;
         j->j_halt = NULL;
 
-        p = get_parse_notice_katcp(d, n);
+        p = create_parse_katcl();
         if(p){
-          forget_parse_notice_katcp(d, n);
-          destroy_parse_katcl(p);
-        }
-
-        px = create_parse_katcl();
-        if(px){
-          add_plain_parse_katcl(px, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, KATCP_RETURN_JOB);
+          add_plain_parse_katcl(p, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, KATCP_RETURN_JOB);
           string = code_to_name_katcm(j->j_code);
-          add_plain_parse_katcl(px, KATCP_FLAG_STRING | KATCP_FLAG_LAST, string ? string : KATCP_FAIL);
+          add_plain_parse_katcl(p, KATCP_FLAG_STRING | KATCP_FLAG_LAST, string ? string : KATCP_FAIL);
         }
 
         n->n_use--;
-        wake_notice_katcp(d, n, px);
+        wake_notice_katcp(d, n, p);
+
+        /* wake makes a copy, so get rid of this instance */
+        destroy_parse_katcl(p);
       }
 
       delete_job_katcp(d, j);
