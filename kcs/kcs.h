@@ -159,6 +159,8 @@ int roachpool_del(struct katcp_dispatch *d);
 int roachpool_list(struct katcp_dispatch *d);
 int roachpool_destroy(struct katcp_dispatch *d);
 int roachpool_getconf(struct katcp_dispatch *d);
+int roachpool_connect_pool(struct katcp_dispatch *d);
+int roachpool_test_timer(struct katcp_dispatch *d);
 
 
 

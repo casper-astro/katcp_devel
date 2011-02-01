@@ -597,6 +597,15 @@ int roachpool_connect_pool(struct katcp_dispatch *d){
     return KATCP_RESULT_FAIL;
 }
 
+int roachpool_test_timer(struct katcp_dispatch *d){
+
+#ifdef DEBUG
+  fprintf(stderr,"ROACH POOL: Timer test\n");
+#endif
+
+  return KATCP_RESULT_OK;
+}
+
 int roachpool_greeting(struct katcp_dispatch *d){
   prepend_inform_katcp(d);
   append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST ,"add [kurl (katcp://roach.hostname:port/)] [roach ip] [pool type]");/*[roach hostname] [roach ip] [pool type]");*/

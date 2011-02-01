@@ -327,6 +327,8 @@ int roach_cmd(struct katcp_dispatch *d, int argc){
         
       } else if (strcmp("list",p_cmd) == 0){
         return roachpool_list(d); 
+      } else if (strcmp("tts",p_cmd) == 0){
+        return roachpool_test_timer(d);
       }
       return KATCP_RESULT_FAIL;
     case 3:
@@ -366,7 +368,7 @@ int k7_resume_job(struct katcp_dispatch *d, struct katcp_notice *n){
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL,"remote has responed on job via notice %p", n);
 
-  p = parse_notice_katcp(d,n);
+  p = get_parse_notice_katcp(d,n);
 
   if (p) {
     ptr = get_string_parse_katcl(p,1);
