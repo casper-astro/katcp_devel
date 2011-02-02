@@ -322,7 +322,7 @@ int run_timers_katcp(struct katcp_dispatch *d, struct timespec *interval)
 
   gettimeofday(&now, NULL);
 
-#ifdef DEBUG
+#if 0
   dump_timers_katcp(d);
 #endif
 

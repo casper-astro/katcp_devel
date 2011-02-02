@@ -366,7 +366,11 @@ int add_plain_parse_katcl(struct katcl_parse *p, int flags, char *string)
 
 int add_string_parse_katcl(struct katcl_parse *p, int flags, char *buffer)
 {
-  return add_buffer_parse_katcl(p, flags, buffer, strlen(buffer));
+  if(buffer){
+    return add_buffer_parse_katcl(p, flags, buffer, strlen(buffer));
+  } else {
+    return add_buffer_parse_katcl(p, flags, NULL, 0);
+  }
 }
 
 int add_unsigned_long_parse_katcl(struct katcl_parse *p, int flags, unsigned long v)

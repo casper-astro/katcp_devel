@@ -126,7 +126,8 @@ struct katcp_acquire{
   unsigned int a_count;
 
   int a_type;
-  int a_up;
+  int a_users;
+  int a_periodics;
 
   struct timeval a_poll;    /* rate at which we poll this sensor */
   struct timeval a_current; /* current rate */
@@ -411,6 +412,7 @@ int sensor_value_cmd_katcp(struct katcp_dispatch *d, int argc);
 int sensor_list_cmd_katcp(struct katcp_dispatch *d, int argc);
 int sensor_sampling_cmd_katcp(struct katcp_dispatch *d, int argc);
 int sensor_dump_cmd_katcp(struct katcp_dispatch *d, int argc);
+int sensor_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 char *code_to_name_katcm(int code);
 
