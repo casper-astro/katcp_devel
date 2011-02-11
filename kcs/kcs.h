@@ -31,6 +31,7 @@ struct kcs_basic
   char *b_scripts;
   struct p_parser *b_parser;
   struct kcs_obj *b_pool_head;
+  struct kcs_statemachines *b_sms;
 };
 
 
@@ -162,6 +163,30 @@ int roachpool_getconf(struct katcp_dispatch *d);
 int roachpool_connect_pool(struct katcp_dispatch *d);
 int roachpool_test_timer(struct katcp_dispatch *d);
 
+#define KCS_SM_START 0
+
+#define KCS_TEST_STATE1 1
+#define KCS_TEST_STATE2 2
+#define KCS_TEST_STATE3 3
+
+#define KCS_SM_PING      0
+#define KCS_SM_PING_S1   0
+#define KCS_SM_PING_S2   1
+#define KCS_SM_PING_STOP 2
+
+struct kcs_statemachines {
+  struct kcs_statemachine **machines; 
+  int mcount;
+};
+
+struct kcs_statemachine {
+  int (**sm)(struct katcp_dispatch *,char *); 
+  int state;
+};
+
+int statemachine_greeting(struct katcp_dispatch *d);
+int statemachine_ping(struct katcp_dispatch *d);
+void statemachine_destroy(struct katcp_dispatch *d);
 
 
 #endif

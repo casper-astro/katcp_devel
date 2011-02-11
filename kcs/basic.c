@@ -243,7 +243,12 @@ void destroy_basic_kcs(struct katcp_dispatch *d)
     roachpool_destroy(d);
     kb->b_pool_head = NULL;
   }
-
+/*
+  if (kb->b_sms != NULL){
+    statemachine_destroy(d);
+    kb->b_sms = NULL;
+  }
+*/
   free(kb);
 }
 
@@ -327,9 +332,9 @@ int roach_cmd(struct katcp_dispatch *d, int argc){
         
       } else if (strcmp("list",p_cmd) == 0){
         return roachpool_list(d); 
-      } else if (strcmp("tts",p_cmd) == 0){
+      }/* else if (strcmp("tts",p_cmd) == 0){
         return roachpool_test_timer(d);
-      }
+      }*/
       return KATCP_RESULT_FAIL;
     case 3:
       p_cmd = arg_string_katcp(d,1);
@@ -387,6 +392,24 @@ int k7_resume_job(struct katcp_dispatch *d, struct katcp_notice *n){
 
 }
 
+int statemachine_cmd(struct katcp_dispatch *d, int argc){
+  
+  switch (argc){
+    case 1:
+      return statemachine_greeting(d);
+      break;
+    case 2:
+      break;
+    case 3:
+      if (strcmp(arg_string_katcp(d,1),"ping") == 0)
+        return statemachine_ping(d);
+      break;
+  }
+  
+  return KATCP_RESULT_FAIL;
+}
+
+/*
 int k7_snap_shot_cmd(struct katcp_dispatch *d, int argc){
 #define JOBLABEL "localhost"
   struct katcp_job *j;
@@ -422,6 +445,8 @@ int k7_snap_shot_cmd(struct katcp_dispatch *d, int argc){
   return KATCP_RESULT_PAUSE;
 #undef JOBLABEL
 }
+*/
+
 
 int setup_basic_kcs(struct katcp_dispatch *d, char *scripts)
 {
@@ -440,6 +465,7 @@ int setup_basic_kcs(struct katcp_dispatch *d, char *scripts)
   kb->b_scripts    = NULL;
   kb->b_parser     = NULL;
   kb->b_pool_head  = NULL;
+  kb->b_sms        = NULL;
   
   kb->b_scripts = strdup(scripts);
   if(kb->b_scripts == NULL){
@@ -459,8 +485,10 @@ int setup_basic_kcs(struct katcp_dispatch *d, char *scripts)
   result += register_flag_mode_katcp(d, NULL, "python script handler", &script_wildcard_cmd, KATCP_CMD_HIDDEN | KATCP_CMD_WILDCARD, KCS_MODE_BASIC);
   result += register_flag_mode_katcp(d, "?parser" , "ROACH Configuration file parser (?parser [load|save|get|set|list])", &parser_cmd, 0, KCS_MODE_BASIC);
   result += register_flag_mode_katcp(d, "?roach" , "Control the pool of roaches (?roach [add|del|start|stop|start-pool|stop-pool])", &roach_cmd, 0, KCS_MODE_BASIC);
-  result += register_flag_mode_katcp(d, "?k7-snap-shot" , "Grab a snap shot (?k7-snap-shot [antenna polarisation])", &k7_snap_shot_cmd, 0, KCS_MODE_BASIC);
-  
+  result += register_flag_mode_katcp(d, "?sm" , "Run a statemachine on a pool of roaches (?sm [[ping|connect] pool])", &statemachine_cmd, 0, KCS_MODE_BASIC);
+  /*result += register_flag_mode_katcp(d, "?k7-snap-shot" , "Grab a snap shot (?k7-snap-shot [antenna polarisation])", &k7_snap_shot_cmd, 0, KCS_MODE_BASIC);
+  */
+
   if(result < 0){
     fprintf(stderr, "setup: unable to register command handlers for basic mode\n");
     return result;

@@ -597,14 +597,30 @@ int roachpool_connect_pool(struct katcp_dispatch *d){
     return KATCP_RESULT_FAIL;
 }
 
+/*
+int timer_test_callback(struct katcp_dispatch *d, void *data){
+
+#ifdef DEBUG
+  fprintf(stderr,"ROACH POOL: Callback timer\n");
+#endif
+  
+  return KCS_OK;
+}
+
 int roachpool_test_timer(struct katcp_dispatch *d){
+
+  struct kcs_basic *kb;
+
+  kb = need_current_mode_katcp(d, KCS_MODE_BASIC);
+
 
 #ifdef DEBUG
   fprintf(stderr,"ROACH POOL: Timer test\n");
 #endif
-
+  
   return KATCP_RESULT_OK;
 }
+*/
 
 int roachpool_greeting(struct katcp_dispatch *d){
   prepend_inform_katcp(d);

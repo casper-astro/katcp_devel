@@ -5,7 +5,7 @@ LIB = -L$(KATCP) -lkatcp
 
 SERVER = kcs
 SRCSHARED = shared.c
-SRC = $(SRCSHARED) kurl.c roachpool.c fork-parent.c execpy.c parser.c kcserver.c basic.c
+SRC = $(SRCSHARED) statemachine.c kurl.c roachpool.c fork-parent.c execpy.c parser.c kcserver.c basic.c
 
 OBJ = $(patsubst %.c,%.o,$(SRC))
 all: $(SERVER)
