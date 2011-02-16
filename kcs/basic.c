@@ -86,7 +86,7 @@ struct katcp_job *wrapper_process_create_job_katcp(struct katcp_dispatch *d, cha
   return NULL;
 }
 
-int script_wildcard_resume(struct katcp_dispatch *d, struct katcp_notice *n)
+int script_wildcard_resume(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 {
   char *ptr;
   struct katcl_parse *p;
@@ -204,7 +204,7 @@ int script_wildcard_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
-  if(add_notice_katcp(d, n, &script_wildcard_resume)){
+  if(add_notice_katcp(d, n, &script_wildcard_resume, NULL)){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to watch notice %s", KCS_NOTICE_PYTHON);
     return KATCP_RESULT_FAIL;
   }

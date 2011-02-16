@@ -304,8 +304,8 @@ struct katcp_notice *create_parse_notice_katcp(struct katcp_dispatch *d, char *n
 static void destroy_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 #endif
 
-int add_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n));
-struct katcp_notice *register_notice_katcp(struct katcp_dispatch *d, char *name, unsigned int tag, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n));
+int add_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n, void *data), void *data);
+struct katcp_notice *register_notice_katcp(struct katcp_dispatch *d, char *name, unsigned int tag, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n, void *data), void *data);
 struct katcp_notice *find_notice_katcp(struct katcp_dispatch *d, char *name);
 struct katcp_notice *find_used_notice_katcp(struct katcp_dispatch *d, char *name);
 

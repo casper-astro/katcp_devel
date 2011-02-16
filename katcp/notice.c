@@ -128,6 +128,7 @@ static int notice_compact_notice_katcp(struct katcp_notice *n, struct katcp_disp
       if(i < n->n_count){
         n->n_vector[i].v_client = n->n_vector[n->n_count].v_client;
         n->n_vector[i].v_call   = n->n_vector[n->n_count].v_call;
+        n->n_vector[i].v_data   = n->n_vector[n->n_count].v_data;
       }
     } else {
       i++;
@@ -348,7 +349,7 @@ struct katcp_notice *create_notice_katcp(struct katcp_dispatch *d, char *name, u
   return n;
 }
 
-int add_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n))
+int add_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n, void *data), void *data)
 {
   struct katcp_invoke *v;
   struct katcp_notice **tn;
@@ -372,6 +373,7 @@ int add_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*cal
   v = &(n->n_vector[n->n_count]);
   v->v_client = d;
   v->v_call = call;
+  v->v_data = data;
 
   n->n_count++;
 
@@ -381,7 +383,7 @@ int add_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*cal
   return 0;
 }
 
-struct katcp_notice *register_notice_katcp(struct katcp_dispatch *d, char *name, unsigned int tag, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n))
+struct katcp_notice *register_notice_katcp(struct katcp_dispatch *d, char *name, unsigned int tag, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n, void *data), void *data)
 {
   struct katcp_notice *n;
 
@@ -390,7 +392,7 @@ struct katcp_notice *register_notice_katcp(struct katcp_dispatch *d, char *name,
     return NULL;
   }
 
-  if(add_notice_katcp(d, n, call) < 0){
+  if(add_notice_katcp(d, n, call, data) < 0){
 #if 0
     destroy_notice_katcp(d, n); /* not needed: an empty notice will be collected */
 #endif
@@ -480,8 +482,13 @@ struct katcp_notice *find_used_notice_katcp(struct katcp_dispatch *d, char *name
 
 int cancel_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
 {
+  /* WARNING: not currently used. Consider implications of cancelling a notice still wakeable */
   int i;
   struct katcp_invoke *v;
+
+  if(n->n_use > 0){
+    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "cancelling notice which could still be woken");
+  }
 
   for(i = 0; i < n->n_count; i++){
     v = &(n->n_vector[i]);
@@ -543,6 +550,7 @@ void wake_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct 
     n->n_parse = NULL;
   }
 
+  /* destruction posthoc, in order to not trigger GC of p, in case p == n->n_parse */
   if(tmp){
     destroy_parse_katcl(tmp);
   }
@@ -592,7 +600,7 @@ int run_notices_katcp(struct katcp_dispatch *d)
       j = 0;
       while(j < n->n_count){
         v = &(n->n_vector[j]);
-        if((*(v->v_call))(v->v_client, n) <= 0){
+        if((*(v->v_call))(v->v_client, n, v->v_data) <= 0){
 
           dispatch_compact_notice_katcp(v->v_client, n);
 
@@ -600,6 +608,7 @@ int run_notices_katcp(struct katcp_dispatch *d)
           if(j < n->n_count){
             n->n_vector[j].v_client = n->n_vector[n->n_count].v_client;
             n->n_vector[j].v_call   = n->n_vector[n->n_count].v_call;
+            n->n_vector[j].v_data   = n->n_vector[n->n_count].v_data;
           }
         } else {
           j++;
@@ -682,7 +691,7 @@ int run_notices_katcp(struct katcp_dispatch *d)
 
 /**********************************************************************************/
 
-int resume_notice(struct katcp_dispatch *d, struct katcp_notice *n)
+int resume_notice(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 {
   struct katcl_parse *p;
   char *ptr;
@@ -761,7 +770,7 @@ int notice_cmd_katcp(struct katcp_dispatch *d, int argc)
         return KATCP_RESULT_FAIL;
       }
 
-      if(add_notice_katcp(d, n, &resume_notice)){
+      if(add_notice_katcp(d, n, &resume_notice, NULL)){
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to watch notice %s", value);
         return KATCP_RESULT_FAIL;
       }

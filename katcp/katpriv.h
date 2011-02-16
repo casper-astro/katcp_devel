@@ -31,10 +31,10 @@ struct katcl_larg{
 
 struct katcl_queue
 {
-  struct katcl_parse **q_queue;/*parse array*/
-  unsigned int q_size;/*size of queue*/
-  unsigned int q_head;/*current position*/
-  unsigned int q_count;/*No of entries*/
+  struct katcl_parse **q_queue; /* parse array */
+  unsigned int q_size;          /* size of queue */
+  unsigned int q_head;          /* current position */
+  unsigned int q_count;         /* No of entries */
 };
 
 #if 0
@@ -236,9 +236,9 @@ struct katcp_entry{
   unsigned int e_major;
 };
 
+#if 0
 #define KATCP_PS_UP    1
 #define KATCP_PS_TERM  2
-
 struct katcp_process{
   void (*p_call)(struct katcp_dispatch *d, int status);
   pid_t p_pid;
@@ -246,8 +246,19 @@ struct katcp_process{
   int p_type;
   int p_state;
 };
+#endif
 
 struct katcp_notice;
+
+struct katcp_trap{
+  char *t_name;
+  struct katcp_notice *t_notice;
+};
+
+struct katcp_map{
+  struct katcp_trap **m_traps;
+  unsigned int m_size;
+};
 
 struct katcp_job{
   unsigned int j_magic;
@@ -289,7 +300,8 @@ struct katcp_time{
 
 struct katcp_invoke{
   struct katcp_dispatch *v_client;
-  int (*v_call)(struct katcp_dispatch *d, struct katcp_notice *n);
+  void *v_data;
+  int (*v_call)(struct katcp_dispatch *d, struct katcp_notice *n, void *data);
 };
 
 struct katcp_notice{
