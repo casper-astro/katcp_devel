@@ -17,19 +17,32 @@
 
 char *kurl_string(struct kcs_url *ku){
   char *str;
-  int ccount;
+  /*int ccount;
   str = NULL;
   ccount = 20 + strlen(ku->scheme) + strlen(ku->host) + strlen(ku->path);
   str = malloc(sizeof(char)*ccount);
   sprintf(str,"%s://%s:%d/%s",ku->scheme,ku->host,ku->port,ku->path);
+  */
+  return str;
+}
+
+char *kurl_string_with_path_id(struct kcs_url *ku, int id){
+  char * str;
+  int len;
+  str = NULL;
+  len = sprintf(NULL,"%s://%s:%d/%s",ku->scheme,ku->host,ku->port,ku->path[id]);
+  str = malloc(sizeof(char)*len);
+  len = sprintf(str,"%s://%s:%d/%s",ku->scheme,ku->host,ku->port,ku->path[id]);
   return str;
 }
 
 void kurl_print(struct kcs_url *ku){
+  int i;
   fprintf(stderr,"KURL Scheme: %s\n",ku->scheme);
   fprintf(stderr,"KURL Host  : %s\n",ku->host);
   fprintf(stderr,"KURL Port  : %d\n",ku->port);
-  fprintf(stderr,"KURL Path  : %s\n",ku->path);
+  for (i=0; i<ku->pcount; i++)
+    fprintf(stderr,"KURL Path%d : %s\n",i,ku->path[i]);
   fprintf(stderr,"KURL String: %s\n",ku->str);
 }
 
@@ -47,6 +60,7 @@ struct kcs_url *kurl_create_url_from_string(char *url){
   ku->host   = NULL;
   ku->port   = 0;
   ku->path   = NULL;
+  ku->pcount = 0;
 
   state = S_SCHEME;
   spos  = 0;
@@ -133,9 +147,14 @@ struct kcs_url *kurl_create_url_from_string(char *url){
           case '\r':
             epos = i+1;
             len = epos-spos;
-            ku->path = malloc(sizeof(char)*len);
-            ku->path = strncpy(ku->path,url+spos,len-1);
-            ku->path[len-1] = '\0';
+            //ku->path = malloc(sizeof(char)*len);
+            //ku->path = strncpy(ku->path,url+spos,len-1);
+            //ku->path[len-1] = '\0';
+            ku->path = malloc(sizeof(char *));
+            ku->path[ku->pcount] = malloc(sizeof(char)*len);
+            ku->path[ku->pcount] = strncpy(ku->path[ku->pcount],url+spos,len-1);
+            ku->path[ku->pcount][len-1] = '\0'; 
+            ku->pcount++;
            // fprintf(stderr,"path: %s %d\n",ku->path,epos);
             state = S_END;
             break;
@@ -159,18 +178,35 @@ struct kcs_url *kurl_create_url(char *scheme, char *host, int port, char *path){
   ku->scheme = create_str(scheme);
   ku->host   = create_str(host);
   ku->port   = port;
-  ku->path   = create_str(path);
+  //ku->path   = create_str(path);
+  ku->path = realloc(ku->path,sizeof(char*)*++ku->pcount);
+  ku->path[ku->pcount-1] = strdup(path);
   return ku;
 }
 
+char *kurl_add_path(struct kcs_url *ku, char *npath){
+  ku->path = realloc(ku->path,sizeof(char*)*++ku->pcount);
+  ku->path[ku->pcount-1] = strdup(npath);
+  return kurl_string_with_path_id(ku,ku->pcount-1);
+}
+
 void kurl_destroy(struct kcs_url *ku){
+  int i;
   if (!ku)
     return;
   if (ku->str)    { free(ku->str);    ku->str = NULL; }
   if (ku->scheme) { free(ku->scheme); ku->scheme = NULL; }
   if (ku->host)   { free(ku->host);   ku->host = NULL; }
   ku->port = 0;
-  if (ku->path)   { free(ku->path);   ku->path = NULL; }
+  if (ku->path)   { 
+    for (i=0;i<ku->pcount;i++)
+      if (ku->path[i]) { 
+        free(ku->path[i]);
+        ku->path[i] = NULL;
+      }
+    free(ku->path);   
+    ku->path = NULL; 
+  }
   if (ku)         { free(ku);         ku = NULL; }
 #ifdef DEBUG
   fprintf(stderr,"KURL: Destroyed a kurl\n");

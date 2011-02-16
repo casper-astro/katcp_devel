@@ -463,13 +463,13 @@ int issue_request_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
   return -1;
 }
 
-int submit_to_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, struct katcl_parse *p, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n))
+int submit_to_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, struct katcl_parse *p, char *name, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n))
 {
   struct katcp_notice *n;
 
   sane_job_katcp(j);
 
-  n = create_parse_notice_katcp(d, NULL, 0, p);
+  n = create_parse_notice_katcp(d, name, 0, p);
   if(n == NULL){
     return -1;
   }
@@ -1289,7 +1289,7 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
       fprintf(stderr, "job: submitting parse %p to job %p\n", p, j);
 #endif
 
-      if(submit_to_job_katcp(d, j, p, &resume_job) < 0){
+      if(submit_to_job_katcp(d, j, p, NULL, &resume_job) < 0){
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to submit message to job");
         destroy_parse_katcl(p);
         return KATCP_RESULT_FAIL;
@@ -1375,7 +1375,7 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
         free(buffer);
       }
 
-      if(submit_to_job_katcp(d, j, p, &resume_job) < 0){
+      if(submit_to_job_katcp(d, j, p, NULL, &resume_job) < 0){
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to submit message to job");
         destroy_parse_katcl(p);
         return KATCP_RESULT_FAIL;

@@ -447,7 +447,7 @@ int run_jobs_katcp(struct katcp_dispatch *d);
 
 int job_cmd_katcp(struct katcp_dispatch *d, int argc);
 int register_subprocess_cmd_katcp(struct katcp_dispatch *d, int argc);
-int submit_to_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, struct katcl_parse *p, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n));
+int submit_to_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, struct katcl_parse *p, char *name, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n));
 int ended_jobs_katcp(struct katcp_dispatch *d);
 
 /* parse: setup */

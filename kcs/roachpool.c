@@ -55,6 +55,7 @@ struct kcs_obj *new_kcs_roach_obj(struct kcs_obj *parent, char *url, char *ip, c
   kr->mac      = mac;
   kr->jl       = NULL;
   kr->kurl     = kurl_create_url_from_string(url);
+  kr->ksm      = NULL;
   if (kr->kurl == NULL)
     return NULL;
   ko = new_kcs_obj(parent,url,KCS_ID_ROACH,kr);
@@ -275,6 +276,7 @@ void destroy_tree(struct kcs_obj *o){
         if (r->ip) { free(r->ip); r->ip = NULL; }
         if (r->mac) { free(r->mac); r->mac = NULL; }
         if (r->kurl) { kurl_destroy(r->kurl); r->kurl = NULL; }
+        if (r->ksm) { ksm_destroy(r->ksm); r->ksm = NULL; }
         free(r);
       }
 
@@ -473,9 +475,14 @@ int roachpool_list(struct katcp_dispatch *d){
   
   struct kcs_basic *kb;
   kb = need_current_mode_katcp(d, KCS_MODE_BASIC);
-
+  
+  if (kb->b_pool_head == NULL){
+    log_message_katcp(d, KATCP_LEVEL_INFO,NULL,"The roach pool is uninitialized");
+    return KATCP_RESULT_FAIL;
+  }
+  
   show_pool(d,kb->b_pool_head,0);
-
+  
   return KATCP_RESULT_OK;
 }
 int roachpool_destroy(struct katcp_dispatch *d){
@@ -1087,7 +1094,7 @@ void traverse_tree(struct katcp_dispatch *d, struct kcs_node *n){
 #endif
 }
 */
-
+/*
 int roachpool_list(struct katcp_dispatch *d){
 
   struct kcs_basic *kb;
@@ -1101,7 +1108,7 @@ int roachpool_list(struct katcp_dispatch *d){
   
   return KATCP_RESULT_OWN;
 }
-
+*/
 
 int roachpool_mod(struct katcp_dispatch *d) {
   
