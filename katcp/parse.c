@@ -156,86 +156,6 @@ void destroy_parse_katcl(struct katcl_parse *p)
   }
 }
 
-#if 0
-struct katcl_parse *copy_parse_katcl(struct katcl_parse *pd, struct katcl_parse *ps)
-{
-  struct katcl_larg *tmp, *as, *at;
-  struct katcl_parse *pt;
-  char *buffer;
-  int i;
-
-  sane_parse_katcl(ps);
-
-  if(ps->p_state != KATCL_PARSE_DONE){
-#ifdef DEBUG
-    fprintf(stderr, "warning: expected complete source parse in copy\n");
-#endif
-    return NULL;
-  }
-
-  if(pd == NULL){
-    pt = create_parse_katcl();
-    if(pt == NULL){
-      return NULL;
-    }
-  } else {
-    sane_parse_katcl(pd);
-    pt = pd;
-    clear_parse_katcl(pt);
-  }
-
-  if(pt->p_size < ps->p_kept){
-    buffer = realloc(pt->p_buffer, ps->p_kept);
-    if(buffer == NULL){
-      if(pt != pd){
-        destroy_parse_katcl(pt);
-      }
-      return NULL;
-    }
-    pt->p_buffer = buffer;
-    pt->p_size = ps->p_kept;
-  }
-
-  if(pt->p_count < ps->p_got){
-    tmp = realloc(pt->p_args, sizeof(struct katcl_larg) * ps->p_got);
-    if(tmp == NULL){
-      if(pt != pd){
-        destroy_parse_katcl(pt);
-      }
-      return NULL;
-    }
-    pt->p_args = tmp;
-    pt->p_count = ps->p_got;
-  }
-
-  memcpy(pt->p_buffer, ps->p_buffer, ps->p_kept);
-
-  for(i = 0; i < ps->p_got; i++){ /* could have been one big memcpy, but typing inferences */
-    as = &(ps->p_args[i]);
-    at = &(pt->p_args[i]);
-
-    at->a_begin   = as->a_begin;
-    at->a_end     = as->a_end;
-    at->a_escape  = as->a_escape;
-  }
-
-  pt->p_state = ps->p_state;
-
-  /* pt->p_buffer, pt->p_size set by realloc */
-  pt->p_have  = ps->p_have;
-  pt->p_used  = ps->p_used;
-  pt->p_kept  = ps->p_kept;
-
-  /* pt->p_args, pt->p_count set by realloc */
-  pt->p_got   = ps->p_got;
-  /* pt->p_current assumed to be NULL (cleared) */
-
-  pt->p_tag   = ps->p_tag;
-
-  return pt;
-}
-#endif
-
 /******************************************************************/
 /* logic to populate the parse ************************************/
 
@@ -446,7 +366,11 @@ int add_plain_parse_katcl(struct katcl_parse *p, int flags, char *string)
 
 int add_string_parse_katcl(struct katcl_parse *p, int flags, char *buffer)
 {
-  return add_buffer_parse_katcl(p, flags, buffer, strlen(buffer));
+  if(buffer){
+    return add_buffer_parse_katcl(p, flags, buffer, strlen(buffer));
+  } else {
+    return add_buffer_parse_katcl(p, flags, NULL, 0);
+  }
 }
 
 int add_unsigned_long_parse_katcl(struct katcl_parse *p, int flags, unsigned long v)

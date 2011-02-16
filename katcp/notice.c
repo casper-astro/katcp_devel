@@ -128,6 +128,7 @@ static int notice_compact_notice_katcp(struct katcp_notice *n, struct katcp_disp
       if(i < n->n_count){
         n->n_vector[i].v_client = n->n_vector[n->n_count].v_client;
         n->n_vector[i].v_call   = n->n_vector[n->n_count].v_call;
+        n->n_vector[i].v_data   = n->n_vector[n->n_count].v_data;
       }
     } else {
       i++;
@@ -348,7 +349,7 @@ struct katcp_notice *create_notice_katcp(struct katcp_dispatch *d, char *name, u
   return n;
 }
 
-int add_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n))
+int add_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n, void *data), void *data)
 {
   struct katcp_invoke *v;
   struct katcp_notice **tn;
@@ -372,6 +373,7 @@ int add_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*cal
   v = &(n->n_vector[n->n_count]);
   v->v_client = d;
   v->v_call = call;
+  v->v_data = data;
 
   n->n_count++;
 
@@ -381,7 +383,7 @@ int add_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*cal
   return 0;
 }
 
-struct katcp_notice *register_notice_katcp(struct katcp_dispatch *d, char *name, unsigned int tag, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n))
+struct katcp_notice *register_notice_katcp(struct katcp_dispatch *d, char *name, unsigned int tag, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n, void *data), void *data)
 {
   struct katcp_notice *n;
 
@@ -390,7 +392,7 @@ struct katcp_notice *register_notice_katcp(struct katcp_dispatch *d, char *name,
     return NULL;
   }
 
-  if(add_notice_katcp(d, n, call) < 0){
+  if(add_notice_katcp(d, n, call, data) < 0){
 #if 0
     destroy_notice_katcp(d, n); /* not needed: an empty notice will be collected */
 #endif
@@ -414,10 +416,12 @@ struct katcl_parse *get_parse_notice_katcp(struct katcp_dispatch *d, struct katc
   return n->n_parse;
 }
 
+#if 0
 void forget_parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
 {
   n->n_parse = NULL;
 }
+#endif
 
 #if 0
 int code_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
@@ -478,8 +482,13 @@ struct katcp_notice *find_used_notice_katcp(struct katcp_dispatch *d, char *name
 
 int cancel_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
 {
+  /* WARNING: not currently used. Consider implications of cancelling a notice still wakeable */
   int i;
   struct katcp_invoke *v;
+
+  if(n->n_use > 0){
+    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "cancelling notice which could still be woken");
+  }
 
   for(i = 0; i < n->n_count; i++){
     v = &(n->n_vector[i]);
@@ -520,22 +529,31 @@ int cancel_name_notice_katcp(struct katcp_dispatch *d, char *name)
 
 void wake_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p)
 {
-#if 0
-  int fail;
-#endif
+  struct katcl_parse *tmp;
 
   log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "waking notice %s@%p (source=%d, client=%d) with parse %p (%s ...)", n->n_name, n, n->n_use, n->n_count, p, p ? get_string_parse_katcl(p, 0) : "<null>");
 
   n->n_trigger = 1;
 
-  if(n->n_parse){
+  /* WARNING: deals with case where tmp == p */
+  tmp = n->n_parse;
+
+  if(p){
+    n->n_parse = copy_parse_katcl(p);
 #ifdef DEBUG
-    fprintf(stderr, "wake notice: problem: have not removed old parse %p of notice %p\n", n->n_parse, n);
-    abort();
+    if(n->n_parse == NULL){
+      fprintf(stderr, "wake notice: copy parse failed, which should not happen");
+      abort();
+    }
 #endif
+  } else {
+    n->n_parse = NULL;
   }
 
-  n->n_parse = p;
+  /* destruction posthoc, in order to not trigger GC of p, in case p == n->n_parse */
+  if(tmp){
+    destroy_parse_katcl(tmp);
+  }
 }
 
 int wake_name_notice_katcp(struct katcp_dispatch *d, char *name, struct katcl_parse *p)
@@ -551,28 +569,6 @@ int wake_name_notice_katcp(struct katcp_dispatch *d, char *name, struct katcl_pa
 
   return 0;
 }
-
-#if 0
-void wake_notice_grab_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p)
-{
-  int fail;
-
-  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "waking notice %s@%p (source=%d, client=%d) with grabbbed parse %p (%s ...)", n->n_name, n, n->n_use, n->n_count, p, p ? get_string_parse_katcl(p, 0) : "<null>");
-
-  n->n_trigger = 1;
-  fail = 0;
-
-  if(n->n_parse){ /* have old stuff, make it go away */
-    if(p == n->n_parse){
-      return;
-    }
-    destroy_parse_katcl(n->n_parse);
-    n->n_parse = NULL;
-  }
-
-  n->n_parse = p;
-}
-#endif
 
 /*******************************************************************************/
 
@@ -594,12 +590,17 @@ int run_notices_katcp(struct katcp_dispatch *d)
 
   while(i < s->s_pending){
     n = s->s_notices[i];
+
+#ifdef DEBUG
+    fprintf(stderr, "notice: running notice %p, trigger=%d (with parse %p)\n", n, n->n_trigger, n->n_parse);
+#endif
+
     if(n->n_trigger){
 
       j = 0;
       while(j < n->n_count){
         v = &(n->n_vector[j]);
-        if((*(v->v_call))(v->v_client, n) <= 0){
+        if((*(v->v_call))(v->v_client, n, v->v_data) <= 0){
 
           dispatch_compact_notice_katcp(v->v_client, n);
 
@@ -607,6 +608,7 @@ int run_notices_katcp(struct katcp_dispatch *d)
           if(j < n->n_count){
             n->n_vector[j].v_client = n->n_vector[n->n_count].v_client;
             n->n_vector[j].v_call   = n->n_vector[n->n_count].v_call;
+            n->n_vector[j].v_data   = n->n_vector[n->n_count].v_data;
           }
         } else {
           j++;
@@ -689,7 +691,7 @@ int run_notices_katcp(struct katcp_dispatch *d)
 
 /**********************************************************************************/
 
-int resume_notice(struct katcp_dispatch *d, struct katcp_notice *n)
+int resume_notice(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 {
   struct katcl_parse *p;
   char *ptr;
@@ -768,7 +770,7 @@ int notice_cmd_katcp(struct katcp_dispatch *d, int argc)
         return KATCP_RESULT_FAIL;
       }
 
-      if(add_notice_katcp(d, n, &resume_notice)){
+      if(add_notice_katcp(d, n, &resume_notice, NULL)){
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to watch notice %s", value);
         return KATCP_RESULT_FAIL;
       }

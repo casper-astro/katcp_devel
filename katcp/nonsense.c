@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 
 #include "katcp.h"
 #include "katpriv.h"
@@ -106,6 +107,7 @@ struct katcp_check_table{
   int (*c_append_value)(struct katcp_dispatch *d, int flags, struct katcp_sensor *sn);
   int (*c_append_diff)(struct katcp_dispatch *d, int flags, struct katcp_nonsense *ns);
   int (*c_scan_diff)(struct katcp_nonsense *ns, char *extra);
+  int (*c_has_poll)(struct katcp_acquire *a);
   int (*c_checks[KATCP_STRATEGIES_COUNT])(struct katcp_nonsense *ns);
 };
 
@@ -231,6 +233,21 @@ int create_acquire_intbool_katcp(struct katcp_dispatch *d, struct katcp_acquire 
 
   return 0;
 }
+
+int has_poll_intbool_katcp(struct katcp_acquire *a)
+{
+  struct katcp_integer_acquire *ia;
+
+  ia = a->a_more;
+
+  if(ia && ia->ia_get){
+    return 1;
+  }
+
+  return 0;
+}
+
+/*********************************************************************/
 
 int create_sensor_integer_katcp(struct katcp_dispatch *d, struct katcp_sensor *sn, int min, int max)
 {
@@ -550,6 +567,7 @@ static struct katcp_check_table type_lookup_table[] = {
       &append_value_intbool_katcp,
       &append_diff_integer_katcp,
       &scan_diff_integer_katcp,
+      &has_poll_intbool_katcp,
       { 
          NULL, /* never used, strategy none causes the deletion of the matching nonsense structure */
         &period_check_katcp,
@@ -567,6 +585,7 @@ static struct katcp_check_table type_lookup_table[] = {
       &append_value_intbool_katcp,
        NULL,
        NULL,
+      &has_poll_intbool_katcp,
       { 
          NULL, /* never used, strategy none causes the deletion of the matching nonsense structure */
         &period_check_katcp,
@@ -587,6 +606,11 @@ void destroy_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a)
   struct katcp_sensor *s;
   struct katcp_integer_acquire *ia;
 
+  if(a->a_release){
+    (*(a->a_release))(d, a);
+    a->a_release = NULL;
+  }
+  a->a_local = NULL;
   for(i = 0; i < a->a_count; i++){
     s = a->a_sensors[i];
     if(s){
@@ -598,19 +622,13 @@ void destroy_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a)
     free(a->a_sensors);
     a->a_sensors = NULL;
   }
-
   a->a_count = 0;
 
-  if(a->a_up){
+  if(a->a_periodics){
     discharge_timer_katcp(d, a);
-    a->a_up = 0;
   }
-
-  if(a->a_release){
-    (*(a->a_release))(d, a);
-    a->a_release = NULL;
-  }
-  a->a_local = NULL;
+  a->a_periodics = 0;
+  a->a_users = 0;
 
   if(a->a_more){
     switch(a->a_type){
@@ -671,7 +689,8 @@ static struct katcp_acquire *extended_create_acquire_katcp(struct katcp_dispatch
   a->a_count = 0;
 
   a->a_type = KATCP_SENSOR_INVALID;
-  a->a_up = 0;
+  a->a_users = 0;
+  a->a_periodics = 0;
 
   adjust_acquire_katcp(a, defpoll, maxrate);
 
@@ -848,11 +867,14 @@ int run_acquire_katcp(struct katcp_dispatch *d, void *data)
   /* should move mode to acquire, rather than sensor */
 
 #ifdef DEBUG
-  if(a->a_up <= 0){
-    fprintf(stderr, "run: major logic failure - running sensor without any clients\n");
+  if(a->a_periodics <= 0){
+    fprintf(stderr, "run: major logic failure - polling acquire %p without any polling clients (%d users)\n", a, a->a_users);
     abort();
   }
+  fprintf(stderr, "sensor: running acquire %p with %d users, %d periodic\n", a, a->a_users, a->a_periodics);
 #endif
+
+  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "sensor: running acquire %p with %d sensors %d users of which %d periodic\n", a, a->a_count, a->a_users, a->a_periodics);
 
   gettimeofday(&now, NULL);
 
@@ -866,14 +888,10 @@ int run_acquire_katcp(struct katcp_dispatch *d, void *data)
       case KATCP_SENSOR_INTEGER :
       case KATCP_SENSOR_BOOLEAN :
         ia = a->a_more;
-#ifdef DEBUG
-        if(ia->ia_get == NULL){
-          fprintf(stderr, "run: logic problem: null intbool get\n");
-          abort();
+        if(ia->ia_get){
+          ia->ia_current = (*(ia->ia_get))(d, a);
+          log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "acquired integer result %d for %p", ia->ia_current, a);
         }
-#endif
-        ia->ia_current = (*(ia->ia_get))(d, a);
-        log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "acquired integer result %d for %p", ia->ia_current, a);
         break;
       default :
         log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unsupported sensor type %d", a->a_type);
@@ -1037,7 +1055,7 @@ int is_up_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a)
     return 0;
   }
 
-  return a->a_up;
+  return a->a_users;
 }
 
 /*************************************************************************/
@@ -1048,6 +1066,10 @@ static struct katcp_sensor *create_sensor_katcp(struct katcp_dispatch *d, char *
   struct katcp_shared *s;
 
   s = d->d_shared;
+
+  if(name == NULL){
+    return NULL;
+  }
 
   tmp = realloc(s->s_sensors, sizeof(struct katcp_sensor *) * (s->s_tally + 1));
   if(tmp == NULL){
@@ -1063,9 +1085,9 @@ static struct katcp_sensor *create_sensor_katcp(struct katcp_dispatch *d, char *
   sn->s_magic = SENSOR_MAGIC;
   sn->s_type = type;
 
-  sn->s_name = strdup(name);
-  sn->s_description = strdup(description);
-  sn->s_units = strdup(units);
+  sn->s_name = NULL;
+  sn->s_description = NULL;
+  sn->s_units = NULL;
 
   sn->s_preferred = preferred;
 
@@ -1083,11 +1105,25 @@ static struct katcp_sensor *create_sensor_katcp(struct katcp_dispatch *d, char *
   s->s_sensors[s->s_tally] = sn;
   s->s_tally++;
 
-  if((sn->s_name == NULL) || 
-     (sn->s_description == NULL) || 
-     (sn->s_units == NULL)){
+  sn->s_name = strdup(name);
+  if(sn->s_name == NULL){
     destroy_sensor_katcp(d, sn);
     return NULL;
+  }
+
+  if(description){
+    sn->s_description = strdup(description);
+    if(sn->s_description == NULL){
+      destroy_sensor_katcp(d, sn);
+      return NULL;
+    }
+  }
+  if(units){
+    sn->s_units = strdup(units);
+    if(sn->s_units == NULL){
+      destroy_sensor_katcp(d, sn);
+      return NULL;
+    }
   }
 
   return sn;
@@ -1182,7 +1218,7 @@ static int reload_sensor_katcp(struct katcp_dispatch *d, struct katcp_sensor *sz
   struct katcp_sensor *sn;
   struct katcp_acquire *a;
   struct katcp_shared *s;
-  int was, base;
+  int users, periodics, polling;
 
   s = d->d_shared;
   a = sz->s_acquire;
@@ -1192,9 +1228,10 @@ static int reload_sensor_katcp(struct katcp_dispatch *d, struct katcp_sensor *sz
     return -1;
   }
 
-  was = a->a_up;
+  polling = (*(type_lookup_table[a->a_type].c_has_poll))(a);
 
-  a->a_up = 0;
+  periodics = 0;
+  users = 0;
 
   for(j = 0; j < a->a_count; j++){
     sn = a->a_sensors[j];
@@ -1205,30 +1242,51 @@ static int reload_sensor_katcp(struct katcp_dispatch *d, struct katcp_sensor *sz
     }
     log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "scheduling %s with %d references", sn->s_name, sn->s_refs);
     if(sn->s_refs > 0){
-      if(a->a_up > 0){
-        base = 0;
-      } else {
-        ns = sn->s_nonsense[0];
-        a->a_current.tv_sec = ns->n_period.tv_sec;
-        a->a_current.tv_usec = ns->n_period.tv_usec;
-        base = 1;
-      }
-      for(i = base; i < sn->s_refs; i++){
+      for(i = 0; i < sn->s_refs; i++){
         ns = sn->s_nonsense[i];
         sane_nonsense(ns);
-        if(cmp_time_katcp(&(a->a_current), &(ns->n_period)) > 0){
-          a->a_current.tv_sec = ns->n_period.tv_sec;
-          a->a_current.tv_usec = ns->n_period.tv_usec;
+
+        switch(ns->n_strategy){
+          case KATCP_STRATEGY_OFF   :
+            log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "did not expect an off strategy while recomputing poll periods\n");
+            /* WARNING */
+          case KATCP_STRATEGY_EVENT : 
+            if(polling == 0){
+              break;
+            } /* WARNING */
+          default :
+            if(periodics){
+              if(cmp_time_katcp(&(a->a_current), &(ns->n_period)) > 0){
+                a->a_current.tv_sec = ns->n_period.tv_sec;
+                a->a_current.tv_usec = ns->n_period.tv_usec;
+              }
+            } else {
+              a->a_current.tv_sec = ns->n_period.tv_sec;
+              a->a_current.tv_usec = ns->n_period.tv_usec;
+            }
+            periodics++;
+            break;
         }
       }
-      a->a_up += sn->s_refs;
+      users += sn->s_refs;
     }
   }
-  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "acquire has %d sensors totalling %d references", a->a_count, a->a_up);
 
-  /* was running, but no longer needed */
-  if((was > 0) && (a->a_up == 0)){
+  a->a_users = users;
+
+  /* was running timers, but they are no longer needed */
+  if((a->a_periodics > 0) && (periodics == 0)){
+    a->a_periodics = 0;
     discharge_timer_katcp(d, a);
+    return 0;
+  }
+
+  a->a_periodics = periodics;
+
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "acquire %p has %d sensors with %d users of which %d poll", a, a->a_count, a->a_users, a->a_periodics);
+
+  if(a->a_periodics == 0){
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "not polling aquire %p so propagation needs to be triggered elsewhere", a->a_count);
     return 0;
   }
 
@@ -1290,6 +1348,18 @@ static struct katcp_sensor *find_sensor_katcp(struct katcp_dispatch *d, char *na
   log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no match for sensor name %s", name);
 
   return NULL;
+}
+
+struct katcp_acquire *find_acquire_katcp(struct katcp_dispatch *d, char *name)
+{
+  struct katcp_sensor *sn;
+
+  sn = find_sensor_katcp(d, name);
+  if(sn == NULL){
+    return NULL;
+  }
+
+  return sn->s_acquire;
 }
 
 void destroy_sensors_katcp(struct katcp_dispatch *d)
@@ -2175,7 +2245,7 @@ static int configure_sensor_katcp(struct katcp_dispatch *d, struct katcp_sensor 
   }
 
   log_message_katcp(d, sn->s_refs ? KATCP_LEVEL_INFO : KATCP_LEVEL_DEBUG, NULL, "%d clients subscribed to sensor %s", sn->s_refs, sn->s_name);
-  if(a->a_up > 0){
+  if(a->a_periodics > 0){
     log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "sensor %s polled once every %lu.%06lus", sn->s_name, a->a_current.tv_sec, a->a_current.tv_usec);
   }
 
@@ -2289,4 +2359,124 @@ int sensor_dump_cmd_katcp(struct katcp_dispatch *d, int argc)
   } 
 
   return KATCP_RESULT_OK;
+}
+
+int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  struct katcp_shared *s;
+  struct katcp_sensor *sn;
+  struct katcp_nonsense *ns;
+  struct katcp_acquire *a;
+  struct katcp_integer_acquire *ia;
+  int i, j, got;
+  char *name, *type, *label, *value;
+
+  s = d->d_shared;
+
+  if(s == NULL){
+    return KATCP_RESULT_FAIL;
+  }
+  
+  name = arg_string_katcp(d, 1);
+  if(name == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "insufficient parameters");
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(!strcmp(name, "list")){
+    for(i = 0; i < s->s_tally; i++){
+      sn = s->s_sensors[i];
+      log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "sensor %s at %p has type %d (%s) with %d clients", sn->s_name, sn, sn->s_type, type_name_sensor_katcp(sn), sn->s_refs);
+      for(j = 0; j < sn->s_refs; j++){
+        ns = sn->s_nonsense[j];
+        log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "client %d in strategy %d (%s) with dispatch %p (%s)", j, ns->n_strategy, strategy_name_sensor_katcp(ns), ns->n_client, (ns->n_client == d) ? "this connection" : "another connection");
+        if(ns->n_sensor != sn){
+          log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "logic problem - client does not point at sensor");
+        }
+      }
+      a = sn->s_acquire;
+      got = 0;
+      for(j = 0; j < a->a_count; j++){
+        if(a->a_sensors[j] == sn){
+          log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "sensor at position %d of %d of acquire %p of type %d", j, a->a_count, a, a->a_type);
+          got++;
+        }
+      }
+      switch(a->a_type){
+        case KATCP_SENSOR_INTEGER :
+        case KATCP_SENSOR_BOOLEAN :
+          ia = a->a_more;
+          log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "acquire current value %d, get %p and local state %p", ia->ia_current, ia->ia_get, a->a_local);
+          break;
+      }
+      if(got == 0){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "logic problem - acquire does not know about this sensor");
+      }
+    } 
+    return KATCP_RESULT_OK;
+
+  } else if(!strcmp(name, "create")){
+    label = arg_string_katcp(d, 2);
+    type = arg_string_katcp(d, 3);
+
+    if((type == NULL) || (label == NULL)){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "create needs a name and type");
+      return KATCP_RESULT_FAIL;
+    }
+
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "about to create sensor %s of type %s", label, type);
+
+    if(!strcmp(type, "integer")){
+      if(register_integer_sensor_katcp(d, 0, label, NULL, NULL, NULL, NULL, NULL, 0, INT_MAX) < 0){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to register integer sensor %s", label);
+        return KATCP_RESULT_FAIL;
+      }
+
+      return KATCP_RESULT_OK;
+    } else {
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no logic to handle type %s yet", type);
+      return KATCP_RESULT_FAIL;
+    }
+
+  } else if(!strcmp(name, "update")){
+
+    label = arg_string_katcp(d, 2);
+    value = arg_string_katcp(d, 3);
+
+    if((label == NULL) || (value == NULL)){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "create needs a name and value");
+      return KATCP_RESULT_FAIL;
+    }
+
+    a = find_acquire_katcp(d, label);
+    if(a == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to locate acquire for sensor %s", label);
+      return KATCP_RESULT_FAIL;
+    }
+
+    switch(a->a_type){
+      case KATCP_SENSOR_INTEGER :
+        if(a->a_more == NULL){
+          log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no extra integer field for sensor %s", label);
+          return KATCP_RESULT_FAIL;
+        }
+        
+        ia = a->a_more;
+        ia->ia_current = atoi(value);
+        propagate_acquire_katcp(d, a);
+
+        log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "updated integer sensor %s to new value %d", label, ia->ia_current);
+        return KATCP_RESULT_OK;
+
+      default :
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to update sensor %s of unsupported type %d\n", label, a->a_type);
+        return KATCP_RESULT_FAIL;
+    }
+
+  } else {
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unknown sensor operation %s", name);
+    return KATCP_RESULT_FAIL;
+  }
+
+  /* should not be reached */
 }

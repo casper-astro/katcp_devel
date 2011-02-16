@@ -355,19 +355,23 @@ int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, ch
 #if 0
   register_flag_mode_katcp(dl, "?notice",  "notice operations (?notice [list|create|watch|wake])", &notice_cmd_katcp, KATCP_CMD_HIDDEN, 0);
   register_flag_mode_katcp(dl, "?job",     "job operations (?job [list|process notice-name executable-file])", &job_cmd_katcp, KATCP_CMD_HIDDEN, 0);
-#else
+#endif
+
   register_flag_mode_katcp(dl, "?dispatch","dispatch operations (?dispatch [list])", &dispatch_cmd_katcp, 0, 0);
   register_flag_mode_katcp(dl, "?notice",  "notice operations (?notice [list|watch|wake])", &notice_cmd_katcp, 0, 0);
   register_flag_mode_katcp(dl, "?job",     "job operations (?job [list|process notice-name executable-file|network notice-name net-host remote-port|watchdog job-name])", &job_cmd_katcp, 0, 0);
   register_flag_mode_katcp(dl, "?process", "register a process command (?process executable help-string [mode]", &register_subprocess_cmd_katcp, 0, 0);
-#endif
+  register_flag_mode_katcp(dl, "?sensor",  "sensor operations (?sensor [list|create])", &sensor_cmd_katcp, 0, 0);
 
   register_katcp(dl, "?sensor-list",       "lists available sensors (?sensor-list [sensor])", &sensor_list_cmd_katcp);
+  register_katcp(dl, "?sensor-sampling", "configure sensor (?sensor-sampling sensor [strategy [parameter]])", &sensor_sampling_cmd_katcp);
+  register_katcp(dl, "?sensor-value",    "query a sensor (?sensor-value sensor)", &sensor_value_cmd_katcp);
+
+#if 0
   if(s->s_tally > 0){
-    register_katcp(dl, "?sensor-sampling", "configure sensor (?sensor-sampling sensor [strategy [parameter]])", &sensor_sampling_cmd_katcp);
-    register_katcp(dl, "?sensor-value",    "query a sensor (?sensor-value sensor)", &sensor_value_cmd_katcp);
     register_katcp(dl, "?sensor-dump",     "dump sensor tree (?sensor-dump)", &sensor_dump_cmd_katcp);
   }
+#endif
 
   /* setup child signal routines, in case they haven't yet */
   init_signals_shared_katcp(s);

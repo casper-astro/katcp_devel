@@ -78,7 +78,7 @@ int pause_check_cmd(struct katcp_dispatch *d, int argc)
   return KATCP_RESULT_PAUSE;
 }
 
-int subprocess_check_callback(struct katcp_dispatch *d, struct katcp_notice *n)
+int subprocess_check_callback(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 {
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "was woken by child process exit");
 
@@ -107,7 +107,7 @@ int subprocess_check_cmd(struct katcp_dispatch *d, int argc)
   }
   
   /* create a notice, an entity which can invoke the callback when triggered */
-  n = register_notice_katcp(d, "sleep-notice", 0, &subprocess_check_callback);
+  n = register_notice_katcp(d, "sleep-notice", 0, &subprocess_check_callback, NULL);
   if(n == NULL){
     log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "unable to create notice object");
     return KATCP_RESULT_FAIL;
