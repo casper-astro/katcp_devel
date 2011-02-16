@@ -179,7 +179,7 @@ struct kcs_statemachines {
 };
 
 struct kcs_statemachine {
-  int (**sm)(struct katcp_dispatch *,struct katcp_notice *); 
+  int (**sm)(struct katcp_dispatch *,struct katcp_notice *, void *); 
   int state;
 };
 

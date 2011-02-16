@@ -14,7 +14,7 @@
 
 #include "kcs.h"
 
-int kcs_sm_ping_s1(struct katcp_dispatch *d,struct katcp_notice *n){
+int kcs_sm_ping_s1(struct katcp_dispatch *d,struct katcp_notice *n, void *data){
   struct katcp_job *j;
   struct katcl_parse *p;
   struct kcs_basic *kb;
@@ -42,7 +42,7 @@ int kcs_sm_ping_s1(struct katcp_dispatch *d,struct katcp_notice *n){
   o = search_tree(kb->b_pool_head,n->n_name);
   ksm = ((struct kcs_roach*) o->payload)->ksm;
 
-  if (submit_to_job_katcp(d,j,p,n->n_name,ksm->sm[KCS_SM_PING_S2]) < 0){
+  if (submit_to_job_katcp(d,j,p,n->n_name,ksm->sm[KCS_SM_PING_S2],data) < 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR,NULL,"unable to submit message to job");
     destroy_parse_katcl(p);
   }
@@ -50,7 +50,7 @@ int kcs_sm_ping_s1(struct katcp_dispatch *d,struct katcp_notice *n){
   return KCS_SM_PING_S2;
 }
 
-int kcs_sm_ping_s2(struct katcp_dispatch *d, struct katcp_notice *n){
+int kcs_sm_ping_s2(struct katcp_dispatch *d, struct katcp_notice *n, void *data){
   
 #ifdef DEBUG
   fprintf(stderr,"GREAT SUCCESS we are in the 2nd state %s\n",n->n_name);
@@ -88,10 +88,10 @@ int statemachine_greeting(struct katcp_dispatch *d){
   return KATCP_RESULT_OK;
 }
 
-void run_statemachine(int (**sm)(struct katcp_dispatch *, struct katcp_notice *), int state, struct katcp_dispatch *d, struct katcp_notice *n){
+void run_statemachine(int (**sm)(struct katcp_dispatch *, struct katcp_notice *, void *), int state, struct katcp_dispatch *d, struct katcp_notice *n, void *data){
   int rtn; 
   
-  rtn = (*sm[state])(d,n);
+  rtn = (*sm[state])(d,n,data);
   
 }
 /*
@@ -148,7 +148,7 @@ int statemachine_ping(struct katcp_dispatch *d){
       
       n = create_notice_katcp(d,ko->name,0);
 
-      run_statemachine(kr->ksm->sm,kr->ksm->state,d,n);
+      run_statemachine(kr->ksm->sm,kr->ksm->state,d,n,NULL);
 
 
       log_message_katcp(d, KATCP_LEVEL_INFO,NULL,"Found %s it is a roach",ko->name);
