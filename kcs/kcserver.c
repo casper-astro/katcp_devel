@@ -123,6 +123,7 @@ int main(int argc, char **argv)
   }
 
   if (!foreground){
+    fprintf(stderr,"%s: about to go into background\n", argv[0]);
     if(fork_parent() < 0){
       fprintf(stderr, "%s: unable to fork_parent\n", argv[0]);
       return 1;

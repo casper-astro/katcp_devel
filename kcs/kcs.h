@@ -1,6 +1,8 @@
 #ifndef KCS_H_
 #define KCS_H_
 
+#include <katcp.h>
+
 #define KCS_MAX_CLIENTS          32
 
 #define KCS_MODE_BASIC            0 
@@ -20,12 +22,16 @@
 
 #endif
 
+char *create_str(char *s);
+
+int setup_basic_kcs(struct katcp_dispatch *d, char *scripts);
 
 struct kcs_basic
 {
   char *b_scripts;
   struct p_parser *b_parser;
   struct kcs_obj *b_pool_head;
+  struct kcs_statemachines *b_sms;
 };
 
 
@@ -67,7 +73,6 @@ struct p_value {
   //int vsize;
 };
 
-int setup_basic_kcs(struct katcp_dispatch *d, char *scripts);
 
 int parser_load(struct katcp_dispatch *d,char *filename);
 int parser_destroy(struct katcp_dispatch *d);
@@ -75,7 +80,7 @@ int parser_list(struct katcp_dispatch *d);
 int parser_save(struct katcp_dispatch *d, char *filename, int force);
 struct p_value * parser_get(struct katcp_dispatch *d, char *srcl, char *srcs, unsigned long vidx);
 int parser_set(struct katcp_dispatch *d, char *srcl, char *srcs, unsigned long vidx, char *newval);
-
+struct p_value **parser_get_values(struct p_parser *p, char *s, int *count);
 
 struct e_state {
   int fd;
@@ -94,6 +99,22 @@ struct e_state {
 };
 
 void execpy_do(char *filename, char **argv);
+
+struct kcs_url {
+  char *str;
+  char *scheme;
+  char *host;
+  int port;
+  char **path;
+  int pcount;
+};
+
+char *kurl_string(struct kcs_url *ku);
+char *kurl_add_path(struct kcs_url *ku, char *npath);
+void kurl_print(struct kcs_url *ku);
+struct kcs_url *kurl_create_url_from_string(char *url);
+struct kcs_url *kurl_create_url(char *scheme, char *host, int port, char *path);
+void kurl_destroy(struct kcs_url *ku);
 
 #define KCS_ID_ROACH        2 
 #define KCS_ID_NODE         1
@@ -118,6 +139,9 @@ struct kcs_roach {
   /*char *hostname;*/
   char *ip;
   char *mac;
+  char *jl;
+  struct kcs_url *kurl;
+  struct kcs_statemachine *ksm;
 };
 
 /*
@@ -138,4 +162,31 @@ int roachpool_mod(struct katcp_dispatch *d);
 int roachpool_del(struct katcp_dispatch *d);
 int roachpool_list(struct katcp_dispatch *d);
 int roachpool_destroy(struct katcp_dispatch *d);
+int roachpool_getconf(struct katcp_dispatch *d);
+int roachpool_connect_pool(struct katcp_dispatch *d);
+int roachpool_test_timer(struct katcp_dispatch *d);
+struct kcs_obj *search_tree(struct kcs_obj *o, char *str);
+
+#define KCS_SM_PING      0
+#define KCS_SM_PING_S1   0
+#define KCS_SM_PING_S2   1
+#define KCS_SM_PING_STOP 2
+
+
+struct kcs_statemachines {
+  struct kcs_statemachine **machines; 
+  int mcount;
+};
+
+struct kcs_statemachine {
+  int (**sm)(struct katcp_dispatch *,struct katcp_notice *); 
+  int state;
+};
+
+int statemachine_greeting(struct katcp_dispatch *d);
+int statemachine_ping(struct katcp_dispatch *d);
+//void statemachine_destroy(struct katcp_dispatch *d);
+void ksm_destroy(struct kcs_statemachine *ksm);
+
+
 #endif

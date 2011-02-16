@@ -931,11 +931,12 @@ struct katcp_job *network_connect_job_katcp(struct katcp_dispatch *d, char *host
   fd = net_connect(host, port, 0);
 
   if (fd < 0){
-    log_message_katcp(d,KATCP_LEVEL_ERROR,NULL,"Unable to connect to ROACH: %s",host);
+    log_message_katcp(d,KATCP_LEVEL_ERROR,NULL,"Unable to connect to: %s:%d",host,port);
     return NULL;
   }
   
   /* WARNING: j->j_name is can not be taken as a unique key if we connect to the same host more than once */
+  /* this host is the search string for job and notice */
   j = create_job_katcp(d, host, 0, fd, halt);
 
   if (j == NULL){
