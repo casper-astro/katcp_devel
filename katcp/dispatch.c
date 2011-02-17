@@ -1541,6 +1541,13 @@ int append_parameter_katcp(struct katcp_dispatch *d, int flags, struct katcl_par
   return append_parameter_katcl(d->d_line, flags, p, index);
 }
 
+int append_parse_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
+{
+  sane_katcp(d);
+
+  return append_parse_katcl(d->d_line, p);
+}
+
 int append_vargs_katcp(struct katcp_dispatch *d, int flags, char *fmt, va_list args)
 {
   int result;

@@ -258,6 +258,10 @@ struct katcp_notice *create_parse_notice_katcp(struct katcp_dispatch *d, char *n
   struct katcp_notice **t;
   struct katcp_shared *s;
 
+#ifdef DEBUG
+  fprintf(stderr, "notice: creating notice (%s) with parse %p\n", name, p);
+#endif
+
   if(name){
     log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "creating %s notice with tag %d", name, tag);
   } else {

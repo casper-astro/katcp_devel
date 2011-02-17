@@ -4,6 +4,8 @@
 
 #include "katpriv.h"
 
+/* WARNING: still need to update the use count, otherwise notices are likely to disappear */
+
 struct katcp_map *create_map_katcp()
 {
   struct katcp_map *km;
@@ -94,6 +96,10 @@ static int locate_map_katcp(struct katcp_map *km, char *name, int find)
   int b, t, m;
   struct katcp_trap *kt;
   int result;
+
+#ifdef DEBUG
+  fprintf(stderr, "map: looking for %s in map of %d elements\n", name, km->m_size);
+#endif
 
   t = km->m_size;
   b = 0;
