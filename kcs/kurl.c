@@ -15,14 +15,41 @@
 #define S_PATH 5
 #define S_END 0
 
-char *kurl_string(struct kcs_url *ku){
+char *kurl_string(struct kcs_url *ku,char *path){
   char *str;
-  /*int ccount;
+  int i,found=0;
+
+#ifdef DEBUG
+  fprintf(stderr,"Inside kurl string\n");
+#endif
+  
   str = NULL;
-  ccount = 20 + strlen(ku->scheme) + strlen(ku->host) + strlen(ku->path);
-  str = malloc(sizeof(char)*ccount);
-  sprintf(str,"%s://%s:%d/%s",ku->scheme,ku->host,ku->port,ku->path);
-  */
+  i = snprintf(NULL,0,"%s://%s:%d/",ku->scheme,ku->host,ku->port);
+  str = malloc(sizeof(char)*(i+1));
+  i = snprintf(str,i+1,"%s://%s:%d/",ku->scheme,ku->host,ku->port);
+  str[i]='\0'; 
+  if (!path)
+    return str;
+
+  for (i=0;i<ku->pcount;i++){
+    if (strcmp(ku->path[i],path) == 0){
+      found = i;
+      break;
+    }
+  }
+  if (!found){
+    free(str);
+    return NULL;
+  }
+  i = snprintf(NULL,0,"%s%s",str,ku->path[found]);
+  str = realloc(str,sizeof(char)*(i+1));
+  str = strcat(str,ku->path[found]);
+  str[i] = '\0';
+  
+#ifdef DEBUG
+  fprintf(stderr,"Found the path in the kurl returning %s\n",str);
+#endif
+
   return str;
 }
 
@@ -30,9 +57,13 @@ char *kurl_string_with_path_id(struct kcs_url *ku, int id){
   char * str;
   int len;
   str = NULL;
-  len = sprintf(NULL,"%s://%s:%d/%s",ku->scheme,ku->host,ku->port,ku->path[id]);
-  str = malloc(sizeof(char)*len);
-  len = sprintf(str,"%s://%s:%d/%s",ku->scheme,ku->host,ku->port,ku->path[id]);
+  len = snprintf(NULL,0,"%s://%s:%d/%s",ku->scheme,ku->host,ku->port,ku->path[id]);
+  str = malloc(sizeof(char)*(len+1));
+  snprintf(str,len+1,"%s://%s:%d/%s",ku->scheme,ku->host,ku->port,ku->path[id]);
+  //str[len+1] = '\0';
+#ifdef DEBUG
+  fprintf(stderr,"kurl_string_with_id len: %d returning: %s\n",len,str);
+#endif
   return str;
 }
 
@@ -218,11 +249,12 @@ int main(int argc, char **argv){
   
   struct kcs_url *ku;
 
-  ku = kurl_create_url_from_string("katcp://host.domain:7147");
+  ku = kurl_create_url_from_string("katcp://host.domain:7147/");
   
   if (ku != NULL){
     char *temp;
-    temp = kurl_string(ku);
+    if (!(temp = kurl_string(ku,"?disconnect")))
+      temp = kurl_add_path(ku,"?disconnect");
     fprintf(stderr,"%s\n",temp);
     free(temp);
     
