@@ -54,7 +54,7 @@ int destroy_map_katcp(struct katcp_dispatch *d, struct katcp_map *km)
   return 0;
 }
 
-struct katcp_trap *create_trap_katcp(char *name)
+static struct katcp_trap *create_trap_katcp(char *name)
 {
   struct katcp_trap *kt;
 
@@ -75,7 +75,7 @@ struct katcp_trap *create_trap_katcp(char *name)
   return kt;
 }
 
-void destroy_trap_katcp(struct katcp_trap *kt)
+static void destroy_trap_katcp(struct katcp_trap *kt)
 {
   if(kt == NULL){
     return;

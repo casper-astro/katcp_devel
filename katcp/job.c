@@ -261,6 +261,11 @@ static void delete_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
     j->j_name = NULL;
   }
 
+  if(j->j_map){
+    destroy_map_katcp(d, j->j_map);
+    j->j_map = NULL;
+  }
+
   j->j_halt = NULL;
   j->j_count = 0;
 
@@ -308,24 +313,30 @@ struct katcp_job *create_job_katcp(struct katcp_dispatch *d, char *name, pid_t p
   j->j_count = 0;
   j->j_size = 0;
 
-  /* WARNING: slightly ugly resource release logic on failure, but avoids accidentally closing fd on failure */
+  j->j_map = NULL;
+
   j->j_name = strdup(name);
   if(j->j_name == NULL){
-    free(j);
+    delete_job_katcp(d, j);
     return NULL;
   }
 
+  j->j_map = create_map_katcp();
+  if(j->j_map == NULL){
+    delete_job_katcp(d, j);
+    return NULL;
+  }
+
+  /* WARNING: do line clone last, so that fd isn't closed on failure */
   if(fd >= 0){
     j->j_line = create_katcl(fd);
     if(j->j_line == NULL){
-      if(j->j_name){
-        free(j->j_name);
-        j->j_name = NULL;
-      }
-      free(j);
+      delete_job_katcp(d, j);
       return NULL;
     }
   }
+
+  /* after this point we are not permitted to fail :*) */
 
   if(halt){
     halt->n_use++;
