@@ -109,7 +109,7 @@ struct kcs_url {
   int pcount;
 };
 
-char *kurl_string(struct kcs_url *ku);
+char *kurl_string(struct kcs_url *ku, char *path);
 char *kurl_add_path(struct kcs_url *ku, char *npath);
 void kurl_print(struct kcs_url *ku);
 struct kcs_url *kurl_create_url_from_string(char *url);
