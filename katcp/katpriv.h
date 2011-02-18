@@ -534,6 +534,7 @@ int destroy_map_katcp(struct katcp_dispatch *d, struct katcp_map *km);
 struct katcp_trap *find_map_katcp(struct katcp_map *km, char *name);
 int remove_map_katcp(struct katcp_map *km, char *name);
 int add_map_katcp(struct katcp_map *km, char *name, struct katcp_notice *n);
+int log_map_katcp(struct katcp_dispatch *d, struct katcp_map *km);
 
 /******************************************/
 

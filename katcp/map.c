@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "katcp.h"
 #include "katpriv.h"
 
 /* WARNING: still need to update the use count, otherwise notices are likely to disappear */
@@ -200,6 +201,19 @@ int add_map_katcp(struct katcp_map *km, char *name, struct katcp_notice *n)
 
   km->m_traps[index] = kt;
   km->m_size++;
+
+  return 0;
+}
+
+int log_map_katcp(struct katcp_dispatch *d, struct katcp_map *km)
+{
+  int i;
+  struct katcp_trap *kt;
+
+  for(i = 0; i < km->m_size; i++){
+    kt = km->m_traps[i];
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "filter %s", kt->t_name);
+  }
 
   return 0;
 }

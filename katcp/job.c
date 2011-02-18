@@ -642,6 +642,8 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
       kt = find_map_katcp(j->j_map, cmd);
       if(kt){
         wake_notice_katcp(d, kt->t_notice, p);
+      } else {
+        log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "ignoring inform %s of job %s", cmd, j->j_name);
       }
 
       if(!strcmp(cmd, "#log")){
@@ -1293,6 +1295,7 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
         (j->j_state & JOB_MAY_WORK) ? "can process data" : "has no more data", 
         (j->j_state & JOB_MAY_KILL) ? "may be signalled" : "may not be signalled", 
         (j->j_state & JOB_MAY_COLLECT) ? "has an outstanding status code" : "has no status to collect");
+        log_map_katcp(d, j->j_map);
       }
       log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%d jobs", s->s_number);
 
