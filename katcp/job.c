@@ -475,16 +475,29 @@ int submit_to_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, struct ka
     return -1;
   }
 
-  if(add_tail_job(j, n)){
+  if(add_notice_katcp(d, n, call, data)){
 #if 0
-    /* WARNING: may not be needed */
     cancel_notice_katcp(d, n);
 #endif
     return -1;
   }
 
-  if(add_notice_katcp(d, n, call, data)){
+  return notice_to_job_katcp(d, j, n);
+}
+
+int notice_to_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, struct katcp_notice *n)
+{
+  sane_job_katcp(j);
+
+#ifdef DEBUG
+  if(get_parse_notice_katcp(d, n) == NULL){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "notice submitted to job should have an associated parse structure, and probably a callback too");
+  }
+#endif
+
+  if(add_tail_job(j, n)){
 #if 0
+    /* WARNING: may not be needed */
     cancel_notice_katcp(d, n);
 #endif
     return -1;
