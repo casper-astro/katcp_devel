@@ -5,6 +5,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <sys/types.h>
+#include <sys/time.h>
 #include <unistd.h>
 #include <fcntl.h>
 
@@ -14,18 +15,30 @@
 
 #include "kcs.h"
 
+void run_statemachine(int (**sm)(struct katcp_dispatch *, struct katcp_notice *, void *), int state, struct katcp_dispatch *d, struct katcp_notice *n, void *data){
+  int rtn; 
+  
+  if (sm[state])
+    rtn = (*sm[state])(d,n,data);
+  
+}
+
 int kcs_sm_ping_s1(struct katcp_dispatch *d,struct katcp_notice *n, void *data){
   struct katcp_job *j;
   struct katcl_parse *p;
   //struct kcs_basic *kb;
-  struct kcs_statemachine *ksm;
   struct kcs_obj *o;
+  struct kcs_roach *r;
+  struct kcs_statemachine *ksm;
+  char * p_kurl;
   
   o = data;
+  r = o->payload;
 
   j = find_job_katcp(d,o->name);
   if (j == NULL){
-    log_message_katcp(d,KATCP_LEVEL_ERROR,NULL,"Couldn't find job labeled %s",n->n_name);
+    r->ksm->state = KCS_SM_PING_STOP;
+    log_message_katcp(d,KATCP_LEVEL_ERROR,NULL,"Couldn't find job labeled %s",o->name);
     return KCS_FAIL;
   }
 
@@ -40,25 +53,60 @@ int kcs_sm_ping_s1(struct katcp_dispatch *d,struct katcp_notice *n, void *data){
     return KCS_FAIL;
   }
 
-  //kb = need_current_mode_katcp(d,KCS_MODE_BASIC);
-  //o = search_tree(kb->b_pool_head,n->n_name);
-  ksm = ((struct kcs_roach*) o->payload)->ksm;
+  if (!(p_kurl = kurl_string(r->kurl,"?ping")))
+    p_kurl = kurl_add_path(r->kurl,"?ping");
+  
+  ksm = r->ksm;
+  ksm->state = KCS_SM_PING_S2;
 
-  if (submit_to_job_katcp(d,j,p,n->n_name,ksm->sm[KCS_SM_PING_S2],data) < 0){
+  gettimeofday(&r->lastnow, NULL);
+
+  if (submit_to_job_katcp(d,j,p,p_kurl,ksm->sm[KCS_SM_PING_S2],data) < 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR,NULL,"unable to submit message to job");
     destroy_parse_katcl(p);
   }
   
+  if (p_kurl) free(p_kurl);
+
   return KCS_SM_PING_S2;
 }
 
-int kcs_sm_ping_s2(struct katcp_dispatch *d, struct katcp_notice *n, void *data){
+int time_ping_wrapper_call(struct katcp_dispatch *d, void *data){
+  struct kcs_obj *ko;
+  struct kcs_roach *kr;
   
-#ifdef DEBUG
-  fprintf(stderr,"GREAT SUCCESS we are in the 2nd state %s\n",n->n_name);
-#endif
+  ko = data;
+  kr = ko->payload;
+  kr->ksm->state = KCS_SM_PING_S1;
+  
+  //log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"%s going back to state 1",ko->name);
+  
+  run_statemachine(kr->ksm->sm,kr->ksm->state,d,NULL,ko);
+  return KATCP_RESULT_OK;
+}
 
- 
+int kcs_sm_ping_s2(struct katcp_dispatch *d, struct katcp_notice *n, void *data){
+  struct katcl_parse *p;
+  char *ptr;
+  struct timeval when, now, delta;
+
+  delta.tv_sec  = 1;
+  delta.tv_usec = 0;
+
+  gettimeofday(&now,NULL);
+  add_time_katcp(&when,&now,&delta);
+
+  p = get_parse_notice_katcp(d,n);
+  if (p){
+    ptr = get_string_parse_katcl(p,1);
+    sub_time_katcp(&delta,&now,&((struct kcs_roach *)((struct kcs_obj *)data)->payload)->lastnow);
+    log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"%s reply in %dms",n->n_name,(delta.tv_sec*1000)+(delta.tv_usec/1000));
+    prepend_reply_katcp(d);
+    append_string_katcp(d, KATCP_FLAG_LAST, ptr);
+  }
+
+  if (register_at_tv_katcp(d, &when, &time_ping_wrapper_call, data) < 0)
+    return KATCP_RESULT_FAIL;
 
   return KCS_SM_PING_S1;
 }
@@ -82,20 +130,61 @@ struct kcs_statemachine *get_kcs_sm_ping(){
 
 int statemachine_greeting(struct katcp_dispatch *d){
   prepend_inform_katcp(d);
-  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"ping [roachpool|roach]");
+  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"katcp://roach:port/?ping | katcp://*roachpool/?ping");
+  /*append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"ping [roachpool|roach]");
   prepend_inform_katcp(d);
   append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"connect [roachpool|roach]");
   prepend_inform_katcp(d);
   append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"progdev [roachpool|roach]");
+  */
   return KATCP_RESULT_OK;
 }
 
-void run_statemachine(int (**sm)(struct katcp_dispatch *, struct katcp_notice *, void *), int state, struct katcp_dispatch *d, struct katcp_notice *n, void *data){
-  int rtn; 
+int statemachine_ping(struct katcp_dispatch *d){
+  struct kcs_basic *kb;
+  struct kcs_obj *ko;
+  struct kcs_roach *kr;
+  struct kcs_node *kn;
+
+  kb = need_current_mode_katcp(d,KCS_MODE_BASIC);
   
-  rtn = (*sm[state])(d,n,data);
+#ifdef DEBUG
+  fprintf(stderr,"SM ping param: %s\n",arg_string_katcp(d,2));
+#endif
   
+  ko = search_tree(kb->b_pool_head,arg_string_katcp(d,2));
+  if (!ko)
+    return KATCP_RESULT_FAIL;
+
+  switch (ko->tid){
+    case KCS_ID_ROACH:
+      
+      kr = (struct kcs_roach *) ko->payload;
+      
+      kr->ksm = get_kcs_sm_ping();
+      
+      run_statemachine(kr->ksm->sm,kr->ksm->state,d,NULL,ko);
+
+      log_message_katcp(d, KATCP_LEVEL_INFO,NULL,"Found %s it is a roach",ko->name);
+      break;
+    case KCS_ID_NODE:
+      
+      kn = (struct kcs_node *) ko->payload;
+
+      log_message_katcp(d, KATCP_LEVEL_INFO,NULL,"Found %s it is a node with %d children",ko->name,kn->childcount);
+      break;
+  }
+
+
+  return KATCP_RESULT_OK;
 }
+
+void ksm_destroy(struct kcs_statemachine *ksm){
+  if (ksm->sm != NULL) { free(ksm->sm); ksm->sm = NULL; }
+  if (ksm != NULL) { free(ksm); ksm = NULL; }
+}
+
+
 /*
 int init_statemachines(struct katcp_dispatch *d){
   struct kcs_basic *kb;
@@ -123,64 +212,6 @@ int init_statemachines(struct katcp_dispatch *d){
 }
 */
 
-int statemachine_ping(struct katcp_dispatch *d){
-  struct kcs_basic *kb;
-  struct kcs_obj *ko;
-  struct kcs_roach *kr;
-  struct kcs_node *kn;
-  struct katcp_notice *n;
-  char *p_kurl;
-  //struct kcs_statemachine *ksm;
-
-  kb = need_current_mode_katcp(d,KCS_MODE_BASIC);
-  
-#ifdef DEBUG
-  fprintf(stderr,"sm ping param: %s\n",arg_string_katcp(d,2));
-#endif
-  
-  ko = search_tree(kb->b_pool_head,arg_string_katcp(d,2));
-  if (!ko)
-    return KATCP_RESULT_FAIL;
-
-  switch (ko->tid){
-    case KCS_ID_ROACH:
-      
-      kr = (struct kcs_roach *) ko->payload;
-      
-      kr->ksm = get_kcs_sm_ping();
-      
-      if (!(p_kurl = kurl_string(kr->kurl,"?ping")))
-        p_kurl = kurl_add_path(kr->kurl,"?ping");
-
-      n = create_notice_katcp(d,p_kurl,0);
-
-      run_statemachine(kr->ksm->sm,kr->ksm->state,d,n,ko);
-
-      log_message_katcp(d, KATCP_LEVEL_INFO,NULL,"Found %s it is a roach",ko->name);
-      break;
-    case KCS_ID_NODE:
-      
-      kn = (struct kcs_node *) ko->payload;
-
-      log_message_katcp(d, KATCP_LEVEL_INFO,NULL,"Found %s it is a node with %d children",ko->name,kn->childcount);
-      break;
-  }
-
-  if (p_kurl) free(p_kurl);
-
-  //ksm = get_kcs_sm_ping();
-  
-  //run_statemachine(ksm->sm,KCS_SM_START);
-
-  //free(ksm);
-
-  return KATCP_RESULT_OK;
-}
-
-void ksm_destroy(struct kcs_statemachine *ksm){
-  if (ksm->sm != NULL) { free(ksm->sm); ksm->sm = NULL; }
-  if (ksm != NULL) { free(ksm); ksm = NULL; }
-}
 /*
 void statemachine_destroy(struct katcp_dispatch *d){
   struct kcs_basic *kb;

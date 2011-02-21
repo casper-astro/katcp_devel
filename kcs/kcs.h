@@ -142,6 +142,7 @@ struct kcs_roach {
   char *jl;
   struct kcs_url *kurl;
   struct kcs_statemachine *ksm;
+  struct timeval lastnow;
 };
 
 /*
