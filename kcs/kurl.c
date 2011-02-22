@@ -210,6 +210,7 @@ struct kcs_url *kurl_create_url(char *scheme, char *host, int port, char *path){
   ku->host   = create_str(host);
   ku->port   = port;
   //ku->path   = create_str(path);
+  ku->str    = kurl_string(ku,NULL);
   ku->path = realloc(ku->path,sizeof(char*)*++ku->pcount);
   ku->path[ku->pcount-1] = strdup(path);
   return ku;
