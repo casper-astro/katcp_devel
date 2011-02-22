@@ -173,15 +173,10 @@ struct kcs_obj *search_tree(struct kcs_obj *o, char *str);
 #define KCS_SM_PING_S1   1
 #define KCS_SM_PING_S2   2
 
-
-struct kcs_statemachines {
-  struct kcs_statemachine **machines; 
-  int mcount;
-};
-
 struct kcs_statemachine {
   int (**sm)(struct katcp_dispatch *,struct katcp_notice *, void *); 
   int state;
+  struct katcp_notice *n;
 };
 
 int statemachine_greeting(struct katcp_dispatch *d);
