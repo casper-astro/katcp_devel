@@ -169,9 +169,9 @@ int roachpool_test_timer(struct katcp_dispatch *d);
 struct kcs_obj *search_tree(struct kcs_obj *o, char *str);
 
 #define KCS_SM_PING      0
-#define KCS_SM_PING_S1   0
-#define KCS_SM_PING_S2   1
-#define KCS_SM_PING_STOP 2
+#define KCS_SM_PING_STOP 0 
+#define KCS_SM_PING_S1   1
+#define KCS_SM_PING_S2   2
 
 
 struct kcs_statemachines {
