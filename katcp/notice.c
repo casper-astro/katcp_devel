@@ -772,7 +772,7 @@ int notice_cmd_katcp(struct katcp_dispatch *d, int argc)
         return KATCP_RESULT_FAIL;
       }
 
-      n = find_notice_katcp(d, name);
+      n = find_notice_katcp(d, value);
       if(n == NULL){
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "notice %s not found", value);
         return KATCP_RESULT_FAIL;
