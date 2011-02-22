@@ -33,7 +33,8 @@ int destroy_map_katcp(struct katcp_dispatch *d, struct katcp_map *km)
   }
 
   for(i = 0; i < km->m_size; i++){
-    kt = km->m_traps[i];
+    destroy_trap_katcp(km->m_traps[i]);
+#if 0
     if(kt){
       if(kt->t_name){
         free(kt->t_name);
@@ -41,10 +42,12 @@ int destroy_map_katcp(struct katcp_dispatch *d, struct katcp_map *km)
       }
       if(kt->t_notice){
         n = kt->t_notice;
-        n->n_use++;
+        /* WARNING: could need some logic to wake ? */
+        update_notice_katcp(d, n, NULL, 0, 1);
         kt->t_notice = NULL; /* somehow disown notice */
       }
     }
+#endif
   }
 
   if(km->m_traps){
@@ -87,6 +90,10 @@ static void destroy_trap_katcp(struct katcp_trap *kt)
   if(kt->t_name){
     free(kt->t_name);
     kt->t_name = NULL;
+  }
+
+  if(kt->t_notice){
+    /* TODO */
   }
 
   free(kt);
@@ -164,7 +171,7 @@ int remove_map_katcp(struct katcp_map *km, char *name)
   return 0;
 }
 
-int add_map_katcp(struct katcp_map *km, char *name, struct katcp_notice *n)
+int add_map_katcp(struct katcp_dispatch *d, struct katcp_map *km, char *name, struct katcp_notice *n)
 {
   struct katcp_trap *kt;
   struct katcp_trap **tmp;
@@ -190,6 +197,7 @@ int add_map_katcp(struct katcp_map *km, char *name, struct katcp_notice *n)
 
   kt->t_notice = n;
   if(n){
+    hold_notice_katcp(d, n);
     n->n_use++;
   }
 
@@ -259,7 +267,7 @@ int main()
         dump_map_katcp(km, stderr);
         break;
       case 'a' : 
-        if(add_map_katcp(km, cmd + 1, NULL) < 0){
+        if(add_map_katcp(NULL, km, cmd + 1, NULL) < 0){
           fprintf(stderr, "unable to add %s\n", cmd + 1);
         }
         break;

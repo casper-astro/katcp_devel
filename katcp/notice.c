@@ -514,6 +514,11 @@ int cancel_name_notice_katcp(struct katcp_dispatch *d, char *name)
 
 /*******************************************************************************/
 
+void hold_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
+{
+  n->n_use++;
+}
+
 void update_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p, int wake, int forget)
 {
   struct katcl_parse *tmp;

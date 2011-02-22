@@ -319,9 +319,10 @@ char *code_name_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 void forget_parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 #endif
 
+void hold_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
+void update_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p, int wake, int forget);
 void wake_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p);
 int wake_name_notice_katcp(struct katcp_dispatch *d, char *name, struct katcl_parse *p);
-void update_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p, int wake, int forget);
 struct katcl_parse *get_parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 
 /* job logic */
