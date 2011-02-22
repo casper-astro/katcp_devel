@@ -336,6 +336,9 @@ int run_timers_katcp(struct katcp_dispatch *d, struct timespec *interval)
           log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "missed deadline at %lu.%06lus now %lu.%06lus for %p", ts->t_when.tv_sec, ts->t_when.tv_usec, now.tv_sec, now.tv_usec, ts->t_data);
         }
         ts->t_armed = 0; /* assume that we won't run again */
+#ifdef DEBUG
+        fprintf(stderr, "timer: running timer %p with data %p\n", ts->t_call, ts->t_data);
+#endif
         if((*(ts->t_call))(d, ts->t_data) >= 0){
           /* only automatically re-arm if periodic and not failed */
           if((ts->t_interval.tv_sec != 0) || (ts->t_interval.tv_usec != 0)){

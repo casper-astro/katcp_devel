@@ -21,9 +21,9 @@
 #include "katcp.h"
 #include "netc.h"
 
-#define KATCP_INIT_WAIT 3600
-#define KATCP_POLL_WAIT    5
-#define KATCP_HALT_WAIT    1
+#define KATCP_INIT_WAIT    3600
+#define KATCP_HALT_WAIT       1
+#define KATCP_BRIEF_WAIT  10000   /* 10 ms */
 
 static int inform_client_connect_katcp(struct katcp_dispatch *d)
 {
@@ -429,6 +429,12 @@ int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, ch
 
       suspend = 0;
       FD_ZERO(&(s->s_read));
+    }
+    
+    if(s->s_woken > 0){
+      suspend = 0;
+      delta.tv_sec = 0;
+      delta.tv_nsec = KATCP_BRIEF_WAIT;
     }
 
 #ifdef DEBUG

@@ -7,59 +7,6 @@
 
 /* WARNING: still need to update the use count, otherwise notices are likely to disappear */
 
-struct katcp_map *create_map_katcp()
-{
-  struct katcp_map *km;
-
-  km = malloc(sizeof(struct katcp_map));
-  if(km == NULL){
-    return NULL;
-  }
-
-  km->m_size = 0;
-  km->m_traps = NULL;
-
-  return km;
-}
-
-int destroy_map_katcp(struct katcp_dispatch *d, struct katcp_map *km)
-{
-  unsigned int i;
-  struct katcp_trap *kt;
-  struct katcp_notice *n;
-
-  if(km == NULL){
-    return -1;
-  }
-
-  for(i = 0; i < km->m_size; i++){
-    destroy_trap_katcp(km->m_traps[i]);
-#if 0
-    if(kt){
-      if(kt->t_name){
-        free(kt->t_name);
-        kt->t_name = NULL;
-      }
-      if(kt->t_notice){
-        n = kt->t_notice;
-        /* WARNING: could need some logic to wake ? */
-        update_notice_katcp(d, n, NULL, 0, 1);
-        kt->t_notice = NULL; /* somehow disown notice */
-      }
-    }
-#endif
-  }
-
-  if(km->m_traps){
-    free(km->m_traps);
-    km->m_traps = NULL;
-  }
-
-  free(km);
-
-  return 0;
-}
-
 static struct katcp_trap *create_trap_katcp(char *name)
 {
   struct katcp_trap *kt;
@@ -97,6 +44,57 @@ static void destroy_trap_katcp(struct katcp_trap *kt)
   }
 
   free(kt);
+}
+
+struct katcp_map *create_map_katcp()
+{
+  struct katcp_map *km;
+
+  km = malloc(sizeof(struct katcp_map));
+  if(km == NULL){
+    return NULL;
+  }
+
+  km->m_size = 0;
+  km->m_traps = NULL;
+
+  return km;
+}
+
+int destroy_map_katcp(struct katcp_dispatch *d, struct katcp_map *km)
+{
+  unsigned int i;
+
+  if(km == NULL){
+    return -1;
+  }
+
+  for(i = 0; i < km->m_size; i++){
+    destroy_trap_katcp(km->m_traps[i]);
+#if 0
+    if(kt){
+      if(kt->t_name){
+        free(kt->t_name);
+        kt->t_name = NULL;
+      }
+      if(kt->t_notice){
+        n = kt->t_notice;
+        /* WARNING: could need some logic to wake ? */
+        update_notice_katcp(d, n, NULL, 0, 1);
+        kt->t_notice = NULL; /* somehow disown notice */
+      }
+    }
+#endif
+  }
+
+  if(km->m_traps){
+    free(km->m_traps);
+    km->m_traps = NULL;
+  }
+
+  free(km);
+
+  return 0;
 }
 
 static int locate_map_katcp(struct katcp_map *km, char *name, int find)

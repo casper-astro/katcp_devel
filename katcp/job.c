@@ -432,6 +432,10 @@ int issue_request_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
   struct katcp_notice *n;
   struct katcl_parse *p, *px;
 
+#ifdef DEBUG
+  fprintf(stderr, "issue: checking if job needs to issue a request (count=%d)\n", j->j_count);
+#endif
+
   if(j->j_count <= 0){
     return 0; /* nothing to do */
   }
@@ -448,6 +452,9 @@ int issue_request_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
 
   n = j->j_queue[j->j_head];
   if(n == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "issue: logic problem: nothing in queue, but woken up\n");
+#endif
     log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "queue of %u elements is empty at %u", j->j_count, j->j_head);
     return -1;
   }
@@ -455,7 +462,7 @@ int issue_request_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
   p = get_parse_notice_katcp(d, n);
   if(p){
 #ifdef DEBUG
-    fprintf(stderr, "got parse %p from notice %p (%s)\n", p, n, n->n_name);
+    fprintf(stderr, "issue: got parse %p from notice %p (%s)\n", p, n, n->n_name);
 #endif
     if(append_parse_katcl(j->j_line, p) >= 0){
       j->j_state &= ~(JOB_MAY_REQUEST);
@@ -511,7 +518,7 @@ int match_inform_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, char *
       return -1;
     }
 
-    if(add_map_katcp(j->j_map, match, n) < 0){
+    if(add_map_katcp(d, j->j_map, match, n) < 0){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to add match %s to job", match);
       return -1;
     }
@@ -556,6 +563,8 @@ int notice_to_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, struct ka
   sane_job_katcp(j);
 
 #ifdef DEBUG
+  fprintf(stderr, "submitting notice %p(%s) to job %p(%s)\n", n, n->n_name, j, j->j_name);
+
   if(get_parse_notice_katcp(d, n) == NULL){
     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "notice submitted to job should have an associated parse structure, and probably a callback too");
   }

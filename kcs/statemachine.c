@@ -133,6 +133,10 @@ int time_ping_wrapper_call(struct katcp_dispatch *d, void *data){
   ksm = kr->ksm;
   n = ksm->n;
 
+#ifdef DEBUG
+  fprintf(stderr, "SM: running from timer, waking notice %p\n", n);
+#endif
+
   wake_notice_katcp(d,n,NULL);
   
   return KCS_SM_PING_S2;

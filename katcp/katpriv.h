@@ -356,6 +356,7 @@ struct katcp_shared{
 
   struct katcp_notice **s_notices;
   unsigned int s_pending;
+  unsigned int s_woken;
 
 #if 0
   int s_version_major;

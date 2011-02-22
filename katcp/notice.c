@@ -522,11 +522,16 @@ void hold_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
 void update_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p, int wake, int forget)
 {
   struct katcl_parse *tmp;
+  struct katcp_shared *s;
 
   log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "updating [%s,%s] notice %s@%p (source=%d, client=%d) with parse %p (%s ...)", wake ? "wake" : "sleep", forget ? "forget" : "keep", n->n_name, n, n->n_use, n->n_count, p, p ? get_string_parse_katcl(p, 0) : "<null>");
 
   if(wake){
     n->n_trigger = 1;
+    s = d->d_shared;
+    if(s){
+      s->s_woken++;
+    }
   }
 
   /* WARNING: deals with case where tmp == p */
@@ -590,6 +595,8 @@ int run_notices_katcp(struct katcp_dispatch *d)
   i = 0;
   remove = 0;
   result = 0;
+
+  s->s_woken = 0;
 
 #ifdef DEBUG
   fprintf(stderr, "notice: running %d pending entries\n", s->s_pending);
