@@ -601,6 +601,8 @@ int append_parameter_katcl(struct katcl_line *l, int flags, struct katcl_parse *
 
 int append_parse_katcl(struct katcl_line *l, struct katcl_parse *p)
 {
+  int result;
+
 #ifdef DEBUG
   if(l->l_stage){
     fprintf(stderr, "warning: appending full message to line which contains partial staged message (ordering will be odd)\n");
@@ -612,10 +614,10 @@ int append_parse_katcl(struct katcl_line *l, struct katcl_parse *p)
   }
 #endif
 
-  add_tail_queue(l->l_queue, p);	
+  result = add_tail_queue(l->l_queue, p);	
   p->p_refs++; /* incrementing ref count for rec instances accessing same parse structure */
 
-  return 0;
+  return result;
 }
 
 /**************************************************************/

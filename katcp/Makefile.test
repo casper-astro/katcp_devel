@@ -21,7 +21,7 @@ test-line: misc.c parse.c line.c queue.c
 test-rpc: misc.c parse.c line.c time.c netc.c rpc.c queue.c
 	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_RPC -o $@ $^
 
-test-job: misc.c parse.c line.c time.c netc.c dispatch.c shared.c ts.c log.c notice.c nonsense.c job.c queue.c
+test-job: misc.c parse.c line.c time.c netc.c dispatch.c shared.c ts.c log.c notice.c nonsense.c job.c queue.c map.c
 	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_JOB -o $@ $^
 
 clean: 

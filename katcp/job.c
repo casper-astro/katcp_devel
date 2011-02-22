@@ -261,6 +261,11 @@ static void delete_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
     j->j_name = NULL;
   }
 
+  if(j->j_map){
+    destroy_map_katcp(d, j->j_map);
+    j->j_map = NULL;
+  }
+
   j->j_halt = NULL;
   j->j_count = 0;
 
@@ -308,24 +313,30 @@ struct katcp_job *create_job_katcp(struct katcp_dispatch *d, char *name, pid_t p
   j->j_count = 0;
   j->j_size = 0;
 
-  /* WARNING: slightly ugly resource release logic on failure, but avoids accidentally closing fd on failure */
+  j->j_map = NULL;
+
   j->j_name = strdup(name);
   if(j->j_name == NULL){
-    free(j);
+    delete_job_katcp(d, j);
     return NULL;
   }
 
+  j->j_map = create_map_katcp();
+  if(j->j_map == NULL){
+    delete_job_katcp(d, j);
+    return NULL;
+  }
+
+  /* WARNING: do line clone last, so that fd isn't closed on failure */
   if(fd >= 0){
     j->j_line = create_katcl(fd);
     if(j->j_line == NULL){
-      if(j->j_name){
-        free(j->j_name);
-        j->j_name = NULL;
-      }
-      free(j);
+      delete_job_katcp(d, j);
       return NULL;
     }
   }
+
+  /* after this point we are not permitted to fail :*) */
 
   if(halt){
     halt->n_use++;
@@ -443,6 +454,9 @@ int issue_request_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
 
   p = get_parse_notice_katcp(d, n);
   if(p){
+#ifdef DEBUG
+    fprintf(stderr, "got parse %p from notice %p (%s)\n", p, n, n->n_name);
+#endif
     if(append_parse_katcl(j->j_line, p) >= 0){
       j->j_state &= ~(JOB_MAY_REQUEST);
       return 0;
@@ -462,6 +476,58 @@ int issue_request_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
   /* TODO: try next item if this one fails */
 
   return -1;
+}
+
+int match_inform_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, char *match, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n, void *data), void *data)
+{
+  struct katcp_notice *n;
+  struct katcp_trap *kt;
+  struct katcl_parse *p;
+
+  sane_job_katcp(j);
+
+  kt = find_map_katcp(j->j_map, match);
+  if(kt == NULL){
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "allocating new inform match for %s", match);
+
+#if 1 /* unclear if this is really needed, could probably do with an empty parse  ... */
+    p = create_parse_katcl(NULL);
+    if(p == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate empty message");
+      return -1;
+    }
+
+    if(add_plain_parse_katcl(p, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, match) < 0){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to assemble empty message");
+      destroy_parse_katcl(p);
+      return -1;
+    }
+#endif
+
+    /* TODO: match should be replaced by a proper katcp:// url */
+    n = create_parse_notice_katcp(d, match, 0, p);
+    if(n == NULL){
+      destroy_parse_katcl(p);
+      return -1;
+    }
+
+    if(add_map_katcp(j->j_map, match, n) < 0){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to add match %s to job", match);
+      return -1;
+    }
+
+
+  } else {
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "adding extra inform match for %s", match);
+    n = kt->t_notice;
+  }
+
+  if(add_notice_katcp(d, n, call, data)){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to add to notice %s", n->n_name);
+    return -1;
+  }
+
+  return 0;
 }
 
 int submit_to_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, struct katcl_parse *p, char *name, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n, void *data), void *data)
@@ -503,6 +569,10 @@ int notice_to_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, struct ka
     return -1;
   }
 
+#ifdef DEBUG
+  fprintf(stderr, "job: submitted parse %p, about to wake writing logic\n", p);
+#endif
+
   issue_request_job_katcp(d, j); /* ignore return code, errors should come back as replies */
 
   return 0;
@@ -514,6 +584,7 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
   char *cmd, *module, *message, *priority;
   struct katcp_notice *n;
   struct katcl_parse *p;
+  struct katcp_trap *kt;
 
   result = have_katcl(j->j_line);
 
@@ -573,6 +644,20 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
       break;
 
     case KATCP_INFORM  :
+
+      p = ready_katcl(j->j_line);
+      if(p == NULL){
+        /* if we got this far, we should really have a ready data structure */
+        log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "unable to retrieve parsed job data");
+        return -1;
+      }
+
+      kt = find_map_katcp(j->j_map, cmd);
+      if(kt){
+        wake_notice_katcp(d, kt->t_notice, p);
+      } else {
+        log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "ignoring inform %s of job %s", cmd, j->j_name);
+      }
 
       if(!strcmp(cmd, "#log")){
 
@@ -1176,6 +1261,22 @@ int resume_job(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
   return 0;
 }
 
+int match_job(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
+{
+  struct katcl_parse *p;
+
+  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "got match from job via notice %p", n);
+
+  p = get_parse_notice_katcp(d, n);
+  if(p){
+    append_parse_katcp(d, p);
+  } else {
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to retrieve matched data");
+  }
+
+  return 0;
+}
+
 int job_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   struct katcp_shared *s;
@@ -1207,16 +1308,41 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
         (j->j_state & JOB_MAY_WORK) ? "can process data" : "has no more data", 
         (j->j_state & JOB_MAY_KILL) ? "may be signalled" : "may not be signalled", 
         (j->j_state & JOB_MAY_COLLECT) ? "has an outstanding status code" : "has no status to collect");
+        log_map_katcp(d, j->j_map);
       }
       log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%d jobs", s->s_number);
+
       return KATCP_RESULT_OK;
+
+    } else if(!strcmp(name, "match")){
+
+      label = arg_string_katcp(d, 2);
+      watch = arg_string_katcp(d, 3);
+
+      if((label == NULL) || (watch == NULL)){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a job label and match");
+        return KATCP_RESULT_FAIL;
+      }
+
+      j = find_job_katcp(d, label);
+      if(j == NULL){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to find job labelled %s", label);
+        return KATCP_RESULT_FAIL;
+      }
+
+      if(match_inform_job_katcp(d, j, watch, &match_job, NULL) < 0){
+        return KATCP_RESULT_FAIL;
+      }
+
+      return KATCP_RESULT_OK;
+
     } else if(!strcmp(name, "process")){
       watch = arg_string_katcp(d, 2);
       cmd = arg_string_katcp(d, 3);
 
       if((cmd == NULL) || (watch == NULL)){
-         log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "insufficient parameters for launch");
-         return KATCP_RESULT_FAIL;
+        log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "insufficient parameters for launch");
+        return KATCP_RESULT_FAIL;
       }
 
       n = create_notice_katcp(d, watch, 0);
@@ -1235,6 +1361,7 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
       }
 
       return KATCP_RESULT_OK;
+
     } else if(!strcmp(name, "network")){ 
       watch = arg_string_katcp(d, 2);
       host = arg_string_katcp(d, 3);
@@ -1258,6 +1385,7 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
       }
 
       return KATCP_RESULT_OK;
+
     } else if(!strcmp(name, "watchdog")){
 
       label = arg_string_katcp(d, 2);
@@ -1295,6 +1423,7 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
       }
 
       return KATCP_RESULT_PAUSE;
+
     } else if(!strcmp(name, "relay")){
 
       label = arg_string_katcp(d, 2);
@@ -1381,6 +1510,7 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
       }
 
       return KATCP_RESULT_PAUSE;
+
     } else {
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unknown job request %s", name);
       return KATCP_RESULT_FAIL;

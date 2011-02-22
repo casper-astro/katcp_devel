@@ -1265,6 +1265,66 @@ int broadcast_inform_katcp(struct katcp_dispatch *d, char *name, char *arg)
   return sum;
 }
 
+int log_relay_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
+{
+  struct katcp_shared *s;
+  char *priority;
+  unsigned int i;
+  int code, sum, result;
+
+  sane_katcp(d);
+
+  code = (-1);
+  priority = get_string_parse_katcl(p, 1);
+
+  if(priority){
+    code = log_to_code(priority);
+  }
+
+  if(code < 0){
+    /* TODO: malformed log message, maybe resport this ? */
+    return -1;
+  }
+
+  s = d->d_shared;
+  if(s == NULL){
+#ifdef REPORT
+    fprintf(stderr, "log: no shared state available\n");
+#endif
+    return -1;
+  }
+
+  if(s->s_template != d){ /* only honour local messages if we are not the template (which doesn't do IO) */
+    if(code & KATCP_LEVEL_LOCAL){
+      s = NULL;
+    }
+  }
+
+  result = 0;
+
+  if(s){
+    for(i = 0; i < s->s_used; i++){
+      d = s->s_clients[i];
+      if(code >= d->d_level){
+        sum = append_parse_katcl(d->d_line, p);
+        if(result < 0){
+          sum = result;
+        } else {
+          if(sum >= 0){
+            sum += result;
+          }
+        }
+      }
+    }
+  } else {
+    if(code >= d->d_level){
+      result = append_parse_katcl(d->d_line, p);
+    }
+  }
+
+  return result;
+}
+
 int log_message_katcp(struct katcp_dispatch *d, unsigned int priority, char *name, char *fmt, ...)
 {
   va_list args;
@@ -1539,6 +1599,13 @@ int append_parameter_katcp(struct katcp_dispatch *d, int flags, struct katcl_par
   sane_katcp(d);
 
   return append_parameter_katcl(d->d_line, flags, p, index);
+}
+
+int append_parse_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
+{
+  sane_katcp(d);
+
+  return append_parse_katcl(d->d_line, p);
 }
 
 int append_vargs_katcp(struct katcp_dispatch *d, int flags, char *fmt, va_list args)

@@ -15,12 +15,8 @@ static void deallocate_notice_katcp(struct katcp_dispatch *d, struct katcp_notic
 
     /* a notice should only disappear if all things pointing to it are gone */
     if(n->n_use > 0){
-      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "major logic problem: destroying notice which is used");
+      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "major logic problem: destroying notice  %p (%s) which is used", n, n->n_name ? n->n_name : "<anonymous>");
       n->n_use = 0;
-    }
-    if(n->n_count){
-      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "major logic problem: destroying notice with active users");
-      n->n_count = 0;
     }
 
     if(n->n_vector){
@@ -28,35 +24,22 @@ static void deallocate_notice_katcp(struct katcp_dispatch *d, struct katcp_notic
       n->n_vector = NULL;
     }
 
-#if 0
-    if(n->n_release){
-      (*(n->n_release))(d, n, n->n_target);
-      n->n_release = NULL;
+    if(n->n_count){
+      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "major logic problem: destroying notice with active users");
+      n->n_count = 0;
     }
-#endif
 
     if(n->n_name){
       free(n->n_name);
       n->n_name = NULL;
     }
 
-#if 0
-    if(n->n_msg){
-      destroy_msg_katcl(n->n_msg);
-      n->n_msg = NULL;
-    }
-#endif
+    n->n_tag = (-1);
 
     if(n->n_parse){
       destroy_parse_katcl(n->n_parse);
       n->n_parse = NULL;
     }
-
-    n->n_tag = (-1);
-
-#if 0
-    n->n_target = NULL;
-#endif
 
     free(n);
   }
@@ -257,6 +240,10 @@ struct katcp_notice *create_parse_notice_katcp(struct katcp_dispatch *d, char *n
   struct katcp_notice *n;
   struct katcp_notice **t;
   struct katcp_shared *s;
+
+#ifdef DEBUG
+  fprintf(stderr, "notice: creating notice (%s) with parse %p\n", name, p);
+#endif
 
   if(name){
     log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "creating %s notice with tag %d", name, tag);
@@ -617,7 +604,7 @@ int run_notices_katcp(struct katcp_dispatch *d)
 
       n->n_trigger = 0;
 
-      if(n->n_count <= 0){
+      if((n->n_count <= 0) && (n->n_use <= 0)){
         deallocate_notice_katcp(d, n);
 
         s->s_pending--;
@@ -785,7 +772,7 @@ int notice_cmd_katcp(struct katcp_dispatch *d, int argc)
         return KATCP_RESULT_FAIL;
       }
 
-      n = find_notice_katcp(d, name);
+      n = find_notice_katcp(d, value);
       if(n == NULL){
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "notice %s not found", value);
         return KATCP_RESULT_FAIL;

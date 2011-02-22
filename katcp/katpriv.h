@@ -277,6 +277,8 @@ struct katcp_job{
   unsigned int j_size;
   unsigned int j_head; /* points at the current head */
   unsigned int j_count; /* number of entries present */
+
+  struct katcp_map *j_map;
 };
 
 #if 0
@@ -513,7 +515,7 @@ int add_args_parse_katcl(struct katcl_parse *p, int flags, char *fmt, ...);
 
 int dump_parse_katcl(struct katcl_parse *p, char *prefix, FILE *fp);
 
-/*Queue logic*/
+/* queue logic */
 struct katcl_parse *get_head_katcl(struct katcl_queue *q);
 struct katcl_parse *get_tail_katcl(struct katcl_queue *q);
 struct katcl_queue *create_queue_katcl(void);
@@ -525,6 +527,15 @@ int add_tail_queue(struct katcl_queue *q, struct katcl_parse *p);
 struct katcl_parse *remove_index_queue(struct katcl_queue *q, unsigned int index);
 struct katcl_parse *remove_head_queue(struct katcl_queue *q);
 void dump_queue_parse_katcp(struct katcl_queue *q, FILE *fp);
+
+/* map logic */
+
+struct katcp_map *create_map_katcp();
+int destroy_map_katcp(struct katcp_dispatch *d, struct katcp_map *km);
+struct katcp_trap *find_map_katcp(struct katcp_map *km, char *name);
+int remove_map_katcp(struct katcp_map *km, char *name);
+int add_map_katcp(struct katcp_map *km, char *name, struct katcp_notice *n);
+int log_map_katcp(struct katcp_dispatch *d, struct katcp_map *km);
 
 /******************************************/
 
