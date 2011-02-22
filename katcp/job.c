@@ -569,10 +569,6 @@ int notice_to_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, struct ka
     return -1;
   }
 
-#ifdef DEBUG
-  fprintf(stderr, "job: submitted parse %p, about to wake writing logic\n", p);
-#endif
-
   issue_request_job_katcp(d, j); /* ignore return code, errors should come back as replies */
 
   return 0;
