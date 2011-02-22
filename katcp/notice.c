@@ -514,13 +514,15 @@ int cancel_name_notice_katcp(struct katcp_dispatch *d, char *name)
 
 /*******************************************************************************/
 
-void wake_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p)
+void update_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p, int wake, int forget)
 {
   struct katcl_parse *tmp;
 
-  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "waking notice %s@%p (source=%d, client=%d) with parse %p (%s ...)", n->n_name, n, n->n_use, n->n_count, p, p ? get_string_parse_katcl(p, 0) : "<null>");
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "updating [%s,%s] notice %s@%p (source=%d, client=%d) with parse %p (%s ...)", wake ? "wake" : "sleep", forget ? "forget" : "keep", n->n_name, n, n->n_use, n->n_count, p, p ? get_string_parse_katcl(p, 0) : "<null>");
 
-  n->n_trigger = 1;
+  if(wake){
+    n->n_trigger = 1;
+  }
 
   /* WARNING: deals with case where tmp == p */
   tmp = n->n_parse;
@@ -541,6 +543,19 @@ void wake_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct 
   if(tmp){
     destroy_parse_katcl(tmp);
   }
+
+  if(forget){
+    if(n->n_use > 0){
+      n->n_use--;
+    } else {
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "usage problem: forgetting notice %p (%s) already at 0 refcount", n, n->n_name ? n->n_name : "<anonymous>");
+    }
+  }
+}
+
+void wake_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p)
+{
+  update_notice_katcp(d, n, p, 1, 0);
 }
 
 int wake_name_notice_katcp(struct katcp_dispatch *d, char *name, struct katcl_parse *p)
@@ -552,7 +567,7 @@ int wake_name_notice_katcp(struct katcp_dispatch *d, char *name, struct katcl_pa
     return -1;
   }
 
-  wake_notice_katcp(d, n, p);
+  update_notice_katcp(d, n, p, 1, 0);
 
   return 0;
 }
