@@ -519,6 +519,15 @@ void hold_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
   n->n_use++;
 }
 
+void release_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
+{
+  if(n->n_use == 0){
+     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "releasing notice %p (%s) which is not referenced", n, n->n_name ? n->n_name : "<anonymous>");
+  } else {
+    n->n_use++;
+  }
+}
+
 void update_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p, int wake, int forget)
 {
   struct katcl_parse *tmp;

@@ -83,12 +83,10 @@ static int add_tail_job(struct katcp_dispatch *d, struct katcp_job *j, struct ka
   j->j_queue[index] = n;
   j->j_count++;
 
-  hold_notice_katcp(d, n);
-
   return 0;
 }
 
-static struct katcp_notice *remove_index_job(struct katcp_job *j, unsigned int index)
+static struct katcp_notice *remove_index_job(struct katcp_dispatch *d, struct katcp_job *j, unsigned int index)
 {
   unsigned int end;
   struct katcp_notice *n;
@@ -122,7 +120,6 @@ static struct katcp_notice *remove_index_job(struct katcp_job *j, unsigned int i
     /* hopefully the common, simple case: only one interested party */
     j->j_head = (j->j_head + 1) % j->j_size;
     j->j_count--;
-    n->n_use--;
     return n;
   }
 
@@ -134,7 +131,6 @@ static struct katcp_notice *remove_index_job(struct katcp_job *j, unsigned int i
       j->j_queue[j->j_head] = NULL;
       j->j_head = (j->j_head + 1) % j->j_size;
       j->j_count--;
-      n->n_use--;
       return n; /* WARNING: done here */
     }
   } else { /* if no wrapping, we can not be before head */
@@ -155,13 +151,12 @@ static struct katcp_notice *remove_index_job(struct katcp_job *j, unsigned int i
   j->j_queue[end] = NULL;
   j->j_count--;
 
-  n->n_use--;
   return n;
 }
 
-static struct katcp_notice *remove_head_job(struct katcp_job *j)
+static struct katcp_notice *remove_head_job(struct katcp_dispatch *d, struct katcp_job *j)
 {
-  return remove_index_job(j, j->j_head);
+  return remove_index_job(d, j, j->j_head);
 }
 
 /***********************************************************************************************************/
@@ -500,8 +495,10 @@ int issue_request_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
     px = NULL;
   }
 
-  wake_notice_katcp(d, n, px);
-  n = remove_head_job(j);
+  n = remove_head_job(d, j);
+  if(n){
+    update_notice_katcp(d, n, px, 1, 1);
+  }
 
   /* TODO: try next item if this one fails */
 
@@ -513,6 +510,8 @@ int match_inform_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, char *
   struct katcp_notice *n;
   struct katcp_trap *kt;
   struct katcl_parse *p;
+  char *ptr;
+  int len;
 
   sane_job_katcp(j);
 
@@ -534,8 +533,19 @@ int match_inform_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, char *
     }
 #endif
 
-    /* TODO: match should be replaced by a proper katcp:// url */
-    n = create_parse_notice_katcp(d, match, 0, p);
+    /* TODO: adjust when katcp:// scheme is sorted out */
+    len = (j->j_name ? strlen(j->j_name) : 0) + strlen(match) + 1;
+
+    ptr = malloc(len);
+    if(ptr){
+      snprintf(ptr, len, "%s%s", j->j_name, match);
+    }
+
+    n = create_parse_notice_katcp(d, ptr ? ptr : match, 0, p);
+    if(ptr){
+      free(ptr);
+    }
+
     if(n == NULL){
       destroy_parse_katcl(p);
       return -1;
@@ -601,6 +611,8 @@ int notice_to_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, struct ka
     return -1;
   }
 
+  hold_notice_katcp(d, n);
+
   issue_request_job_katcp(d, j); /* ignore return code, errors should come back as replies */
 
   return 0;
@@ -655,15 +667,14 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
         return -1;
       }
 
-      /* WARNING: remove head decrements n_use */
-      n = remove_head_job(j);
+      n = remove_head_job(d, j);
       if(n == NULL){
         /* as long as there are references, notices should not go away */
         log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "no outstanding notice despite waiting for a reply");
         return -1;
       }
 
-      wake_notice_katcp(d, n, p);
+      update_notice_katcp(d, n, p, 1, 1);
 
       j->j_state |= JOB_MAY_REQUEST;
 
@@ -911,7 +922,7 @@ int run_jobs_katcp(struct katcp_dispatch *d)
 
     if(j->j_state == 0){ 
 
-      n = remove_head_job(j);
+      n = remove_head_job(d, j);
       while(n != NULL){
         log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "failing pending notice for job %s", j->j_name);
 
@@ -926,8 +937,8 @@ int run_jobs_katcp(struct katcp_dispatch *d)
           px = NULL;
         }
 
-        wake_notice_katcp(d, n, px);
-        n = remove_head_job(j);
+        update_notice_katcp(d, n, px, 1, 1);
+        n = remove_head_job(d, j);
       }
 
       if(j->j_halt){
@@ -1589,10 +1600,10 @@ int main()
     r = rand() % EMPTY_CHANCE;
     if(r == 0){
       for(k = 0; k < i; k++){
-        remove_head_job(j);
+        remove_head_job(NULL, j);
       }
     } else if((r % REMOVE_CHANCE) == 0){
-      remove_head_job(j);
+      remove_head_job(NULL, j);
     } else {
       add_tail_job(NULL, j, n);
     }
