@@ -12,6 +12,7 @@
 #include <katcp.h>
 #include <katcl.h>
 #include <katpriv.h>
+#include <netc.h>
 
 #include "kcs.h"
 
@@ -180,7 +181,7 @@ int disconnected_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *
   if (!n){
     if (!(dc_kurl = kurl_string(kr->kurl,"?disconnect")))
       dc_kurl = kurl_add_path(kr->kurl,"?disconnect");
-    if(!(n = fine_notice_katcp(d,dc_kurl))){
+    if(!(n = find_notice_katcp(d,dc_kurl))){
       fd = net_connect(kr->kurl->host,kr->kurl->port,0);
       if (fd < 0){
         free(dc_kurl);
@@ -230,9 +231,9 @@ struct kcs_statemachine *get_sm_connect_kcs(){
   ksm = malloc(sizeof(struct kcs_statemachine));
   ksm->sm = malloc(sizeof(int (*)(struct katcp_dispatch *, struct katcp_notice *))*3);
   ksm->state = KCS_SM_CONNECT_DISCONNECTED;
-  ksm->state[KCS_SM_CONNECT_STOP]         = NULL;
-  ksm->state[KCS_SM_CONNECT_DISCONNECTED] = &disconnected_sm_kcs;
-  ksm->state[KCS_SM_CONNECT_CONNECTED]    = &connected_sm_kcs;
+  ksm->sm[KCS_SM_CONNECT_STOP]         = NULL;
+  ksm->sm[KCS_SM_CONNECT_DISCONNECTED] = &disconnected_sm_kcs;
+  ksm->sm[KCS_SM_CONNECT_CONNECTED]    = &connected_sm_kcs;
 #ifdef DEBUG
   fprintf(stderr,"SM: pointer to connect sm: %p\n",ksm->sm);
 #endif
