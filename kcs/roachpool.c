@@ -56,6 +56,7 @@ struct kcs_obj *new_kcs_roach_obj(struct kcs_obj *parent, char *url, char *ip, c
   kr->jl       = NULL;
   kr->kurl     = kurl_create_url_from_string(url);
   kr->ksm      = NULL;
+  kr->data     = NULL;
   if (kr->kurl == NULL)
     return NULL;
   ko = new_kcs_obj(parent,url,KCS_ID_ROACH,kr);

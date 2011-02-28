@@ -57,32 +57,26 @@ int kcs_sm_ping_s1(struct katcp_dispatch *d,struct katcp_notice *n, void *data){
   struct kcs_roach *kr;
   struct kcs_statemachine *ksm;
   char * p_kurl;
-
   ko = data;
   kr = ko->payload;
   ksm = kr->ksm;
- 
 #ifdef DEBUG
   fprintf(stderr,"SM: kcs_sm_ping_s1 %s\n",(!n)?ko->name:n->n_name);
 #endif
-
   j = find_job_katcp(d,ko->name);
   if (j == NULL){
     log_message_katcp(d,KATCP_LEVEL_ERROR,NULL,"Couldn't find job labeled %s",ko->name);
     return KCS_SM_PING_STOP;
   }
-
   p = create_parse_katcl();
   if (p == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR,NULL,"unable to create message");
     return KCS_SM_PING_STOP;
   }
-
   if (add_string_parse_katcl(p, KATCP_FLAG_FIRST | KATCP_FLAG_LAST | KATCP_FLAG_STRING, "?watchdog") < 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR,NULL,"unable to assemble message");
     return KCS_SM_PING_STOP;
   }
-
   if (!n){
     if (!(p_kurl = kurl_string(kr->kurl,"?ping")))
       p_kurl = kurl_add_path(kr->kurl,"?ping");
@@ -92,27 +86,23 @@ int kcs_sm_ping_s1(struct katcp_dispatch *d,struct katcp_notice *n, void *data){
       free(p_kurl);
       return KCS_SM_PING_STOP;
     }
-    
     ksm->n = n;
-    
     if (p_kurl) { free(p_kurl); p_kurl = NULL; }
-    
     if (add_notice_katcp(d, n, &run_statemachine, ko) != 0){
       log_message_katcp(d, KATCP_LEVEL_ERROR,NULL,"unable to add to notice %s",n->n_name);
       return KCS_SM_PING_STOP;
     }
   }
   else { 
+    /*notice already exists so update it with new parse but dont wake it*/
     update_notice_katcp(d, n, p, 0, 0);
   } 
-
   gettimeofday(&kr->lastnow, NULL);
-  
   if (notice_to_job_katcp(d, j, n) != 0){
+    /*send the notice to the job this adds it to the bottom of the list of thinngs the job must do*/
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to notice_to_job %s",n->n_name);
     return KCS_SM_PING_STOP;
   }
-
   return KCS_SM_PING_S2;
 }
 
@@ -121,7 +111,6 @@ int time_ping_wrapper_call(struct katcp_dispatch *d, void *data){
   struct kcs_roach *kr;
   struct kcs_statemachine *ksm; 
   struct katcp_notice *n;
-
   ko = data;
   kr = ko->payload;
   ksm = kr->ksm;
@@ -137,38 +126,30 @@ int kcs_sm_ping_s2(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
   struct katcl_parse *p;
   char *ptr;
   struct timeval when, now, delta;
-
 #ifdef DEBUG
   fprintf(stderr,"SM: kcs_sm_ping_s2 %s\n",n->n_name);
 #endif
-
   delta.tv_sec  = 1;
   delta.tv_usec = 0;
-
   gettimeofday(&now,NULL);
   add_time_katcp(&when,&now,&delta);
-
   p = get_parse_notice_katcp(d,n);
   if (p){
     ptr = get_string_parse_katcl(p,1);
     sub_time_katcp(&delta,&now,&((struct kcs_roach *)((struct kcs_obj *)data)->payload)->lastnow);
     log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"%s reply in %dms returns: %s",n->n_name,(delta.tv_sec*1000)+(delta.tv_usec/1000),ptr);
-    /*prepend_reply_katcp(d);
-    append_string_katcp(d, KATCP_FLAG_LAST, ptr);*/
     if (strcmp(ptr,"fail") == 0)
       return KCS_SM_PING_STOP;
   }
-
   if (register_at_tv_katcp(d, &when, &time_ping_wrapper_call, data) < 0)
     return KCS_SM_PING_STOP;
-
   return KCS_SM_PING_S1;
 }
 
 /*******************************************************************************************************/
 /*CONNECT*/
 /*******************************************************************************************************/
-int disconnected_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data){
+int disconnected_connect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data){
   struct katcp_job *j;
   struct kcs_obj *ko;
   struct kcs_roach *kr;
@@ -187,8 +168,16 @@ int disconnected_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *
         free(dc_kurl);
         log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "Unable to connect to %s",kr->kurl->str);
         return KCS_SM_CONNECT_STOP;     
-      } else{
-        //n = create_notice_katcp(d,
+      } else {
+        /*
+        n = create_notice_katcp(d,dc_kurl);
+        if (!n){
+          log_message_katcp(d,KATCP_LEVEL_ERROR,NULL,"unable to create halt notice %s",dc_kurl);
+          return KCS_SM_CONNECT_STOP;
+        } else {
+          //j = create_job_katcp(
+        }
+        */
       }
     } else {
       free(dc_kurl);
@@ -202,11 +191,88 @@ int disconnected_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *
   return KCS_SM_CONNECT_CONNECTED;
 }
 
-int connected_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data){
+int connected_connect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data){
 
   return KCS_SM_CONNECT_STOP;
 }
 
+/*******************************************************************************************************/
+/*PROGDEV*/
+/*******************************************************************************************************/
+int try_progdev_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data){
+  struct katcp_job *j;
+  struct katcl_parse *p;
+  struct kcs_obj *ko;
+  struct kcs_roach *kr;
+  struct kcs_statemachine *ksm;
+  char * p_kurl;
+  struct p_value *conf_bs;
+  ko = data;
+  kr = ko->payload;
+  ksm = kr->ksm;
+  conf_bs = kr->data;
+  j = find_job_katcp(d,ko->name);
+  if (j == NULL){
+    log_message_katcp(d,KATCP_LEVEL_ERROR,NULL,"Couldn't find job labeled %s",ko->name);
+    return KCS_SM_PROGDEV_STOP;
+  }
+  p = create_parse_katcl();
+  if (p == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR,NULL,"unable to create message");
+    return KCS_SM_PROGDEV_STOP;
+  }
+  if (add_string_parse_katcl(p, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "?progdev") < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR,NULL,"unable to assemble message");
+    return KCS_SM_PROGDEV_STOP;
+  }
+  if (add_string_parse_katcl(p,KATCP_FLAG_LAST | KATCP_FLAG_STRING,conf_bs->str) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR,NULL,"unable to assemble message");
+    return KCS_SM_PROGDEV_STOP;
+  }
+  if (!n){
+    if (!(p_kurl = kurl_string(kr->kurl,"?progdev")))
+      p_kurl = kurl_add_path(kr->kurl,"?progdev");
+    n = create_parse_notice_katcp(d, p_kurl, 0, p);
+    if (!n){
+      log_message_katcp(d, KATCP_LEVEL_ERROR,NULL,"unable to create notice %s",p_kurl);
+      free(p_kurl);
+      return KCS_SM_PROGDEV_STOP;
+    }
+    ksm->n = n;
+    if (p_kurl) { free(p_kurl); p_kurl = NULL; }
+    if (add_notice_katcp(d, n, &run_statemachine, ko) != 0){
+      log_message_katcp(d, KATCP_LEVEL_ERROR,NULL,"unable to add to notice %s",n->n_name);
+      return KCS_SM_PROGDEV_STOP;
+    }
+  }
+  else { 
+    /*notice already exists so update it with new parse but dont wake it*/
+    update_notice_katcp(d, n, p, 0, 0);
+  } 
+  if (notice_to_job_katcp(d, j, n) != 0){
+    /*send the notice to the job this adds it to the bottom of the list of thinngs the job must do*/
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to notice_to_job %s",n->n_name);
+    return KCS_SM_PROGDEV_STOP;
+  }
+  /*okay*/
+  //log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "done try progdev %s",n->n_name);
+  return KCS_SM_PROGDEV_OKAY;
+}
+
+int okay_progdev_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data){
+  struct katcl_parse *p;
+  char *ptr;
+  p = get_parse_notice_katcp(d,n);
+  if (p){
+    ptr = get_string_parse_katcl(p,1);
+    log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"%s replies: %s",n->n_name,ptr);
+    if (strcmp(ptr,"fail") == 0)
+      return KCS_SM_PROGDEV_STOP;
+  }
+  
+  //log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "done okay progdev %s",n->n_name);
+  return KCS_SM_PROGDEV_STOP;
+}
 
 /*******************************************************************************************************/
 /*StateMachine Setups*/
@@ -232,31 +298,31 @@ struct kcs_statemachine *get_sm_connect_kcs(){
   ksm->sm = malloc(sizeof(int (*)(struct katcp_dispatch *, struct katcp_notice *))*3);
   ksm->state = KCS_SM_CONNECT_DISCONNECTED;
   ksm->sm[KCS_SM_CONNECT_STOP]         = NULL;
-  ksm->sm[KCS_SM_CONNECT_DISCONNECTED] = &disconnected_sm_kcs;
-  ksm->sm[KCS_SM_CONNECT_CONNECTED]    = &connected_sm_kcs;
+  ksm->sm[KCS_SM_CONNECT_DISCONNECTED] = &disconnected_connect_sm_kcs;
+  ksm->sm[KCS_SM_CONNECT_CONNECTED]    = &connected_connect_sm_kcs;
 #ifdef DEBUG
   fprintf(stderr,"SM: pointer to connect sm: %p\n",ksm->sm);
 #endif
   return ksm;
 }
 
+struct kcs_statemachine *get_sm_progdev_kcs(){
+  struct kcs_statemachine *ksm;
+  ksm = malloc(sizeof(struct kcs_statemachine));
+  ksm->sm = malloc(sizeof(int (*)(struct katcp_dispatch *, struct katcp_notice *))*3);
+  ksm->state = KCS_SM_PROGDEV_TRY;
+  ksm->sm[KCS_SM_PROGDEV_STOP]  = NULL;
+  ksm->sm[KCS_SM_PROGDEV_TRY]   = &try_progdev_sm_kcs;
+  ksm->sm[KCS_SM_PROGDEV_OKAY]  = &okay_progdev_sm_kcs;
+#ifdef DEBUG
+  fprintf(stderr,"SM: pointer to progdev sm: %p\n",ksm->sm);
+#endif
+  return ksm;
+}
 
 /*******************************************************************************************************/
 /*API Functions*/
 /*******************************************************************************************************/
-
-int statemachine_greeting(struct katcp_dispatch *d){
-  prepend_inform_katcp(d);
- // append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"katcp://roach:port/?ping | katcp://*roachpool/?ping");
-  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"ping [roachpool|roachurl]");
-  prepend_inform_katcp(d);
-  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"connect [roachpool|roachurl]");
-  /*prepend_inform_katcp(d);
-  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"progdev [roachpool|roach]");
-  */
-  return KATCP_RESULT_OK;
-}
-
 int statemachine_ping(struct katcp_dispatch *d){
   struct kcs_basic *kb;
   struct kcs_obj *ko;
@@ -277,7 +343,7 @@ int statemachine_ping(struct katcp_dispatch *d){
       kr = (struct kcs_roach *) ko->payload;
       kr->ksm = get_sm_ping_kcs();
       run_statemachine(d,n,ko);
-      log_message_katcp(d, KATCP_LEVEL_INFO,NULL,"Found %s it is a roach",ko->name);
+      //log_message_katcp(d, KATCP_LEVEL_INFO,NULL,"Found %s it is a roach",ko->name);
       break;
     case KCS_ID_NODE:
       kn = (struct kcs_node *) ko->payload;
@@ -285,9 +351,9 @@ int statemachine_ping(struct katcp_dispatch *d){
         kr = kn->children[i]->payload;
         kr->ksm = get_sm_ping_kcs();
         run_statemachine(d,n,kn->children[i]);
-        log_message_katcp(d, KATCP_LEVEL_INFO,NULL,"Found %s it is a roach",kn->children[i]->name);
+        //log_message_katcp(d, KATCP_LEVEL_INFO,NULL,"Found %s it is a roach",kn->children[i]->name);
       }
-      log_message_katcp(d, KATCP_LEVEL_INFO,NULL,"Found %s it is a node with %d children",ko->name,kn->childcount);
+      //log_message_katcp(d, KATCP_LEVEL_INFO,NULL,"Found %s it is a node with %d children",ko->name,kn->childcount);
       break;
   }
   return KATCP_RESULT_OK;
@@ -313,7 +379,7 @@ int statemachine_connect(struct katcp_dispatch *d){
       kr = (struct kcs_roach *) ko->payload;
       kr->ksm = get_sm_connect_kcs();
       run_statemachine(d,n,ko);
-      log_message_katcp(d, KATCP_LEVEL_INFO,NULL,"Found %s it is a roach",ko->name);
+      //log_message_katcp(d, KATCP_LEVEL_INFO,NULL,"Found %s it is a roach",ko->name);
       break;
     case KCS_ID_NODE:
       kn = (struct kcs_node *) ko->payload;
@@ -321,13 +387,66 @@ int statemachine_connect(struct katcp_dispatch *d){
         kr = kn->children[i]->payload;
         /*kr->ksm = get_sm_connect_kcs();
         run_statemachine(d,n,kn->children[i]);
-        */log_message_katcp(d, KATCP_LEVEL_INFO,NULL,"Found %s it is a roach",kn->children[i]->name);
+        */
+        //log_message_katcp(d, KATCP_LEVEL_INFO,NULL,"Found %s it is a roach",kn->children[i]->name);
       }
-      log_message_katcp(d, KATCP_LEVEL_INFO,NULL,"Found %s it is a node with %d children",ko->name,kn->childcount);
+      //log_message_katcp(d, KATCP_LEVEL_INFO,NULL,"Found %s it is a node with %d children",ko->name,kn->childcount);
       break;
   }
   return KATCP_RESULT_OK;
 }
+
+int statemachine_progdev(struct katcp_dispatch *d){
+  struct kcs_basic *kb;
+  struct kcs_obj *ko;
+  struct kcs_roach *kr;
+  struct kcs_node *kn;
+  struct katcp_notice *n;
+  int i;
+  struct p_value *conf_bitstream;
+  
+  n              = NULL;
+  conf_bitstream = NULL;
+
+  kb = need_current_mode_katcp(d,KCS_MODE_BASIC);
+#ifdef DEBUG
+  fprintf(stderr,"SM progdev param: %s\n",arg_string_katcp(d,5));
+#endif
+  ko = search_tree(kb->b_pool_head,arg_string_katcp(d,5));
+  if (!ko)
+    return KATCP_RESULT_FAIL;
+  
+  conf_bitstream = parser_get(d,
+                              arg_string_katcp(d,2),
+                              arg_string_katcp(d,3),
+                              atoi(arg_string_katcp(d,4)));
+                              
+  if (!conf_bitstream)
+    return KATCP_RESULT_FAIL;
+
+  log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"PROGDEV with %s",conf_bitstream->str);
+  
+  switch (ko->tid){
+    case KCS_ID_ROACH:
+      kr = (struct kcs_roach *) ko->payload;
+      kr->ksm = get_sm_progdev_kcs();
+      kr->data = conf_bitstream;
+      run_statemachine(d,n,ko);
+      break;
+    case KCS_ID_NODE:
+      kn = (struct kcs_node *) ko->payload;
+      for (i=0; i<kn->childcount; i++){
+        kr = kn->children[i]->payload;
+        kr->ksm = get_sm_progdev_kcs();
+        kr->data = conf_bitstream;
+        run_statemachine(d,n,kn->children[i]);
+      }
+      break;
+  }
+  return KATCP_RESULT_OK;
+}
+
+
 
 void ksm_destroy(struct kcs_statemachine *ksm){
   if (ksm->n != NULL) { ksm->n = NULL; };
@@ -336,6 +455,16 @@ void ksm_destroy(struct kcs_statemachine *ksm){
 }
 
 
+int statemachine_greeting(struct katcp_dispatch *d){
+  prepend_inform_katcp(d);
+ // append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"katcp://roach:port/?ping | katcp://*roachpool/?ping");
+  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"ping [roachpool|roachurl]");
+  //prepend_inform_katcp(d);
+  //append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"connect [roachpool|roachurl]");
+  prepend_inform_katcp(d);
+  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"progdev conf-label conf-setting conf-value [roachpool|roach]");
+  return KATCP_RESULT_OK;
+}
 
 
 #ifdef STANDALONE
