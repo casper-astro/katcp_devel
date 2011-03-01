@@ -500,6 +500,7 @@ int is_null_parse_katcl(struct katcl_parse *p, unsigned int index);
 char *get_string_parse_katcl(struct katcl_parse *p, unsigned int index);
 char *copy_string_parse_katcl(struct katcl_parse *p, unsigned int index);
 unsigned long get_unsigned_long_parse_katcl(struct katcl_parse *p, unsigned int index);
+long get_signed_long_parse_katcl(struct katcl_parse *p, unsigned int index);
 #ifdef KATCP_USE_FLOATS
 double get_double_parse_katcl(struct katcl_parse *p, unsigned int index);
 #endif

@@ -340,10 +340,20 @@ int add_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*cal
 {
   struct katcp_invoke *v;
   struct katcp_notice **tn;
+  int i;
 
 #ifdef DEBUG
   fprintf(stderr, "dispatch %p has %d notices, now adding notice %p having %d subscribers\n", d, d->d_count, n, n->n_count);
 #endif
+
+  for(i = 0; i < n->n_count; i++){
+    v = &(n->n_vector[i]);
+
+    if((v->v_call == call) && (v->v_data == data)){
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "callback %p of notice %s is a duplicate\n", call, n->n_name ? n->n_name : "<anonymous>");
+      return 0;
+    }
+  }
 
   v = realloc(n->n_vector, sizeof(struct katcp_invoke) * (n->n_count + 1));
   if(v == NULL){
@@ -519,6 +529,7 @@ void hold_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
   n->n_use++;
 }
 
+#if 0 /* uncomment if needed */
 void release_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
 {
   if(n->n_use == 0){
@@ -527,6 +538,7 @@ void release_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
     n->n_use++;
   }
 }
+#endif
 
 void update_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p, int wake, int forget)
 {
