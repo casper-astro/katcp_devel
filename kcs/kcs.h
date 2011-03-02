@@ -173,13 +173,13 @@ struct kcs_obj *search_tree(struct kcs_obj *o, char *str);
 #define KCS_SM_PING_S1   1
 #define KCS_SM_PING_S2   2
 
-#define KCS_SM_CONNECT_STOP             0
-#define KCS_SM_CONNECT_DISCONNECTED     1 
-#define KCS_SM_CONNECT_CONNECTED        2
+#define KCS_SM_CONNECT_DISCONNECTED     0 
+#define KCS_SM_CONNECT_CONNECTED        1
+#define KCS_SM_CONNECT_STOP             2 
 
-#define KCS_SM_PROGDEV_STOP     0
-#define KCS_SM_PROGDEV_TRY      1
-#define KCS_SM_PROGDEV_OKAY     2
+#define KCS_SM_PROGDEV_TRY      0
+#define KCS_SM_PROGDEV_OKAY     1
+#define KCS_SM_PROGDEV_STOP     2
 
 struct kcs_statemachine {
   int (**sm)(struct katcp_dispatch *,struct katcp_notice *, void *); 
