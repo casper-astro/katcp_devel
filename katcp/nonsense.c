@@ -1396,7 +1396,7 @@ static struct katcp_sensor *find_sensor_katcp(struct katcp_dispatch *d, char *na
     }
   }
 
-  log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no match for sensor name %s", name);
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "no match for sensor name %s", name);
 
   return NULL;
 }
@@ -2529,6 +2529,8 @@ int match_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_notice *n, vo
     return -1;
   }
 
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "created local sensor %s from subordinate", name);
+
   return 1;
 }
 
@@ -2553,11 +2555,12 @@ int match_sensor_status_katcp(struct katcp_dispatch *d, struct katcp_notice *n, 
   if((name == NULL) || 
      (status == NULL) || 
      (value == NULL)){
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "insufficient parameters reported by sensor status");
     return -1;
   }
 
   sn = find_sensor_katcp(d, name);
-  if(sn){
+  if(sn == NULL){
     log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "saw sensor %s not yet declared", name);
     return 1;
   }
@@ -2579,7 +2582,10 @@ int match_sensor_status_katcp(struct katcp_dispatch *d, struct katcp_notice *n, 
     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "saw bad status %s for sensor %s", status, name);
     return 1;
   }
+
   set_status_sensor_katcp(sn, code);
+
+  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "updated sensor %s to value %s with status %s", name, status, value);
 
   propagate_acquire_katcp(d, a);
 
@@ -2592,9 +2598,12 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   struct katcp_shared *s;
   struct katcp_sensor *sn;
+  struct katcp_dispatch *dl;
   struct katcp_nonsense *ns;
+  struct katcp_job *jb;
   struct katcp_acquire *a;
   struct katcp_integer_acquire *ia;
+  struct katcl_parse *p;
   int i, j, got;
   char *name, *type, *label, *value;
 
@@ -2640,6 +2649,54 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "logic problem - acquire does not know about this sensor");
       }
     } 
+    return KATCP_RESULT_OK;
+
+  } else if(!strcmp(name, "relay")){
+
+    name = arg_string_katcp(d, 2);
+    if(name == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "require a subordinate connection to relay");
+      return KATCP_RESULT_FAIL;
+    }
+
+    jb = find_job_katcp(d, name);
+    if(jb == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to find job labelled %s", name);
+      return KATCP_RESULT_FAIL;
+    }
+
+    dl = template_shared_katcp(d);
+    if(dl == NULL){
+      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "unable to acquire template");
+      return KATCP_RESULT_FAIL;
+    }
+
+    if(match_inform_job_katcp(d, jb, "#sensor-list", &match_sensor_list_katcp, NULL) < 0){
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to match sensor-list on job %s", jb->j_name ? jb->j_name : "<anonymous>");
+    }
+    if(match_inform_job_katcp(d, jb, "#sensor-status", &match_sensor_status_katcp, NULL) < 0){
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to match sensor-status on job %s", jb->j_name ? jb->j_name : "<anonymous>");
+    }
+
+    p = create_parse_katcl();
+    if(p == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to create message");
+      return KATCP_RESULT_FAIL;
+    }
+
+    if(add_string_parse_katcl(p, KATCP_FLAG_FIRST | KATCP_FLAG_LAST | KATCP_FLAG_STRING, "?sensor-list") < 0){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to assemble message");
+      destroy_parse_katcl(p);
+      return KATCP_RESULT_FAIL;
+    }
+
+    if(submit_to_job_katcp(dl, jb, p, NULL, NULL, NULL) < 0){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to submit message to job");
+      destroy_parse_katcl(p);
+      return KATCP_RESULT_FAIL;
+    }
+
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "initialised sensor tracking for subordinate %s", jb->j_name);
     return KATCP_RESULT_OK;
 
   } else if(!strcmp(name, "create")){

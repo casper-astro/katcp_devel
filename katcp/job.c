@@ -581,11 +581,13 @@ int submit_to_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, struct ka
     return -1;
   }
 
-  if(add_notice_katcp(d, n, call, data)){
+  if(call){
+    if(add_notice_katcp(d, n, call, data)){
 #if 0
-    cancel_notice_katcp(d, n);
+      cancel_notice_katcp(d, n);
 #endif
-    return -1;
+      return -1;
+    }
   }
 
   return notice_to_job_katcp(d, j, n);

@@ -545,6 +545,8 @@ void update_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struc
   struct katcl_parse *tmp;
   struct katcp_shared *s;
 
+  /* WARNING: update_notice calls copy_parse internally. This is convenient, but normally we should have the calling function make the copy, just in case the parse given to us is not used elsewhere */
+
   log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "updating [%s,%s] notice %s@%p (source=%d, client=%d) with parse %p (%s ...)", wake ? "wake" : "sleep", forget ? "forget" : "keep", n->n_name, n, n->n_use, n->n_count, p, p ? get_string_parse_katcl(p, 0) : "<null>");
 
   if(wake){
