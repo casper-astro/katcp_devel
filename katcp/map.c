@@ -40,7 +40,7 @@ static void destroy_trap_katcp(struct katcp_dispatch *d, struct katcp_trap *kt)
   }
 
   if(kt->t_notice){
-    update_notice_katcp(d, kt->t_notice, NULL, 0, 1);
+    update_notice_katcp(d, kt->t_notice, NULL, 1, 1);
     kt->t_notice = NULL;
   }
 

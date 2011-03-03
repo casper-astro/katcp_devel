@@ -262,6 +262,7 @@ struct katcp_notice *create_parse_notice_katcp(struct katcp_dispatch *d, char *n
   if(name){
     n = find_notice_katcp(d, name);
     if(n != NULL){
+      log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "not creating notice %s as it already exists but returning a reference to it", n->n_name);
 
       px = n->n_parse;
       n->n_parse = p;
