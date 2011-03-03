@@ -277,7 +277,8 @@ static int relay_log_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n,
 
   p = get_parse_notice_katcp(d, n);
   if(p == NULL){
-    return -1;
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "should detach log handler");
+    return 0;
   }
 
   log_relay_katcp(d, p);
