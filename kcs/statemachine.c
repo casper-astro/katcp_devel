@@ -143,7 +143,7 @@ int kcs_sm_ping_s2(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
   if (p){
     ptr = get_string_parse_katcl(p,1);
     sub_time_katcp(&delta,&now,&((struct kcs_roach *)((struct kcs_obj *)data)->payload)->lastnow);
-    log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"%s reply in %dms returns: %s",n->n_name,(delta.tv_sec*1000)+(delta.tv_usec/1000),ptr);
+    log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"%s reply in %4.3fms returns: %s",n->n_name,(float)(delta.tv_sec*1000)+((float)delta.tv_usec/1000),ptr);
     if (strcmp(ptr,"fail") == 0)
       return KCS_SM_PING_STOP;
   }
@@ -278,6 +278,7 @@ int okay_progdev_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *
 #ifdef DEBUG
   fprintf(stderr,"SM: about to run wake_notice_katcp\n");
 #endif
+  //wake_notice_katcp(d,n,p);
   wake_notice_katcp(d,n,NULL);
   //log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "done okay progdev %s",n->n_name);
   return KCS_SM_PROGDEV_STOP;
