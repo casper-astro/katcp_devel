@@ -807,7 +807,7 @@ int write_katcl(struct katcl_line *l)
   p = NULL;
 
   for(state = WRITE_STATE_FILL; state != WRITE_STATE_DONE; ){
-#ifdef DEBUG
+#if DEBUG > 1
     fprintf(stderr, "write: state=%d, parse=%p, arg=%u, offset=%u, pending=%u\n", state, p, l->l_arg, l->l_offset, l->l_pending);
 #endif
     switch(state){

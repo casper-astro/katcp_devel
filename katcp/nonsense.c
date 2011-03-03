@@ -1991,7 +1991,7 @@ static int inform_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_senso
   }
 #endif
 
-  if(prepend_reply_katcp(d) < 0){
+  if(prepend_inform_katcp(d) < 0){
     return -1;
   }
 

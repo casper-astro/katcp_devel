@@ -240,6 +240,7 @@ struct katcp_notice *create_parse_notice_katcp(struct katcp_dispatch *d, char *n
   struct katcp_notice *n;
   struct katcp_notice **t;
   struct katcp_shared *s;
+  struct katcp_parse *px;
 
 #ifdef DEBUG
   fprintf(stderr, "notice: creating notice (%s) with parse %p\n", name, p);
@@ -261,6 +262,13 @@ struct katcp_notice *create_parse_notice_katcp(struct katcp_dispatch *d, char *n
   if(name){
     n = find_notice_katcp(d, name);
     if(n != NULL){
+
+      px = n->n_parse;
+      n->n_parse = p;
+      if(px){
+        destroy_parse_katcl(px);
+      }
+
       /* TODO: maybe check tag */
       return n;
     }
@@ -634,6 +642,8 @@ int run_notices_katcp(struct katcp_dispatch *d)
 
     if(n->n_trigger){
 
+      n->n_trigger = 0;
+
       j = 0;
       while(j < n->n_count){
         v = &(n->n_vector[j]);
@@ -651,8 +661,6 @@ int run_notices_katcp(struct katcp_dispatch *d)
           j++;
         }
       }
-
-      n->n_trigger = 0;
 
       if((n->n_count <= 0) && (n->n_use <= 0)){
         deallocate_notice_katcp(d, n);
