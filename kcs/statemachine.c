@@ -36,7 +36,7 @@ int run_statemachine(struct katcp_dispatch *d, struct katcp_notice *n, void *dat
 #endif
   if (ksm->sm[ksm->state]){
 #ifdef DEBUG
-    fprintf(stderr,"SM: running state: (%p)\n",ksm);
+    fprintf(stderr,"SM: running state: (%p)\n",ksm->sm[ksm->state]);
 #endif
     rtn = (*ksm->sm[ksm->state])(d,n,ko);
   }
@@ -275,8 +275,10 @@ int okay_progdev_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *
     if (strcmp(ptr,"fail") == 0)
       return KCS_SM_PROGDEV_STOP;
   }
- 
-  wake_notice_katcp(d,n,p);
+#ifdef DEBUG
+  fprintf(stderr,"SM: about to run wake_notice_katcp\n");
+#endif
+  wake_notice_katcp(d,n,NULL);
   //log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "done okay progdev %s",n->n_name);
   return KCS_SM_PROGDEV_STOP;
 }
