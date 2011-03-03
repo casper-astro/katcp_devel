@@ -240,7 +240,7 @@ struct katcp_notice *create_parse_notice_katcp(struct katcp_dispatch *d, char *n
   struct katcp_notice *n;
   struct katcp_notice **t;
   struct katcp_shared *s;
-  struct katcp_parse *px;
+  struct katcl_parse *px;
 
 #ifdef DEBUG
   fprintf(stderr, "notice: creating notice (%s) with parse %p\n", name, p);
