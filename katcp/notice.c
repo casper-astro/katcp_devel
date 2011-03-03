@@ -240,6 +240,7 @@ struct katcp_notice *create_parse_notice_katcp(struct katcp_dispatch *d, char *n
   struct katcp_notice *n;
   struct katcp_notice **t;
   struct katcp_shared *s;
+  struct katcl_parse *px;
 
 #ifdef DEBUG
   fprintf(stderr, "notice: creating notice (%s) with parse %p\n", name, p);
@@ -261,6 +262,13 @@ struct katcp_notice *create_parse_notice_katcp(struct katcp_dispatch *d, char *n
   if(name){
     n = find_notice_katcp(d, name);
     if(n != NULL){
+
+      px = n->n_parse;
+      n->n_parse = p;
+      if(px){
+        destroy_parse_katcl(px);
+      }
+
       /* TODO: maybe check tag */
       return n;
     }
@@ -340,10 +348,20 @@ int add_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*cal
 {
   struct katcp_invoke *v;
   struct katcp_notice **tn;
+  int i;
 
 #ifdef DEBUG
   fprintf(stderr, "dispatch %p has %d notices, now adding notice %p having %d subscribers\n", d, d->d_count, n, n->n_count);
 #endif
+
+  for(i = 0; i < n->n_count; i++){
+    v = &(n->n_vector[i]);
+
+    if((v->v_call == call) && (v->v_data == data)){
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "callback %p of notice %s is a duplicate\n", call, n->n_name ? n->n_name : "<anonymous>");
+      return 0;
+    }
+  }
 
   v = realloc(n->n_vector, sizeof(struct katcp_invoke) * (n->n_count + 1));
   if(v == NULL){
@@ -519,10 +537,23 @@ void hold_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
   n->n_use++;
 }
 
+#if 0 /* uncomment if needed */
+void release_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
+{
+  if(n->n_use == 0){
+     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "releasing notice %p (%s) which is not referenced", n, n->n_name ? n->n_name : "<anonymous>");
+  } else {
+    n->n_use++;
+  }
+}
+#endif
+
 void update_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p, int wake, int forget)
 {
   struct katcl_parse *tmp;
   struct katcp_shared *s;
+
+  /* WARNING: update_notice calls copy_parse internally. This is convenient, but normally we should have the calling function make the copy, just in case the parse given to us is not used elsewhere */
 
   log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "updating [%s,%s] notice %s@%p (source=%d, client=%d) with parse %p (%s ...)", wake ? "wake" : "sleep", forget ? "forget" : "keep", n->n_name, n, n->n_use, n->n_count, p, p ? get_string_parse_katcl(p, 0) : "<null>");
 
@@ -611,6 +642,8 @@ int run_notices_katcp(struct katcp_dispatch *d)
 
     if(n->n_trigger){
 
+      n->n_trigger = 0;
+
       j = 0;
       while(j < n->n_count){
         v = &(n->n_vector[j]);
@@ -628,8 +661,6 @@ int run_notices_katcp(struct katcp_dispatch *d)
           j++;
         }
       }
-
-      n->n_trigger = 0;
 
       if((n->n_count <= 0) && (n->n_use <= 0)){
         deallocate_notice_katcp(d, n);

@@ -687,6 +687,10 @@ struct katcp_dispatch *template_shared_katcp(struct katcp_dispatch *d)
 
   s = d->d_shared;
   if(s == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "template: major logic problem, template is NULL\n");
+    sleep(1);
+#endif
     return NULL;
   }
 

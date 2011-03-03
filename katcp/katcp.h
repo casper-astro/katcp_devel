@@ -198,6 +198,8 @@ int send_katcp(struct katcp_dispatch *d, ...);
 /******************* utility functions ***********/
 
 int log_message_katcp(struct katcp_dispatch *d, unsigned int priority, char *name, char *fmt, ...);
+int log_relay_katcp(struct katcp_dispatch *d, struct katcl_parse *p);
+
 int extra_response_katcp(struct katcp_dispatch *d, int code, char *fmt, ...);
 int basic_inform_katcp(struct katcp_dispatch *d, char *name, char *arg);
 int broadcast_inform_katcp(struct katcp_dispatch *d, char *name, char *arg);
@@ -319,6 +321,7 @@ char *code_name_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 void forget_parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 #endif
 
+void release_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 void hold_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 void update_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p, int wake, int forget);
 void wake_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p);

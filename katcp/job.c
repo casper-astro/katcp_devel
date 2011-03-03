@@ -44,7 +44,7 @@ static void sane_job_katcp(struct katcp_job *j)
 
 /* manage the job queue notice logic *************************************************/
 
-static int add_tail_job(struct katcp_job *j, struct katcp_notice *n)
+static int add_tail_job(struct katcp_dispatch *d, struct katcp_job *j, struct katcp_notice *n)
 {
   struct katcp_notice **tmp;
   unsigned int index;
@@ -83,12 +83,10 @@ static int add_tail_job(struct katcp_job *j, struct katcp_notice *n)
   j->j_queue[index] = n;
   j->j_count++;
 
-  n->n_use++;
-
   return 0;
 }
 
-static struct katcp_notice *remove_index_job(struct katcp_job *j, unsigned int index)
+static struct katcp_notice *remove_index_job(struct katcp_dispatch *d, struct katcp_job *j, unsigned int index)
 {
   unsigned int end;
   struct katcp_notice *n;
@@ -122,7 +120,6 @@ static struct katcp_notice *remove_index_job(struct katcp_job *j, unsigned int i
     /* hopefully the common, simple case: only one interested party */
     j->j_head = (j->j_head + 1) % j->j_size;
     j->j_count--;
-    n->n_use--;
     return n;
   }
 
@@ -134,7 +131,6 @@ static struct katcp_notice *remove_index_job(struct katcp_job *j, unsigned int i
       j->j_queue[j->j_head] = NULL;
       j->j_head = (j->j_head + 1) % j->j_size;
       j->j_count--;
-      n->n_use--;
       return n; /* WARNING: done here */
     }
   } else { /* if no wrapping, we can not be before head */
@@ -155,13 +151,12 @@ static struct katcp_notice *remove_index_job(struct katcp_job *j, unsigned int i
   j->j_queue[end] = NULL;
   j->j_count--;
 
-  n->n_use--;
   return n;
 }
 
-static struct katcp_notice *remove_head_job(struct katcp_job *j)
+static struct katcp_notice *remove_head_job(struct katcp_dispatch *d, struct katcp_job *j)
 {
-  return remove_index_job(j, j->j_head);
+  return remove_index_job(d, j, j->j_head);
 }
 
 /***********************************************************************************************************/
@@ -276,10 +271,25 @@ static void delete_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
 
 /* create, modify notices to point back at job ********************/
 
+static int relay_log_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
+{
+  struct katcl_parse *p;
+
+  p = get_parse_notice_katcp(d, n);
+  if(p == NULL){
+    return -1;
+  }
+
+  log_relay_katcp(d, p);
+
+  return 1;
+}
+
 struct katcp_job *create_job_katcp(struct katcp_dispatch *d, char *name, pid_t pid, int fd, struct katcp_notice *halt)
 {
   struct katcp_job *j, **t;
   struct katcp_shared *s;
+  struct katcp_dispatch *dl;
 
   s = d->d_shared;
 
@@ -298,7 +308,7 @@ struct katcp_job *create_job_katcp(struct katcp_dispatch *d, char *name, pid_t p
   j->j_name = NULL;
 
   j->j_pid = pid;
-  j->j_halt = halt;
+  j->j_halt = NULL;
 
   j->j_state = JOB_MAY_REQUEST | JOB_MAY_WRITE | JOB_MAY_WORK | JOB_MAY_READ;
   if(j->j_pid > 0){
@@ -327,6 +337,13 @@ struct katcp_job *create_job_katcp(struct katcp_dispatch *d, char *name, pid_t p
     return NULL;
   }
 
+  dl = template_shared_katcp(d);
+  if(dl){
+    if(match_inform_job_katcp(dl, j, "#log", &relay_log_job_katcp, NULL) < 0){
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to register log relay for job %s", j->j_name ? j->j_name : "<anonymous>");
+    }
+  } 
+
   /* WARNING: do line clone last, so that fd isn't closed on failure */
   if(fd >= 0){
     j->j_line = create_katcl(fd);
@@ -339,7 +356,8 @@ struct katcp_job *create_job_katcp(struct katcp_dispatch *d, char *name, pid_t p
   /* after this point we are not permitted to fail :*) */
 
   if(halt){
-    halt->n_use++;
+    j->j_halt = halt;
+    hold_notice_katcp(d, j->j_halt);
   }
 
   s->s_tasks[s->s_number] = j;
@@ -477,8 +495,10 @@ int issue_request_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
     px = NULL;
   }
 
-  wake_notice_katcp(d, n, px);
-  n = remove_head_job(j);
+  n = remove_head_job(d, j);
+  if(n){
+    update_notice_katcp(d, n, px, 1, 1);
+  }
 
   /* TODO: try next item if this one fails */
 
@@ -490,6 +510,8 @@ int match_inform_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, char *
   struct katcp_notice *n;
   struct katcp_trap *kt;
   struct katcl_parse *p;
+  char *ptr;
+  int len;
 
   sane_job_katcp(j);
 
@@ -504,15 +526,26 @@ int match_inform_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, char *
       return -1;
     }
 
-    if(add_plain_parse_katcl(p, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, match) < 0){
+    if(add_plain_parse_katcl(p, KATCP_FLAG_STRING | KATCP_FLAG_FIRST | KATCP_FLAG_LAST, match) < 0){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to assemble empty message");
       destroy_parse_katcl(p);
       return -1;
     }
 #endif
 
-    /* TODO: match should be replaced by a proper katcp:// url */
-    n = create_parse_notice_katcp(d, match, 0, p);
+    /* TODO: adjust when katcp:// scheme is sorted out */
+    len = (j->j_name ? strlen(j->j_name) : 0) + strlen(match) + 1;
+
+    ptr = malloc(len);
+    if(ptr){
+      snprintf(ptr, len, "%s%s", j->j_name, match);
+    }
+
+    n = create_parse_notice_katcp(d, ptr ? ptr : match, 0, p);
+    if(ptr){
+      free(ptr);
+    }
+
     if(n == NULL){
       destroy_parse_katcl(p);
       return -1;
@@ -548,11 +581,13 @@ int submit_to_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, struct ka
     return -1;
   }
 
-  if(add_notice_katcp(d, n, call, data)){
+  if(call){
+    if(add_notice_katcp(d, n, call, data)){
 #if 0
-    cancel_notice_katcp(d, n);
+      cancel_notice_katcp(d, n);
 #endif
-    return -1;
+      return -1;
+    }
   }
 
   return notice_to_job_katcp(d, j, n);
@@ -570,13 +605,15 @@ int notice_to_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, struct ka
   }
 #endif
 
-  if(add_tail_job(j, n)){
+  if(add_tail_job(d, j, n)){
 #if 0
     /* WARNING: may not be needed */
     cancel_notice_katcp(d, n);
 #endif
     return -1;
   }
+
+  hold_notice_katcp(d, n);
 
   issue_request_job_katcp(d, j); /* ignore return code, errors should come back as replies */
 
@@ -585,8 +622,8 @@ int notice_to_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, struct ka
 
 static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
 {
-  int result, code;
-  char *cmd, *module, *message, *priority;
+  int result;
+  char *cmd;
   struct katcp_notice *n;
   struct katcl_parse *p;
   struct katcp_trap *kt;
@@ -632,15 +669,14 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
         return -1;
       }
 
-      /* WARNING: remove head decrements n_use */
-      n = remove_head_job(j);
+      n = remove_head_job(d, j);
       if(n == NULL){
         /* as long as there are references, notices should not go away */
         log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "no outstanding notice despite waiting for a reply");
         return -1;
       }
 
-      wake_notice_katcp(d, n, p);
+      update_notice_katcp(d, n, p, 1, 1);
 
       j->j_state |= JOB_MAY_REQUEST;
 
@@ -664,6 +700,7 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
         log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "ignoring inform %s of job %s", cmd, j->j_name);
       }
 
+#if 0
       if(!strcmp(cmd, "#log")){
 
         /* TODO: fix this section */
@@ -684,7 +721,10 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
         }
 
         log_message_katcp(d, code, module, "%s", message);
-      } else if(!strcmp(cmd, KATCP_RETURN_JOB)){
+      } else 
+#endif
+      
+      if(!strcmp(cmd, KATCP_RETURN_JOB)){
 
 #ifdef DEBUG
         fprintf(stderr, "job: saw return inform message\n");
@@ -713,8 +753,7 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
           fprintf(stderr, "job: waking notice %p\n", n);
 #endif
 
-          n->n_use--;
-          wake_notice_katcp(d, n, p);
+          update_notice_katcp(d, n, p, 1, 1);
         }
 
         /* terminating job, otherwise halt notice can not assume that job is gone */
@@ -885,7 +924,7 @@ int run_jobs_katcp(struct katcp_dispatch *d)
 
     if(j->j_state == 0){ 
 
-      n = remove_head_job(j);
+      n = remove_head_job(d, j);
       while(n != NULL){
         log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "failing pending notice for job %s", j->j_name);
 
@@ -900,8 +939,8 @@ int run_jobs_katcp(struct katcp_dispatch *d)
           px = NULL;
         }
 
-        wake_notice_katcp(d, n, px);
-        n = remove_head_job(j);
+        update_notice_katcp(d, n, px, 1, 1);
+        n = remove_head_job(d, j);
       }
 
       if(j->j_halt){
@@ -916,8 +955,7 @@ int run_jobs_katcp(struct katcp_dispatch *d)
           add_plain_parse_katcl(p, KATCP_FLAG_STRING | KATCP_FLAG_LAST, string ? string : KATCP_FAIL);
         }
 
-        n->n_use--;
-        wake_notice_katcp(d, n, p);
+        update_notice_katcp(d, n, p, 1, 1);
 
         /* wake makes a copy, so get rid of this instance */
         destroy_parse_katcl(p);
@@ -1313,7 +1351,7 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
         (j->j_state & JOB_MAY_WORK) ? "can process data" : "has no more data", 
         (j->j_state & JOB_MAY_KILL) ? "may be signalled" : "may not be signalled", 
         (j->j_state & JOB_MAY_COLLECT) ? "has an outstanding status code" : "has no status to collect");
-        log_map_katcp(d, j->j_map);
+        log_map_katcp(d, j->j_name, j->j_map);
       }
       log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%d jobs", s->s_number);
 
@@ -1564,12 +1602,12 @@ int main()
     r = rand() % EMPTY_CHANCE;
     if(r == 0){
       for(k = 0; k < i; k++){
-        remove_head_job(j);
+        remove_head_job(NULL, j);
       }
     } else if((r % REMOVE_CHANCE) == 0){
-      remove_head_job(j);
+      remove_head_job(NULL, j);
     } else {
-      add_tail_job(j, n);
+      add_tail_job(NULL, j, n);
     }
     dump_queue_job_katcp(j, stderr);
   }

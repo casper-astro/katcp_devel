@@ -685,6 +685,19 @@ unsigned long get_unsigned_long_parse_katcl(struct katcl_parse *p, unsigned int 
   return value;
 }
 
+long get_signed_long_parse_katcl(struct katcl_parse *p, unsigned int index)
+{
+  long value;
+
+  if(index >= p->p_got){
+    return 0;
+  } 
+
+  value = strtol(p->p_buffer + p->p_args[index].a_begin, NULL, 0);
+
+  return value;
+}
+
 #ifdef KATCP_USE_FLOATS
 double get_double_parse_katcl(struct katcl_parse *p, unsigned int index)
 {

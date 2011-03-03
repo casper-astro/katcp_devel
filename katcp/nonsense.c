@@ -76,9 +76,22 @@ static void sane_sensor(struct katcp_sensor *sn)
     abort();
   }
 }
+
+static void sane_acquire(struct katcp_acquire *a)
+{
+  if(a == NULL){
+    fprintf(stderr, "sane: null acquire\n");
+    abort();
+  }
+  if((a->a_type < 0) || (a->a_type >= KATCP_SENSORS_COUNT)){
+    fprintf(stderr, "sane: broken type for acquire %p\n", a);
+    abort();
+  }
+}
 #else
 #define sane_sensor(sn)
 #define sane_nonsense(ns)
+#define sane_acquire(ns)
 #endif
 
 /**********************************************************************************************/
@@ -107,6 +120,7 @@ struct katcp_check_table{
   int (*c_append_value)(struct katcp_dispatch *d, int flags, struct katcp_sensor *sn);
   int (*c_append_diff)(struct katcp_dispatch *d, int flags, struct katcp_nonsense *ns);
   int (*c_scan_diff)(struct katcp_nonsense *ns, char *extra);
+  int (*c_scan_value)(struct katcp_acquire *a, char *value);
   int (*c_has_poll)(struct katcp_acquire *a);
   int (*c_checks[KATCP_STRATEGIES_COUNT])(struct katcp_nonsense *ns);
 };
@@ -230,6 +244,38 @@ int create_acquire_intbool_katcp(struct katcp_dispatch *d, struct katcp_acquire 
 
   a->a_more = ia;
   a->a_type = type;
+
+  return 0;
+}
+
+int scan_value_intbool_katcp(struct katcp_acquire *a, char *value)
+{
+  struct katcp_integer_acquire *ia;
+  char *end;
+  int got;
+
+  ia = a->a_more;
+
+  if(ia == NULL){
+    return -1;
+  }
+
+  if(value == NULL){
+    return -1;
+  }
+
+  got = strtol(value, &end, 0);
+  switch(end[0]){
+    case ' '  :
+    case '\0' :
+    case '\r' :
+    case '\n' :
+      break;
+    default  :
+      return -1;
+  }
+
+  ia->ia_current = got;
 
   return 0;
 }
@@ -376,9 +422,9 @@ int scan_diff_integer_katcp(struct katcp_nonsense *ns, char *extra)
     case '\0' :
     case '\r' :
     case '\n' :
-    break;
+      break;
     default  :
-    return -1;
+      return -1;
   }
 
   in->in_delta = value;
@@ -429,6 +475,8 @@ int event_check_intbool_katcp(struct katcp_nonsense *ns)
 
   return 1;
 }
+
+/* integer specific logic *********************************************************************/
 
 int diff_check_integer_katcp(struct katcp_nonsense *ns)
 {
@@ -567,6 +615,7 @@ static struct katcp_check_table type_lookup_table[] = {
       &append_value_intbool_katcp,
       &append_diff_integer_katcp,
       &scan_diff_integer_katcp,
+      &scan_value_intbool_katcp,
       &has_poll_intbool_katcp,
       { 
          NULL, /* never used, strategy none causes the deletion of the matching nonsense structure */
@@ -585,6 +634,7 @@ static struct katcp_check_table type_lookup_table[] = {
       &append_value_intbool_katcp,
        NULL,
        NULL,
+      &scan_value_intbool_katcp,
       &has_poll_intbool_katcp,
       { 
          NULL, /* never used, strategy none causes the deletion of the matching nonsense structure */
@@ -889,7 +939,6 @@ int run_acquire_katcp(struct katcp_dispatch *d, void *data)
       case KATCP_SENSOR_BOOLEAN :
         ia = a->a_more;
         if(ia->ia_get){
-          ia->ia_current = (*(ia->ia_get))(d, a);
           log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "acquired integer result %d for %p", ia->ia_current, a);
         }
         break;
@@ -1228,6 +1277,8 @@ static int reload_sensor_katcp(struct katcp_dispatch *d, struct katcp_sensor *sz
     return -1;
   }
 
+  sane_acquire(a);
+
   polling = (*(type_lookup_table[a->a_type].c_has_poll))(a);
 
   periodics = 0;
@@ -1345,7 +1396,7 @@ static struct katcp_sensor *find_sensor_katcp(struct katcp_dispatch *d, char *na
     }
   }
 
-  log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no match for sensor name %s", name);
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "no match for sensor name %s", name);
 
   return NULL;
 }
@@ -1695,6 +1746,15 @@ char *type_name_sensor_katcp(struct katcp_sensor *sn)
   return type_lookup_table[sn->s_type].c_name;
 }
 
+int type_code_sensor_katcp(char *name)
+{
+  int i;
+
+  for(i = 0; type_lookup_table[i].c_name && strcmp(name, type_lookup_table[i].c_name); i++);
+
+  return type_lookup_table[i].c_name ? i : (-1);
+}
+
 /* strategy information *********************************************/
 
 static char *sensor_strategy_table[KATCP_STRATEGIES_COUNT] = { "none", "period", "event", "differential", "forced" };
@@ -1728,6 +1788,19 @@ char *status_name_sensor_katcp(struct katcp_sensor *sn)
   return sensor_status_table[sn->s_status];
 }
 
+int status_code_sensor_katcp(char *name)
+{
+  int i;
+
+  for(i = 0; i < KATCP_STATA_COUNT; i++){
+    if(!strcmp(name, sensor_status_table[i])){
+      return i;
+    }
+  }
+
+  return -1;
+}
+
 int get_status_sensor_katcp(struct katcp_sensor *sn)
 {
   sane_sensor(sn);
@@ -1746,6 +1819,13 @@ int set_status_sensor_katcp(struct katcp_sensor *sn, int status)
   sn->s_status = status;
 
   return 0;
+}
+
+int scan_value_sensor_katcp(struct katcp_acquire *a, char *value)
+{
+  sane_acquire(a);
+
+  return (*(type_lookup_table[a->a_type].c_scan_value))(a, value);
 }
 
 /*** sensor value and support *********************************************/
@@ -1911,7 +1991,7 @@ static int inform_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_senso
   }
 #endif
 
-  if(prepend_reply_katcp(d) < 0){
+  if(prepend_inform_katcp(d) < 0){
     return -1;
   }
 
@@ -2361,13 +2441,169 @@ int sensor_dump_cmd_katcp(struct katcp_dispatch *d, int argc)
   return KATCP_RESULT_OK;
 }
 
+/***************************************************************************/
+
+int match_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
+{
+  struct katcp_sensor *sn;
+  struct katcl_parse *p;
+  struct katcp_acquire *a;
+  char *name, *description, *type, *units;
+  int code, min, max;
+  unsigned int count;
+
+  p = get_parse_notice_katcp(d, n);
+  if(p == NULL){
+    return -1;
+  }
+
+  name = get_string_parse_katcl(p, 1);
+  description = get_string_parse_katcl(p, 2);
+  units = get_string_parse_katcl(p, 3);
+  type = get_string_parse_katcl(p, 4);
+
+  if((name == NULL) || 
+     (description == NULL) || 
+     (type == NULL)){
+    return -1;
+  }
+
+  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "saw sensor declaration for %s", name);
+
+  /* WARNING: design issue: do we add to the name, if so, how to get at job (somehow via the *void ?) ? */
+  sn = find_sensor_katcp(d, name);
+  if(sn){
+    return 1;
+  }
+
+  code = type_code_sensor_katcp(type);
+  if(code < 0){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "saw sensor declaration for %s of unknown type %s", name, type);
+    return 1;
+  }
+
+  /* WARNING: force mode to be 0, but what about sensor availability in various modes ? */
+  sn = create_sensor_katcp(d, name, description, units, KATCP_STRATEGY_EVENT, code, 0);
+  if(sn == NULL){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "sensor declaration of %s failed", name);
+    return -1;
+  }
+
+  /* TODO: adhocery ahead: There aught to be a decent way of creating type specific sensor data given a parse structure - using the the type lookup structure */
+
+
+  /* assume a to have failed, if failed, destroy sensor */
+  a = NULL;
+  switch(code){
+    case KATCP_SENSOR_INTEGER :
+      count = get_count_parse_katcl(p);
+      if(count >= 7){
+        min = get_signed_long_parse_katcl(p, 5);
+        max = get_signed_long_parse_katcl(p, 6);
+        if(create_sensor_integer_katcp(d, sn, min, max) >= 0){
+          a = setup_integer_acquire_katcp(d, NULL, NULL, NULL);
+        }
+      } else {
+        log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "%u parameters not sufficient to copy sensor %s", count, name);
+      }
+      break;
+    case KATCP_SENSOR_BOOLEAN :
+      if(create_sensor_boolean_katcp(d, sn) >= 0){
+        a = setup_boolean_acquire_katcp(d, NULL, NULL, NULL);
+      }
+      break;
+    default :
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to deal with sensor type %s yet while cloning %s", type, name);
+      break;
+  }
+
+  /* if aquire has been created, things are ok, otherwise undo */
+  if(a == NULL){
+    destroy_sensor_katcp(d, sn);
+    return -1;
+  }
+
+  if(link_acquire_katcp(d, a, sn, NULL)){
+    destroy_sensor_katcp(d, sn);
+    destroy_acquire_katcp(d, a);
+    return -1;
+  }
+
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "created local sensor %s from subordinate", name);
+
+  return 1;
+}
+
+int match_sensor_status_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
+{
+  struct katcp_sensor *sn;
+  struct katcp_acquire *a;
+  struct katcl_parse *p;
+  char *name, *status, *value;
+  int code;
+
+  p = get_parse_notice_katcp(d, n);
+  if(p == NULL){
+    return -1;
+  }
+
+  /* WARNING: will only extract the first sensor out of a composite list */
+  name = get_string_parse_katcl(p, 3);
+  status = get_string_parse_katcl(p, 4);
+  value = get_string_parse_katcl(p, 5);
+
+  if((name == NULL) || 
+     (status == NULL) || 
+     (value == NULL)){
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "insufficient parameters reported by sensor status");
+    return -1;
+  }
+
+  sn = find_sensor_katcp(d, name);
+  if(sn == NULL){
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "saw sensor %s not yet declared", name);
+    return 1;
+  }
+
+  /* in a real OO program, this would be an accessor function */
+  a = sn->s_acquire;
+  if(a == NULL){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "sensor %s has no acquire", name);
+    return -1;
+  }
+
+  if(scan_value_sensor_katcp(a, value) < 0){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to scan value %s for sensor %s", value, name);
+    return -1;
+  }
+
+  code = status_code_sensor_katcp(status);
+  if(code < 0){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "saw bad status %s for sensor %s", status, name);
+    return 1;
+  }
+
+  set_status_sensor_katcp(sn, code);
+
+  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "updated sensor %s to value %s with status %s", name, status, value);
+
+  propagate_acquire_katcp(d, a);
+
+  return 1;
+}
+
+/***************************************************************************/
+
 int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   struct katcp_shared *s;
   struct katcp_sensor *sn;
+  struct katcp_dispatch *dl;
   struct katcp_nonsense *ns;
+  struct katcp_job *jb;
   struct katcp_acquire *a;
   struct katcp_integer_acquire *ia;
+  struct katcl_parse *p;
   int i, j, got;
   char *name, *type, *label, *value;
 
@@ -2413,6 +2649,54 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "logic problem - acquire does not know about this sensor");
       }
     } 
+    return KATCP_RESULT_OK;
+
+  } else if(!strcmp(name, "relay")){
+
+    name = arg_string_katcp(d, 2);
+    if(name == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "require a subordinate connection to relay");
+      return KATCP_RESULT_FAIL;
+    }
+
+    jb = find_job_katcp(d, name);
+    if(jb == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to find job labelled %s", name);
+      return KATCP_RESULT_FAIL;
+    }
+
+    dl = template_shared_katcp(d);
+    if(dl == NULL){
+      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "unable to acquire template");
+      return KATCP_RESULT_FAIL;
+    }
+
+    if(match_inform_job_katcp(d, jb, "#sensor-list", &match_sensor_list_katcp, NULL) < 0){
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to match sensor-list on job %s", jb->j_name ? jb->j_name : "<anonymous>");
+    }
+    if(match_inform_job_katcp(d, jb, "#sensor-status", &match_sensor_status_katcp, NULL) < 0){
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to match sensor-status on job %s", jb->j_name ? jb->j_name : "<anonymous>");
+    }
+
+    p = create_parse_katcl();
+    if(p == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to create message");
+      return KATCP_RESULT_FAIL;
+    }
+
+    if(add_string_parse_katcl(p, KATCP_FLAG_FIRST | KATCP_FLAG_LAST | KATCP_FLAG_STRING, "?sensor-list") < 0){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to assemble message");
+      destroy_parse_katcl(p);
+      return KATCP_RESULT_FAIL;
+    }
+
+    if(submit_to_job_katcp(dl, jb, p, NULL, NULL, NULL) < 0){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to submit message to job");
+      destroy_parse_katcl(p);
+      return KATCP_RESULT_FAIL;
+    }
+
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "initialised sensor tracking for subordinate %s", jb->j_name);
     return KATCP_RESULT_OK;
 
   } else if(!strcmp(name, "create")){

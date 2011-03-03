@@ -28,7 +28,7 @@ static struct katcp_trap *create_trap_katcp(char *name)
   return kt;
 }
 
-static void destroy_trap_katcp(struct katcp_trap *kt)
+static void destroy_trap_katcp(struct katcp_dispatch *d, struct katcp_trap *kt)
 {
   if(kt == NULL){
     return;
@@ -40,7 +40,8 @@ static void destroy_trap_katcp(struct katcp_trap *kt)
   }
 
   if(kt->t_notice){
-    /* TODO */
+    update_notice_katcp(d, kt->t_notice, NULL, 0, 1);
+    kt->t_notice = NULL;
   }
 
   free(kt);
@@ -70,21 +71,7 @@ int destroy_map_katcp(struct katcp_dispatch *d, struct katcp_map *km)
   }
 
   for(i = 0; i < km->m_size; i++){
-    destroy_trap_katcp(km->m_traps[i]);
-#if 0
-    if(kt){
-      if(kt->t_name){
-        free(kt->t_name);
-        kt->t_name = NULL;
-      }
-      if(kt->t_notice){
-        n = kt->t_notice;
-        /* WARNING: could need some logic to wake ? */
-        update_notice_katcp(d, n, NULL, 0, 1);
-        kt->t_notice = NULL; /* somehow disown notice */
-      }
-    }
-#endif
+    destroy_trap_katcp(d, km->m_traps[i]);
   }
 
   if(km->m_traps){
@@ -144,7 +131,7 @@ struct katcp_trap *find_map_katcp(struct katcp_map *km, char *name)
 }
 
 
-int remove_map_katcp(struct katcp_map *km, char *name)
+int remove_map_katcp(struct katcp_dispatch *d, struct katcp_map *km, char *name)
 {
   int result, i, m;
 
@@ -154,7 +141,7 @@ int remove_map_katcp(struct katcp_map *km, char *name)
     return -1;
   }
 
-  destroy_trap_katcp(km->m_traps[result]);
+  destroy_trap_katcp(d, km->m_traps[result]);
 
   m = km->m_size - 1 ;
   i = result;
@@ -196,7 +183,6 @@ int add_map_katcp(struct katcp_dispatch *d, struct katcp_map *km, char *name, st
   kt->t_notice = n;
   if(n){
     hold_notice_katcp(d, n);
-    n->n_use++;
   }
 
   km->m_traps = tmp;
@@ -211,14 +197,14 @@ int add_map_katcp(struct katcp_dispatch *d, struct katcp_map *km, char *name, st
   return 0;
 }
 
-int log_map_katcp(struct katcp_dispatch *d, struct katcp_map *km)
+int log_map_katcp(struct katcp_dispatch *d, char *prefix, struct katcp_map *km)
 {
   int i;
   struct katcp_trap *kt;
 
   for(i = 0; i < km->m_size; i++){
     kt = km->m_traps[i];
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "filter %s", kt->t_name);
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "filter %s %s", prefix, kt->t_name);
   }
 
   return 0;
@@ -257,7 +243,7 @@ int main()
     cmd[BUFFER - 1] = '\0';
     switch(cmd[0]){
       case 'r' :
-        if(remove_map_katcp(km, cmd + 1) < 0){
+        if(remove_map_katcp(NULL, km, cmd + 1) < 0){
           fprintf(stderr, "unable to remove %s\n", cmd + 1);
         }
         break;
