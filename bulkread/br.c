@@ -168,7 +168,15 @@ int main(int argc, char **argv)
     return 2;
   }
 
-  fd = net_connect(server, 0, verbose);
+  flags = 0;
+  if(verbose > 0){
+    flags = NETC_VERBOSE_ERRORS;
+    if(verbose > 1){
+      flags = NETC_VERBOSE_STATS;
+    }
+  }
+
+  fd = net_connect(server, 0, flags);
   if(fd < 0){
     return 2;
   }

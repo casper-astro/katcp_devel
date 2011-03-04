@@ -16,7 +16,7 @@
 
 #include "netc.h"
 
-int net_connect(char *name, int port, int verbose)
+int net_connect(char *name, int port, int flags)
 {
   /* WARNING: this function may call resolvers, and blocks for those */
   /* WARNING: uses ipv4 API */
@@ -38,14 +38,14 @@ int net_connect(char *name, int port, int verbose)
   }
 
   if(p == 0){
-    if(verbose) fprintf(stderr, "connect: unable to acquire a port number\n");
+    if(flags & NETC_VERBOSE_ERRORS) fprintf(stderr, "connect: unable to acquire a port number\n");
     errno = EINVAL;
     return -2;
   }
 
   host = strdup(name);
   if(host == NULL){
-    if(verbose) fprintf(stderr, "connect: unable to duplicate string\n");
+    if(flags & NETC_VERBOSE_ERRORS) fprintf(stderr, "connect: unable to duplicate string\n");
     errno = ENOMEM;
     return -1;
   }
@@ -58,7 +58,7 @@ int net_connect(char *name, int port, int verbose)
   if(inet_aton(host, &(sa.sin_addr)) == 0){
     he = gethostbyname(host);
     if((he == NULL) || (he->h_addrtype != AF_INET)){
-      if(verbose) fprintf(stderr, "connect: unable to map %s to ipv4 address\n", host);
+      if(flags & NETC_VERBOSE_ERRORS) fprintf(stderr, "connect: unable to map %s to ipv4 address\n", host);
       free(host);
       errno = EINVAL;
       return -1;
@@ -72,9 +72,13 @@ int net_connect(char *name, int port, int verbose)
   sa.sin_port = htons(p);
   sa.sin_family = AF_INET;
 
-  fd = socket(AF_INET, SOCK_STREAM, 0);
+  if(flags & NETC_ASYNC){
+    fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
+  } else {
+    fd = socket(AF_INET, SOCK_STREAM, 0);
+  }
   if(fd < 0){
-    if(verbose){
+    if(flags & NETC_VERBOSE_ERRORS){
       se = errno;
       fprintf(stderr, "connect: unable to allocate socket: %s\n", strerror(errno));
       errno = se;
@@ -82,17 +86,22 @@ int net_connect(char *name, int port, int verbose)
     return -1;
   }
    
-  if(verbose > 1){
+  if(flags & NETC_VERBOSE_STATS){
     ptr = inet_ntoa(sa.sin_addr);
-    if(verbose) fprintf(stderr, "connect: connecting to %s:%u\n", ptr, p);
+    fprintf(stderr, "connect: connecting to %s:%u\n", ptr, p);
   }
 
   len = sizeof(struct sockaddr_in);
 
   if(connect(fd, (struct sockaddr *)(&sa), len)){
+    if(flags & NETC_ASYNC){
+      if(errno == EINPROGRESS){
+        return fd;
+      }
+    }
     se = errno;
     close(fd);
-    if(verbose){
+    if(flags & NETC_VERBOSE_ERRORS){
       ptr = inet_ntoa(sa.sin_addr);
       fprintf(stderr, "connect: connect to %s:%u failed: %s\n", ptr, p, strerror(errno));
     }
@@ -100,14 +109,14 @@ int net_connect(char *name, int port, int verbose)
     return -1;
   }
 
-  if(verbose > 1){
-    if(verbose) fprintf(stderr, "connect: established connection\n");
+  if(flags & NETC_VERBOSE_STATS){
+    fprintf(stderr, "connect: established connection\n");
   }
 
   return fd;
 }
 
-int net_listen(char *name, int port, int verbose)
+int net_listen(char *name, int port, int flags)
 {
   int p, len, fd, se;
   char *ptr, *host;
@@ -121,7 +130,7 @@ int net_listen(char *name, int port, int verbose)
   if(name){
     host = strdup(name);
     if(host == NULL){
-      if(verbose) fprintf(stderr, "listen: unable to duplicate string\n");
+      if(flags & NETC_VERBOSE_ERRORS) fprintf(stderr, "listen: unable to duplicate string\n");
       errno = ENOMEM;
       return -1;
     }
@@ -149,7 +158,7 @@ int net_listen(char *name, int port, int verbose)
     if(inet_aton(host, &(sa.sin_addr)) == 0){
       he = gethostbyname(host);
       if((he == NULL) || (he->h_addrtype != AF_INET)){
-        if(verbose) fprintf(stderr, "listen: unable to map %s to ipv4 address\n", host);
+        if(flags & NETC_VERBOSE_ERRORS) fprintf(stderr, "listen: unable to map %s to ipv4 address\n", host);
         free(host);
         errno = EINVAL;
         return -1;
@@ -166,7 +175,7 @@ int net_listen(char *name, int port, int verbose)
 
   fd = socket(AF_INET, SOCK_STREAM, 0);
   if(fd < 0){
-    if(verbose){
+    if(flags & NETC_VERBOSE_ERRORS){
       se = errno;
       fprintf(stderr, "listen: unable to allocate socket: %s\n", strerror(errno));
       errno = se;
@@ -178,16 +187,15 @@ int net_listen(char *name, int port, int verbose)
   value = 1;
   setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &value, sizeof(value));
    
-  if(verbose > 1){
-    ptr = inet_ntoa(sa.sin_addr);
-    if(verbose) fprintf(stderr, "listen: about to bind %u\n", p);
+  if(flags & NETC_VERBOSE_STATS){
+    fprintf(stderr, "listen: about to bind %u\n", p);
   }
 
   len = sizeof(struct sockaddr_in);
   if(bind(fd, (struct sockaddr *)(&sa), len)){
     se = errno;
     close(fd);
-    if(verbose) fprintf(stderr, "listen: bind to %u failed: %s\n", p, strerror(errno));
+    if(flags & NETC_VERBOSE_ERRORS) fprintf(stderr, "listen: bind to %u failed: %s\n", p, strerror(errno));
     errno = se;
     return -1;
   }
@@ -195,13 +203,13 @@ int net_listen(char *name, int port, int verbose)
   if(listen(fd, 3)){
     se = errno;
     close(fd);
-    if(verbose) fprintf(stderr, "listen: unable to listen on port %u: %s\n", p, strerror(errno));
+    if(flags & NETC_VERBOSE_ERRORS) fprintf(stderr, "listen: unable to listen on port %u: %s\n", p, strerror(errno));
     errno = se;
     return -1;
   }
 
-  if(verbose > 1){
-    if(verbose) fprintf(stderr, "listen: ready for connections\n");
+  if(flags & NETC_VERBOSE_STATS){
+    fprintf(stderr, "listen: ready for connections\n");
   }
 
   return fd;
@@ -220,7 +228,7 @@ int main(int argc, char **argv)
     return 1;
   }
 
-  fd = net_connect(argv[1], (argc > 2) ? atoi(argv[2]) : 0, 1);
+  fd = net_connect(argv[1], (argc > 2) ? atoi(argv[2]) : 0, NETC_VERBOSE_ERRORS | NETC_VERBOSE_STATS);
   if(fd < 0){
     fprintf(stderr, "%s: failed\n", argv[0]);
     return 1;

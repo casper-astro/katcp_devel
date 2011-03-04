@@ -34,9 +34,17 @@ void handle_alarm(int signal)
 struct katcl_line *initiate_connection(char *server, int verbose)
 {
   struct katcl_line *l;
-  int fd;
+  int fd, flags;
 
-  fd = net_connect(server, 0, verbose);
+  flags = 0;
+  if(verbose > 0){
+    flags = NETC_VERBOSE_ERRORS;
+    if(verbose > 1){
+      flags = NETC_VERBOSE_STATS;
+    }
+  } 
+
+  fd = net_connect(server, 0, flags);
   if(fd < 0){
     if(verbose > 0){
       fprintf(stderr, "%s: unable to initiate connection to %s\n", NAME, server);

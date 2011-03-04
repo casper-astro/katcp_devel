@@ -549,7 +549,7 @@ int roachpool_connect_pool(struct katcp_dispatch *d){
 #endif
     //if (!find_notice_katcp(d,o->name)){
     if (!find_notice_katcp(d,dc_kurl)){
-      fd = net_connect(kr->kurl->host,kr->kurl->port,0);
+      fd = net_connect(kr->kurl->host,kr->kurl->port, NETC_ASYNC);
       if (fd < 0){
         log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "Unable to connect to %s",kr->kurl->str);
         /*net connect fail*/
@@ -563,7 +563,7 @@ int roachpool_connect_pool(struct katcp_dispatch *d){
           i++;
         } else {
           /*notice success*/
-          j = create_job_katcp(d,kr->kurl->str,0,fd,n);
+          j = create_job_katcp(d,kr->kurl->str,0,fd, 1, n);
           if (!j){
             /*job fail*/
             log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "Unable to create job for %s",kr->kurl->str);

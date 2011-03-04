@@ -201,7 +201,7 @@ int main(int argc, char **argv)
     return 2;
   }
 
-  fd = net_connect(server, 0, 1);
+  fd = net_connect(server, 0, NETC_VERBOSE_ERRORS | NETC_VERBOSE_STATS);
   if(fd < 0){
     fprintf(stderr, "unable to connect to %s\n", server);
     return 2;
