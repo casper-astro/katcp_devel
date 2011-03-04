@@ -2443,18 +2443,50 @@ int sensor_dump_cmd_katcp(struct katcp_dispatch *d, int argc)
 
 /***************************************************************************/
 
+char *assemble_sensor_name_katcp(struct katcp_notice *n, char *suffix)
+{
+  char *end, *copy;
+  int last, first;
+
+  if(n->n_name == NULL){
+    return NULL;
+  }
+
+  last = strlen(suffix);
+
+  end = strchr(n->n_name, '#');
+  if(end == NULL){
+    first = strlen(n->n_name);
+  } else {
+    first = (end - n->n_name);
+  }
+
+  copy = malloc(first + last + 2);
+  if(copy == NULL){
+    return NULL;
+  }
+
+  memcpy(copy, n->n_name, first);
+  copy[first] = '.';
+  memcpy(copy + first + 1, suffix, last);
+  copy[first + last + 1] = '\0';
+
+  return copy;
+}
+
 int match_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 {
   struct katcp_sensor *sn;
   struct katcl_parse *p;
   struct katcp_acquire *a;
-  char *name, *description, *type, *units;
+  char *name, *description, *type, *units, *combine;
   int code, min, max;
   unsigned int count;
 
   p = get_parse_notice_katcp(d, n);
   if(p == NULL){
-    return -1;
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "releasing sensor list match");
+    return 0;
   }
 
   name = get_string_parse_katcl(p, 1);
@@ -2467,25 +2499,34 @@ int match_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_notice *n, vo
      (type == NULL)){
     return -1;
   }
+  
+  combine = assemble_sensor_name_katcp(n, name);
+  if(combine == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate combined name for upstream sensor %s", name);
+    return -1;
+  }
 
-  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "saw sensor declaration for %s", name);
+  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "saw subordinate sensor definition for %s, taking it as %s", name, combine);
 
-  /* WARNING: design issue: do we add to the name, if so, how to get at job (somehow via the *void ?) ? */
-  sn = find_sensor_katcp(d, name);
+  sn = find_sensor_katcp(d, combine);
   if(sn){
+    free(combine);
     return 1;
   }
 
   code = type_code_sensor_katcp(type);
   if(code < 0){
     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "saw sensor declaration for %s of unknown type %s", name, type);
+    free(combine);
     return 1;
   }
 
   /* WARNING: force mode to be 0, but what about sensor availability in various modes ? */
-  sn = create_sensor_katcp(d, name, description, units, KATCP_STRATEGY_EVENT, code, 0);
+  sn = create_sensor_katcp(d, combine, description, units, KATCP_STRATEGY_EVENT, code, 0);
+  free(combine);
+
   if(sn == NULL){
-    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "sensor declaration of %s failed", name);
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "relayed sensor declaration of %s failed", name);
     return -1;
   }
 
@@ -2520,7 +2561,7 @@ int match_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_notice *n, vo
   /* if aquire has been created, things are ok, otherwise undo */
   if(a == NULL){
     destroy_sensor_katcp(d, sn);
-    return -1;
+    return 1;
   }
 
   if(link_acquire_katcp(d, a, sn, NULL)){
@@ -2539,12 +2580,14 @@ int match_sensor_status_katcp(struct katcp_dispatch *d, struct katcp_notice *n, 
   struct katcp_sensor *sn;
   struct katcp_acquire *a;
   struct katcl_parse *p;
-  char *name, *status, *value;
+  char *name, *status, *value, *combine;
   int code;
 
   p = get_parse_notice_katcp(d, n);
   if(p == NULL){
-    return -1;
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "releasing sensor status match");
+
+    return 0;
   }
 
   /* WARNING: will only extract the first sensor out of a composite list */
@@ -2559,7 +2602,15 @@ int match_sensor_status_katcp(struct katcp_dispatch *d, struct katcp_notice *n, 
     return -1;
   }
 
-  sn = find_sensor_katcp(d, name);
+  combine = assemble_sensor_name_katcp(n, name);
+  if(combine == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate combined name for upstream sensor %s", name);
+    return -1;
+  }
+
+  sn = find_sensor_katcp(d, combine);
+  free(combine);
+
   if(sn == NULL){
     log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "saw sensor %s not yet declared", name);
     return 1;
@@ -2671,9 +2722,26 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
       return KATCP_RESULT_FAIL;
     }
 
+#if 0
+    copy = sensor_prefix_katcp(jb);
+    if(copy == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to duplicate %s", jb->j_name);
+      return KATCP_RESULT_FAIL;
+    }
+#endif
+
     if(match_inform_job_katcp(d, jb, "#sensor-list", &match_sensor_list_katcp, NULL) < 0){
       log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to match sensor-list on job %s", jb->j_name ? jb->j_name : "<anonymous>");
     }
+
+#if 0
+    copy = sensor_prefix_katcp(jb);
+    if(copy == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to duplicate %s", jb->j_name);
+      return KATCP_RESULT_FAIL;
+    }
+#endif
+
     if(match_inform_job_katcp(d, jb, "#sensor-status", &match_sensor_status_katcp, NULL) < 0){
       log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to match sensor-status on job %s", jb->j_name ? jb->j_name : "<anonymous>");
     }
