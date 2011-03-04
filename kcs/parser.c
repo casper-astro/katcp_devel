@@ -459,7 +459,10 @@ void clean_up_parser(struct p_parser *p){
           free(cv);
         }
         for (k=0;k<cs->comcount;k++){
-          cs->comments[k] = NULL;
+          cc = cs->comments[k];
+     //     fprintf(stderr,"FREE COMMENT: %s\n",cc->str);
+          free(cc->str);
+          free(cc);
         }
         if (cs->comments != NULL)
           free(cs->comments);
@@ -469,7 +472,10 @@ void clean_up_parser(struct p_parser *p){
         free(cs);
       }
       for (j=0;j<cl->comcount;j++){
-        cl->comments[j] = NULL;
+        cc = cl->comments[j];
+   //     fprintf(stderr,"FREE COMMENT: %s\n",cc->str);
+        free(cc->str);
+        free(cc);
       }
       if (cl->comments != NULL)
         free(cl->comments);
@@ -488,6 +494,7 @@ void clean_up_parser(struct p_parser *p){
     
     for (i=0;i<p->comcount;i++){
       cc = p->comments[i];
+     // fprintf(stderr,"FREE COMMENT: %s\n",cc->str);
       free(cc->str);
       free(cc);
     }
@@ -955,7 +962,7 @@ int main(int argc, char **argv) {
  */
  // parser_set(NULL,"k","a",1,"hello world");
   //parser_save(NULL,"oldtest");
-  parser_list(NULL);
+ //parser_list(NULL);
 
   parser_destroy(NULL);
   

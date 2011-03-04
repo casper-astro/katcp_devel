@@ -16,6 +16,12 @@
 
 #include "kcs.h"
 
+int is_active_sm_kcs(struct kcs_roach *kr){
+  if (kr->ksm == NULL)
+    return 0;
+  return 1;
+}
+
 /*******************************************************************************************************/
 /*Statemachine lookup function usually called from the statemachine notice*/
 /*******************************************************************************************************/
@@ -31,6 +37,8 @@ int run_statemachine(struct katcp_dispatch *d, struct katcp_notice *n, void *dat
   if (!kr)
     return 0;
   ksm = kr->ksm;
+  if (!ksm)
+    return 0;
 #ifdef DEBUG
   fprintf(stderr,"SM: run_statemachine (%p) fn %s current state:%d\n",ksm,(!n)?ko->name:n->n_name,ksm->state);
 #endif
@@ -45,8 +53,9 @@ int run_statemachine(struct katcp_dispatch *d, struct katcp_notice *n, void *dat
     fprintf(stderr,"SM: cleaning up: (%p)\n",ksm);
 #endif
     log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"Destroying kcs_statemachine %p",ksm);
-    free(ksm);
-    kr->ksm = NULL;
+    /*free(ksm);
+    kr->ksm = NULL;*/
+    destroy_roach_ksm_kcs(kr);
     return 0;
   }
   ksm->state = rtn;
@@ -119,6 +128,8 @@ int time_ping_wrapper_call(struct katcp_dispatch *d, void *data){
   struct katcp_notice *n;
   ko = data;
   kr = ko->payload;
+  if (!is_active_sm_kcs(kr))
+    return KCS_SM_PING_STOP;
   ksm = kr->ksm;
   n = ksm->n;
 #ifdef DEBUG
@@ -333,11 +344,6 @@ struct kcs_statemachine *get_sm_progdev_kcs(){
 /*******************************************************************************************************/
 /*API Functions*/
 /*******************************************************************************************************/
-int is_active_sm_kcs(struct kcs_roach *kr){
-  if (kr->ksm == NULL)
-    return 0;
-  return 1;
-}
 
 int api_prototype_sm_kcs(struct katcp_dispatch *d, struct kcs_obj *ko, struct kcs_statemachine *(*call)(),void *data){
   struct kcs_roach *kr;
@@ -372,33 +378,61 @@ int api_prototype_sm_kcs(struct katcp_dispatch *d, struct kcs_obj *ko, struct kc
   return KATCP_RESULT_OK;
 }
 
-int statemachine_ping(struct katcp_dispatch *d){
-  struct kcs_basic *kb;
+int statemachine_stop(struct katcp_dispatch *d){
   struct kcs_obj *ko;
-  kb = need_current_mode_katcp(d,KCS_MODE_BASIC);
-  ko = search_tree(kb->b_pool_head,arg_string_katcp(d,2));
+  struct kcs_roach *kr;
+  int state;
+  ko = roachpool_get_obj_by_name_kcs(d,arg_string_katcp(d,2));
+  if (!ko)
+    return KATCP_RESULT_FAIL;
+  
+  switch (ko->tid){
+    case KCS_ID_ROACH:
+      kr = (struct kcs_roach*) ko->payload;
+      if (is_active_sm_kcs(kr)){
+        for (state=0; kr->ksm->sm[state]; state++);
+          
+        log_message_katcp(d, KATCP_LEVEL_INFO,NULL,"%s is in state: %d going to stop state: %d",kr->ksm->n->n_name,kr->ksm->state,state);
+        
+        kr->ksm->state = state;
+        //run_statemachine(d,kr->ksm->n,ko);
+        rename_notice_katcp(d,kr->ksm->n,"<zombie>");
+        wake_notice_katcp(d,kr->ksm->n,NULL);
+        //destroy_roach_ksm_kcs(kr);
+      }
+      else
+        return KATCP_RESULT_FAIL;
+      break;
+    case KCS_ID_NODE:
+
+      break;
+  }
+  
+
+  return KATCP_RESULT_OK;
+}
+
+int statemachine_ping(struct katcp_dispatch *d){
+  struct kcs_obj *ko;
+  ko = roachpool_get_obj_by_name_kcs(d,arg_string_katcp(d,2));
   if (!ko)
     return KATCP_RESULT_FAIL;
   return api_prototype_sm_kcs(d,ko,&get_sm_ping_kcs,NULL);
 }
 
 int statemachine_connect(struct katcp_dispatch *d){
-  struct kcs_basic *kb;
   struct kcs_obj *ko;
-  kb = need_current_mode_katcp(d,KCS_MODE_BASIC);
-  ko = search_tree(kb->b_pool_head,arg_string_katcp(d,2));
+  ko = roachpool_get_obj_by_name_kcs(d,arg_string_katcp(d,2));
   if (!ko)
     return KATCP_RESULT_FAIL;
   return api_prototype_sm_kcs(d,ko,&get_sm_connect_kcs,NULL);
 }
 
 int statemachine_progdev(struct katcp_dispatch *d){
-  struct kcs_basic *kb;
   struct kcs_obj *ko;
   struct p_value *conf_bitstream;
   conf_bitstream = NULL;
-  kb = need_current_mode_katcp(d,KCS_MODE_BASIC);
-  ko = search_tree(kb->b_pool_head,arg_string_katcp(d,5));
+  ko = roachpool_get_obj_by_name_kcs(d,arg_string_katcp(d,5));
   if (!ko)
     return KATCP_RESULT_FAIL;
   conf_bitstream = parser_get(d,
@@ -412,13 +446,15 @@ int statemachine_progdev(struct katcp_dispatch *d){
 
 
 
-void ksm_destroy(struct kcs_statemachine *ksm){
+void destroy_roach_ksm_kcs(struct kcs_roach *kr){
+  if (kr->ksm){
 #ifdef DEBUG
-  fprintf(stderr,"SM: about to free (%p)\n",ksm);
+    fprintf(stderr,"SM: about to free (%p)\n",kr->ksm);
 #endif 
-  if (ksm->n != NULL) { ksm->n = NULL; };
-  if (ksm->sm != NULL) { free(ksm->sm); ksm->sm = NULL; }
-  if (ksm != NULL) { free(ksm); ksm = NULL; }
+    if (kr->ksm->n != NULL) { kr->ksm->n = NULL; };
+    if (kr->ksm->sm != NULL) { free(kr->ksm->sm); kr->ksm->sm = NULL; }
+    if (kr->ksm != NULL) { free(kr->ksm); kr->ksm = NULL; }
+  }
 }
 
 

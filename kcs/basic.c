@@ -412,6 +412,8 @@ int statemachine_cmd(struct katcp_dispatch *d, int argc){
     case 2:
       break;
     case 3:
+      if (strcmp(arg_string_katcp(d,1),"stop") == 0)
+        return statemachine_stop(d);
       if (strcmp(arg_string_katcp(d,1),"ping") == 0)
         return statemachine_ping(d);
       break;
