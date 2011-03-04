@@ -253,6 +253,7 @@ struct katcp_notice *create_parse_notice_katcp(struct katcp_dispatch *d, char *n
   }
 
   if(p == NULL){
+    /* why ? */
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "creating a notice without a message is a usage problem");
     return NULL;
   }
