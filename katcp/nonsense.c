@@ -950,61 +950,6 @@ int run_acquire_katcp(struct katcp_dispatch *d, void *data)
     a->a_last.tv_usec = now.tv_usec;
   }
 
-#if 0
-  for(j = 0; j < a->a_count; j++){
-
-    sn = a->a_sensors[j];
-    sane_sensor(sn);
-
-#ifdef DEBUG
-    if(sn->s_extract == NULL){
-      fprintf(stderr, "run: logic problem: null sensor acquire function\n");
-      abort();
-    }
-#endif
-
-    if((*(sn->s_extract))(d, sn) >= 0){ /* got a useful value */
-
-      log_message_katcp(d, KATCP_LEVEL_TRACE | KATCP_LEVEL_LOCAL, NULL, "checking %d clients of %s", sn->s_refs, sn->s_name);
-
-      for(i = 0; i < sn->s_refs; i++){
-        ns = sn->s_nonsense[i];
-        sane_nonsense(ns);
-#ifdef DEBUG
-        if((ns == NULL) || (ns->n_client == NULL)){
-          fprintf(stderr, "run: logic problem: null nonsense fields\n");
-          abort();
-        }
-#endif
-        dx = ns->n_client;
-
-#ifdef DEBUG
-        if((ns->n_strategy < 0) || (ns->n_strategy >= KATCP_STRATEGIES_COUNT)){
-          fprintf(stderr, "run: logic problem: invalid strategy %d\n", ns->n_strategy);
-          abort();
-        }
-#endif
-
-        sn->s_recent.tv_sec = now.tv_sec;
-        sn->s_recent.tv_usec = now.tv_usec;
-
-        log_message_katcp(d, KATCP_LEVEL_TRACE | KATCP_LEVEL_LOCAL, NULL, "calling check function %p (type %d, strategy %d)", type_lookup_table[sn->s_type].c_checks[ns->n_strategy], sn->s_type, ns->n_strategy);
-
-        if(type_lookup_table[sn->s_type].c_checks[ns->n_strategy]){
-          
-          if((*(type_lookup_table[sn->s_type].c_checks[ns->n_strategy]))(ns)){
-            log_message_katcp(d, KATCP_LEVEL_TRACE | KATCP_LEVEL_LOCAL, NULL, "strategy %d reports a match", ns->n_strategy);
-            /* TODO: needs work for having tags in katcp messages */
-            generic_sensor_update_katcp(dx, sn, (ns->n_strategy == KATCP_STRATEGY_FORCED) ? "#sensor-value" : "#sensor-status");
-          }
-        }
-      }
-    } else {
-      log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "extract function for sensor %s failed", sn->s_name);
-    }
-  }
-#endif
-
   propagate_acquire_katcp(d, a);
 
   return 0;
@@ -2482,6 +2427,7 @@ int match_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_notice *n, vo
   char *name, *description, *type, *units, *combine;
   int code, min, max;
   unsigned int count;
+  struct katcp_job *j;
 
   p = get_parse_notice_katcp(d, n);
   if(p == NULL){
