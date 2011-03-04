@@ -143,6 +143,7 @@ struct kcs_roach {
   struct kcs_url *kurl;
   struct kcs_statemachine *ksm;
   struct timeval lastnow;
+  void *data; /*used to pass config data around no GC make sure to free when you use*/
 };
 
 /*
@@ -165,13 +166,19 @@ int roachpool_list(struct katcp_dispatch *d);
 int roachpool_destroy(struct katcp_dispatch *d);
 int roachpool_getconf(struct katcp_dispatch *d);
 int roachpool_connect_pool(struct katcp_dispatch *d);
-int roachpool_test_timer(struct katcp_dispatch *d);
-struct kcs_obj *search_tree(struct kcs_obj *o, char *str);
+struct kcs_obj *roachpool_get_obj_by_name_kcs(struct katcp_dispatch *d, char *name);
 
-#define KCS_SM_PING      0
 #define KCS_SM_PING_STOP 0 
 #define KCS_SM_PING_S1   1
 #define KCS_SM_PING_S2   2
+
+#define KCS_SM_CONNECT_DISCONNECTED     0 
+#define KCS_SM_CONNECT_CONNECTED        1
+#define KCS_SM_CONNECT_STOP             2 
+
+#define KCS_SM_PROGDEV_TRY      0
+#define KCS_SM_PROGDEV_OKAY     1
+#define KCS_SM_PROGDEV_STOP     2
 
 struct kcs_statemachine {
   int (**sm)(struct katcp_dispatch *,struct katcp_notice *, void *); 
@@ -181,8 +188,11 @@ struct kcs_statemachine {
 
 int statemachine_greeting(struct katcp_dispatch *d);
 int statemachine_ping(struct katcp_dispatch *d);
+int statemachine_stop(struct katcp_dispatch *d);
+int statemachine_connect(struct katcp_dispatch *d);
+int statemachine_progdev(struct katcp_dispatch *d);
 //void statemachine_destroy(struct katcp_dispatch *d);
-void ksm_destroy(struct kcs_statemachine *ksm);
+void destroy_roach_ksm_kcs(struct kcs_roach *kr);
 
 
 #endif

@@ -615,6 +615,31 @@ int wake_name_notice_katcp(struct katcp_dispatch *d, char *name, struct katcl_pa
   return 0;
 }
 
+int rename_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, char *newname){
+  if (n == NULL)
+    return -1;
+  if (n->n_name)
+    free(n->n_name);
+  if (newname == NULL)
+    n->n_name = NULL;
+  else
+    n->n_name = strdup(newname);
+  return 0;
+}
+
+int change_name_notice_katcp(struct katcp_dispatch *d, char *name, char *newname){
+  struct katcp_notice *n;
+  n = find_notice_katcp(d,name);
+  if(n == NULL){
+    return -1;
+  }
+  if (rename_notice_katcp(d,n,newname) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not rename notice %p",n);
+    return -1;
+  }
+  return 0;
+}
+
 /*******************************************************************************/
 
 int run_notices_katcp(struct katcp_dispatch *d)

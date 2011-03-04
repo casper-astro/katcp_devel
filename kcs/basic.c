@@ -393,7 +393,18 @@ int k7_resume_job(struct katcp_dispatch *d, struct katcp_notice *n){
 }
 
 int statemachine_cmd(struct katcp_dispatch *d, int argc){
+ /* 
+  struct katcp_notice *n_sm;
+
+  n_sm = find_notice_katcp(d,"statemachine_running");
+
+  if (n_sm){
+    log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "");
+  }
   
+  n_sm = create_notice_katcp(d,"statemachine_running",0);
+  */
+
   switch (argc){
     case 1:
       return statemachine_greeting(d);
@@ -401,8 +412,14 @@ int statemachine_cmd(struct katcp_dispatch *d, int argc){
     case 2:
       break;
     case 3:
+      if (strcmp(arg_string_katcp(d,1),"stop") == 0)
+        return statemachine_stop(d);
       if (strcmp(arg_string_katcp(d,1),"ping") == 0)
         return statemachine_ping(d);
+      break;
+    case 6:
+      if (strcmp(arg_string_katcp(d,1),"progdev") == 0)
+        return statemachine_progdev(d);
       break;
   }
   
