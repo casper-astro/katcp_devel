@@ -27,6 +27,7 @@
 #define JOB_MAY_READ    0x08
 #define JOB_MAY_KILL    0x10
 #define JOB_MAY_COLLECT 0x20
+#define JOB_PRE_CONNECT 0x40
 
 /******************************************************************/
 
@@ -286,7 +287,7 @@ static int relay_log_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n,
   return 1;
 }
 
-struct katcp_job *create_job_katcp(struct katcp_dispatch *d, char *name, pid_t pid, int fd, struct katcp_notice *halt)
+struct katcp_job *create_job_katcp(struct katcp_dispatch *d, char *name, pid_t pid, int fd, int async, struct katcp_notice *halt)
 {
   struct katcp_job *j, **t;
   struct katcp_shared *s;
@@ -311,7 +312,12 @@ struct katcp_job *create_job_katcp(struct katcp_dispatch *d, char *name, pid_t p
   j->j_pid = pid;
   j->j_halt = NULL;
 
-  j->j_state = JOB_MAY_REQUEST | JOB_MAY_WRITE | JOB_MAY_WORK | JOB_MAY_READ;
+  if(async){
+    j->j_state = JOB_PRE_CONNECT;
+  } else {
+    j->j_state = JOB_MAY_REQUEST | JOB_MAY_WRITE | JOB_MAY_WORK | JOB_MAY_READ;
+  }
+
   if(j->j_pid > 0){
     j->j_state |= JOB_MAY_KILL | JOB_MAY_COLLECT;
   }
@@ -824,13 +830,16 @@ int load_jobs_katcp(struct katcp_dispatch *d)
   for(i = 0; i < s->s_number; i++){
     j = s->s_tasks[i];
 
-    if(j->j_state & (JOB_MAY_READ | JOB_MAY_WRITE)){
+    if(j->j_state & (JOB_MAY_READ | JOB_MAY_WRITE | JOB_PRE_CONNECT)){
       fd = fileno_katcl(j->j_line);
       if(fd >= 0){
         if(j->j_state & JOB_MAY_READ){
           FD_SET(fd, &(s->s_read));
         }
         if((j->j_state & JOB_MAY_WRITE) && flushing_katcl(j->j_line)){
+          FD_SET(fd, &(s->s_write));
+        }
+        if(j->j_state & JOB_PRE_CONNECT){
           FD_SET(fd, &(s->s_write));
         }
         if(fd > s->s_max){
@@ -849,7 +858,8 @@ int run_jobs_katcp(struct katcp_dispatch *d)
   struct katcp_notice *n;
   struct katcp_job *j;
   struct katcl_parse *p, *px;
-  int i, count, fd, result;
+  int i, count, fd, result, code;
+  unsigned int len;
   char *string;
 
   s = d->d_shared;
@@ -870,7 +880,7 @@ int run_jobs_katcp(struct katcp_dispatch *d)
     } else {
 #endif
 
-    if(j->j_state & (JOB_MAY_READ | JOB_MAY_WRITE)){
+    if(j->j_state & (JOB_MAY_READ | JOB_MAY_WRITE | JOB_PRE_CONNECT)){
       fd = fileno_katcl(j->j_line);
     } else {
       fd = (-1);
@@ -916,6 +926,25 @@ int run_jobs_katcp(struct katcp_dispatch *d)
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to write messages to subordinate task");
         j->j_state = 0;
         j->j_code = KATCP_RESULT_FAIL;
+      }
+    }
+
+    if((j->j_state & JOB_PRE_CONNECT) && FD_ISSET(fd, &(s->s_write))){
+      len = sizeof(int);
+      result = getsockopt(fd, SOL_SOCKET, SO_ERROR, &code, &len);
+      if(result == 0){
+        switch(code){
+          case 0 :
+            j->j_state = (JOB_MAY_REQUEST | JOB_MAY_WRITE | JOB_MAY_WORK | JOB_MAY_READ) | ((JOB_MAY_KILL | JOB_MAY_COLLECT) & j->j_state);
+            log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "async connect to %s succeeded", j->j_name);
+            break;
+          case EINPROGRESS : 
+            log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "saw an in progress despite write set being ready on job %s", j->j_name);
+            break;
+          default : 
+            log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to connect to %s: %s", j->j_name, strerror(code));
+            break;
+        }
       }
     }
 
@@ -1021,7 +1050,7 @@ struct katcp_job *process_create_job_katcp(struct katcp_dispatch *d, char *file,
     close(fds[0]);
     fcntl(fds[1], F_SETFD, FD_CLOEXEC);
 
-    j = create_job_katcp(d, file, pid, fds[1], halt);
+    j = create_job_katcp(d, file, pid, fds[1], 0, halt);
     if(j == NULL){
       log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "unable to allocate job logic so terminating child process");
       kill(pid, SIGTERM);
@@ -1070,7 +1099,7 @@ struct katcp_job *network_connect_job_katcp(struct katcp_dispatch *d, char *host
   struct katcp_job *j;
   int fd;
 
-  fd = net_connect(host, port, 0);
+  fd = net_connect(host, port, NETC_ASYNC);
 
   if (fd < 0){
     log_message_katcp(d,KATCP_LEVEL_ERROR,NULL,"Unable to connect to: %s:%d",host,port);
@@ -1079,7 +1108,7 @@ struct katcp_job *network_connect_job_katcp(struct katcp_dispatch *d, char *host
   
   /* WARNING: j->j_name is can not be taken as a unique key if we connect to the same host more than once */
   /* this host is the search string for job and notice */
-  j = create_job_katcp(d, host, 0, fd, halt);
+  j = create_job_katcp(d, host, 0, fd, 1, halt);
 
   if (j == NULL){
     log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"unable to allocate job logic so closing connection");
@@ -1587,7 +1616,7 @@ int main()
     return 1;
   }
 
-  j = create_job_katcp(d, "test", 0, -1, NULL);
+  j = create_job_katcp(d, "test", 0, -1, 0, NULL);
   if(j == NULL){
     fprintf(stderr, "unable to create job\n");
     return 1;

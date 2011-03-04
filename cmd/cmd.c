@@ -369,7 +369,15 @@ int main(int argc, char **argv)
 
   status = 1;
 
-  fd = net_connect(server, 0, verbose);
+  flags = 0;
+  if(verbose > 0){
+    flags = NETC_VERBOSE_ERRORS;
+    if(verbose > 1){
+      flags = NETC_VERBOSE_STATS;
+    }
+  }
+
+  fd = net_connect(server, 0, flags);
   if(fd < 0){
     if(k){
       sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPCMD_NAME, "unable to connect to %s", server);

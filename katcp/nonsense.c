@@ -2467,6 +2467,11 @@ int match_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_notice *n, vo
     return 1;
   }
 
+  j = find_job_katcp(d, n->n_name);
+  if(j == NULL){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "could not locate job for notice %s", n->n_name);
+  }
+
   /* WARNING: force mode to be 0, but what about sensor availability in various modes ? */
   sn = create_sensor_katcp(d, combine, description, units, KATCP_STRATEGY_EVENT, code, 0);
   free(combine);
