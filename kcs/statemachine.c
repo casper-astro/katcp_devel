@@ -380,8 +380,9 @@ int api_prototype_sm_kcs(struct katcp_dispatch *d, struct kcs_obj *ko, struct kc
 
 int statemachine_stop(struct katcp_dispatch *d){
   struct kcs_obj *ko;
+  struct kcs_node *kn;
   struct kcs_roach *kr;
-  int state;
+  int state,i;
   ko = roachpool_get_obj_by_name_kcs(d,arg_string_katcp(d,2));
   if (!ko)
     return KATCP_RESULT_FAIL;
@@ -391,23 +392,30 @@ int statemachine_stop(struct katcp_dispatch *d){
       kr = (struct kcs_roach*) ko->payload;
       if (is_active_sm_kcs(kr)){
         for (state=0; kr->ksm->sm[state]; state++);
-          
         log_message_katcp(d, KATCP_LEVEL_INFO,NULL,"%s is in state: %d going to stop state: %d",kr->ksm->n->n_name,kr->ksm->state,state);
-        
         kr->ksm->state = state;
-        //run_statemachine(d,kr->ksm->n,ko);
         rename_notice_katcp(d,kr->ksm->n,"<zombie>");
         wake_notice_katcp(d,kr->ksm->n,NULL);
-        //destroy_roach_ksm_kcs(kr);
       }
       else
         return KATCP_RESULT_FAIL;
       break;
     case KCS_ID_NODE:
-
+      kn = (struct kcs_node *) ko->payload;
+      for (i=0; i<kn->childcount; i++){
+        kr = kn->children[i]->payload;
+        if (is_active_sm_kcs(kr)){
+          for (state=0; kr->ksm->sm[state]; state++);
+          log_message_katcp(d, KATCP_LEVEL_INFO,NULL,"%s is in state: %d going to stop state: %d",kr->ksm->n->n_name,kr->ksm->state,state);
+          kr->ksm->state = state;
+          rename_notice_katcp(d,kr->ksm->n,"<zombie>");
+          wake_notice_katcp(d,kr->ksm->n,NULL);
+        }
+        else
+          return KATCP_RESULT_FAIL;
+      }
       break;
   }
-  
 
   return KATCP_RESULT_OK;
 }
@@ -465,7 +473,7 @@ int statemachine_greeting(struct katcp_dispatch *d){
   //prepend_inform_katcp(d);
   //append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"connect [roachpool|roachurl]");
   prepend_inform_katcp(d);
-  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"progdev conf-label conf-setting conf-value [roachpool|roach]");
+  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"progdev [conf-label] [conf-setting] [conf-value] [roachpool|roach]");
   return KATCP_RESULT_OK;
 }
 

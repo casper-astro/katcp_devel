@@ -146,18 +146,6 @@ struct kcs_roach {
   void *data; /*used to pass config data around no GC make sure to free when you use*/
 };
 
-/*
-struct kcs_tree_operations {
-  struct kcs_obj* (*t_init)(void);
-  struct kcs_obj* (*t_create_node)(char *pool);
-  struct kcs_obj* (*t_create_leaf)(void *payload);
-  int (*t_add)(struct kcs_obj *parent, struct kcs_obj *child);
-  int (*t_del)(struct kcs_obj *obj);
-  struct kcs_obj* (*t_find)(char *sstr);
-  int (*t_destroy)(struct kcs_obj *root);
-};
-*/
-
 int roachpool_greeting(struct katcp_dispatch *d);
 int roachpool_add(struct katcp_dispatch *d);
 int roachpool_mod(struct katcp_dispatch *d);

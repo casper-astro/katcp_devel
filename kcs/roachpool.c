@@ -62,23 +62,9 @@ struct kcs_obj *new_kcs_roach_obj(struct kcs_obj *parent, char *url, char *ip, c
   ko = new_kcs_obj(parent,url,KCS_ID_ROACH,kr);
   return ko;
 }
-/*
-char *create_str(char *s){
-  char *nstr;
-  if (!s)
-    return NULL;
-  nstr = NULL;
-  nstr = malloc(sizeof(char)*(strlen(s)+1));
-  if (!nstr)
-    return NULL;
-  nstr = strcpy(nstr,s);
-  nstr[strlen(s)] = '\0';
-  return nstr;
-}
-*/
 struct kcs_obj *init_tree(){
   struct kcs_obj *root;
-  root = new_kcs_node_obj(NULL,create_str("root"));
+  root = new_kcs_node_obj(NULL,strdup("root"));
   return root;
 }
 
@@ -333,7 +319,7 @@ int mod_roach_to_new_pool(struct kcs_obj *root, char *pool, char *hostname){
 #ifdef DEBUG
     fprintf(stderr,"New pool doesn't exist so create new one\n");
 #endif
-    po = new_kcs_node_obj(root,create_str(pool));
+    po = new_kcs_node_obj(root,strdup(pool));
     if (!po)
       return KCS_FAIL;
     if (add_obj_to_node(root,po) == KCS_FAIL){
