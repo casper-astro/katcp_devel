@@ -1428,10 +1428,11 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
       vector[1] = NULL;
 
       j = process_create_job_katcp(d, cmd, vector, n);
-
       if(j == NULL){
         return KATCP_RESULT_FAIL;
       }
+
+      job_match_sensor_katcp(d, j);
 
       return KATCP_RESULT_OK;
 

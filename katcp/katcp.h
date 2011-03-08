@@ -10,6 +10,7 @@ struct katcp_nonsense;
 struct katcp_acquire;
 struct katcp_dispatch;
 struct katcp_cmd;
+struct katcp_job;
 
 #include <sys/types.h>
 #include <stdarg.h>
@@ -197,6 +198,8 @@ int send_katcp(struct katcp_dispatch *d, ...);
 
 /******************* utility functions ***********/
 
+int name_log_level_katcp(struct katcp_dispatch *d, char *name);
+int log_level_katcp(struct katcp_dispatch *d, unsigned int level);
 int log_message_katcp(struct katcp_dispatch *d, unsigned int priority, char *name, char *fmt, ...);
 int log_relay_katcp(struct katcp_dispatch *d, struct katcl_parse *p);
 
@@ -265,6 +268,8 @@ int register_double_sensor_katcp(struct katcp_dispatch *d, char *name, char *des
 #endif
 
 #endif
+
+int job_match_sensor_katcp(struct katcp_dispatch *d, struct katcp_job *j);
 
 /***************************************************************************/
 
