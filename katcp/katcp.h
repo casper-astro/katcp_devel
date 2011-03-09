@@ -12,6 +12,8 @@ struct katcp_dispatch;
 struct katcp_cmd;
 struct katcp_job;
 
+struct katcp_url;
+
 #include <sys/types.h>
 #include <stdarg.h>
 
@@ -351,5 +353,12 @@ int match_inform_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, char *
 #if 0
 int stop_job_katcp(struct katcp_dispatch *d, struct katcp_job *j);
 #endif
+
+char *copy_kurl_string_katcp(struct katcp_url *ku, char *path);
+char *add_kurl_path_copy_string_katcp(struct katcp_url *ku, char *npath);
+/*void kurl_print(struct kcs_url *ku);*/
+struct katcp_url *create_kurl_from_string_katcp(char *url);
+struct katcp_url *create_kurl_katcp(char *scheme, char *host, int port, char *path);
+void destroy_kurl_katcp(struct katcp_url *ku);
 
 #endif

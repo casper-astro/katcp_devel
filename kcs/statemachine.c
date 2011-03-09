@@ -93,8 +93,8 @@ int kcs_sm_ping_s1(struct katcp_dispatch *d,struct katcp_notice *n, void *data){
     return KCS_SM_PING_STOP;
   }
   if (!n){
-    if (!(p_kurl = kurl_string(kr->kurl,"?ping")))
-      p_kurl = kurl_add_path(kr->kurl,"?ping");
+    if (!(p_kurl = copy_kurl_string_katcp(kr->kurl,"?ping")))
+      p_kurl = add_kurl_path_copy_string_katcp(kr->kurl,"?ping");
     n = create_parse_notice_katcp(d, p_kurl, 0, p);
     if (!n){
       log_message_katcp(d, KATCP_LEVEL_ERROR,NULL,"unable to create notice %s",p_kurl);
@@ -189,8 +189,8 @@ int connect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
   newpool = kr->data;
 
   if (!n){
-    if (!(dc_kurl = kurl_string(kr->kurl,"?disconnect")))
-      dc_kurl = kurl_add_path(kr->kurl,"?disconnect");
+    if (!(dc_kurl = copy_kurl_string_katcp(kr->kurl,"?disconnect")))
+      dc_kurl = add_kurl_path_copy_string_katcp(kr->kurl,"?disconnect");
     if(!(n = find_notice_katcp(d,dc_kurl))){
       fd = net_connect(kr->kurl->host,kr->kurl->port,0);
       if (fd < 0){
@@ -249,7 +249,7 @@ int disconnect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *da
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Halt notice (%p) %s",n,n->n_name);
   if (mod_roach_to_new_pool(kb->b_pool_head,newpool,ko->name) == KCS_FAIL){
     log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "Could not move roach %s to pool %s\n",kr->kurl->str,newpool);
-  } else{ 
+  } else { 
     log_message_katcp(d,KATCP_LEVEL_INFO, NULL, "Success: roach %s moved to pool %s",kr->kurl->str,newpool);
   }
   if (kr->io_ksm){
@@ -295,8 +295,8 @@ int try_progdev_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *d
   }
   kr->data = NULL;
   if (!n){
-    if (!(p_kurl = kurl_string(kr->kurl,"?progdev")))
-      p_kurl = kurl_add_path(kr->kurl,"?progdev");
+    if (!(p_kurl = copy_kurl_string_katcp(kr->kurl,"?progdev")))
+      p_kurl = add_kurl_path_copy_string_katcp(kr->kurl,"?progdev");
     n = create_parse_notice_katcp(d, p_kurl, 0, p);
     if (!n){
       log_message_katcp(d, KATCP_LEVEL_ERROR,NULL,"unable to create notice %s",p_kurl);
@@ -573,7 +573,6 @@ int statemachine_greeting(struct katcp_dispatch *d){
 
 #ifdef STANDALONE
 int main(int argc, char **argv){
-  
   int i;
   int cf;
   int (*statemachine[])(int) = {
@@ -583,18 +582,13 @@ int main(int argc, char **argv){
     &func1,
     NULL
   };
-
   for (i=0; statemachine[i]; i++)
   {
-    
     cf = (*statemachine[i])(i);
-    
 #ifdef DEBUG
       fprintf(stderr,"function returned: %d\n",cf);
 #endif
-  
   }
-
   return EX_OK;
 }
 #endif

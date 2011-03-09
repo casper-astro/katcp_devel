@@ -403,6 +403,15 @@ struct katcp_dispatch{
   char d_name[KATCP_NAME_LENGTH];
 };
 
+struct katcp_url {
+  char *str;
+  char *scheme;
+  char *host;
+  int port;
+  char **path;
+  int pcount;
+};
+
 void exchange_katcl(struct katcl_line *l, int fd);
 
 int dispatch_cmd_katcp(struct katcp_dispatch *d, int argc);

@@ -2,9 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <katpriv.h>
 #include <katcp.h>
-
-#include "kcs.h"
 
 #define COL ':'
 #define WAK '/'
@@ -15,7 +14,7 @@
 #define S_PATH 5
 #define S_END 0
 
-char *kurl_string(struct kcs_url *ku,char *path){
+char *copy_kurl_string_katcp(struct katcp_url *ku,char *path){
   char *str;
   int i,found=0;
 
@@ -53,7 +52,7 @@ char *kurl_string(struct kcs_url *ku,char *path){
   return str;
 }
 
-char *kurl_string_with_path_id(struct kcs_url *ku, int id){
+char *kurl_string_with_path_id(struct katcp_url *ku, int id){
   char * str;
   int len;
   str = NULL;
@@ -66,7 +65,7 @@ char *kurl_string_with_path_id(struct kcs_url *ku, int id){
 #endif
   return str;
 }
-
+/*
 void kurl_print(struct kcs_url *ku){
   int i;
   fprintf(stderr,"KURL Scheme: %s\n",ku->scheme);
@@ -76,17 +75,17 @@ void kurl_print(struct kcs_url *ku){
     fprintf(stderr,"KURL Path%d : %s\n",i,ku->path[i]);
   fprintf(stderr,"KURL String: %s\n",ku->str);
 }
-
-struct kcs_url *kurl_create_url_from_string(char *url){
+*/
+struct katcp_url *create_kurl_from_string_katcp(char *url){
   int i, state, spos, epos, len;
   char c;
   char *temp;
-  struct kcs_url *ku;
+  struct katcp_url *ku;
 
-  ku = malloc(sizeof(struct kcs_url));
+  ku = malloc(sizeof(struct katcp_url));
   if (!ku)
     return NULL;
-  ku->str    = create_str(url);
+  ku->str    = strdup(url);
   ku->scheme = NULL;
   ku->host   = NULL;
   ku->port   = 0;
@@ -106,7 +105,7 @@ struct kcs_url *kurl_create_url_from_string(char *url){
         c = url[i];
         switch(c){
           case '\0':
-            kurl_destroy(ku);
+            destroy_kurl_katcp(ku);
             return NULL;
           case COL:
             epos = i+1;
@@ -125,7 +124,7 @@ struct kcs_url *kurl_create_url_from_string(char *url){
         c = url[i];
         switch(c){
           case '\0':
-            kurl_destroy(ku);
+            destroy_kurl_katcp(ku);
             return NULL;
           case WAK:
             spos = i+1;
@@ -200,29 +199,28 @@ struct kcs_url *kurl_create_url_from_string(char *url){
   return ku;
 }
 
-struct kcs_url *kurl_create_url(char *scheme, char *host, int port, char *path){
-  struct kcs_url *ku;
+struct katcp_url *create_kurl_katcp(char *scheme, char *host, int port, char *path){
+  struct katcp_url *ku;
   ku = NULL;
-  ku = malloc(sizeof(struct kcs_url));
+  ku = malloc(sizeof(struct katcp_url));
   if (!ku)
     return NULL;
-  ku->scheme = create_str(scheme);
-  ku->host   = create_str(host);
+  ku->scheme = strdup(scheme);
+  ku->host   = strdup(host);
   ku->port   = port;
-  //ku->path   = create_str(path);
-  ku->str    = kurl_string(ku,NULL);
+  ku->str    = copy_kurl_string_katcp(ku,NULL);
   ku->path = realloc(ku->path,sizeof(char*)*++ku->pcount);
   ku->path[ku->pcount-1] = strdup(path);
   return ku;
 }
 
-char *kurl_add_path(struct kcs_url *ku, char *npath){
+char *add_kurl_path_copy_string_katcp(struct katcp_url *ku, char *npath){
   ku->path = realloc(ku->path,sizeof(char*)*++ku->pcount);
   ku->path[ku->pcount-1] = strdup(npath);
   return kurl_string_with_path_id(ku,ku->pcount-1);
 }
 
-void kurl_destroy(struct kcs_url *ku){
+void destroy_kurl_katcp(struct katcp_url *ku){
   int i;
   if (!ku)
     return;
@@ -248,7 +246,7 @@ void kurl_destroy(struct kcs_url *ku){
 #ifdef STANDALONE
 int main(int argc, char **argv){
   
-  struct kcs_url *ku;
+  struct katcp_url *ku;
 
   ku = kurl_create_url_from_string("katcp://host.domain:7147/");
   
@@ -259,9 +257,8 @@ int main(int argc, char **argv){
     fprintf(stderr,"%s\n",temp);
     free(temp);
     
-    kurl_print(ku);
 
-    kurl_destroy(ku);
+    destroy_kurl_katcp(ku);
   } else{
     fprintf(stderr,"kurl did not parse\n");
   }

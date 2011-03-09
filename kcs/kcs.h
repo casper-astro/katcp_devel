@@ -100,21 +100,22 @@ struct e_state {
 
 void execpy_do(char *filename, char **argv);
 
-struct kcs_url {
+/*struct kcs_url {
   char *str;
   char *scheme;
   char *host;
   int port;
   char **path;
   int pcount;
-};
-
+};*/
+/*
 char *kurl_string(struct kcs_url *ku, char *path);
 char *kurl_add_path(struct kcs_url *ku, char *npath);
 void kurl_print(struct kcs_url *ku);
 struct kcs_url *kurl_create_url_from_string(char *url);
 struct kcs_url *kurl_create_url(char *scheme, char *host, int port, char *path);
 void kurl_destroy(struct kcs_url *ku);
+*/
 
 #define KCS_ID_ROACH        2 
 #define KCS_ID_NODE         1
@@ -139,7 +140,7 @@ struct kcs_roach {
   char *ip;
   char *mac;
   char *jl;
-  struct kcs_url *kurl;
+  struct katcp_url *kurl;
   struct kcs_statemachine *ksm;
   struct kcs_statemachine *io_ksm; /*used for ?sm connect since this sm must stay around*/
   struct timeval lastnow;
