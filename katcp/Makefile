@@ -24,7 +24,7 @@ $(SHARED): $(OBJ)
 	$(CC) $(CFLAGS) -c $< -o $@ $(INC)
 
 clean:
-	$(RM) $(LIB) *.o core
+	$(RM) $(LIB) $(SHARED) *.o core
 
 install: all
 	$(INSTALL) -d $(PREFIX)/include $(prefix)/lib
