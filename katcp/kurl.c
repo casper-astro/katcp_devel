@@ -248,21 +248,19 @@ int main(int argc, char **argv){
   
   struct katcp_url *ku;
 
-  ku = kurl_create_url_from_string("katcp://host.domain:7147/");
+  ku = create_kurl_from_string_katcp("katcp://host.domain:7147/");
   
   if (ku != NULL){
     char *temp;
-    if (!(temp = kurl_string(ku,"?disconnect")))
-      temp = kurl_add_path(ku,"?disconnect");
+    if (!(temp = copy_kurl_string_katcp(ku,"?disconnect")))
+      temp = add_kurl_path_copy_string_katcp(ku,"?disconnect");
     fprintf(stderr,"%s\n",temp);
     free(temp);
-    
 
     destroy_kurl_katcp(ku);
   } else{
     fprintf(stderr,"kurl did not parse\n");
   }
-
 
   return 0;
 }
