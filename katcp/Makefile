@@ -2,6 +2,9 @@ include ../Makefile.inc
 
 INC = -I.
 LIB = libkatcp.a
+SHARED = libkatcp.so
+
+CFLAGS += -fPIC
 
 SUB = examples utils
 SRC = line.c netc.c dispatch.c loop.c log.c time.c shared.c misc.c server.c client.c ts.c nonsense.c notice.c job.c parse.c rpc.c queue.c map.c
@@ -13,6 +16,9 @@ all: $(LIB)
 
 $(LIB): $(OBJ)
 	$(AR) rcs $(LIB) $(OBJ)
+
+$(SHARED): $(OBJ)
+	$(CC) $(CFLAGS) -shared -Wl,-x,-soname=$(SHARED) -o $(SHARED) $(OBJ)
 
 %.o: %.c *.h 
 	$(CC) $(CFLAGS) -c $< -o $@ $(INC)
