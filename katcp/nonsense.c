@@ -2651,10 +2651,10 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
   if(!strcmp(name, "list")){
     for(i = 0; i < s->s_tally; i++){
       sn = s->s_sensors[i];
-      log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "sensor %s at %p has type %d (%s) with %d clients", sn->s_name, sn, sn->s_type, type_name_sensor_katcp(sn), sn->s_refs);
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "sensor %s at %p has type %d (%s) with %d clients", sn->s_name, sn, sn->s_type, type_name_sensor_katcp(sn), sn->s_refs);
       for(j = 0; j < sn->s_refs; j++){
         ns = sn->s_nonsense[j];
-        log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "client %d in strategy %d (%s) with dispatch %p (%s)", j, ns->n_strategy, strategy_name_sensor_katcp(ns), ns->n_client, (ns->n_client == d) ? "this connection" : "another connection");
+        log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "client %d in strategy %d (%s) with dispatch %p (%s)", j, ns->n_strategy, strategy_name_sensor_katcp(ns), ns->n_client, (ns->n_client == d) ? "this connection" : "another connection");
         if(ns->n_sensor != sn){
           log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "logic problem - client does not point at sensor");
         }
