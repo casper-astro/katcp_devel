@@ -1183,6 +1183,39 @@ int watchdog_cmd_katcp(struct katcp_dispatch *d, int argc)
   return KATCP_RESULT_OK;
 }
 
+int name_log_level_katcp(struct katcp_dispatch *d, char *name)
+{
+  int level;
+
+  if(name == NULL){
+    return d->d_level;
+  }
+
+  level = log_to_code(name);
+  if(level < 0){
+    return -1;
+  }
+
+  d->d_level = level;
+
+#ifdef DEBUG
+  fprintf(stderr, "log: set log level to %s (%d)\n", name, level);
+#endif
+
+  return d->d_level;
+}
+
+int log_level_katcp(struct katcp_dispatch *d, unsigned int level)
+{
+  if(level >= KATCP_MAX_LEVELS){
+    return -1;
+  }
+
+  d->d_level = level;
+
+  return d->d_level;
+}
+
 int log_level_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   int ok, code;
@@ -1294,11 +1327,19 @@ int log_relay_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
     return -1;
   }
 
-  if(s->s_template != d){ /* only honour local messages if we are not the template (which doesn't do IO) */
-    if(code & KATCP_LEVEL_LOCAL){
-      s = NULL;
+  if(s->s_count > 0){ /* do we have clones ? Then send it to them */
+    if(s->s_template != d){ /* only honour local messages if we are not the template (which doesn't do IO) */
+      if(code & KATCP_LEVEL_LOCAL){
+        s = NULL;
+      }
     }
+  } else { /* running with a single dispatch, no clones */
+    s = NULL;
   }
+
+#if DEBUG > 2
+  fprintf(stderr, "log: sending log message to %s\n", s ? "all" : "single");
+#endif
 
   result = 0;
 
@@ -1358,10 +1399,14 @@ int log_message_katcp(struct katcp_dispatch *d, unsigned int priority, char *nam
     }
   }
 
-  if(s->s_template != d){ /* only honour local messages if we are not the template (which doesn't do IO) */
-    if(priority & KATCP_LEVEL_LOCAL){
-      s = NULL;
+  if(s->s_count > 0){ /* do we have clones ? Then send it to them */
+    if(s->s_template != d){ /* only honour local messages if we are not the template (which doesn't do IO) */
+      if(priority & KATCP_LEVEL_LOCAL){
+        s = NULL;
+      }
     }
+  } else { /* running with a single dispatch, no clones */
+    s = NULL;
   }
 
   if(s){

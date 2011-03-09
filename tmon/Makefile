@@ -7,12 +7,12 @@ EXE = tmon
 SRC = tmon.c
 
 # CFLAGS += -DSTANDALONE
-CFLAGS += -DDEBUG
+# CFLAGS += -DDEBUG
 
 OBJ = $(patsubst %.c,%.o,$(SRC))
 all: $(EXE)
 
-$(EXE): $(OBJ) ../katcp/libkatcp.a
+$(EXE): $(OBJ) $(KATCP)/libkatcp.a
 	$(CC) -o $@ $^ $(LIB)
 
 clean: 

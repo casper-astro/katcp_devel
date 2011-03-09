@@ -3,21 +3,24 @@
 #include <stdio.h>
 #include <errno.h>
 #include <unistd.h>
+#include <fcntl.h>
 
+#include <sys/select.h>
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 
 #include <arpa/inet.h>
 
-#include <katcl.h>
 #include <katcp.h>
+#include <katpriv.h>
 
-#ifdef STANDALONE
-#define log_message_katcp(...)
-#endif
+#define TMON_POLL_INTERVAL        1000
+#define TMON_MODULE_NAME         "ntp"
+#define TMON_SENSOR_NAME         "timing.sync"
+#define TMON_SENSOR_DESCRIPTION  "clock good"
 
-#define TMON_DEFAULT_INTERVAL 1
-#define TMON_NAME             "ntp"
+/************************************************************/
 
 #define NTP_MAGIC                   0x1f113123
 
@@ -95,6 +98,7 @@ struct ntp_state
   int n_fd;
   unsigned int n_sequence; /* careful, field in packet is only 16 bits */
   int n_sync;
+  int n_level;
 };
 
 struct ntp_peer{
@@ -114,14 +118,14 @@ struct ntp_message{
 
 /*****************************************************************************/
 
-void destroy_ntp(struct katcl_line *l, struct ntp_state *nt)
+void destroy_ntp(struct katcp_dispatch *d, struct ntp_state *nt)
 {
   if(nt == NULL){
     return;
   }
 
   if(nt->n_magic != NTP_MAGIC){
-    log_message_katcl(l, KATCP_LEVEL_FATAL, TMON_NAME, "bad magic on ntp state");
+    log_message_katcp(d, KATCP_LEVEL_FATAL, TMON_MODULE_NAME, "bad magic on ntp state");
   }
 
   if(nt->n_fd >= 0){
@@ -132,7 +136,7 @@ void destroy_ntp(struct katcl_line *l, struct ntp_state *nt)
   free(nt);
 }
 
-struct ntp_state *create_ntp(struct katcl_line *l)
+struct ntp_state *create_ntp(struct katcp_dispatch *d)
 {
   struct ntp_state *nt;
 
@@ -142,7 +146,7 @@ struct ntp_state *create_ntp(struct katcl_line *l)
   }
 
   nt->n_magic = NTP_MAGIC;
-  nt->n_sync = 0; /* when a 0->1 edge happens, check time and resync */
+  nt->n_sync = 0;
   nt->n_fd = (-1);
   nt->n_sequence = 1;
 
@@ -151,13 +155,13 @@ struct ntp_state *create_ntp(struct katcl_line *l)
 
 /*****************************************************************************/
 
-int connect_ntp(struct katcl_line *l, struct ntp_state *nt)
+int connect_ntp(struct katcp_dispatch *d, struct ntp_state *nt)
 {
   int fd;
   struct sockaddr_in sa;
 
   if(nt->n_fd >= 0){
-    log_message_katcl(l, KATCP_LEVEL_DEBUG, TMON_NAME, "closing previous ntp file descriptor");
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, TMON_MODULE_NAME, "closing previous ntp file descriptor");
     close(nt->n_fd);
     nt->n_fd = (-1);
   }
@@ -168,12 +172,12 @@ int connect_ntp(struct katcl_line *l, struct ntp_state *nt)
 
   fd = socket(AF_INET, SOCK_DGRAM, 0);
   if(fd < 0){
-    log_message_katcl(l, KATCP_LEVEL_ERROR, TMON_NAME, "unable to create ntp socket: %s", strerror(errno));
+    log_message_katcp(d, KATCP_LEVEL_ERROR, TMON_MODULE_NAME, "unable to create ntp socket: %s", strerror(errno));
     return -1;
   }
 
   if(connect(fd, (struct sockaddr *)&sa, sizeof(struct sockaddr_in)) < 0){
-    log_message_katcl(l, KATCP_LEVEL_ERROR, TMON_NAME, "unable to connect to ntp: %s", strerror(errno));
+    log_message_katcp(d, KATCP_LEVEL_ERROR, TMON_MODULE_NAME, "unable to connect to ntp: %s", strerror(errno));
     close(fd);
     fd = (-1);
     return -1;
@@ -191,13 +195,13 @@ int connect_ntp(struct katcl_line *l, struct ntp_state *nt)
 
 /*****************************************************************************/
 
-int send_ntp(struct katcl_line *l, struct ntp_state *nt)
+int send_ntp(struct katcp_dispatch *d, struct ntp_state *nt)
 {
   struct ntp_message buffer, *nm;
   int sw, wr;
 
   if(nt->n_fd < 0){
-    if(connect_ntp(l, nt) < 0){
+    if(connect_ntp(d, nt) < 0){
       return -1;
     }
   }
@@ -228,7 +232,7 @@ int send_ntp(struct katcl_line *l, struct ntp_state *nt)
         case EINTR  :
           return 0;
         default :
-          log_message_katcl(l, KATCP_LEVEL_ERROR, TMON_NAME, "unable to send request: %s", strerror(errno));
+          log_message_katcp(d, KATCP_LEVEL_ERROR, TMON_MODULE_NAME, "unable to send request: %s", strerror(errno));
           break;
       }
     }
@@ -243,7 +247,7 @@ int send_ntp(struct katcl_line *l, struct ntp_state *nt)
   return 1;
 }
 
-int recv_ntp(struct katcl_line *l, struct ntp_state *nt)
+int recv_ntp(struct katcp_dispatch *d, struct ntp_state *nt)
 {
   struct ntp_message buffer, *nm;
   struct ntp_peer *np;
@@ -252,6 +256,9 @@ int recv_ntp(struct katcl_line *l, struct ntp_state *nt)
 
   nm = &buffer;
 
+#if 0
+  rr = recv(nt->n_fd, nm, NTP_MAX_PACKET, 0);
+#endif
   rr = recv(nt->n_fd, nm, NTP_MAX_PACKET, MSG_DONTWAIT);
   if(rr < 0){
     switch(errno){
@@ -259,13 +266,17 @@ int recv_ntp(struct katcl_line *l, struct ntp_state *nt)
       case EINTR  :
         return 0;
       default :
-        log_message_katcl(l, KATCP_LEVEL_ERROR, TMON_NAME, "ntp receive failed with %s", strerror(errno));
+        log_message_katcp(d, KATCP_LEVEL_ERROR, TMON_MODULE_NAME, "ntp receive failed with %s", strerror(errno));
+        close(nt->n_fd);
+        nt->n_fd = (-1);
         return -1;
     }
   }
 
   if(rr < NTP_HEADER){
-    log_message_katcl(l, KATCP_LEVEL_WARN, TMON_NAME, "ntp reply of %d bytes too short", rr);
+    log_message_katcp(d, KATCP_LEVEL_WARN, TMON_MODULE_NAME, "ntp reply of %d bytes too short", rr);
+    close(nt->n_fd);
+    nt->n_fd = (-1);
     return -1;
   }
 
@@ -276,38 +287,38 @@ int recv_ntp(struct katcl_line *l, struct ntp_state *nt)
   nm->n_offset   = ntohs(nm->n_offset);
   nm->n_count    = ntohs(nm->n_count);
 
-  log_message_katcl(l, KATCP_LEVEL_TRACE, TMON_NAME, "ntp reply with sequence number %d", nm->n_sequence);
+  log_message_katcp(d, KATCP_LEVEL_TRACE, TMON_MODULE_NAME, "ntp reply with sequence number %d", nm->n_sequence);
 
   field = GET_BITS(nm->n_bits, NTP_VERSION_SHIFT, NTP_VERSION_MASK);
   if(field != NTP_VERSION_THREE){
-    log_message_katcl(l, KATCP_LEVEL_WARN, TMON_NAME, "ntp reply %d not version 3", field);
+    log_message_katcp(d, KATCP_LEVEL_WARN, TMON_MODULE_NAME, "ntp reply %d not version 3", field);
     return -1;
   }
 
   field = GET_BITS(nm->n_bits, NTP_MODE_SHIFT, NTP_MODE_MASK);
   if(field != NTP_MODE_CONTROL){
-    log_message_katcl(l, KATCP_LEVEL_WARN, TMON_NAME, "ntp message not control but %d", field);
+    log_message_katcp(d, KATCP_LEVEL_WARN, TMON_MODULE_NAME, "ntp message not control but %d", field);
     return -1;
   }
 
   field = GET_BITS(nm->n_bits, NTP_OPCODE_SHIFT, NTP_OPCODE_MASK);
   if(field != NTP_OPCODE_STATUS){
-    log_message_katcl(l, KATCP_LEVEL_WARN, TMON_NAME, "ntp opcode not status but %d", field);
+    log_message_katcp(d, KATCP_LEVEL_WARN, TMON_MODULE_NAME, "ntp opcode not status but %d", field);
     return -1;
   }
 
   if(!(nm->n_bits & NTP_RESPONSE)){
-    log_message_katcl(l, KATCP_LEVEL_WARN, TMON_NAME, "ntp reply is not a response");
+    log_message_katcp(d, KATCP_LEVEL_WARN, TMON_MODULE_NAME, "ntp reply is not a response");
     return -1;
   }
 
   if(nm->n_bits & NTP_ERROR){
-    log_message_katcl(l, KATCP_LEVEL_WARN, TMON_NAME, "ntp sent an error response");
+    log_message_katcp(d, KATCP_LEVEL_WARN, TMON_MODULE_NAME, "ntp sent an error response");
     return -1;
   }
 
   if(nm->n_sequence != nt->n_sequence){
-    log_message_katcl(l, KATCP_LEVEL_WARN, TMON_NAME, "ntp received sequence number %d not %d", nm->n_sequence, nt->n_sequence);
+    log_message_katcp(d, KATCP_LEVEL_WARN, TMON_MODULE_NAME, "ntp received sequence number %d not %d", nm->n_sequence, nt->n_sequence);
     return -1;
   }
 
@@ -315,7 +326,7 @@ int recv_ntp(struct katcl_line *l, struct ntp_state *nt)
   fprintf(stderr, "status is 0x%04x\n", nm->n_status);
 #endif
 
-  log_message_katcl(l, KATCP_LEVEL_TRACE, TMON_NAME, "ntp status word is 0x%04x", nm->n_status);
+  log_message_katcp(d, KATCP_LEVEL_TRACE, TMON_MODULE_NAME, "ntp status word is 0x%04x", nm->n_status);
 
   field = GET_BITS(nm->n_status, NTP_LEAPI_SHIFT, NTP_LEAPI_MASK);
 
@@ -325,22 +336,22 @@ int recv_ntp(struct katcl_line *l, struct ntp_state *nt)
     case NTP_LEAPI_FIFTYNINE :
       break;
     default :
-      log_message_katcl(l, KATCP_LEVEL_WARN, TMON_NAME, "ntp reports error status with leap indicator 0x%x and full word 0x%x", field, nm->n_status);
+      log_message_katcp(d, KATCP_LEVEL_WARN, TMON_MODULE_NAME, "ntp reports error status with leap indicator 0x%x and full word 0x%x", field, nm->n_status);
       return -1;
   }
 
   field = GET_BITS(nm->n_status, NTP_CLOCKSRC_SHIFT, NTP_CLOCKSRC_MASK);
   if(field != NTP_CLOCKSRC_NTPUDP){
-    log_message_katcl(l, KATCP_LEVEL_WARN, TMON_NAME, "ntp synchronised by unusual means %d in status word 0x%x", field, nm->n_status);
+    log_message_katcp(d, KATCP_LEVEL_WARN, TMON_MODULE_NAME, "ntp synchronised by unusual means %d in status word 0x%x", field, nm->n_status);
   }
 
   if(nm->n_count % 4) {
-    log_message_katcl(l, KATCP_LEVEL_WARN, TMON_NAME, "ntp packet has odd length of %d", nm->n_count);
+    log_message_katcp(d, KATCP_LEVEL_WARN, TMON_MODULE_NAME, "ntp packet has odd length of %d", nm->n_count);
     return -1;
   }
 
   if((nm->n_offset + nm->n_count) > NTP_MAX_DATA){
-    log_message_katcl(l, KATCP_LEVEL_WARN, TMON_NAME, "ntp packet of %d and %d exceeds size limits", nm->n_offset, nm->n_count);
+    log_message_katcp(d, KATCP_LEVEL_WARN, TMON_MODULE_NAME, "ntp packet of %d and %d exceeds size limits", nm->n_offset, nm->n_count);
     return -1;
   }
 
@@ -351,7 +362,7 @@ int recv_ntp(struct katcl_line *l, struct ntp_state *nt)
 
     word = ntohs(np->p_status);
 
-    log_message_katcl(l, KATCP_LEVEL_TRACE, TMON_NAME, "ntp peer %d reports status 0x%x", ntohs(np->p_id), word);
+    log_message_katcp(d, KATCP_LEVEL_TRACE, TMON_MODULE_NAME, "ntp peer %d reports status 0x%x", ntohs(np->p_id), word);
 
     field = GET_BITS(word, NTP_PEER_STATUS_SHIFT, NTP_PEER_STATUS_MASK);
     if((field & (NTP_PEER_STATUS_CONFIGURED | NTP_PEER_STATUS_REACHABLE)) == (NTP_PEER_STATUS_CONFIGURED | NTP_PEER_STATUS_REACHABLE)){
@@ -363,114 +374,35 @@ int recv_ntp(struct katcl_line *l, struct ntp_state *nt)
           good = 1;
           break;
         default :
-          log_message_katcl(l, KATCP_LEVEL_DEBUG, TMON_NAME, "ntp peer %d not yet ready with code %d", ntohs(np->p_id), field);
+          log_message_katcp(d, KATCP_LEVEL_DEBUG, TMON_MODULE_NAME, "ntp peer %d not yet ready with code %d", ntohs(np->p_id), field);
           break;
       }
 
     } else {
-      log_message_katcl(l, KATCP_LEVEL_DEBUG, TMON_NAME, "ntp peer %d either unreachable or unconfigured", ntohs(np->p_id));
+      log_message_katcp(d, KATCP_LEVEL_DEBUG, TMON_MODULE_NAME, "ntp peer %d either unreachable or unconfigured", ntohs(np->p_id));
     }
   }
 
+#if 0
   if(good > nt->n_sync){
 #if 0
     if(check_time_poco(d, 0) < 0){
-      log_message_katcl(l, KATCP_LEVEL_ERROR, TMON_NAME, "detected time warp or other timing problem");
+      log_message_katcp(d, KATCP_LEVEL_ERROR, TMON_MODULE_NAME, "detected time warp or other timing problem");
 #if 0 /* too dangerous to do at arbitrary times */
       sync_gateware_poco(d);
 #endif
     }
 #endif
     /* WARNING: only attempt resync once */
-    nt->n_sync = good;
   }
+#endif
+
+  nt->n_sync = good;
 
   return good;
 }
 
 /*****************************************************************************/
-
-#if 0
-int acquire_ntp(struct katcl_line *l, void *data)
-{
-  struct ntp_state *nt;
-  int result;
-
-  nt = data;
-
-  if((nt == NULL) || (nt->n_magic != NTP_MAGIC)){
-    log_message_katcl(l, KATCP_LEVEL_FATAL, TMON_NAME, "null or bad magic on ntp state while doing acquire");
-    return -1;
-  }
-
-  result = 1;
-  if(recv_ntp(l, nt) <= 0){
-    result = 0;
-  }
-
-  if(send_ntp(l, nt) < 0){
-    result = 0;
-  }
-
-  return result;
-}
-#endif
-
-int main(int argc, char **argv)
-{
-  struct ntp_state *nt;
-  struct katcl_line *l;
-  int period;
-
-  period = TMON_DEFAULT_INTERVAL;
-
-  l = create_katcl(STDOUT_FILENO);
-  if(l == NULL){
-    return 1;
-  }
-
-  nt = create_ntp(l);
-  if(nt == NULL){
-    sync_message_katcl(l, KATCP_LEVEL_ERROR, TMON_NAME, "unable to allocate local ntp state");
-    return 1;
-  }
-
-  if(argc > 1){
-    period = atoi(argv[1]);
-    if(period <= 0){
-      sync_message_katcl(l, KATCP_LEVEL_ERROR, TMON_NAME, "invalid update time %s given", argv[1]);
-      return 1;
-    } 
-  }
-
-  log_message_katcl(l, KATCP_LEVEL_INFO, TMON_NAME, "polling local ntp server every %ds", period);
-
-  for(;;){
-
-#ifdef DEBUG
-    fprintf(stderr, "tmon: about to send request\n");
-#endif
-
-    if(send_ntp(l, nt) > 0){
-      recv_ntp(l, nt);
-    }
-
-    if(flushing_katcl(l)){
-      write_katcl(l);
-    }
-
-#ifdef DEBUG
-    fprintf(stderr, "tmon: about to sleep for %d\n", period);
-#endif
-
-    sleep(period);
-  }
-
-  destroy_ntp(l, nt);
-  destroy_katcl(l, 0);
-
-  return 0;
-}
 
 #if 0
 int recv_ntp_poco(struct katcp_dispatch *d, struct ntp_sensor_poco *nt)
@@ -654,4 +586,112 @@ int recv_ntp_poco(struct katcp_dispatch *d, struct ntp_sensor_poco *nt)
   return 1;
 }
 #endif
+
+/*****************************************************************************/
+
+int main(int argc, char **argv)
+{
+  struct ntp_state *nt;
+  struct katcp_dispatch *d;
+  int result, previous, current;
+  char *level;
+  unsigned int period;
+  struct timeval delta, now, limit;
+  fd_set fsr;
+
+  period = TMON_POLL_INTERVAL;
+  previous = (-1);
+  current = 0;
+
+  d = setup_katcp(STDOUT_FILENO);
+  if(d == NULL){
+    return 1;
+  }
+
+  nt = create_ntp(d);
+  if(nt == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, TMON_MODULE_NAME, "unable to allocate local ntp state");
+    write_katcp(d);
+    return 1;
+  }
+
+  if(argc > 1){
+    period = atoi(argv[1]);
+    if(period <= 0){
+      period = TMON_POLL_INTERVAL;
+      log_message_katcp(d, KATCP_LEVEL_WARN, TMON_MODULE_NAME, "invalid update time %s given, using %dms", argv[1], period);
+    } 
+  }
+
+  log_message_katcp(d, KATCP_LEVEL_INFO, TMON_MODULE_NAME, "about to start time monitor");
+
+  if(argc > 2){
+    level = argv[2];
+    if(name_log_level_katcp(d, level) < 0){
+      log_message_katcp(d, KATCP_LEVEL_WARN, TMON_MODULE_NAME, "invalid log %s given", level);
+    }
+  }
+
+  log_message_katcp(d, KATCP_LEVEL_INFO, TMON_MODULE_NAME, "polling local ntp server every %ds", period);
+
+  append_string_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#sensor-list");
+  append_string_katcp(d,                    KATCP_FLAG_STRING, TMON_SENSOR_NAME);
+  append_string_katcp(d,                    KATCP_FLAG_STRING, TMON_SENSOR_DESCRIPTION);
+  append_string_katcp(d,                    KATCP_FLAG_STRING, "none");
+  append_string_katcp(d, KATCP_FLAG_LAST  | KATCP_FLAG_STRING, "boolean");
+
+  for(;;){
+    
+    delta.tv_sec = period / 1000;
+    delta.tv_usec = (period % 1000) * 1000;
+
+    gettimeofday(&now, NULL);
+    add_time_katcp(&limit, &now, &delta);
+
+    if(send_ntp(d, nt) > 0){
+
+      FD_ZERO(&fsr);
+      if(nt->n_fd >= 0){
+        FD_SET(nt->n_fd, &fsr);
+      }
+
+      result = select(nt->n_fd + 1, &fsr, NULL, NULL, &delta);
+
+      if(result > 0){
+        current = (recv_ntp(d, nt) > 0) ? 1 : 0;
+      }
+    }
+
+    if(flushing_katcp(d)){
+      write_katcp(d);
+    }
+
+    gettimeofday(&now, NULL);
+    if(cmp_time_katcp(&now, &limit) < 0){
+
+#ifdef DEBUG
+      fprintf(stderr, "tmon: about to sleep for %ld.%06lu\n", delta.tv_sec, delta.tv_usec);
+#endif
+
+      sub_time_katcp(&delta, &limit, &now);
+      select(0, NULL, NULL, NULL, &delta);
+    }
+
+    if(current != previous){
+      append_string_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#sensor-status");
+      append_args_katcp  (d,                    KATCP_FLAG_STRING, "%ld%03u", now.tv_sec, now.tv_usec / 1000);
+      append_string_katcp(d,                    KATCP_FLAG_STRING, "1");
+      append_string_katcp(d,                    KATCP_FLAG_STRING, TMON_SENSOR_NAME);
+      append_string_katcp(d,                    KATCP_FLAG_STRING, current ? "nominal" : "error");
+      append_unsigned_long_katcp(d, KATCP_FLAG_LAST  | KATCP_FLAG_ULONG, current);
+      previous = current;
+    }
+
+  }
+
+  destroy_ntp(d, nt);
+  shutdown_katcp(d);
+
+  return 0;
+}
 

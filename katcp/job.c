@@ -1409,6 +1409,25 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
 
       return KATCP_RESULT_OK;
 
+    } else if(!strcmp(name, "stop")){
+
+      label = arg_string_katcp(d, 2);
+
+      if(label == NULL){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a job label");
+        return KATCP_RESULT_FAIL;
+      }
+
+      j = find_job_katcp(d, label);
+      if(j == NULL){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to find job labelled %s", label);
+        return KATCP_RESULT_FAIL;
+      }
+
+      zap_job_katcp(d, j);
+
+      return KATCP_RESULT_OK;
+
     } else if(!strcmp(name, "process")){
       watch = arg_string_katcp(d, 2);
       cmd = arg_string_katcp(d, 3);
@@ -1428,10 +1447,11 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
       vector[1] = NULL;
 
       j = process_create_job_katcp(d, cmd, vector, n);
-
       if(j == NULL){
         return KATCP_RESULT_FAIL;
       }
+
+      job_match_sensor_katcp(d, j);
 
       return KATCP_RESULT_OK;
 

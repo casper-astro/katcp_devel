@@ -2427,7 +2427,6 @@ int match_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_notice *n, vo
   char *name, *description, *type, *units, *combine;
   int code, min, max;
   unsigned int count;
-  struct katcp_job *j;
 
   p = get_parse_notice_katcp(d, n);
   if(p == NULL){
@@ -2467,10 +2466,12 @@ int match_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_notice *n, vo
     return 1;
   }
 
+#if 0
   j = find_job_katcp(d, n->n_name);
   if(j == NULL){
     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "could not locate job for notice %s", n->n_name);
   }
+#endif
 
   /* WARNING: force mode to be 0, but what about sensor availability in various modes ? */
   sn = create_sensor_katcp(d, combine, description, units, KATCP_STRATEGY_EVENT, code, 0);
@@ -2592,6 +2593,32 @@ int match_sensor_status_katcp(struct katcp_dispatch *d, struct katcp_notice *n, 
   propagate_acquire_katcp(d, a);
 
   return 1;
+}
+
+int job_match_sensor_katcp(struct katcp_dispatch *d, struct katcp_job *j)
+{
+  struct katcp_dispatch *dl;
+  int result;
+
+  result = 0;
+  dl = template_shared_katcp(d);
+
+  if(dl == NULL){
+    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "unable to acquire template");
+    return -1;
+  }
+
+  if(match_inform_job_katcp(dl, j, "#sensor-list", &match_sensor_list_katcp, NULL) < 0){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to match sensor-list on job %s", j->j_name ? j->j_name : "<anonymous>");
+    result = (-1);
+  }
+
+  if(match_inform_job_katcp(dl, j, "#sensor-status", &match_sensor_status_katcp, NULL) < 0){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to match sensor-status on job %s", j->j_name ? j->j_name : "<anonymous>");
+    result = (-1);
+  }
+
+  return result;
 }
 
 /***************************************************************************/

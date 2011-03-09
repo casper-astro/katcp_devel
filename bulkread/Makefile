@@ -10,7 +10,7 @@ OBJ = $(patsubst %.c,%.o,$(SRC))
 
 all: $(EXE)
 
-$(EXE): $(OBJ)
+$(EXE): $(OBJ) $(KATCP)/libkatcp.a
 	$(CC) $(LDFLAGS) -o $@ $(OBJ) $(LIB)
 
 install: all
