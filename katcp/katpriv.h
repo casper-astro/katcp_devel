@@ -262,7 +262,7 @@ struct katcp_map{
 
 struct katcp_job{
   unsigned int j_magic;
-  char *j_name;
+  struct katcp_url *j_url;
 
   pid_t j_pid;
 
