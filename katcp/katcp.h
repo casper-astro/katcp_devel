@@ -344,6 +344,7 @@ struct katcp_job *process_create_job_katcp(struct katcp_dispatch *d, char *file,
 struct katcp_job *network_connect_job_katcp(struct katcp_dispatch *d, char *host, int port, struct katcp_notice *halt);
 
 struct katcp_job *find_job_katcp(struct katcp_dispatch *d, char *name);
+int zap_job_katcp(struct katcp_dispatch *d, struct katcp_job *j);
 
 int match_inform_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, char *match, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n, void *data), void *data);
 

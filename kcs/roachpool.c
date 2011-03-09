@@ -475,7 +475,7 @@ int roachpool_destroy(struct katcp_dispatch *d){
   destroy_tree(kb->b_pool_head);
   return KATCP_RESULT_OK;
 }
-
+/*
 int roachpool_halt_notice(struct katcp_dispatch *d, struct katcp_notice *n, void *data){
   struct kcs_basic *kb;
   struct kcs_obj *o;
@@ -540,24 +540,18 @@ int roachpool_connect_pool(struct katcp_dispatch *d){
       fd = net_connect(kr->kurl->host,kr->kurl->port, NETC_ASYNC);
       if (fd < 0){
         log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "Unable to connect to %s",kr->kurl->str);
-        /*net connect fail*/
         i++;
       } else {
-        /*net connect success*/
         n = create_notice_katcp(d,dc_kurl,0);
         if (!n){
-          /*notice fail*/
           log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "Unable to create 'halt' notice for %s",kr->kurl->str);
           i++;
         } else {
-          /*notice success*/
           j = create_job_katcp(d,kr->kurl->str,0,fd, 1, n);
           if (!j){
-            /*job fail*/
             log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "Unable to create job for %s",kr->kurl->str);
             i++;
           } else {
-            /*job success*/
             if (mod_roach_to_new_pool(root,"connected",o->name) == KCS_FAIL){
               log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "Could not move roach %s to pool %s\n",kr->kurl->str,"connected");
               i++;
@@ -586,7 +580,7 @@ int roachpool_connect_pool(struct katcp_dispatch *d){
   else
     return KATCP_RESULT_FAIL;
 }
-
+*/
 struct kcs_obj *roachpool_get_obj_by_name_kcs(struct katcp_dispatch *d, char *name){
   struct kcs_basic *kb;
   kb = need_current_mode_katcp(d,KCS_MODE_BASIC);
