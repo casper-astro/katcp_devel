@@ -406,6 +406,12 @@ int statemachine_cmd(struct katcp_dispatch *d, int argc){
       if (strcmp(arg_string_katcp(d,1),"ping") == 0)
         return statemachine_ping(d);
       break;
+    case 4:
+      if (strcmp(arg_string_katcp(d,1),"connect") == 0)
+        return statemachine_connect(d);
+      if (strcmp(arg_string_katcp(d,1),"disconnect") == 0)
+        return statemachine_disconnect(d);
+      break;
     case 6:
       if (strcmp(arg_string_katcp(d,1),"progdev") == 0)
         return statemachine_progdev(d);

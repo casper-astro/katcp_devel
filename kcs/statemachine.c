@@ -166,16 +166,28 @@ int kcs_sm_ping_s2(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 /*******************************************************************************************************/
 /*CONNECT*/
 /*******************************************************************************************************/
-int disconnected_connect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data){
-  //struct katcp_job *j;
+int connect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data){
+  struct katcp_job *j;
   struct kcs_obj *ko;
   struct kcs_roach *kr;
-  char *dc_kurl;
+  char *dc_kurl, *newpool;
   int fd;
+  struct kcs_basic *kb;
+  struct kcs_obj *root;
+
+  kb = need_current_mode_katcp(d,KCS_MODE_BASIC);
+  if (!kb)
+    return KCS_SM_CONNECT_STOP;
+  root = kb->b_pool_head;
+  if (!root)
+    return KCS_SM_CONNECT_STOP;
 
   ko = data;
   kr = ko->payload;
-  
+  kr->io_ksm = kr->ksm;
+  kr->ksm = NULL;
+  newpool = kr->data;
+
   if (!n){
     if (!(dc_kurl = kurl_string(kr->kurl,"?disconnect")))
       dc_kurl = kurl_add_path(kr->kurl,"?disconnect");
@@ -186,15 +198,30 @@ int disconnected_connect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n
         log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "Unable to connect to %s",kr->kurl->str);
         return KCS_SM_CONNECT_STOP;     
       } else {
-        /*
-        n = create_notice_katcp(d,dc_kurl);
+        n = create_notice_katcp(d,dc_kurl,0);
         if (!n){
+          free(dc_kurl);
           log_message_katcp(d,KATCP_LEVEL_ERROR,NULL,"unable to create halt notice %s",dc_kurl);
           return KCS_SM_CONNECT_STOP;
         } else {
-          //j = create_job_katcp(
+          kr->io_ksm->n = n;
+          j = create_job_katcp(d,kr->kurl->str,0,fd,1,n);
+          if (!j){
+            free(dc_kurl);
+            log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "Unable to create job for %s",kr->kurl->str);
+            return KCS_SM_CONNECT_STOP;
+          } else {
+            if (mod_roach_to_new_pool(root,newpool,ko->name) == KCS_FAIL){
+              free(dc_kurl);
+              log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "Could not move roach %s to pool %s\n",kr->kurl->str,newpool);
+              return KCS_SM_CONNECT_STOP;
+            } else { 
+              log_message_katcp(d,KATCP_LEVEL_INFO, NULL, "Success: roach %s moved to pool %s",kr->kurl->str,newpool);
+              if (add_notice_katcp(d,n,kr->io_ksm->sm[KCS_SM_CONNECT_CONNECTED],ko))
+                log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "Unable to add the halt function to notice");
+            }
+          }
         }
-        */
       }
     } else {
       free(dc_kurl);
@@ -202,14 +229,36 @@ int disconnected_connect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n
       return KCS_SM_CONNECT_STOP;
     }
   }
-
-
-
+  free(dc_kurl);
   return KCS_SM_CONNECT_CONNECTED;
 }
 
-int connected_connect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data){
-
+int disconnect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data){
+  struct kcs_roach *kr;
+  struct kcs_obj *ko;
+  struct kcs_basic *kb;
+  /*struct katcp_job *j;
+  */
+  kb = need_current_mode_katcp(d, KCS_MODE_BASIC);
+  ko = data;
+  kr = ko->payload;
+/*
+  j = find_job_katcp(d,ko->name);
+  if (j){
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Found job %s about to delete",ko->name);
+    delete_job_katcp(d,j);  
+  } else {
+  }
+  */
+  
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Halt notice (%p) %s",n,n->n_name);
+  if (mod_roach_to_new_pool(kb->b_pool_head,"disconnected",ko->name) == KCS_FAIL){
+    log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "Could not move roach %s to pool %s\n",kr->kurl->str,"disconnected");
+  }
+  if (kr->io_ksm){
+    destroy_ksm_kcs(kr->io_ksm);
+    kr->io_ksm = NULL;
+  }
   return KCS_SM_CONNECT_STOP;
 }
 
@@ -318,9 +367,9 @@ struct kcs_statemachine *get_sm_connect_kcs(){
   ksm = malloc(sizeof(struct kcs_statemachine));
   ksm->sm = malloc(sizeof(int (*)(struct katcp_dispatch *, struct katcp_notice *))*3);
   ksm->state = KCS_SM_CONNECT_DISCONNECTED;
-  ksm->sm[KCS_SM_CONNECT_DISCONNECTED] = &disconnected_connect_sm_kcs;
-  ksm->sm[KCS_SM_CONNECT_CONNECTED]    = &connected_connect_sm_kcs;
   ksm->sm[KCS_SM_CONNECT_STOP]         = NULL;
+  ksm->sm[KCS_SM_CONNECT_DISCONNECTED] = &connect_sm_kcs;
+  ksm->sm[KCS_SM_CONNECT_CONNECTED]    = &disconnect_sm_kcs;
 #ifdef DEBUG
   fprintf(stderr,"SM: pointer to connect sm: %p\n",ksm);
 #endif
@@ -349,8 +398,9 @@ int api_prototype_sm_kcs(struct katcp_dispatch *d, struct kcs_obj *ko, struct kc
   struct kcs_roach *kr;
   struct kcs_node *kn;
   struct katcp_notice *n;
-  int i;
+  int i, oldcount;
   n = NULL;
+  i=0;
   switch (ko->tid){
     case KCS_ID_ROACH:
       kr = (struct kcs_roach *) ko->payload;
@@ -359,20 +409,20 @@ int api_prototype_sm_kcs(struct katcp_dispatch *d, struct kcs_obj *ko, struct kc
       kr->ksm = (*call)();
       kr->data = data;
       run_statemachine(d,n,ko);
-      //log_message_katcp(d, KATCP_LEVEL_INFO,NULL,"Found %s it is a roach",ko->name);
       break;
     case KCS_ID_NODE:
       kn = (struct kcs_node *) ko->payload;
-      for (i=0; i<kn->childcount; i++){
+      while (i < kn->childcount){  
         kr = kn->children[i]->payload;
         if (is_active_sm_kcs(kr))
           return KATCP_RESULT_FAIL;
         kr->ksm = (*call)();
         kr->data = data;
+        oldcount = kn->childcount;
         run_statemachine(d,n,kn->children[i]);
-        //log_message_katcp(d, KATCP_LEVEL_INFO,NULL,"Found %s it is a roach",kn->children[i]->name);
+        if (kn->childcount == oldcount)
+          i++; 
       }
-      //log_message_katcp(d, KATCP_LEVEL_INFO,NULL,"Found %s it is a node with %d children",ko->name,kn->childcount);
       break;
   }
   return KATCP_RESULT_OK;
@@ -386,7 +436,6 @@ int statemachine_stop(struct katcp_dispatch *d){
   ko = roachpool_get_obj_by_name_kcs(d,arg_string_katcp(d,2));
   if (!ko)
     return KATCP_RESULT_FAIL;
-  
   switch (ko->tid){
     case KCS_ID_ROACH:
       kr = (struct kcs_roach*) ko->payload;
@@ -416,7 +465,6 @@ int statemachine_stop(struct katcp_dispatch *d){
       }
       break;
   }
-
   return KATCP_RESULT_OK;
 }
 
@@ -433,7 +481,21 @@ int statemachine_connect(struct katcp_dispatch *d){
   ko = roachpool_get_obj_by_name_kcs(d,arg_string_katcp(d,2));
   if (!ko)
     return KATCP_RESULT_FAIL;
-  return api_prototype_sm_kcs(d,ko,&get_sm_connect_kcs,NULL);
+  return api_prototype_sm_kcs(d,ko,&get_sm_connect_kcs,arg_string_katcp(d,3));
+}
+int statemachine_disconnect(struct katcp_dispatch *d){
+  struct kcs_obj *ko;
+  struct katcp_job *j;
+  ko = roachpool_get_obj_by_name_kcs(d,arg_string_katcp(d,2));
+  if (!ko)
+    return KATCP_RESULT_FAIL;
+  j = find_job_katcp(d,ko->name);
+  if (!j){
+    log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "Unable to find job %s",ko->name);
+    return KATCP_RESULT_OK;
+  }
+  zap_job_katcp(d,j);  
+  return KATCP_RESULT_OK;
 }
 
 int statemachine_progdev(struct katcp_dispatch *d){
@@ -452,16 +514,21 @@ int statemachine_progdev(struct katcp_dispatch *d){
   return api_prototype_sm_kcs(d,ko,&get_sm_progdev_kcs,conf_bitstream);
 }
 
-
+void destroy_ksm_kcs(struct kcs_statemachine *ksm){
+  if (ksm){
+    if (ksm->n != NULL) { ksm->n = NULL; }
+    if (ksm->sm != NULL) { free(ksm->sm); ksm->sm = NULL; }
+    free(ksm); 
+  }
+}
 
 void destroy_roach_ksm_kcs(struct kcs_roach *kr){
   if (kr->ksm){
 #ifdef DEBUG
     fprintf(stderr,"SM: about to free (%p)\n",kr->ksm);
-#endif 
-    if (kr->ksm->n != NULL) { kr->ksm->n = NULL; };
-    if (kr->ksm->sm != NULL) { free(kr->ksm->sm); kr->ksm->sm = NULL; }
-    if (kr->ksm != NULL) { free(kr->ksm); kr->ksm = NULL; }
+#endif
+    destroy_ksm_kcs(kr->ksm);
+    kr->ksm = NULL; 
   }
 }
 

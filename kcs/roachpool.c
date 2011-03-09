@@ -56,6 +56,7 @@ struct kcs_obj *new_kcs_roach_obj(struct kcs_obj *parent, char *url, char *ip, c
   kr->jl       = NULL;
   kr->kurl     = kurl_create_url_from_string(url);
   kr->ksm      = NULL;
+  kr->io_ksm   = NULL;
   kr->data     = NULL;
   if (kr->kurl == NULL)
     return NULL;
@@ -264,6 +265,7 @@ void destroy_tree(struct kcs_obj *o){
         if (r->mac) { free(r->mac); r->mac = NULL; }
         if (r->kurl) { kurl_destroy(r->kurl); r->kurl = NULL; }
         if (r->ksm) { destroy_roach_ksm_kcs(r); }
+        if (r->io_ksm) { destroy_ksm_kcs(r->io_ksm); r->io_ksm = NULL; }
         free(r);
       }
 
