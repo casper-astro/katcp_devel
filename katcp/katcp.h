@@ -361,4 +361,12 @@ struct katcp_url *create_kurl_from_string_katcp(char *url);
 struct katcp_url *create_kurl_katcp(char *scheme, char *host, int port, char *path);
 void destroy_kurl_katcp(struct katcp_url *ku);
 
+/* version support logic */
+void destroy_versions_katcp(struct katcp_dispatch *d);
+int remove_version_katcp(struct katcp_dispatch *d, char *label);
+int add_version_katcp(struct katcp_dispatch *d, char *label, unsigned int mode, char *prefix, char *value);
+
+int print_versions_katcp(struct katcp_dispatch *d);
+int version_cmd_katcp(struct katcp_dispatch *d, int argc);
+
 #endif

@@ -181,6 +181,9 @@ int startup_shared_katcp(struct katcp_dispatch *d)
   s->s_version_minor = 0;
 #endif
 
+  s->s_versions = NULL;
+  s->s_amount = 0;
+
   s->s_sensors = NULL;
   s->s_tally = 0;
 
@@ -199,9 +202,11 @@ int startup_shared_katcp(struct katcp_dispatch *d)
   s->s_vector[0].e_state = NULL;
   s->s_vector[0].e_clear = NULL;
 
+#if 0
   s->s_vector[0].e_version = NULL;
   s->s_vector[0].e_major = 0;
   s->s_vector[0].e_minor = 1;
+#endif
 
   s->s_size = 1;
 
@@ -252,10 +257,12 @@ void shutdown_shared_katcp(struct katcp_dispatch *d)
         free(s->s_vector[i].e_name);
         s->s_vector[i].e_name = NULL;
       }
+#if 0
       if(s->s_vector[i].e_version){
         free(s->s_vector[i].e_version);
         s->s_vector[i].e_version = NULL;
       }
+#endif
     }
   }
 
@@ -295,6 +302,7 @@ void shutdown_shared_katcp(struct katcp_dispatch *d)
 
   destroy_notices_katcp(d);
   destroy_sensors_katcp(d);
+  destroy_versions_katcp(d);
 
   while(s->s_count > 0){
 #ifdef DEBUG
@@ -776,9 +784,11 @@ static int expand_modes_katcp(struct katcp_dispatch *d, unsigned int mode)
     s->s_vector[i].e_state = NULL;
     s->s_vector[i].e_clear = NULL;
 
+#if 0
     s->s_vector[i].e_version = NULL;
     s->s_vector[i].e_major = 0;
     s->s_vector[i].e_minor = 1;
+#endif
   }
 
   s->s_size = mode + 1;
@@ -788,9 +798,10 @@ static int expand_modes_katcp(struct katcp_dispatch *d, unsigned int mode)
 
 int mode_version_katcp(struct katcp_dispatch *d, int mode, char *subsystem, int major, int minor)
 {
+#define BUFFER 20
   struct katcp_shared *s;
   struct katcp_entry *e;
-  char *copy;
+  char buffer[BUFFER];
 
   sane_shared_katcp(d);
   s = d->d_shared;
@@ -801,6 +812,14 @@ int mode_version_katcp(struct katcp_dispatch *d, int mode, char *subsystem, int 
 
   e = &(s->s_vector[mode]);
 
+  if(subsystem){
+    snprintf(buffer, BUFFER, "%d.%d", major, minor);
+    buffer[BUFFER - 1] = '\0';
+
+    add_version_katcp(d, subsystem, mode, NULL, buffer);
+  }
+
+#if 0
   if(e->e_version){
     free(e->e_version);
     e->e_version = NULL;
@@ -820,8 +839,10 @@ int mode_version_katcp(struct katcp_dispatch *d, int mode, char *subsystem, int 
   if(minor > 0){
     e->e_minor = minor;
   }
+#endif
 
   return 0;
+#undef BUFFER
 }
 
 int store_mode_katcp(struct katcp_dispatch *d, unsigned int mode, void *state)

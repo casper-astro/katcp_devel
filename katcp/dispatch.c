@@ -423,13 +423,16 @@ void on_connect_katcp(struct katcp_dispatch *d)
     return;
   }
 
+  print_versions_katcp(d);
+
   e = &(s->s_vector[s->s_mode]);
 
+#if 0
   if(e->e_name || e->e_version){
     append_string_katcp(d, KATCP_FLAG_FIRST, "#version");
     append_args_katcp(d, KATCP_FLAG_LAST, "%s-%d.%d", e->e_version ? e->e_version : e->e_name, e->e_major, e->e_minor);
   }
-
+#endif
   if(s->s_build_state){
     append_string_katcp(d, KATCP_FLAG_FIRST, "#build-state");
 
