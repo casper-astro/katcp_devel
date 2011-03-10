@@ -421,6 +421,7 @@ struct katcp_url {
   int port;
   char **path;
   int pcount;
+  char *cmd;
 };
 
 void exchange_katcl(struct katcl_line *l, int fd);

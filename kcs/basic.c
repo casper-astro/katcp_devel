@@ -18,7 +18,7 @@
 
 #include "kcs.h"
 
-struct katcp_job *wrapper_process_create_job_katcp(struct katcp_dispatch *d, char *file, char **argv, struct katcp_notice *halt)
+struct katcp_job *wrapper_process_create_job_katcp(struct katcp_dispatch *d, struct katcp_url *file, char **argv, struct katcp_notice *halt)
 {
   int fds[2];
   pid_t pid;
@@ -77,8 +77,8 @@ struct katcp_job *wrapper_process_create_job_katcp(struct katcp_dispatch *d, cha
   }
 
   //execvp(file, argv);
-  execpy_do(file, argv);
-  sync_message_katcl(xl, KATCP_LEVEL_ERROR, NULL, "unable to run command %s (%s)", file, strerror(errno)); 
+  execpy_do(file->cmd, argv);
+  sync_message_katcl(xl, KATCP_LEVEL_ERROR, NULL, "unable to run command %s (%s)", file->cmd, strerror(errno)); 
 
   destroy_katcl(xl, 0);
 
@@ -114,8 +114,9 @@ int script_wildcard_cmd(struct katcp_dispatch *d, int argc)
   struct kcs_basic *kb;
 
   struct stat st;
-  char *name, *path, **vector;
+  char *path, **vector;
   int len, i;
+  struct katcp_url *name;
 
 #ifdef DEBUG
   fprintf(stderr, "script cmd: dispatch is %p\n", d);
@@ -123,15 +124,17 @@ int script_wildcard_cmd(struct katcp_dispatch *d, int argc)
 
   kb = need_current_mode_katcp(d, KCS_MODE_BASIC);
 
-  name = arg_string_katcp(d, 0);
+  name = create_kurl_from_string_katcp(arg_string_katcp(d, 0)+1);
   if(name == NULL){
     log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "logic problem, unable to acquire command name");
+    destroy_kurl_katcp(name);
     return KATCP_RESULT_FAIL;
   }
 
-  len = strlen(name);
+  len = strlen(name->cmd);
   if(len <= 1){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "command unreasonably short");
+    destroy_kurl_katcp(name);
     return KATCP_RESULT_FAIL;
   }
 
@@ -141,25 +144,28 @@ int script_wildcard_cmd(struct katcp_dispatch *d, int argc)
   path = malloc(len);
   if(path == NULL){
     log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "unable to allocate %d bytes", len);
+    destroy_kurl_katcp(name);
     return KATCP_RESULT_FAIL;
   }
 
 #if 0
   snprintf(path, len, "%s/%s.py", kb->b_scripts, name + 1);
 #endif
-  snprintf(path,len, "%s/%s",kb->b_scripts, name + 1);
+  snprintf(path,len, "%s/%s",kb->b_scripts, name->cmd);
 
   log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "checking if %s exists", path);
 
   if(stat(path, &st) < 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to stat %s", path);
     free(path);
+    destroy_kurl_katcp(name);
     return KATCP_RESULT_FAIL;
   }
 
   n = find_notice_katcp(d, KCS_NOTICE_PYTHON);
   if(n != NULL){
     free(path);
+    destroy_kurl_katcp(name);
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "it appears another task of type %s is already operational", KCS_NOTICE_PYTHON);
     return KATCP_RESULT_FAIL;
   }
@@ -167,6 +173,7 @@ int script_wildcard_cmd(struct katcp_dispatch *d, int argc)
   n = create_notice_katcp(d, KCS_NOTICE_PYTHON, 0);
   if(n == NULL){
     free(path);
+    destroy_kurl_katcp(name);
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to create notice for type %s", KCS_NOTICE_PYTHON);
     return KATCP_RESULT_FAIL;
   }
@@ -176,14 +183,16 @@ int script_wildcard_cmd(struct katcp_dispatch *d, int argc)
   vector = malloc(sizeof(char *) * (argc + 1));
   if(vector == NULL){
     free(path);
+    destroy_kurl_katcp(name);
 #if 0
     destroy_notice_katcp(d, n);
 #endif
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate vector for %d arguments", argc + 1);
     return KATCP_RESULT_FAIL;
   }
-
-  for(i = 0; i < argc; i++){
+  
+  vector[0] = name->cmd;
+  for(i = 1; i < argc; i++){
     vector[i] = arg_string_katcp(d, i);
   }
   vector[i] = NULL;
@@ -192,7 +201,7 @@ int script_wildcard_cmd(struct katcp_dispatch *d, int argc)
   j = process_create_job_katcp(d, path, vector, n);
 #endif
 #if 1 
-  j = wrapper_process_create_job_katcp(d, path, vector, n);
+  j = wrapper_process_create_job_katcp(d, name, vector, n);
 #endif
   free(vector);
   free(path);

@@ -287,7 +287,7 @@ static int relay_log_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n,
   return 1;
 }
 
-struct katcp_job *create_job_katcp(struct katcp_dispatch *d, char *name, pid_t pid, int fd, int async, struct katcp_notice *halt)
+struct katcp_job *create_job_katcp(struct katcp_dispatch *d, struct katcp_url *name, pid_t pid, int fd, int async, struct katcp_notice *halt)
 {
   struct katcp_job *j, **t;
   struct katcp_shared *s;
@@ -332,12 +332,8 @@ struct katcp_job *create_job_katcp(struct katcp_dispatch *d, char *name, pid_t p
 
   j->j_map = NULL;
 
-  /*j->j_name = strdup(name);
-  if(j->j_name == NULL){
-    delete_job_katcp(d, j);
-    return NULL;
-  }*/
-  j->j_url = create_kurl_from_string_katcp(name);
+  //j->j_url = create_kurl_from_string_katcp(name);
+  j->j_url = name;
   if(j->j_url == NULL){
     delete_job_katcp(d, j);
     return NULL;
@@ -1032,7 +1028,7 @@ struct katcp_job *find_job_katcp(struct katcp_dispatch *d, char *name)
   return NULL;
 }
 
-struct katcp_job *process_create_job_katcp(struct katcp_dispatch *d, char *file, char **argv, struct katcp_notice *halt)
+struct katcp_job *process_create_job_katcp(struct katcp_dispatch *d, struct katcp_url *file, char **argv, struct katcp_notice *halt)
 {
   int fds[2];
   pid_t pid;
@@ -1090,8 +1086,8 @@ struct katcp_job *process_create_job_katcp(struct katcp_dispatch *d, char *file,
     fcntl(fds[0], F_SETFD, FD_CLOEXEC);
   }
 
-  execvp(file, argv);
-  sync_message_katcl(xl, KATCP_LEVEL_ERROR, NULL, "unable to run command %s (%s)", file, strerror(errno)); 
+  execvp(file->cmd, argv);
+  sync_message_katcl(xl, KATCP_LEVEL_ERROR, NULL, "unable to run command %s (%s)", file->cmd, strerror(errno)); 
 
   destroy_katcl(xl, 0);
 
@@ -1099,21 +1095,22 @@ struct katcp_job *process_create_job_katcp(struct katcp_dispatch *d, char *file,
   return NULL;
 }
 
-struct katcp_job *network_connect_job_katcp(struct katcp_dispatch *d, char *host, int port, struct katcp_notice *halt)
+//struct katcp_job *network_connect_job_katcp(struct katcp_dispatch *d, char *host, int port, struct katcp_notice *halt)
+struct katcp_job *network_connect_job_katcp(struct katcp_dispatch *d, struct katcp_url *url, struct katcp_notice *halt)
 {
   struct katcp_job *j;
   int fd;
 
-  fd = net_connect(host, port, NETC_ASYNC);
+  fd = net_connect(url->host, url->port, NETC_ASYNC);
 
   if (fd < 0){
-    log_message_katcp(d,KATCP_LEVEL_ERROR,NULL,"Unable to connect to: %s:%d",host,port);
+    log_message_katcp(d,KATCP_LEVEL_ERROR,NULL,"Unable to connect to: %s:%d",url->host,url->port);
     return NULL;
   }
   
   /* WARNING: j->j_url->str is can not be taken as a unique key if we connect to the same host more than once */
   /* this host is the search string for job and notice */
-  j = create_job_katcp(d, host, 0, fd, 1, halt);
+  j = create_job_katcp(d, url, 0, fd, 1, halt);
 
   if (j == NULL){
     log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"unable to allocate job logic so closing connection");
@@ -1168,15 +1165,16 @@ int subprocess_start_job_katcp(struct katcp_dispatch *d, int argc, int options)
   char **vector;
   struct katcp_job *j;
   struct katcp_notice *n;
-  char *name, *ptr;
+  char *ptr, *tname;
   int i, len;
-
-  name = arg_string_katcp(d, 0);
-  if(name == NULL){
+  struct katcp_url *name;
+  tname = arg_string_katcp(d,0);
+  if(tname == NULL) {
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire name");
     return KATCP_RESULT_FAIL;
   }
-  name++;
+  tname++;
+  name = create_kurl_from_string_katcp(tname);
 
   switch(options){
     case KATCP_JOB_UNLOCK  : /* run all instances concurrently */
@@ -1185,14 +1183,14 @@ int subprocess_start_job_katcp(struct katcp_dispatch *d, int argc, int options)
 
     case KATCP_JOB_LOCAL  : /* only run one instance of this command */
 
-      len = strlen(KATCP_LOCAL_NOTICE) + strlen(name);
+      len = strlen(KATCP_LOCAL_NOTICE) + strlen(name->cmd);
       ptr = malloc(len + 1);
       if(ptr == NULL){
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate %d bytes", len + 1);
         return KATCP_RESULT_FAIL;
       }
 
-      snprintf(ptr, len, KATCP_LOCAL_NOTICE, name);
+      snprintf(ptr, len, KATCP_LOCAL_NOTICE, name->cmd);
       ptr[len] = '\0';
 
       n = find_used_notice_katcp(d, ptr);
@@ -1228,7 +1226,7 @@ int subprocess_start_job_katcp(struct katcp_dispatch *d, int argc, int options)
     return KATCP_RESULT_FAIL;
   }
 
-  vector[0] = name;
+  vector[0] = name->cmd;
   for(i = 1; i < argc; i++){
     /* WARNING: won't deal with arguments containing \0, but then again, the command-line doesn't do either */
     vector[i] = arg_string_katcp(d, i);
@@ -1364,6 +1362,7 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
   char *name, *watch, *cmd, *host, *label, *buffer, *tmp;
   char *vector[2];
   int i, port, count, len, flags, special;
+  struct katcp_url *url;
 
   s = d->d_shared;
 
@@ -1435,9 +1434,11 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
 
     } else if(!strcmp(name, "process")){
       watch = arg_string_katcp(d, 2);
-      cmd = arg_string_katcp(d, 3);
+      //cmd = arg_string_katcp(d, 3);
+      url = create_kurl_from_string_katcp(arg_string_katcp(d,3));
 
-      if((cmd == NULL) || (watch == NULL)){
+      //if((cmd == NULL) || (watch == NULL)){
+      if((url == NULL) || (watch == NULL)){
         log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "insufficient parameters for launch");
         return KATCP_RESULT_FAIL;
       }
@@ -1448,10 +1449,10 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
         return KATCP_RESULT_FAIL;
       }
 
-      vector[0] = cmd;
+      vector[0] = url->cmd;
       vector[1] = NULL;
 
-      j = process_create_job_katcp(d, cmd, vector, n);
+      j = process_create_job_katcp(d, url, vector, n);
       if(j == NULL){
         return KATCP_RESULT_FAIL;
       }
@@ -1462,10 +1463,12 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
 
     } else if(!strcmp(name, "network")){ 
       watch = arg_string_katcp(d, 2);
-      host = arg_string_katcp(d, 3);
-      port = arg_unsigned_long_katcp(d, 4);
+      //host = arg_string_katcp(d, 3);
+      //port = arg_unsigned_long_katcp(d, 4);
+      url = create_kurl_from_string_katcp(arg_string_katcp(d,3));
 
-      if ((host == NULL) || (watch == NULL) || (port == 0)){
+      //if ((host == NULL) || (watch == NULL) || (port == 0)){
+      if ((url == NULL) || (watch == NULL)){
         log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "insufficient parameters for launch");
         return KATCP_RESULT_FAIL;
       }
@@ -1476,7 +1479,8 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
         return KATCP_RESULT_FAIL;
       }
 
-      j = network_connect_job_katcp(d, host, port, n); 
+      //j = network_connect_job_katcp(d, host, port, n); 
+      j = network_connect_job_katcp(d, url, n); 
       
       if (j == NULL){
         return KATCP_RESULT_FAIL;
