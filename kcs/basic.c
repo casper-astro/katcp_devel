@@ -27,6 +27,7 @@ struct katcp_job *wrapper_process_create_job_katcp(struct katcp_dispatch *d, str
   struct katcp_job *j;
 
   if(socketpair(AF_UNIX, SOCK_STREAM, 0, fds) < 0){
+    destroy_kurl_katcp(file);
     return NULL;
   }
 
@@ -34,6 +35,7 @@ struct katcp_job *wrapper_process_create_job_katcp(struct katcp_dispatch *d, str
   if(pid < 0){
     close(fds[0]);
     close(fds[1]);
+    destroy_kurl_katcp(file);
     return NULL;
   }
 
@@ -47,7 +49,7 @@ struct katcp_job *wrapper_process_create_job_katcp(struct katcp_dispatch *d, str
       kill(pid, SIGTERM);
       close(fds[1]);
     }
-
+    
     return j;
   }
 
@@ -126,7 +128,7 @@ int script_wildcard_cmd(struct katcp_dispatch *d, int argc)
 
   name = create_kurl_from_string_katcp(arg_string_katcp(d, 0)+1);
   if(name == NULL){
-    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "logic problem, unable to acquire command name");
+    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "logic problem, unable to acquire command name possibly try uri exec:///path/to/process");
     destroy_kurl_katcp(name);
     return KATCP_RESULT_FAIL;
   }

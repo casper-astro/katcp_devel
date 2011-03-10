@@ -341,6 +341,7 @@ struct katcp_job *create_job_katcp(struct katcp_dispatch *d, struct katcp_url *n
 
   j->j_map = create_map_katcp();
   if(j->j_map == NULL){
+    j->j_url = NULL;
     delete_job_katcp(d, j);
     return NULL;
   }
@@ -356,6 +357,7 @@ struct katcp_job *create_job_katcp(struct katcp_dispatch *d, struct katcp_url *n
   if(fd >= 0){
     j->j_line = create_katcl(fd);
     if(j->j_line == NULL){
+      j->j_url = NULL;
       delete_job_katcp(d, j);
       return NULL;
     }
@@ -1434,17 +1436,17 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
 
     } else if(!strcmp(name, "process")){
       watch = arg_string_katcp(d, 2);
-      //cmd = arg_string_katcp(d, 3);
-      url = create_kurl_from_string_katcp(arg_string_katcp(d,3));
+      cmd = arg_string_katcp(d, 3);
+      url = create_kurl_from_string_katcp(cmd);
 
-      //if((cmd == NULL) || (watch == NULL)){
-      if((url == NULL) || (watch == NULL)){
+      if((cmd == NULL) || (watch == NULL) || (url == NULL)) {
         log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "insufficient parameters for launch");
         return KATCP_RESULT_FAIL;
       }
 
       n = create_notice_katcp(d, watch, 0);
       if(n == NULL){
+        destroy_kurl_katcp(url);
         log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "unable to create notice called %s", watch);
         return KATCP_RESULT_FAIL;
       }
@@ -1454,6 +1456,7 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
 
       j = process_create_job_katcp(d, url, vector, n);
       if(j == NULL){
+        destroy_kurl_katcp(url);
         return KATCP_RESULT_FAIL;
       }
 
@@ -1463,19 +1466,21 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
 
     } else if(!strcmp(name, "network")){ 
       watch = arg_string_katcp(d, 2);
-      //host = arg_string_katcp(d, 3);
+      host = arg_string_katcp(d, 3);
       //port = arg_unsigned_long_katcp(d, 4);
-      url = create_kurl_from_string_katcp(arg_string_katcp(d,3));
+      url = create_kurl_from_string_katcp(host);
 
       //if ((host == NULL) || (watch == NULL) || (port == 0)){
-      if ((url == NULL) || (watch == NULL)){
+      if ((url == NULL) || (watch == NULL) || (host == NULL)){
         log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "insufficient parameters for launch");
+        destroy_kurl_katcp(url);
         return KATCP_RESULT_FAIL;
       }
 
       n = create_notice_katcp(d, watch, 0);
       if (n == NULL){
         log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "unable to create notice called %s", watch);
+        destroy_kurl_katcp(url);
         return KATCP_RESULT_FAIL;
       }
 
@@ -1483,6 +1488,7 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
       j = network_connect_job_katcp(d, url, n); 
       
       if (j == NULL){
+        destroy_kurl_katcp(url);
         return KATCP_RESULT_FAIL;
       }
 
