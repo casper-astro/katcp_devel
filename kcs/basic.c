@@ -190,8 +190,9 @@ int script_wildcard_cmd(struct katcp_dispatch *d, int argc)
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate vector for %d arguments", argc + 1);
     return KATCP_RESULT_FAIL;
   }
-
-  for(i = 0; i < argc; i++){
+  
+  vector[0] = name->cmd;
+  for(i = 1; i < argc; i++){
     vector[i] = arg_string_katcp(d, i);
   }
   vector[i] = NULL;

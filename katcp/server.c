@@ -359,7 +359,7 @@ int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, ch
 
   register_flag_mode_katcp(dl, "?dispatch","dispatch operations (?dispatch [list])", &dispatch_cmd_katcp, 0, 0);
   register_flag_mode_katcp(dl, "?notice",  "notice operations (?notice [list|watch|wake])", &notice_cmd_katcp, 0, 0);
-  register_flag_mode_katcp(dl, "?job",     "job operations (?job [list|process notice-name executable-file|network notice-name net-host remote-port|watchdog job-name|match job-name inform-message|stop job-name])", &job_cmd_katcp, 0, 0);
+  register_flag_mode_katcp(dl, "?job",     "job operations (?job [list|process notice-name exec://executable-file|network notice-name katcp://net-host:remote-port|watchdog job-name|match job-name inform-message|stop job-name])", &job_cmd_katcp, 0, 0);
   register_flag_mode_katcp(dl, "?process", "register a process command (?process executable help-string [mode]", &register_subprocess_cmd_katcp, 0, 0);
   register_flag_mode_katcp(dl, "?sensor",  "sensor operations (?sensor [list|create|relay job-name])", &sensor_cmd_katcp, 0, 0);
 
