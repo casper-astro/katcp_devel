@@ -48,6 +48,7 @@ struct katcp_job *wrapper_process_create_job_katcp(struct katcp_dispatch *d, str
       log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "unable to allocate job logic so terminating child process");
       kill(pid, SIGTERM);
       close(fds[1]);
+      destroy_kurl_katcp(file);
     }
     
     return j;

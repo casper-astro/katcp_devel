@@ -76,6 +76,8 @@ struct katcp_url *create_kurl_from_string_katcp(char *url){
 #ifdef DEBUG
   fprintf(stderr,"katcp_url about to parse: %s\n", url);
 #endif
+  if (url == NULL)
+    return NULL;
 
   ku = malloc(sizeof(struct katcp_url));
   if (!ku)

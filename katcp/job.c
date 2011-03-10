@@ -1039,6 +1039,7 @@ struct katcp_job *process_create_job_katcp(struct katcp_dispatch *d, struct katc
   struct katcp_job *j;
 
   if(socketpair(AF_UNIX, SOCK_STREAM, 0, fds) < 0){
+    destroy_kurl_katcp(file);
     return NULL;
   }
 
@@ -1046,6 +1047,7 @@ struct katcp_job *process_create_job_katcp(struct katcp_dispatch *d, struct katc
   if(pid < 0){
     close(fds[0]);
     close(fds[1]);
+    destroy_kurl_katcp(file);
     return NULL;
   }
 
@@ -1058,6 +1060,7 @@ struct katcp_job *process_create_job_katcp(struct katcp_dispatch *d, struct katc
       log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "unable to allocate job logic so terminating child process");
       kill(pid, SIGTERM);
       close(fds[1]);
+      destroy_kurl_katcp(file);
     }
 
     return j;
@@ -1177,6 +1180,11 @@ int subprocess_start_job_katcp(struct katcp_dispatch *d, int argc, int options)
   }
   tname++;
   name = create_kurl_from_string_katcp(tname);
+  if (name == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse name uri");
+    return KATCP_RESULT_FAIL;
+  }
+
 
   switch(options){
     case KATCP_JOB_UNLOCK  : /* run all instances concurrently */
@@ -1188,6 +1196,7 @@ int subprocess_start_job_katcp(struct katcp_dispatch *d, int argc, int options)
       len = strlen(KATCP_LOCAL_NOTICE) + strlen(name->cmd);
       ptr = malloc(len + 1);
       if(ptr == NULL){
+        destroy_kurl_katcp(name);
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate %d bytes", len + 1);
         return KATCP_RESULT_FAIL;
       }
@@ -1197,6 +1206,7 @@ int subprocess_start_job_katcp(struct katcp_dispatch *d, int argc, int options)
 
       n = find_used_notice_katcp(d, ptr);
       if(n){
+        destroy_kurl_katcp(name);
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "still waiting for %s", ptr);
         free(ptr);
         return KATCP_RESULT_FAIL;
@@ -1210,6 +1220,7 @@ int subprocess_start_job_katcp(struct katcp_dispatch *d, int argc, int options)
     case KATCP_JOB_GLOBAL  : /* only run one instance of any command */
       n = find_notice_katcp(d, KATCP_GLOBAL_NOTICE);
       if(n){
+        destroy_kurl_katcp(name);
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "still waiting for %s", KATCP_GLOBAL_NOTICE);
         return KATCP_RESULT_FAIL;
       }
@@ -1218,12 +1229,14 @@ int subprocess_start_job_katcp(struct katcp_dispatch *d, int argc, int options)
   }
 
   if(n == NULL){
+    destroy_kurl_katcp(name);
     log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "unable to create notice");
     return KATCP_RESULT_FAIL;
   }
 
   vector = malloc(sizeof(char *) * (argc + 1));
-  if(vector == NULL){
+  if(  vector == NULL){
+    destroy_kurl_katcp(name);
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate %d bytes", sizeof(char *) * (argc + 1));
     return KATCP_RESULT_FAIL;
   }
@@ -1239,11 +1252,13 @@ int subprocess_start_job_katcp(struct katcp_dispatch *d, int argc, int options)
   free(vector);
 
   if(j == NULL){
+    destroy_kurl_katcp(name);
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to create job for command %s", name);
     return KATCP_RESULT_FAIL;
   }
 
   if(add_notice_katcp(d, n, &subprocess_resume_job_katcp, NULL)){
+    destroy_kurl_katcp(name);
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to watch notice");
     return KATCP_RESULT_FAIL;
   }
@@ -1437,10 +1452,14 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
     } else if(!strcmp(name, "process")){
       watch = arg_string_katcp(d, 2);
       cmd = arg_string_katcp(d, 3);
-      url = create_kurl_from_string_katcp(cmd);
 
-      if((cmd == NULL) || (watch == NULL) || (url == NULL)) {
+      if((cmd == NULL) || (watch == NULL)) {
         log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "insufficient parameters for launch");
+        return KATCP_RESULT_FAIL;
+      }
+      url = create_kurl_from_string_katcp(cmd);
+      if (url == NULL){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse name uri try exec:///path/to/file");
         return KATCP_RESULT_FAIL;
       }
 
@@ -1467,13 +1486,14 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
     } else if(!strcmp(name, "network")){ 
       watch = arg_string_katcp(d, 2);
       host = arg_string_katcp(d, 3);
-      //port = arg_unsigned_long_katcp(d, 4);
-      url = create_kurl_from_string_katcp(host);
 
-      //if ((host == NULL) || (watch == NULL) || (port == 0)){
-      if ((url == NULL) || (watch == NULL) || (host == NULL)){
+      if ((watch == NULL) || (host == NULL)){
         log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "insufficient parameters for launch");
-        destroy_kurl_katcp(url);
+        return KATCP_RESULT_FAIL;
+      }
+      url = create_kurl_from_string_katcp(host);
+      if (url == NULL){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse name uri try katcp://host:port");
         return KATCP_RESULT_FAIL;
       }
 
