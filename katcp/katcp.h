@@ -339,11 +339,11 @@ struct katcl_parse *get_parse_notice_katcp(struct katcp_dispatch *d, struct katc
 
 /* job logic */
 
-struct katcp_job *create_job_katcp(struct katcp_dispatch *d, char *name, pid_t pid, int fd, int async, struct katcp_notice *halt);
+struct katcp_job *create_job_katcp(struct katcp_dispatch *d, struct katcp_url *name, pid_t pid, int fd, int async, struct katcp_notice *halt);
 struct katcp_job *via_notice_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 
-struct katcp_job *process_create_job_katcp(struct katcp_dispatch *d, char *file, char **argv, struct katcp_notice *halt);
-struct katcp_job *network_connect_job_katcp(struct katcp_dispatch *d, char *host, int port, struct katcp_notice *halt);
+struct katcp_job *process_create_job_katcp(struct katcp_dispatch *d, struct katcp_url *file, char **argv, struct katcp_notice *halt);
+struct katcp_job *network_connect_job_katcp(struct katcp_dispatch *d, struct katcp_url *url, struct katcp_notice *halt);
 
 struct katcp_job *find_job_katcp(struct katcp_dispatch *d, char *name);
 int zap_job_katcp(struct katcp_dispatch *d, struct katcp_job *j);
@@ -356,7 +356,6 @@ int stop_job_katcp(struct katcp_dispatch *d, struct katcp_job *j);
 
 char *copy_kurl_string_katcp(struct katcp_url *ku, char *path);
 char *add_kurl_path_copy_string_katcp(struct katcp_url *ku, char *npath);
-/*void kurl_print(struct kcs_url *ku);*/
 struct katcp_url *create_kurl_from_string_katcp(char *url);
 struct katcp_url *create_kurl_katcp(char *scheme, char *host, int port, char *path);
 void destroy_kurl_katcp(struct katcp_url *ku);

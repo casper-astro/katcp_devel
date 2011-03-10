@@ -205,7 +205,7 @@ int connect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
           return KCS_SM_CONNECT_STOP;
         } else {
           kr->io_ksm->n = n;
-          j = create_job_katcp(d,kr->kurl->str,0,fd,1,n);
+          j = create_job_katcp(d,kr->kurl,0,fd,1,n);
           if (!j){
             free(dc_kurl);
             log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "Unable to create job for %s",kr->kurl->str);
