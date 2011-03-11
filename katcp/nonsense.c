@@ -2405,10 +2405,10 @@ char *assemble_sensor_name_katcp(struct katcp_notice *n, char *suffix)
 
   last = strlen(suffix);
 
-  if(ku->cmd){
-    first = strlen(ku->host);
+  if(ku->u_cmd){
+    first = strlen(ku->u_cmd);
   } else {
-    first = strlen(ku->host);
+    first = strlen(ku->u_host);
   }
 
   total = first + 7 + last + 1;
@@ -2419,13 +2419,13 @@ char *assemble_sensor_name_katcp(struct katcp_notice *n, char *suffix)
     return NULL;
   }
 
-  if(ku->cmd){
-    snprintf(copy, total, "%s.%s", ku->cmd, suffix);
+  if(ku->u_cmd){
+    snprintf(copy, total, "%s.%s", ku->u_cmd, suffix);
   } else {
-    if(ku->port == 7147){
-      snprintf(copy, total, "%s.%s", ku->host, suffix);
+    if(ku->u_port == 7147){
+      snprintf(copy, total, "%s.%s", ku->u_host, suffix);
     } else {
-      snprintf(copy, total, "%s.%d.%s", ku->host, ku->port, suffix);
+      snprintf(copy, total, "%s.%d.%s", ku->u_host, ku->u_port, suffix);
     }
   }
 
@@ -2625,12 +2625,12 @@ int job_match_sensor_katcp(struct katcp_dispatch *d, struct katcp_job *j)
   }
 
   if(match_inform_job_katcp(dl, j, "#sensor-list", &match_sensor_list_katcp, NULL) < 0){
-    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to match sensor-list on job %s", j->j_url->str ? j->j_url->str : "<anonymous>");
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to match sensor-list on job %s", j->j_url->u_str ? j->j_url->u_str : "<anonymous>");
     result = (-1);
   }
 
   if(match_inform_job_katcp(dl, j, "#sensor-status", &match_sensor_status_katcp, NULL) < 0){
-    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to match sensor-status on job %s", j->j_url->str ? j->j_url->str : "<anonymous>");
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to match sensor-status on job %s", j->j_url->u_str ? j->j_url->u_str : "<anonymous>");
     result = (-1);
   }
 
@@ -2738,7 +2738,7 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
       return KATCP_RESULT_FAIL;
     }
 
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "initialised sensor tracking for subordinate %s", jb->j_url->str);
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "initialised sensor tracking for subordinate %s", jb->j_url->u_str);
     return KATCP_RESULT_OK;
 
   } else if(!strcmp(name, "create")){

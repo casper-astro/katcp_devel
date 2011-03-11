@@ -24,15 +24,15 @@ char *copy_kurl_string_katcp(struct katcp_url *ku,char *path){
 #endif
   
   str = NULL;
-  i = snprintf(NULL,0,"%s://%s:%d/",ku->scheme,ku->host,ku->port);
+  i = snprintf(NULL,0,"%s://%s:%d/",ku->u_scheme,ku->u_host,ku->u_port);
   str = malloc(sizeof(char)*(i+1));
-  i = snprintf(str,i+1,"%s://%s:%d/",ku->scheme,ku->host,ku->port);
+  i = snprintf(str,i+1,"%s://%s:%d/",ku->u_scheme,ku->u_host,ku->u_port);
   str[i]='\0'; 
   if (!path)
     return str;
 
-  for (i=0;i<ku->pcount;i++){
-    if (strcmp(ku->path[i],path) == 0){
+  for (i=0;i<ku->u_pcount;i++){
+    if (strcmp(ku->u_path[i],path) == 0){
       found = i;
       break;
     }
@@ -41,9 +41,9 @@ char *copy_kurl_string_katcp(struct katcp_url *ku,char *path){
     free(str);
     return NULL;
   }
-  i = snprintf(NULL,0,"%s%s",str,ku->path[found]);
+  i = snprintf(NULL,0,"%s%s",str,ku->u_path[found]);
   str = realloc(str,sizeof(char)*(i+1));
-  str = strcat(str,ku->path[found]);
+  str = strcat(str,ku->u_path[found]);
   str[i] = '\0';
   
 #ifdef DEBUG
@@ -57,10 +57,9 @@ char *kurl_string_with_path_id(struct katcp_url *ku, int id){
   char * str;
   int len;
   str = NULL;
-  len = snprintf(NULL,0,"%s://%s:%d/%s",ku->scheme,ku->host,ku->port,ku->path[id]);
+  len = snprintf(NULL,0,"%s://%s:%d/%s",ku->u_scheme,ku->u_host,ku->u_port,ku->u_path[id]);
   str = malloc(sizeof(char)*(len+1));
-  snprintf(str,len+1,"%s://%s:%d/%s",ku->scheme,ku->host,ku->port,ku->path[id]);
-  //str[len+1] = '\0';
+  snprintf(str,len+1,"%s://%s:%d/%s",ku->u_scheme,ku->u_host,ku->u_port,ku->u_path[id]);
 #ifdef DEBUG
   fprintf(stderr,"kurl_string_with_id len: %d returning: %s\n",len,str);
 #endif
@@ -76,17 +75,19 @@ struct katcp_url *create_kurl_from_string_katcp(char *url){
 #ifdef DEBUG
   fprintf(stderr,"katcp_url about to parse: %s\n", url);
 #endif
+  if (url == NULL)
+    return NULL;
 
   ku = malloc(sizeof(struct katcp_url));
   if (!ku)
     return NULL;
-  ku->str    = strdup(url);
-  ku->scheme = NULL;
-  ku->host   = NULL;
-  ku->port   = 0;
-  ku->path   = NULL;
-  ku->pcount = 0;
-  ku->cmd    = NULL;
+  ku->u_str    = strdup(url);
+  ku->u_scheme = NULL;
+  ku->u_host   = NULL;
+  ku->u_port   = 0;
+  ku->u_path   = NULL;
+  ku->u_pcount = 0;
+  ku->u_cmd    = NULL;
 
   state = S_SCHEME;
   spos  = 0;
@@ -107,13 +108,13 @@ struct katcp_url *create_kurl_from_string_katcp(char *url){
           case COL:
             epos = i+1;
             len = epos-spos;
-            ku->scheme = malloc(sizeof(char)*len);
-            ku->scheme = strncpy(ku->scheme,url+spos,len-1);
-            ku->scheme[len-1] = '\0';
+            ku->u_scheme = malloc(sizeof(char)*len);
+            ku->u_scheme = strncpy(ku->u_scheme,url+spos,len-1);
+            ku->u_scheme[len-1] = '\0';
             //fprintf(stderr,"scheme: %s %d\n",ku->scheme,epos);
-            if (strcasecmp(ku->scheme,"katcp") == 0)
+            if (strcasecmp(ku->u_scheme,"katcp") == 0)
               state = S_HOST;
-            else if (strcasecmp(ku->scheme,"exec") == 0)
+            else if (strcasecmp(ku->u_scheme,"exec") == 0)
               state = S_CMD;
             spos = i+1;
             break;
@@ -133,9 +134,9 @@ struct katcp_url *create_kurl_from_string_katcp(char *url){
           case '\0':
             epos = i+1;
             len = epos-spos;
-            ku->cmd = malloc(sizeof(char)*len);
-            ku->cmd = strncpy(ku->cmd,url+spos,len-1);
-            ku->cmd[len-1] = '\0';
+            ku->u_cmd = malloc(sizeof(char)*len);
+            ku->u_cmd = strncpy(ku->u_cmd,url+spos,len-1);
+            ku->u_cmd[len-1] = '\0';
             state = S_END;
             break;
         }
@@ -155,9 +156,9 @@ struct katcp_url *create_kurl_from_string_katcp(char *url){
           case COL:
             epos = i+1;
             len = epos-spos;
-            ku->host = malloc(sizeof(char)*len);
-            ku->host = strncpy(ku->host,url+spos,len-1);
-            ku->host[len-1] = '\0';
+            ku->u_host = malloc(sizeof(char)*len);
+            ku->u_host = strncpy(ku->u_host,url+spos,len-1);
+            ku->u_host[len-1] = '\0';
            // fprintf(stderr,"host: %s %d\n",ku->host,epos);
             state = S_PORT;
             spos = i+1;
@@ -180,7 +181,7 @@ struct katcp_url *create_kurl_from_string_katcp(char *url){
             temp = malloc(sizeof(char)*len);
             temp = strncpy(temp,url+spos,len-1);
             temp[len-1] = '\0';
-            ku->port = atoi(temp);
+            ku->u_port = atoi(temp);
             //fprintf(stderr,"port: %s %d %d\n",temp,ku->port,epos);
             state = S_PATH;
             free(temp);
@@ -198,14 +199,11 @@ struct katcp_url *create_kurl_from_string_katcp(char *url){
           case '\r':
             epos = i+1;
             len = epos-spos;
-            //ku->path = malloc(sizeof(char)*len);
-            //ku->path = strncpy(ku->path,url+spos,len-1);
-            //ku->path[len-1] = '\0';
-            ku->path = malloc(sizeof(char *));
-            ku->path[ku->pcount] = malloc(sizeof(char)*len);
-            ku->path[ku->pcount] = strncpy(ku->path[ku->pcount],url+spos,len-1);
-            ku->path[ku->pcount][len-1] = '\0'; 
-            ku->pcount++;
+            ku->u_path = malloc(sizeof(char *));
+            ku->u_path[ku->u_pcount] = malloc(sizeof(char)*len);
+            ku->u_path[ku->u_pcount] = strncpy(ku->u_path[ku->u_pcount],url+spos,len-1);
+            ku->u_path[ku->u_pcount][len-1] = '\0'; 
+            ku->u_pcount++;
            // fprintf(stderr,"path: %s %d\n",ku->path,epos);
             state = S_END;
             break;
@@ -226,40 +224,40 @@ struct katcp_url *create_kurl_katcp(char *scheme, char *host, int port, char *pa
   ku = malloc(sizeof(struct katcp_url));
   if (!ku)
     return NULL;
-  ku->scheme = strdup(scheme);
-  ku->host   = strdup(host);
-  ku->port   = port;
-  ku->str    = copy_kurl_string_katcp(ku,NULL);
-  ku->path = realloc(ku->path,sizeof(char*)*++ku->pcount);
-  ku->path[ku->pcount-1] = strdup(path);
+  ku->u_scheme = strdup(scheme);
+  ku->u_host   = strdup(host);
+  ku->u_port   = port;
+  ku->u_str    = copy_kurl_string_katcp(ku,NULL);
+  ku->u_path = realloc(ku->u_path,sizeof(char*)*++ku->u_pcount);
+  ku->u_path[ku->u_pcount-1] = strdup(path);
   return ku;
 }
 
 char *add_kurl_path_copy_string_katcp(struct katcp_url *ku, char *npath){
-  ku->path = realloc(ku->path,sizeof(char*)*++ku->pcount);
-  ku->path[ku->pcount-1] = strdup(npath);
-  return kurl_string_with_path_id(ku,ku->pcount-1);
+  ku->u_path = realloc(ku->u_path,sizeof(char*)*++ku->u_pcount);
+  ku->u_path[ku->u_pcount-1] = strdup(npath);
+  return kurl_string_with_path_id(ku,ku->u_pcount-1);
 }
 
 void destroy_kurl_katcp(struct katcp_url *ku){
   int i;
   if (!ku)
     return;
-  if (ku->str)    { free(ku->str);    ku->str = NULL; }
-  if (ku->scheme) { free(ku->scheme); ku->scheme = NULL; }
-  if (ku->host)   { free(ku->host);   ku->host = NULL; }
-  ku->port = 0;
-  if (ku->path)   { 
-    for (i=0;i<ku->pcount;i++)
-      if (ku->path[i]) { 
-        free(ku->path[i]);
-        ku->path[i] = NULL;
+  if (ku->u_str)    { free(ku->u_str);    ku->u_str = NULL; }
+  if (ku->u_scheme) { free(ku->u_scheme); ku->u_scheme = NULL; }
+  if (ku->u_host)   { free(ku->u_host);   ku->u_host = NULL; }
+  ku->u_port = 0;
+  if (ku->u_path)   { 
+    for (i=0;i<ku->u_pcount;i++)
+      if (ku->u_path[i]) { 
+        free(ku->u_path[i]);
+        ku->u_path[i] = NULL;
       }
-    free(ku->path);   
-    ku->path = NULL; 
+    free(ku->u_path);   
+    ku->u_path = NULL; 
   }
-  if (ku->cmd)    { free(ku->cmd);    ku->cmd = NULL; }
-  if (ku)         { free(ku);         ku = NULL; }
+  if (ku->u_cmd)    { free(ku->u_cmd);    ku->u_cmd = NULL; }
+  if (ku)           { free(ku);         ku = NULL; }
 #ifdef DEBUG
   fprintf(stderr,"KURL: Destroyed a kurl\n");
 #endif
@@ -268,13 +266,13 @@ void destroy_kurl_katcp(struct katcp_url *ku){
 #ifdef UNIT_TEST_KURL
 void kurl_print(struct katcp_url *ku){
   int i;
-  fprintf(stderr,"KURL Scheme: %s\n",ku->scheme);
-  fprintf(stderr,"KURL Host  : %s\n",ku->host);
-  fprintf(stderr,"KURL Port  : %d\n",ku->port);
-  for (i=0; i<ku->pcount; i++)
-    fprintf(stderr,"KURL Path%d : %s\n",i,ku->path[i]);
-  fprintf(stderr,"KURL String: %s\n",ku->str);
-  fprintf(stderr,"KURL CMD   : %s\n",ku->cmd);
+  fprintf(stderr,"KURL Scheme: %s\n",ku->u_scheme);
+  fprintf(stderr,"KURL Host  : %s\n",ku->u_host);
+  fprintf(stderr,"KURL Port  : %d\n",ku->u_port);
+  for (i=0; i<ku->u_pcount; i++)
+    fprintf(stderr,"KURL Path%d : %s\n",i,ku->u_path[i]);
+  fprintf(stderr,"KURL String: %s\n",ku->u_str);
+  fprintf(stderr,"KURL CMD   : %s\n",ku->u_cmd);
 }
 
 int main(int argc, char **argv){
