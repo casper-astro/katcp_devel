@@ -13,6 +13,17 @@
 
 #include "kcs.h"
 
+void destroy_roach_kcs(struct kcs_roach *kr){
+  if (kr){
+    if (kr->ip)     { free(kr->ip);                 kr->ip     = NULL; }
+    if (kr->mac)    { free(kr->mac);                kr->mac    = NULL; } 
+    if (kr->kurl)   { destroy_kurl_katcp(kr->kurl); kr->kurl   = NULL; }
+    if (kr->ksm)    { destroy_ksm_kcs(kr->ksm);     kr->ksm    = NULL; }
+    if (kr->io_ksm) { destroy_ksm_kcs(kr->io_ksm);  kr->io_ksm = NULL; }
+    free(kr);
+  }
+}
+
 struct kcs_obj *new_kcs_obj(struct kcs_obj *parent, char *name, int tid, void *payload){
   struct kcs_obj *ko;
   ko = malloc(sizeof(struct kcs_obj));
@@ -50,16 +61,18 @@ struct kcs_obj *new_kcs_roach_obj(struct kcs_obj *parent, char *url, char *ip, c
   kr = malloc(sizeof(struct kcs_roach));
   if (kr == NULL)
     return NULL;
-  /*kr->hostname = hostname;*/
-  kr->ip       = ip;
-  kr->mac      = mac;
-  kr->jl       = NULL;
+  if (ip)
+    kr->ip       = strdup(ip);
+  if (mac)
+    kr->mac      = strdup(mac);
   kr->kurl     = create_kurl_from_string_katcp(url);
   kr->ksm      = NULL;
   kr->io_ksm   = NULL;
   kr->data     = NULL;
-  if (kr->kurl == NULL)
+  if (kr->kurl == NULL){
+    destroy_roach_kcs(kr);
     return NULL;
+  }
   ko = new_kcs_obj(parent,url,KCS_ID_ROACH,kr);
   return ko;
 }
@@ -107,6 +120,7 @@ struct kcs_obj *search_tree(struct kcs_obj *o, char *str){
 }
 
 int add_obj_to_node(struct kcs_obj *pno, struct kcs_obj *cno){
+  /*mac      = arg_copy_string_katcp(d,4);*/
   
   struct kcs_node *parent;
 
@@ -261,12 +275,8 @@ void destroy_tree(struct kcs_obj *o){
         fprintf(stderr,"\tRP DESTROY in kcs_roach (%p) h:%s ip:%s m:%s\n",r,o->name,r->ip,r->mac);
 #endif
         /*if (r->hostname) { free(r->hostname); r->hostname = NULL; }*/
-        if (r->ip) { free(r->ip); r->ip = NULL; }
-        if (r->mac) { free(r->mac); r->mac = NULL; }
-        if (r->kurl) { destroy_kurl_katcp(r->kurl); r->kurl = NULL; }
-        if (r->ksm) { destroy_roach_ksm_kcs(r); }
-        if (r->io_ksm) { destroy_ksm_kcs(r->io_ksm); r->io_ksm = NULL; }
-        free(r);
+        destroy_roach_kcs(r);
+        r = NULL;
       }
 
       break;
@@ -425,10 +435,9 @@ int roachpool_add(struct katcp_dispatch *d){
     kb->b_pool_head = root;
   }
   
-  url      = arg_copy_string_katcp(d,2);
-  ip       = arg_copy_string_katcp(d,3);
-  /*mac      = arg_copy_string_katcp(d,4);*/
-  pool     = arg_copy_string_katcp(d,4);
+  url      = arg_string_katcp(d,2);
+  ip       = arg_string_katcp(d,3);
+  pool     = arg_string_katcp(d,4);
 
   if (add_new_roach_to_tree(root,pool,url,ip,mac) == KCS_FAIL)
     return KATCP_RESULT_FAIL;
@@ -584,6 +593,8 @@ int roachpool_connect_pool(struct katcp_dispatch *d){
 struct kcs_obj *roachpool_get_obj_by_name_kcs(struct katcp_dispatch *d, char *name){
   struct kcs_basic *kb;
   kb = need_current_mode_katcp(d,KCS_MODE_BASIC);
+  if (name == NULL)
+    return NULL;
   return search_tree(kb->b_pool_head,name);
 }
 

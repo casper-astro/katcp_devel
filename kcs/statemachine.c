@@ -480,9 +480,17 @@ int statemachine_ping(struct katcp_dispatch *d){
 
 int statemachine_connect(struct katcp_dispatch *d){
   struct kcs_obj *ko;
+  struct katcp_notice *sn;
+
+  if((sn = find_notice_katcp(d,"<kcs_scheduler>")) == NULL){
+    log_message_katcp(d,KATCP_LEVEL_INFO, NULL, "creating kcs_scheduler");
+     
+  }
+
   ko = roachpool_get_obj_by_name_kcs(d,arg_string_katcp(d,2));
   if (!ko)
     return KATCP_RESULT_FAIL;
+
   return api_prototype_sm_kcs(d,ko,&get_sm_connect_kcs,arg_string_katcp(d,3));
 }
 int statemachine_disconnect(struct katcp_dispatch *d){

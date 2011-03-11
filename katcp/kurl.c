@@ -60,7 +60,6 @@ char *kurl_string_with_path_id(struct katcp_url *ku, int id){
   len = snprintf(NULL,0,"%s://%s:%d/%s",ku->u_scheme,ku->u_host,ku->u_port,ku->u_path[id]);
   str = malloc(sizeof(char)*(len+1));
   snprintf(str,len+1,"%s://%s:%d/%s",ku->u_scheme,ku->u_host,ku->u_port,ku->u_path[id]);
-  //str[len+1] = '\0';
 #ifdef DEBUG
   fprintf(stderr,"kurl_string_with_id len: %d returning: %s\n",len,str);
 #endif
@@ -200,9 +199,6 @@ struct katcp_url *create_kurl_from_string_katcp(char *url){
           case '\r':
             epos = i+1;
             len = epos-spos;
-            //ku->path = malloc(sizeof(char)*len);
-            //ku->path = strncpy(ku->path,url+spos,len-1);
-            //ku->path[len-1] = '\0';
             ku->u_path = malloc(sizeof(char *));
             ku->u_path[ku->u_pcount] = malloc(sizeof(char)*len);
             ku->u_path[ku->u_pcount] = strncpy(ku->u_path[ku->u_pcount],url+spos,len-1);
