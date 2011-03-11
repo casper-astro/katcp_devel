@@ -349,7 +349,7 @@ struct katcp_job *create_job_katcp(struct katcp_dispatch *d, struct katcp_url *n
   dl = template_shared_katcp(d);
   if(dl){
     if(match_inform_job_katcp(dl, j, "#log", &relay_log_job_katcp, NULL) < 0){
-      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to register log relay for job %s", j->j_url->str ? j->j_url->str : "<anonymous>");
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to register log relay for job %s", j->j_url->u_str ? j->j_url->u_str : "<anonymous>");
     }
   } 
 
@@ -427,7 +427,7 @@ int zap_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
 {
   sane_job_katcp(j);
 
-  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "terminating job %p (%s)", j, j->j_url->str ? j->j_url->str : "<anonymous>");
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "terminating job %p (%s)", j, j->j_url->u_str ? j->j_url->u_str : "<anonymous>");
 
   j->j_state = 0;
 
@@ -447,7 +447,7 @@ int ended_jobs_katcp(struct katcp_dispatch *d)
 
     sane_job_katcp(j);
 
-    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "ending job [%d]=%p (%s) immediately", i, j, j->j_url->str ? j->j_url->str : "<anonymous>");
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "ending job [%d]=%p (%s) immediately", i, j, j->j_url->u_str ? j->j_url->u_str : "<anonymous>");
 
     j->j_state = 0;
   }
@@ -544,11 +544,11 @@ int match_inform_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, char *
 #endif
 
     /* TODO: adjust when katcp:// scheme is sorted out */
-    len = (j->j_url->str ? strlen(j->j_url->str) : 0) + strlen(match) + 1;
+    len = (j->j_url->u_str ? strlen(j->j_url->u_str) : 0) + strlen(match) + 1;
 
     ptr = malloc(len);
     if(ptr){
-      snprintf(ptr, len, "%s%s", j->j_url->str, match);
+      snprintf(ptr, len, "%s%s", j->j_url->u_str, match);
     }
 
     n = create_parse_notice_katcp(d, ptr ? ptr : match, 0, p);
@@ -608,7 +608,7 @@ int notice_to_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, struct ka
   sane_job_katcp(j);
 
 #ifdef DEBUG
-  fprintf(stderr, "submitting notice %p(%s) to job %p(%s)\n", n, n->n_name, j, j->j_url->str);
+  fprintf(stderr, "submitting notice %p(%s) to job %p(%s)\n", n, n->n_name, j, j->j_url->u_str);
 
   if(get_parse_notice_katcp(d, n) == NULL){
     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "notice submitted to job should have an associated parse structure, and probably a callback too");
@@ -707,7 +707,7 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
       if(kt){
         wake_notice_katcp(d, kt->t_notice, p);
       } else {
-        log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "ignoring inform %s of job %s", cmd, j->j_url->str);
+        log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "ignoring inform %s of job %s", cmd, j->j_url->u_str);
       }
 
 #if 0
@@ -939,13 +939,13 @@ int run_jobs_katcp(struct katcp_dispatch *d)
         switch(code){
           case 0 :
             j->j_state = (JOB_MAY_REQUEST | JOB_MAY_WRITE | JOB_MAY_WORK | JOB_MAY_READ) | ((JOB_MAY_KILL | JOB_MAY_COLLECT) & j->j_state);
-            log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "async connect to %s succeeded", j->j_url->str);
+            log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "async connect to %s succeeded", j->j_url->u_str);
             break;
           case EINPROGRESS : 
-            log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "saw an in progress despite write set being ready on job %s", j->j_url->str);
+            log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "saw an in progress despite write set being ready on job %s", j->j_url->u_str);
             break;
           default : 
-            log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to connect to %s: %s", j->j_url->str, strerror(code));
+            log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to connect to %s: %s", j->j_url->u_str, strerror(code));
             break;
         }
       }
@@ -959,7 +959,7 @@ int run_jobs_katcp(struct katcp_dispatch *d)
 
       n = remove_head_job(d, j);
       while(n != NULL){
-        log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "failing pending notice for job %s", j->j_url->str);
+        log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "failing pending notice for job %s", j->j_url->u_str);
 
         p = get_parse_notice_katcp(d, n);
         if(p){
@@ -1022,7 +1022,7 @@ struct katcp_job *find_job_katcp(struct katcp_dispatch *d, char *name)
   for(i = 0; i < s->s_number; i++){
     j = s->s_tasks[i];
     sane_job_katcp(j);
-    if(!strcmp(name, j->j_url->str)){
+    if(!strcmp(name, j->j_url->u_str)){
       return j;
     }
   }
@@ -1091,8 +1091,8 @@ struct katcp_job *process_create_job_katcp(struct katcp_dispatch *d, struct katc
     fcntl(fds[0], F_SETFD, FD_CLOEXEC);
   }
 
-  execvp(file->cmd, argv);
-  sync_message_katcl(xl, KATCP_LEVEL_ERROR, NULL, "unable to run command %s (%s)", file->cmd, strerror(errno)); 
+  execvp(file->u_cmd, argv);
+  sync_message_katcl(xl, KATCP_LEVEL_ERROR, NULL, "unable to run command %s (%s)", file->u_cmd, strerror(errno)); 
 
   destroy_katcl(xl, 0);
 
@@ -1106,10 +1106,10 @@ struct katcp_job *network_connect_job_katcp(struct katcp_dispatch *d, struct kat
   struct katcp_job *j;
   int fd;
 
-  fd = net_connect(url->host, url->port, NETC_ASYNC);
+  fd = net_connect(url->u_host, url->u_port, NETC_ASYNC);
 
   if (fd < 0){
-    log_message_katcp(d,KATCP_LEVEL_ERROR,NULL,"Unable to connect to: %s:%d",url->host,url->port);
+    log_message_katcp(d,KATCP_LEVEL_ERROR,NULL,"Unable to connect to: %s:%d",url->u_host,url->u_port);
     return NULL;
   }
   
@@ -1193,7 +1193,7 @@ int subprocess_start_job_katcp(struct katcp_dispatch *d, int argc, int options)
 
     case KATCP_JOB_LOCAL  : /* only run one instance of this command */
 
-      len = strlen(KATCP_LOCAL_NOTICE) + strlen(name->cmd);
+      len = strlen(KATCP_LOCAL_NOTICE) + strlen(name->u_cmd);
       ptr = malloc(len + 1);
       if(ptr == NULL){
         destroy_kurl_katcp(name);
@@ -1201,7 +1201,7 @@ int subprocess_start_job_katcp(struct katcp_dispatch *d, int argc, int options)
         return KATCP_RESULT_FAIL;
       }
 
-      snprintf(ptr, len, KATCP_LOCAL_NOTICE, name->cmd);
+      snprintf(ptr, len, KATCP_LOCAL_NOTICE, name->u_cmd);
       ptr[len] = '\0';
 
       n = find_used_notice_katcp(d, ptr);
@@ -1241,7 +1241,7 @@ int subprocess_start_job_katcp(struct katcp_dispatch *d, int argc, int options)
     return KATCP_RESULT_FAIL;
   }
 
-  vector[0] = name->cmd;
+  vector[0] = name->u_cmd;
   for(i = 1; i < argc; i++){
     /* WARNING: won't deal with arguments containing \0, but then again, the command-line doesn't do either */
     vector[i] = arg_string_katcp(d, i);
@@ -1378,7 +1378,7 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
   struct katcl_parse *p;
   char *name, *watch, *cmd, *host, *label, *buffer, *tmp;
   char *vector[2];
-  int i, port, count, len, flags, special;
+  int i, count, len, flags, special;
   struct katcp_url *url;
 
   s = d->d_shared;
@@ -1395,14 +1395,14 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
       for(i = 0; i < s->s_number; i++){
         j = s->s_tasks[i];
         log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "job on %s (%p) with %d notices in queue, %s, %s, %s, %s, %s and %s", 
-        j->j_url->str, j, j->j_count,
+        j->j_url->u_str, j, j->j_count,
         (j->j_state & JOB_MAY_REQUEST) ? "can issue requests" : "has a request pending", 
         (j->j_state & JOB_MAY_WRITE) ? "can write data" : "has finished writing", 
         (j->j_state & JOB_MAY_READ) ? "can read" : "has stopped reading", 
         (j->j_state & JOB_MAY_WORK) ? "can process data" : "has no more data", 
         (j->j_state & JOB_MAY_KILL) ? "may be signalled" : "may not be signalled", 
         (j->j_state & JOB_MAY_COLLECT) ? "has an outstanding status code" : "has no status to collect");
-        log_map_katcp(d, j->j_url->str, j->j_map);
+        log_map_katcp(d, j->j_url->u_str, j->j_map);
       }
       log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%d jobs", s->s_number);
 
@@ -1470,7 +1470,7 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
         return KATCP_RESULT_FAIL;
       }
 
-      vector[0] = url->cmd;
+      vector[0] = url->u_cmd;
       vector[1] = NULL;
 
       j = process_create_job_katcp(d, url, vector, n);

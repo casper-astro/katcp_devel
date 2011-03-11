@@ -80,8 +80,8 @@ struct katcp_job *wrapper_process_create_job_katcp(struct katcp_dispatch *d, str
   }
 
   //execvp(file, argv);
-  execpy_do(file->cmd, argv);
-  sync_message_katcl(xl, KATCP_LEVEL_ERROR, NULL, "unable to run command %s (%s)", file->cmd, strerror(errno)); 
+  execpy_do(file->u_cmd, argv);
+  sync_message_katcl(xl, KATCP_LEVEL_ERROR, NULL, "unable to run command %s (%s)", file->u_cmd, strerror(errno)); 
 
   destroy_katcl(xl, 0);
 
@@ -134,7 +134,7 @@ int script_wildcard_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
-  len = strlen(name->cmd);
+  len = strlen(name->u_cmd);
   if(len <= 1){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "command unreasonably short");
     destroy_kurl_katcp(name);
@@ -154,7 +154,7 @@ int script_wildcard_cmd(struct katcp_dispatch *d, int argc)
 #if 0
   snprintf(path, len, "%s/%s.py", kb->b_scripts, name + 1);
 #endif
-  snprintf(path,len, "%s/%s",kb->b_scripts, name->cmd);
+  snprintf(path,len, "%s/%s",kb->b_scripts, name->u_cmd);
 
   log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "checking if %s exists", path);
 
@@ -194,7 +194,7 @@ int script_wildcard_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
   
-  vector[0] = name->cmd;
+  vector[0] = name->u_cmd;
   for(i = 1; i < argc; i++){
     vector[i] = arg_string_katcp(d, i);
   }

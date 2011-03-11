@@ -404,13 +404,13 @@ struct katcp_dispatch{
 };
 
 struct katcp_url {
-  char *str;
-  char *scheme;
-  char *host;
-  int port;
-  char **path;
-  int pcount;
-  char *cmd;
+  char *u_str;
+  char *u_scheme;
+  char *u_host;
+  int u_port;
+  char **u_path;
+  int u_pcount;
+  char *u_cmd;
 };
 
 void exchange_katcl(struct katcl_line *l, int fd);
