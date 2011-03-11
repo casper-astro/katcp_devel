@@ -265,7 +265,7 @@ void destroy_kurl_katcp(struct katcp_url *ku){
 #endif
 }
 
-#ifdef STANDALONE
+#ifdef UNIT_TEST_KURL
 void kurl_print(struct katcp_url *ku){
   int i;
   fprintf(stderr,"KURL Scheme: %s\n",ku->scheme);

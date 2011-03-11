@@ -1020,6 +1020,9 @@ struct katcp_job *find_job_katcp(struct katcp_dispatch *d, char *name)
   for(i = 0; i < s->s_number; i++){
     j = s->s_tasks[i];
     sane_job_katcp(j);
+#ifdef DEBUG
+    fprintf(stderr, "find job: matching name=<%s> against <%s>\n", name, j->j_url->str);
+#endif
     if(!strcmp(name, j->j_url->str)){
       return j;
     }
@@ -1359,9 +1362,9 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
   struct katcp_job *j;
   struct katcp_notice *n;
   struct katcl_parse *p;
-  char *name, *watch, *cmd, *host, *label, *buffer, *tmp;
+  char *name, *watch, *label, *buffer, *tmp;
   char *vector[2];
-  int i, port, count, len, flags, special;
+  int i, count, len, flags, special;
   struct katcp_url *url;
 
   s = d->d_shared;
