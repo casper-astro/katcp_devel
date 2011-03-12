@@ -314,7 +314,7 @@ struct katcp_notice *create_parse_notice_katcp(struct katcp_dispatch *d, char *n
   t = realloc(s->s_notices, sizeof(struct katcp_notice *) * (s->s_pending + 1));
   if(t == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to insert notice into list");
-    deallocate_notice_katcp(d, n)
+    deallocate_notice_katcp(d, n);
     return NULL;
   }
   s->s_notices = t;
