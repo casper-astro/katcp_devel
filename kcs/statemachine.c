@@ -231,6 +231,7 @@ int connect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
     }
   }
   free(dc_kurl);
+  wake_name_notice_katcp(d,KCS_SCHEDULER_NOTICE,NULL);
   return KCS_SM_CONNECT_CONNECTED;
 }
 
@@ -393,9 +394,38 @@ struct kcs_statemachine *get_sm_progdev_kcs(){
 }
 
 /*******************************************************************************************************/
+/*KCS Scheduler Stuff*/
+/*******************************************************************************************************/
+int tick_scheduler_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data){
+
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "scheduler tick function");
+  
+  return KCS_SCHEDULER_TICK;
+}
+struct katcp_notice *get_scheduler_notice_kcs(struct katcp_dispatch *d){
+  struct katcp_notice *n;
+
+  n = find_notice_katcp(d,KCS_SCHEDULER_NOTICE);
+
+  if(n == NULL){
+    log_message_katcp(d,KATCP_LEVEL_INFO, NULL, "creating kcs scheduler and attaching tick callback");
+    n = create_notice_katcp(d,KCS_SCHEDULER_NOTICE,0);
+    if (n == NULL){
+      log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "unable to create kcs scheduler notice");
+      return NULL;
+    }
+    if (add_notice_katcp(d, n, &tick_scheduler_kcs, NULL)<0){
+      log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "unable to add function to notice");
+      return NULL; 
+    }
+  }
+
+  return n;  
+}
+
+/*******************************************************************************************************/
 /*API Functions*/
 /*******************************************************************************************************/
-
 int api_prototype_sm_kcs(struct katcp_dispatch *d, struct kcs_obj *ko, struct kcs_statemachine *(*call)(),void *data){
   struct kcs_roach *kr;
   struct kcs_node *kn;
@@ -481,11 +511,7 @@ int statemachine_ping(struct katcp_dispatch *d){
 int statemachine_connect(struct katcp_dispatch *d){
   struct kcs_obj *ko;
   struct katcp_notice *sn;
-
-  if((sn = find_notice_katcp(d,"<kcs_scheduler>")) == NULL){
-    log_message_katcp(d,KATCP_LEVEL_INFO, NULL, "creating kcs_scheduler");
-     
-  }
+  sn = get_scheduler_notice_kcs(d);
 
   ko = roachpool_get_obj_by_name_kcs(d,arg_string_katcp(d,2));
   if (!ko)

@@ -22,6 +22,11 @@
 
 #endif
 
+#define KCS_SCHEDULER_NOTICE "<kcs_scheduler>"
+#define KCS_SCHEDULER_STOP  0
+#define KCS_SCHEDULER_TICK  1
+
+
 char *create_str(char *s);
 
 int setup_basic_kcs(struct katcp_dispatch *d, char *scripts);
