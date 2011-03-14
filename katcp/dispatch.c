@@ -423,13 +423,16 @@ void on_connect_katcp(struct katcp_dispatch *d)
     return;
   }
 
+  print_versions_katcp(d);
+
   e = &(s->s_vector[s->s_mode]);
 
+#if 0
   if(e->e_name || e->e_version){
     append_string_katcp(d, KATCP_FLAG_FIRST, "#version");
     append_args_katcp(d, KATCP_FLAG_LAST, "%s-%d.%d", e->e_version ? e->e_version : e->e_name, e->e_major, e->e_minor);
   }
-
+#endif
   if(s->s_build_state){
     append_string_katcp(d, KATCP_FLAG_FIRST, "#build-state");
 
@@ -706,7 +709,7 @@ int lookup_katcp(struct katcp_dispatch *d)
 
   for(search = d->d_shared->s_commands; search; search = search->c_next){
 #ifdef DEBUG
-      fprintf(stderr, "dispatch: checking %s against %s\n", s, search->c_name);
+    fprintf(stderr, "dispatch: checking %s against %s\n", s, search->c_name);
 #endif
     if(((search->c_mode == 0) || (search->c_mode == d->d_shared->s_mode)) && ((search->c_flags & KATCP_CMD_WILDCARD) || (!strcmp(search->c_name, s)))){
 #ifdef DEBUG

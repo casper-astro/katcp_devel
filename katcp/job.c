@@ -638,143 +638,109 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
   struct katcl_parse *p;
   struct katcp_trap *kt;
 
-  result = have_katcl(j->j_line);
+  while((result = have_katcl(j->j_line)) > 0){
 
-  if(result <= 0){
-#ifdef DEBUG
-  fprintf(stderr, "job: nothing to field (result=%d)\n", result);
-#endif
-    return result;
-  }
-
-  cmd = arg_string_katcl(j->j_line, 0);
-  if(cmd == NULL){
-    return -1;
-  }
+    cmd = arg_string_katcl(j->j_line, 0);
+    if(cmd == NULL){
+      return -1;
+    }
 
 #ifdef DEBUG
-  fprintf(stderr, "job: processing message starting with <%s ..>\n", cmd);
+    fprintf(stderr, "job: processing message starting with <%s ..>\n", cmd);
 #endif
 
-  switch(cmd[0]){
+    switch(cmd[0]){
 
-    case KATCP_REQUEST : 
-      /* our logic is unable to service requests */
+      case KATCP_REQUEST : 
+        /* our logic is unable to service requests */
 #if 0
-      extra_response_katcl(j->j_line, KATCP_RESULT_FAIL, NULL);
+        extra_response_katcl(j->j_line, KATCP_RESULT_FAIL, NULL);
 #endif
-      break;
+        break;
 
-    case KATCP_REPLY   :
+      case KATCP_REPLY   :
 
-      if(j->j_state & JOB_MAY_REQUEST){
-        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "received spurious reply, no request was issued");
-        return -1;
-      }
-
-      p = ready_katcl(j->j_line);
-      if(p == NULL){
-        /* if we got this far, we should really have a ready data structure */
-        log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "unable to retrieve parsed job data");
-        return -1;
-      }
-
-      n = remove_head_job(d, j);
-      if(n == NULL){
-        /* as long as there are references, notices should not go away */
-        log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "no outstanding notice despite waiting for a reply");
-        return -1;
-      }
-
-      update_notice_katcp(d, n, p, 1, 1);
-
-      j->j_state |= JOB_MAY_REQUEST;
-
-      /* see if we can start the next round, if there is one */
-      issue_request_job_katcp(d, j);
-      break;
-
-    case KATCP_INFORM  :
-
-      p = ready_katcl(j->j_line);
-      if(p == NULL){
-        /* if we got this far, we should really have a ready data structure */
-        log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "unable to retrieve parsed job data");
-        return -1;
-      }
-
-      kt = find_map_katcp(j->j_map, cmd);
-      if(kt){
-        wake_notice_katcp(d, kt->t_notice, p);
-      } else {
-        log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "ignoring inform %s of job %s", cmd, j->j_url->u_str);
-      }
-
-#if 0
-      if(!strcmp(cmd, "#log")){
-
-        /* TODO: fix this section */
-        /* WARNING: ditches timestamp from log message */
-        /* WARNING: is disgustingly inefficient */
-
-        priority = arg_string_katcl(j->j_line, 1);
-        module = arg_string_katcl(j->j_line, 3);
-        message = arg_string_katcl(j->j_line, 4);
-
-        code = (-1);
-        if(priority){
-          code = log_to_code(priority);
-        }
-
-        if((message == NULL) || (module == NULL) || (code < 0)){
+        if(j->j_state & JOB_MAY_REQUEST){
+          log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "received spurious reply, no request was issued");
           return -1;
         }
 
-        log_message_katcp(d, code, module, "%s", message);
-      } else 
-#endif
-      
-      if(!strcmp(cmd, KATCP_RETURN_JOB)){
-
-#ifdef DEBUG
-        fprintf(stderr, "job: saw return inform message\n");
-#endif
-
-        /* WARNING: may have to terminate job to maintain consistency, otherwise halt notices may no longer assume that job is gone */
-#if 0
-        j->j_state &= ~(JOB_MAY_READ | JOB_MAY_WRITE | JOB_MAY_WORK); /* if job returns, clearly doesn't want to give us more */
-        exchange_katcl(j->j_line, -1); /* but close fd's so that termination happens  just to be save */
-
-#endif
-
-        if(j->j_halt){
-          log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "relaying return value");
-          n = j->j_halt;
-          j->j_halt = NULL;
-
-          p = ready_katcl(j->j_line);
-          if(p == NULL){
-            /* if we got this far, we should really have a ready data structure */
-            log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "unable to retrieve parsed return data");
-            return -1;
-          }
-
-#ifdef DEBUG
-          fprintf(stderr, "job: waking notice %p\n", n);
-#endif
-
-          update_notice_katcp(d, n, p, 1, 1);
+        p = ready_katcl(j->j_line);
+        if(p == NULL){
+          /* if we got this far, we should really have a ready data structure */
+          log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "unable to retrieve parsed job data");
+          return -1;
         }
 
-        /* terminating job, otherwise halt notice can not assume that job is gone */
+        n = remove_head_job(d, j);
+        if(n == NULL){
+          /* as long as there are references, notices should not go away */
+          log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "no outstanding notice despite waiting for a reply");
+          return -1;
+        }
 
-        zap_job_katcp(d, j);
-      }
+        update_notice_katcp(d, n, p, 1, 1);
 
-    break;
+        j->j_state |= JOB_MAY_REQUEST;
+
+        /* see if we can start the next round, if there is one */
+        issue_request_job_katcp(d, j);
+        break;
+
+      case KATCP_INFORM  :
+
+        p = ready_katcl(j->j_line);
+        if(p == NULL){
+          /* if we got this far, we should really have a ready data structure */
+          log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "unable to retrieve parsed job data");
+          return -1;
+        }
+
+        kt = find_map_katcp(j->j_map, cmd);
+        if(kt){
+          wake_notice_katcp(d, kt->t_notice, p);
+        } else {
+          log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "ignoring inform %s of job %s", cmd, j->j_url->u_str);
+        }
+
+        if(!strcmp(cmd, KATCP_RETURN_JOB)){
+
+#ifdef DEBUG
+          fprintf(stderr, "job: saw return inform message\n");
+#endif
+
+          if(j->j_halt){
+            log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "relaying return value");
+            n = j->j_halt;
+            j->j_halt = NULL;
+
+            p = ready_katcl(j->j_line);
+            if(p == NULL){
+              /* if we got this far, we should really have a ready data structure */
+              log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "unable to retrieve parsed return data");
+              return -1;
+            }
+
+#ifdef DEBUG
+            fprintf(stderr, "job: waking notice %p\n", n);
+#endif
+
+            update_notice_katcp(d, n, p, 1, 1);
+          }
+
+          /* terminating job, otherwise halt notice can not assume that job is gone */
+
+          zap_job_katcp(d, j);
+        }
+
+        break;
+    }
   }
 
-  return 1;
+#ifdef DEBUG
+  fprintf(stderr, "job: nothing more to field (result=%d)\n", result);
+#endif
+  return result;
 }
 
 /* stuff to be called from mainloop *******************************/
@@ -911,13 +877,11 @@ int run_jobs_katcp(struct katcp_dispatch *d)
 #ifdef DEBUG
       fprintf(stderr, "job: field job returns %d\n", result);
 #endif
-      if(result < 0){
+      if(result < 0){ /* error */
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to process messages from subordinate task");
         j->j_state = 0;
         j->j_code = KATCP_RESULT_FAIL;
-      }
-
-      if(result == 0){ /* nothing in buffer */
+      } else { /* nothing more in buffer  */
         if((j->j_state & (JOB_MAY_READ | JOB_MAY_WRITE)) == 0){ /* and no more io */
           j->j_state &= ~JOB_MAY_WORK; /* implies we are done with processing things */
         }
@@ -1173,18 +1137,19 @@ int subprocess_start_job_katcp(struct katcp_dispatch *d, int argc, int options)
   char *ptr, *tname;
   int i, len;
   struct katcp_url *name;
+
   tname = arg_string_katcp(d,0);
   if(tname == NULL) {
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire name");
     return KATCP_RESULT_FAIL;
   }
+
   tname++;
   name = create_kurl_from_string_katcp(tname);
   if (name == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse name uri");
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse name uri from %s", tname);
     return KATCP_RESULT_FAIL;
   }
-
 
   switch(options){
     case KATCP_JOB_UNLOCK  : /* run all instances concurrently */

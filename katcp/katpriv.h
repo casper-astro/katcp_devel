@@ -231,9 +231,17 @@ struct katcp_entry{
   void (*e_leave)(struct katcp_dispatch *d, unsigned int mode);
   void *e_state;
   void (*e_clear)(struct katcp_dispatch *d);
+#if 0
   char *e_version;
   unsigned int e_minor;
   unsigned int e_major;
+#endif
+};
+
+struct katcp_version{
+  char *v_label;
+  char *v_value;
+  unsigned int v_mode;
 };
 
 #if 0
@@ -304,13 +312,13 @@ struct katcp_invoke{
   struct katcp_dispatch *v_client;
   void *v_data;
   int (*v_call)(struct katcp_dispatch *d, struct katcp_notice *n, void *data);
+  int v_trigger;
 };
 
 struct katcp_notice{
   struct katcp_invoke *n_vector;
   unsigned int n_count;
 
-  int n_trigger;
   int n_code;
   char *n_name;
 
@@ -369,6 +377,9 @@ struct katcp_shared{
 
   struct katcp_sensor **s_sensors;
   unsigned int s_tally;
+
+  struct katcp_version **s_versions;
+  unsigned int s_amount;
 
   sigset_t s_mask_current, s_mask_previous;
   struct sigaction s_action_current, s_action_previous;

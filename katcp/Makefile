@@ -7,7 +7,7 @@ SHARED = libkatcp.so
 CFLAGS += -fPIC
 
 SUB = examples utils
-SRC = line.c netc.c dispatch.c loop.c log.c time.c shared.c misc.c server.c client.c ts.c nonsense.c notice.c job.c parse.c rpc.c queue.c map.c kurl.c
+SRC = line.c netc.c dispatch.c loop.c log.c time.c shared.c misc.c server.c client.c ts.c nonsense.c notice.c job.c parse.c rpc.c queue.c map.c kurl.c version.c
 HDR = katcp.h katcl.h katsensor.h katpriv.h
 
 OBJ = $(patsubst %.c,%.o,$(SRC))
@@ -24,7 +24,7 @@ $(SHARED): $(OBJ)
 	$(CC) $(CFLAGS) -c $< -o $@ $(INC)
 
 clean:
-	$(RM) $(LIB) *.o core
+	$(RM) $(LIB) $(SHARED) *.o core
 
 install: all
 	$(INSTALL) -d $(PREFIX)/include $(prefix)/lib

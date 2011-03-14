@@ -330,9 +330,15 @@ void forget_parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
 
 void release_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 void hold_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
+
 void update_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p, int wake, int forget);
+
 void wake_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p);
 int wake_name_notice_katcp(struct katcp_dispatch *d, char *name, struct katcl_parse *p);
+
+void wake_single_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p, void *data);
+int wake_single_name_notice_katcp(struct katcp_dispatch *d, char *name, struct katcl_parse *p, void *data);
+
 int change_name_notice_katcp(struct katcp_dispatch *d, char *name, char *newname);
 int rename_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, char *newname);
 struct katcl_parse *get_parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
@@ -359,5 +365,13 @@ char *add_kurl_path_copy_string_katcp(struct katcp_url *ku, char *npath);
 struct katcp_url *create_kurl_from_string_katcp(char *url);
 struct katcp_url *create_kurl_katcp(char *scheme, char *host, int port, char *path);
 void destroy_kurl_katcp(struct katcp_url *ku);
+
+/* version support logic */
+void destroy_versions_katcp(struct katcp_dispatch *d);
+int remove_version_katcp(struct katcp_dispatch *d, char *label);
+int add_version_katcp(struct katcp_dispatch *d, char *label, unsigned int mode, char *prefix, char *value);
+
+int print_versions_katcp(struct katcp_dispatch *d);
+int version_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 #endif

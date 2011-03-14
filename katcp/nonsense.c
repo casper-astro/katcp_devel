@@ -2390,31 +2390,47 @@ int sensor_dump_cmd_katcp(struct katcp_dispatch *d, int argc)
 
 char *assemble_sensor_name_katcp(struct katcp_notice *n, char *suffix)
 {
-  char *end, *copy;
-  int last, first;
+  char *copy;
+  int last, first, total;
+  struct katcp_url *ku;
 
   if(n->n_name == NULL){
     return NULL;
   }
 
-  last = strlen(suffix);
-
-  end = strchr(n->n_name, '#');
-  if(end == NULL){
-    first = strlen(n->n_name);
-  } else {
-    first = (end - n->n_name);
-  }
-
-  copy = malloc(first + last + 2);
-  if(copy == NULL){
+  ku = create_kurl_from_string_katcp(n->n_name);
+  if(ku == NULL){
     return NULL;
   }
 
-  memcpy(copy, n->n_name, first);
-  copy[first] = '.';
-  memcpy(copy + first + 1, suffix, last);
-  copy[first + last + 1] = '\0';
+  last = strlen(suffix);
+
+  if(ku->u_cmd){
+    first = strlen(ku->u_cmd);
+  } else {
+    first = strlen(ku->u_host);
+  }
+
+  total = first + 7 + last + 1;
+
+  copy = malloc(total);
+  if(copy == NULL){
+    destroy_kurl_katcp(ku);
+    return NULL;
+  }
+
+  if(ku->u_cmd){
+    snprintf(copy, total, "%s.%s", ku->u_cmd, suffix);
+  } else {
+    if(ku->u_port == 7147){
+      snprintf(copy, total, "%s.%s", ku->u_host, suffix);
+    } else {
+      snprintf(copy, total, "%s.%d.%s", ku->u_host, ku->u_port, suffix);
+    }
+  }
+
+  copy[total - 1] = '\0';
+  destroy_kurl_katcp(ku);
 
   return copy;
 }
@@ -2422,8 +2438,9 @@ char *assemble_sensor_name_katcp(struct katcp_notice *n, char *suffix)
 int match_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 {
   struct katcp_sensor *sn;
-  struct katcl_parse *p;
+  struct katcl_parse *p, *px;
   struct katcp_acquire *a;
+  struct katcp_job *j;
   char *name, *description, *type, *units, *combine;
   int code, min, max;
   unsigned int count;
@@ -2484,7 +2501,6 @@ int match_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_notice *n, vo
 
   /* TODO: adhocery ahead: There aught to be a decent way of creating type specific sensor data given a parse structure - using the the type lookup structure */
 
-
   /* assume a to have failed, if failed, destroy sensor */
   a = NULL;
   switch(code){
@@ -2522,7 +2538,30 @@ int match_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_notice *n, vo
     return -1;
   }
 
-  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "created local sensor %s from subordinate", name);
+  j = NULL;
+
+  if(j){
+    px = create_parse_katcl();
+    if(px){
+
+      add_string_parse_katcl(px, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "?sensor-sampling");
+      add_string_parse_katcl(px,                    KATCP_FLAG_STRING, name);
+      add_string_parse_katcl(px, KATCP_FLAG_LAST  | KATCP_FLAG_STRING, "event");
+
+      if(submit_to_job_katcp(d, j, px, NULL, NULL, NULL) < 0){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to submit message to job");
+        destroy_parse_katcl(p);
+      } else {
+        log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to submit sampling request to job %s", j->j_url->u_str);
+      }
+    } else {
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to allocate parse structure while samping sensor %s", name);
+    }
+  } else {
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to sample sensor %s as job for %s not available", name, n->n_name);
+  }
+
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "created local sensor from subordinate %s", name);
 
   return 1;
 }
@@ -2694,34 +2733,14 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
       return KATCP_RESULT_FAIL;
     }
 
+    if(job_match_sensor_katcp(d, jb) < 0){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to match sensor inform messages for job %s", name);
+    }
+
     dl = template_shared_katcp(d);
     if(dl == NULL){
       log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "unable to acquire template");
       return KATCP_RESULT_FAIL;
-    }
-
-#if 0
-    copy = sensor_prefix_katcp(jb);
-    if(copy == NULL){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to duplicate %s", jb->j_name);
-      return KATCP_RESULT_FAIL;
-    }
-#endif
-
-    if(match_inform_job_katcp(d, jb, "#sensor-list", &match_sensor_list_katcp, NULL) < 0){
-      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to match sensor-list on job %s", jb->j_url->u_str ? jb->j_url->u_str : "<anonymous>");
-    }
-
-#if 0
-    copy = sensor_prefix_katcp(jb);
-    if(copy == NULL){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to duplicate %s", jb->j_name);
-      return KATCP_RESULT_FAIL;
-    }
-#endif
-
-    if(match_inform_job_katcp(d, jb, "#sensor-status", &match_sensor_status_katcp, NULL) < 0){
-      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to match sensor-status on job %s", jb->j_url->u_str ? jb->j_url->u_str : "<anonymous>");
     }
 
     p = create_parse_katcl();
