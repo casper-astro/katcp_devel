@@ -322,6 +322,7 @@ struct katcp_notice{
   int n_code;
   char *n_name;
 
+  int n_trigger;
   int n_tag;
   int n_use;
 

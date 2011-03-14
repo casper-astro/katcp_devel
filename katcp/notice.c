@@ -286,6 +286,7 @@ struct katcp_notice *create_parse_notice_katcp(struct katcp_dispatch *d, char *n
   n->n_count = 0;
 
   n->n_name = NULL;
+  n->n_trigger = KATCP_NOTICE_TRIGGER_OFF;
 
   n->n_tag = tag;
   n->n_use = 0;
@@ -552,25 +553,49 @@ void release_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
 }
 #endif
 
-void update_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p, int wake, int forget)
+void update_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p, int trigger, int forget, void *data)
 {
   struct katcl_parse *tmp;
   struct katcp_shared *s;
   int i;
+#ifdef DEBUG
+  int w;
+#endif
 
   /* WARNING: update_notice calls copy_parse internally. This is convenient, but normally we should have the calling function make the copy, just in case the parse given to us is not used elsewhere */
 
-  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "updating [%s,%s] notice %s@%p (source=%d, client=%d) with parse %p (%s ...)", wake ? "wake" : "sleep", forget ? "forget" : "keep", n->n_name, n, n->n_use, n->n_count, p, p ? get_string_parse_katcl(p, 0) : "<null>");
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "updating [%s,%s] notice %s@%p (source=%d, client=%d) with parse %p (%s ...)", trigger ? "wake" : "sleep", forget ? "forget" : "keep", n->n_name, n, n->n_use, n->n_count, p, p ? get_string_parse_katcl(p, 0) : "<null>");
 
-  if(wake){
-    for(i = 0; i < n->n_count; i++){
-      n->n_vector[i].v_trigger = 1;
-    }
-    s = d->d_shared;
 
-    if(s){
-      s->s_woken++;
-    }
+  switch(trigger){
+    case KATCP_NOTICE_TRIGGER_SINGLE :
+    case KATCP_NOTICE_TRIGGER_ALL :
+      n->n_trigger = trigger;
+
+      if(trigger == KATCP_NOTICE_TRIGGER_SINGLE){
+#ifdef DEBUG
+        w = 0;
+#endif
+        for(i = 0; i < n->n_count; i++){
+          if(n->n_vector[i].v_data == data){
+            n->n_vector[i].v_trigger = 1;
+#ifdef DEBUG
+            w++;
+#endif
+          }
+        }
+#ifdef DEBUG
+        fprintf(stderr, "notice: attempted to wake single item (%p) which can not be found\n", data);
+#endif
+
+      }
+
+      s = d->d_shared;
+      if(s){
+        s->s_woken++;
+      }
+
+      break;
   }
 
   /* WARNING: deals with case where tmp == p */
@@ -604,7 +629,7 @@ void update_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struc
 
 void wake_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p)
 {
-  update_notice_katcp(d, n, p, 1, 0);
+  update_notice_katcp(d, n, p, KATCP_NOTICE_TRIGGER_ALL, 0, NULL);
 }
 
 int wake_name_notice_katcp(struct katcp_dispatch *d, char *name, struct katcl_parse *p)
@@ -616,48 +641,14 @@ int wake_name_notice_katcp(struct katcp_dispatch *d, char *name, struct katcl_pa
     return -1;
   }
 
-  update_notice_katcp(d, n, p, 1, 0);
+  update_notice_katcp(d, n, p, KATCP_NOTICE_TRIGGER_ALL, 0, NULL);
 
   return 0;
 }
 
 void wake_single_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p, void *data)
 {
-  struct katcp_shared *s;
-  struct katcl_parse *tmp;
-  int i;
-
-  for(i = 0; i < n->n_count; i++){
-    if(n->n_vector[i].v_data == data){
-      n->n_vector[i].v_trigger = 1;
-    }
-  }
-
-  s = d->d_shared;
-  if(s){
-    s->s_woken++;
-  }
-
-  /* WARNING: deals with case where tmp == p */
-  tmp = n->n_parse;
-
-  if(p){
-    n->n_parse = copy_parse_katcl(p);
-#ifdef DEBUG
-    if(n->n_parse == NULL){
-      fprintf(stderr, "wake notice: copy parse failed, which should not happen");
-      abort();
-    }
-#endif
-  } else {
-    n->n_parse = NULL;
-  }
-
-  /* destruction posthoc, in order to not trigger GC of p, in case p == n->n_parse */
-  if(tmp){
-    destroy_parse_katcl(tmp);
-  }
-
+  update_notice_katcp(d, n, p, KATCP_NOTICE_TRIGGER_SINGLE, 0, NULL);
 }
 
 int wake_single_name_notice_katcp(struct katcp_dispatch *d, char *name, struct katcl_parse *p, void *data)
@@ -669,7 +660,7 @@ int wake_single_name_notice_katcp(struct katcp_dispatch *d, char *name, struct k
     return -1;
   }
 
-  wake_single_notice_katcp(d, n, p, data);
+  update_notice_katcp(d, n, p, KATCP_NOTICE_TRIGGER_SINGLE, 0, NULL);
 
   return 0;
 }
@@ -706,7 +697,7 @@ int run_notices_katcp(struct katcp_dispatch *d)
   struct katcp_shared *s;
   struct katcp_notice *n;
   struct katcp_invoke *v;
-  int i, k, remove, result;
+  int i, k, remove, result, test;
 
   s = d->d_shared;
   i = 0;
@@ -722,31 +713,37 @@ int run_notices_katcp(struct katcp_dispatch *d)
   while(i < s->s_pending){
     n = s->s_notices[i];
 
-    k = 0;
-    while(k < n->n_count){
-      v = &(n->n_vector[k]);
+    if(n->n_trigger != KATCP_NOTICE_TRIGGER_OFF){
+      test = (n->n_trigger == KATCP_NOTICE_TRIGGER_ALL) ? 0 : 1;
+      n->n_trigger = KATCP_NOTICE_TRIGGER_OFF;
+
+      k = 0;
+      while(k < n->n_count){
+        v = &(n->n_vector[k]);
 
 #ifdef DEBUG
-      fprintf(stderr, "notice: checking notice %p @ callback %d, trigger=%d (with parse %p)\n", n, k, v->v_trigger, n->n_parse);
+        fprintf(stderr, "notice: checking notice=%p, callback=%d, trigger=%d, test=%d (with parse %p)\n", n, k, v->v_trigger, test, n->n_parse);
 #endif
 
-      if(v->v_trigger){
-        if((*(v->v_call))(v->v_client, n, v->v_data) <= 0){
+        if(v->v_trigger >= test){
+          v->v_trigger = 0;
+          if((*(v->v_call))(v->v_client, n, v->v_data) <= 0){
 
-          dispatch_compact_notice_katcp(v->v_client, n);
+            dispatch_compact_notice_katcp(v->v_client, n);
 
-          n->n_count--;
-          if(k < n->n_count){
-            n->n_vector[k].v_client  = n->n_vector[n->n_count].v_client;
-            n->n_vector[k].v_call    = n->n_vector[n->n_count].v_call;
-            n->n_vector[k].v_data    = n->n_vector[n->n_count].v_data;
-            n->n_vector[k].v_trigger = n->n_vector[n->n_count].v_trigger;
+            n->n_count--;
+            if(k < n->n_count){
+              n->n_vector[k].v_client  = n->n_vector[n->n_count].v_client;
+              n->n_vector[k].v_call    = n->n_vector[n->n_count].v_call;
+              n->n_vector[k].v_data    = n->n_vector[n->n_count].v_data;
+              n->n_vector[k].v_trigger = n->n_vector[n->n_count].v_trigger;
+            }
+          } else {
+            k++;
           }
         } else {
           k++;
         }
-      } else {
-        k++;
       }
     }
 
