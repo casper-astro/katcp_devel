@@ -2438,8 +2438,9 @@ char *assemble_sensor_name_katcp(struct katcp_notice *n, char *suffix)
 int match_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 {
   struct katcp_sensor *sn;
-  struct katcl_parse *p;
+  struct katcl_parse *p, *px;
   struct katcp_acquire *a;
+  struct katcp_job *j;
   char *name, *description, *type, *units, *combine;
   int code, min, max;
   unsigned int count;
@@ -2500,7 +2501,6 @@ int match_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_notice *n, vo
 
   /* TODO: adhocery ahead: There aught to be a decent way of creating type specific sensor data given a parse structure - using the the type lookup structure */
 
-
   /* assume a to have failed, if failed, destroy sensor */
   a = NULL;
   switch(code){
@@ -2538,7 +2538,30 @@ int match_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_notice *n, vo
     return -1;
   }
 
-  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "created local sensor %s from subordinate", name);
+  j = NULL;
+
+  if(j){
+    px = create_parse_katcl();
+    if(px){
+
+      add_string_parse_katcl(px, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "?sensor-sampling");
+      add_string_parse_katcl(px,                    KATCP_FLAG_STRING, name);
+      add_string_parse_katcl(px, KATCP_FLAG_LAST  | KATCP_FLAG_STRING, "event");
+
+      if(submit_to_job_katcp(d, j, px, NULL, NULL, NULL) < 0){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to submit message to job");
+        destroy_parse_katcl(p);
+      } else {
+        log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to submit sampling request to job %s", j->j_url->u_str);
+      }
+    } else {
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to allocate parse structure while samping sensor %s", name);
+    }
+  } else {
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to sample sensor %s as job for %s not available", name, n->n_name);
+  }
+
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "created local sensor from subordinate %s", name);
 
   return 1;
 }

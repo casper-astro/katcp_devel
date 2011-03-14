@@ -312,13 +312,13 @@ struct katcp_invoke{
   struct katcp_dispatch *v_client;
   void *v_data;
   int (*v_call)(struct katcp_dispatch *d, struct katcp_notice *n, void *data);
+  int v_trigger;
 };
 
 struct katcp_notice{
   struct katcp_invoke *n_vector;
   unsigned int n_count;
 
-  int n_trigger;
   int n_code;
   char *n_name;
 

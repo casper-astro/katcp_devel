@@ -285,7 +285,6 @@ struct katcp_notice *create_parse_notice_katcp(struct katcp_dispatch *d, char *n
   n->n_vector = NULL;
   n->n_count = 0;
 
-  n->n_trigger = 0;
   n->n_name = NULL;
 
   n->n_tag = tag;
@@ -381,6 +380,7 @@ int add_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*cal
   v->v_client = d;
   v->v_call = call;
   v->v_data = data;
+  v->v_trigger = 0;
 
   n->n_count++;
 
@@ -487,6 +487,7 @@ struct katcp_notice *find_used_notice_katcp(struct katcp_dispatch *d, char *name
 
 /*******************************************************************************/
 
+#if 0
 int cancel_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
 {
   /* WARNING: not currently used. Consider implications of cancelling a notice still wakeable */
@@ -531,6 +532,7 @@ int cancel_name_notice_katcp(struct katcp_dispatch *d, char *name)
 
   return 0;
 }
+#endif
 
 /*******************************************************************************/
 
@@ -554,14 +556,18 @@ void update_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struc
 {
   struct katcl_parse *tmp;
   struct katcp_shared *s;
+  int i;
 
   /* WARNING: update_notice calls copy_parse internally. This is convenient, but normally we should have the calling function make the copy, just in case the parse given to us is not used elsewhere */
 
   log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "updating [%s,%s] notice %s@%p (source=%d, client=%d) with parse %p (%s ...)", wake ? "wake" : "sleep", forget ? "forget" : "keep", n->n_name, n, n->n_use, n->n_count, p, p ? get_string_parse_katcl(p, 0) : "<null>");
 
   if(wake){
-    n->n_trigger = 1;
+    for(i = 0; i < n->n_count; i++){
+      n->n_vector[i].v_trigger = 1;
+    }
     s = d->d_shared;
+
     if(s){
       s->s_woken++;
     }
@@ -615,6 +621,59 @@ int wake_name_notice_katcp(struct katcp_dispatch *d, char *name, struct katcl_pa
   return 0;
 }
 
+void wake_single_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p, void *data)
+{
+  struct katcp_shared *s;
+  struct katcp_parse *tmp;
+  int i;
+
+  for(i = 0; i < n->n_count; i++){
+    if(n->n_vector[i].v_data == data){
+      n->n_vector[i].v_trigger = 1;
+    }
+  }
+
+  s = d->d_shared;
+  if(s){
+    s->s_woken++;
+  }
+
+  /* WARNING: deals with case where tmp == p */
+  tmp = n->n_parse;
+
+  if(p){
+    n->n_parse = copy_parse_katcl(p);
+#ifdef DEBUG
+    if(n->n_parse == NULL){
+      fprintf(stderr, "wake notice: copy parse failed, which should not happen");
+      abort();
+    }
+#endif
+  } else {
+    n->n_parse = NULL;
+  }
+
+  /* destruction posthoc, in order to not trigger GC of p, in case p == n->n_parse */
+  if(tmp){
+    destroy_parse_katcl(tmp);
+  }
+
+}
+
+int wake_single_name_notice_katcp(struct katcp_dispatch *d, char *name, struct katcl_parse *p, void *data)
+{
+  struct katcp_notice *n;
+
+  n = find_notice_katcp(d, name);
+  if(n == NULL){
+    return -1;
+  }
+
+  wake_single_notice_katcp(d, n, p, data);
+
+  return 0;
+}
+
 int rename_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, char *newname){
   if (n == NULL)
     return -1;
@@ -647,7 +706,7 @@ int run_notices_katcp(struct katcp_dispatch *d)
   struct katcp_shared *s;
   struct katcp_notice *n;
   struct katcp_invoke *v;
-  int i, j, remove, result;
+  int i, k, remove, result;
 
   s = d->d_shared;
   i = 0;
@@ -663,46 +722,45 @@ int run_notices_katcp(struct katcp_dispatch *d)
   while(i < s->s_pending){
     n = s->s_notices[i];
 
+    k = 0;
+    while(k < n->n_count){
+      v = &(n->n_vector[k]);
+
 #ifdef DEBUG
-    fprintf(stderr, "notice: running notice %p, trigger=%d (with parse %p)\n", n, n->n_trigger, n->n_parse);
+      fprintf(stderr, "notice: checking notice %p @ callback %d, trigger=%d (with parse %p)\n", n, k, v->v_trigger, n->n_parse);
 #endif
 
-    if(n->n_trigger){
-
-      n->n_trigger = 0;
-
-      j = 0;
-      while(j < n->n_count){
-        v = &(n->n_vector[j]);
+      if(v->v_trigger){
         if((*(v->v_call))(v->v_client, n, v->v_data) <= 0){
 
           dispatch_compact_notice_katcp(v->v_client, n);
 
           n->n_count--;
-          if(j < n->n_count){
-            n->n_vector[j].v_client = n->n_vector[n->n_count].v_client;
-            n->n_vector[j].v_call   = n->n_vector[n->n_count].v_call;
-            n->n_vector[j].v_data   = n->n_vector[n->n_count].v_data;
+          if(k < n->n_count){
+            n->n_vector[k].v_client  = n->n_vector[n->n_count].v_client;
+            n->n_vector[k].v_call    = n->n_vector[n->n_count].v_call;
+            n->n_vector[k].v_data    = n->n_vector[n->n_count].v_data;
+            n->n_vector[k].v_trigger = n->n_vector[n->n_count].v_trigger;
           }
         } else {
-          j++;
-        }
-      }
-
-      if((n->n_count <= 0) && (n->n_use <= 0)){
-        deallocate_notice_katcp(d, n);
-
-        s->s_pending--;
-        if(i < s->s_pending){
-          s->s_notices[i] = s->s_notices[s->s_pending];
+          k++;
         }
       } else {
-        i++;
+        k++;
       }
+    }
 
+    if((n->n_count <= 0) && (n->n_use <= 0)){
+      deallocate_notice_katcp(d, n);
+
+      s->s_pending--;
+      if(i < s->s_pending){
+        s->s_notices[i] = s->s_notices[s->s_pending];
+      }
     } else {
       i++;
     }
+
   }
 
   return result;

@@ -709,7 +709,7 @@ int lookup_katcp(struct katcp_dispatch *d)
 
   for(search = d->d_shared->s_commands; search; search = search->c_next){
 #ifdef DEBUG
-      fprintf(stderr, "dispatch: checking %s against %s\n", s, search->c_name);
+    fprintf(stderr, "dispatch: checking %s against %s\n", s, search->c_name);
 #endif
     if(((search->c_mode == 0) || (search->c_mode == d->d_shared->s_mode)) && ((search->c_flags & KATCP_CMD_WILDCARD) || (!strcmp(search->c_name, s)))){
 #ifdef DEBUG

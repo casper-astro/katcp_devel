@@ -15,24 +15,32 @@
 #define S_END 0
 #define S_CMD 6
 
-char *copy_kurl_string_katcp(struct katcp_url *ku,char *path){
+char *copy_kurl_string_katcp(struct katcp_url *ku, char *path){
   char *str;
-  int i,found=0;
+  int i, found=0;
 
 #ifdef DEBUG
-  fprintf(stderr,"Inside kurl string\n");
+  fprintf(stderr,"kurl: copy string\n");
 #endif
   
-  str = NULL;
   i = snprintf(NULL,0,"%s://%s:%d/",ku->u_scheme,ku->u_host,ku->u_port);
-  str = malloc(sizeof(char)*(i+1));
-  i = snprintf(str,i+1,"%s://%s:%d/",ku->u_scheme,ku->u_host,ku->u_port);
-  str[i]='\0'; 
-  if (!path)
-    return str;
+  if(i <= 0){
+    return NULL;
+  }
 
-  for (i=0;i<ku->u_pcount;i++){
-    if (strcmp(ku->u_path[i],path) == 0){
+  str = malloc(sizeof(char)*(i+1));
+  if(str == NULL){
+    return NULL;
+  }
+
+  i = snprintf(str, i + 1, "%s://%s:%d/", ku->u_scheme, ku->u_host, ku->u_port);
+  str[i] = '\0'; 
+  if (!path){
+    return str;
+  }
+
+  for(i = 0; i < ku->u_pcount; i++){
+    if(strcmp(ku->u_path[i], path) == 0){
       found = i;
       break;
     }
@@ -57,12 +65,22 @@ char *kurl_string_with_path_id(struct katcp_url *ku, int id){
   char * str;
   int len;
   str = NULL;
+
   len = snprintf(NULL,0,"%s://%s:%d/%s",ku->u_scheme,ku->u_host,ku->u_port,ku->u_path[id]);
+  if(len <= 0){
+    return NULL;
+  }
+
   str = malloc(sizeof(char)*(len+1));
-  snprintf(str,len+1,"%s://%s:%d/%s",ku->u_scheme,ku->u_host,ku->u_port,ku->u_path[id]);
+  if(str == NULL){
+    return NULL;
+  }
+
+  snprintf(str, len + 1, "%s://%s:%d/%s", ku->u_scheme, ku->u_host, ku->u_port, ku->u_path[id]);
 #ifdef DEBUG
-  fprintf(stderr,"kurl_string_with_id len: %d returning: %s\n",len,str);
+  fprintf(stderr,"kurl_string_with_id len: %d returning: %s\n", len, str);
 #endif
+
   return str;
 }
 
@@ -122,7 +140,7 @@ struct katcp_url *create_kurl_from_string_katcp(char *url){
         i++;
         break;
       case S_CMD:
-        c= url[i];
+        c = url[i];
         switch (c){
           case WAK:
             j++;
@@ -238,6 +256,59 @@ char *add_kurl_path_copy_string_katcp(struct katcp_url *ku, char *npath){
   ku->u_path[ku->u_pcount-1] = strdup(npath);
   return kurl_string_with_path_id(ku,ku->u_pcount-1);
 }
+
+static int prefix_match_kurl_katcp(char *target, char *prefix)
+{
+  int i;
+
+  for(i = 0; target[i] == prefix[i]; i++){
+    if(target[i] == '\0'){
+      return i;
+    }
+  }
+
+  return -1;
+}
+
+#if  0
+int contains_kurl_katcp(struct katcp_url *ku, char *string)
+{
+  int len, offset;
+
+  if(string == NULL){
+    return 0;
+  }
+
+  if(ku->u_host){
+    if(strncmp(string, "katcp://", 8)){
+      return 0;
+    }
+
+    offset = 8;
+    len = prefix_match_kurl_katcp(string + offset, ku->u_host);
+    if(len < 0){
+      return 0;
+    }
+
+    offset += len;
+
+    if(
+
+  } else if(ku->u_cmd){
+    if(strncmp(string, "exec://", 7)){
+      return 0;
+    }
+  }
+
+  if(ku->u_host){
+
+
+  } else {
+
+  }
+
+}
+#endif
 
 void destroy_kurl_katcp(struct katcp_url *ku){
   int i;
