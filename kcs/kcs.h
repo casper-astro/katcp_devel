@@ -124,7 +124,9 @@ struct kcs_roach {
   char *ip;
   char *mac;
   struct katcp_url *kurl;
-  struct kcs_statemachine *ksm;
+  struct kcs_statemachine **ksm;
+  int ksmcount;
+  int ksmactive;
   struct kcs_statemachine *io_ksm; /*used for ?sm connect since this sm must stay around*/
   struct timeval lastnow;
   void *data; /*used to pass config data around no GC make sure to free when you use*/

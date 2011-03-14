@@ -14,11 +14,18 @@
 #include "kcs.h"
 
 void destroy_roach_kcs(struct kcs_roach *kr){
+  int i;
   if (kr){
     if (kr->ip)     { free(kr->ip);                 kr->ip     = NULL; }
     if (kr->mac)    { free(kr->mac);                kr->mac    = NULL; } 
     if (kr->kurl)   { destroy_kurl_katcp(kr->kurl); kr->kurl   = NULL; }
-    if (kr->ksm)    { destroy_ksm_kcs(kr->ksm);     kr->ksm    = NULL; }
+    if (kr->ksm){ 
+      for (i=0;i<kr->ksmcount;i++){
+        destroy_ksm_kcs(kr->ksm[i]);
+      }
+      free(kr->ksm);
+      kr->ksm    = NULL;
+    }
     if (kr->io_ksm) { destroy_ksm_kcs(kr->io_ksm);  kr->io_ksm = NULL; }
     free(kr);
   }
@@ -31,7 +38,7 @@ struct kcs_obj *new_kcs_obj(struct kcs_obj *parent, char *name, int tid, void *p
     return NULL;
   ko->tid     = tid;
   ko->parent  = parent;
-  ko->name    = name;
+  ko->name    = strdup(name);
   ko->payload = payload;
 #ifdef DEBUG
   fprintf(stderr,"RP new kcs_obj %s (%p) with payload type:%d (%p)\n",name,ko,tid,payload);
@@ -62,11 +69,17 @@ struct kcs_obj *new_kcs_roach_obj(struct kcs_obj *parent, char *url, char *ip, c
   if (kr == NULL)
     return NULL;
   if (ip)
-    kr->ip       = strdup(ip);
+    kr->ip     = strdup(ip);
+  else 
+    kr->ip     = NULL;
   if (mac)
-    kr->mac      = strdup(mac);
+    kr->mac    = strdup(mac);
+  else
+    kr->mac    = NULL;
   kr->kurl     = create_kurl_from_string_katcp(url);
   kr->ksm      = NULL;
+  kr->ksmcount = 0;
+  kr->ksmactive= 0;
   kr->io_ksm   = NULL;
   kr->data     = NULL;
   if (kr->kurl == NULL){
@@ -78,7 +91,7 @@ struct kcs_obj *new_kcs_roach_obj(struct kcs_obj *parent, char *url, char *ip, c
 }
 struct kcs_obj *init_tree(){
   struct kcs_obj *root;
-  root = new_kcs_node_obj(NULL,strdup("root"));
+  root = new_kcs_node_obj(NULL,"root");
   return root;
 }
 
@@ -153,12 +166,12 @@ int add_new_roach_to_tree(struct kcs_obj *root, char *poolname, char *url, char 
       return KCS_FAIL;
     }
   }
-  else{
+/*  else{
 #ifdef DEBUG
     fprintf(stderr,"Freeing poolname since pool exists already\n");
 #endif    
     free(poolname);
-  }
+  }*/
   
   if (search_tree(root,url))
     return KCS_FAIL;
@@ -286,7 +299,7 @@ void destroy_tree(struct kcs_obj *o){
   fprintf(stderr,"RP DESTROY in kcs_obj (%p) %s type:%d\n",o,o->name,o->tid);
 #endif
   if (o->name) { free(o->name); o->name = NULL; }
-  free(o);
+  if (o) free(o);
 }
 
 int remove_obj_from_current_pool(struct kcs_obj *ro){
@@ -331,7 +344,7 @@ int mod_roach_to_new_pool(struct kcs_obj *root, char *pool, char *hostname){
 #ifdef DEBUG
     fprintf(stderr,"New pool doesn't exist so create new one\n");
 #endif
-    po = new_kcs_node_obj(root,strdup(pool));
+    po = new_kcs_node_obj(root,pool);
     if (!po)
       return KCS_FAIL;
     if (add_obj_to_node(root,po) == KCS_FAIL){

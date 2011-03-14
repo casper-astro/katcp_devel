@@ -36,7 +36,7 @@ int run_statemachine(struct katcp_dispatch *d, struct katcp_notice *n, void *dat
   kr = ko->payload;
   if (!kr)
     return 0;
-  ksm = kr->ksm;
+  ksm = kr->ksm[kr->ksmactive];
   if (!ksm)
     return 0;
 #ifdef DEBUG
@@ -49,13 +49,14 @@ int run_statemachine(struct katcp_dispatch *d, struct katcp_notice *n, void *dat
     rtn = (*ksm->sm[ksm->state])(d,n,ko);
   }
   else {  
+    wake_name_notice_katcp(d,KCS_SCHEDULER_NOTICE,NULL);
 #ifdef DEBUG
     fprintf(stderr,"SM: cleaning up: (%p)\n",ksm);
 #endif
     log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"Destroying kcs_statemachine %p",ksm);
     /*free(ksm);
     kr->ksm = NULL;*/
-    destroy_roach_ksm_kcs(kr);
+    //destroy_roach_ksm_kcs(kr);
     return 0;
   }
   ksm->state = rtn;
@@ -74,7 +75,7 @@ int kcs_sm_ping_s1(struct katcp_dispatch *d,struct katcp_notice *n, void *data){
   char * p_kurl;
   ko = data;
   kr = ko->payload;
-  ksm = kr->ksm;
+  ksm = kr->ksm[kr->ksmactive];
 #ifdef DEBUG
   fprintf(stderr,"SM: kcs_sm_ping_s1 %s\n",(!n)?ko->name:n->n_name);
 #endif
@@ -130,7 +131,7 @@ int time_ping_wrapper_call(struct katcp_dispatch *d, void *data){
   kr = ko->payload;
   if (!is_active_sm_kcs(kr))
     return KCS_SM_PING_STOP;
-  ksm = kr->ksm;
+  ksm = kr->ksm[kr->ksmactive];
   n = ksm->n;
 #ifdef DEBUG
   fprintf(stderr, "SM: running from timer, waking notice %p\n", n);
@@ -184,7 +185,7 @@ int connect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 
   ko = data;
   kr = ko->payload;
-  kr->io_ksm = kr->ksm;
+  kr->io_ksm = kr->ksm[kr->ksmactive];
   kr->ksm = NULL;
   newpool = kr->data;
 
@@ -274,7 +275,7 @@ int try_progdev_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *d
   struct p_value *conf_bs;
   ko = data;
   kr = ko->payload;
-  ksm = kr->ksm;
+  ksm = kr->ksm[kr->ksmactive];
   conf_bs = kr->data;
   j = find_job_katcp(d,ko->name);
   if (j == NULL){
@@ -397,12 +398,24 @@ struct kcs_statemachine *get_sm_progdev_kcs(){
 /*KCS Scheduler Stuff*/
 /*******************************************************************************************************/
 int tick_scheduler_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data){
+  struct kcs_obj *ko;
+  struct kcs_roach *kr;
+  int i;
+
+  ko = data;
+  kr = ko->payload;
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "scheduler tick function");
-  
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "scheduler roach    :%s",ko->name);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "scheduler ksmcount :%d",kr->ksmcount);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "scheduler ksmactive:%d",kr->ksmactive);
+  for (i=0;i<kr->ksmcount;i++){
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "scheduler ksm[%d]  :%p",i,kr->ksm[i]);
+  }
   return KCS_SCHEDULER_TICK;
 }
-struct katcp_notice *get_scheduler_notice_kcs(struct katcp_dispatch *d){
+//struct katcp_notice *get_scheduler_notice_kcs(struct katcp_dispatch *d, void *data){
+struct katcp_notice *get_scheduler_notice_kcs(struct katcp_dispatch *d, void *data){
   struct katcp_notice *n;
 
   n = find_notice_katcp(d,KCS_SCHEDULER_NOTICE);
@@ -414,10 +427,10 @@ struct katcp_notice *get_scheduler_notice_kcs(struct katcp_dispatch *d){
       log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "unable to create kcs scheduler notice");
       return NULL;
     }
-    if (add_notice_katcp(d, n, &tick_scheduler_kcs, NULL)<0){
-      log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "unable to add function to notice");
-      return NULL; 
-    }
+  }
+  if (add_notice_katcp(d, n, &tick_scheduler_kcs, data)<0){
+    log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "unable to add function to notice");
+    return NULL; 
   }
 
   return n;  
@@ -436,9 +449,12 @@ int api_prototype_sm_kcs(struct katcp_dispatch *d, struct kcs_obj *ko, struct kc
   switch (ko->tid){
     case KCS_ID_ROACH:
       kr = (struct kcs_roach *) ko->payload;
-      if (is_active_sm_kcs(kr))
+      if (get_scheduler_notice_kcs(d,ko) == NULL)
         return KATCP_RESULT_FAIL;
-      kr->ksm = (*call)();
+      /*if (is_active_sm_kcs(kr))
+        return KATCP_RESULT_FAIL;*/
+      kr->ksm = realloc(kr->ksm,sizeof(struct kcs_statemachine *)*++kr->ksmcount);
+      kr->ksm[kr->ksmcount-1] = (*call)();
       kr->data = data;
       run_statemachine(d,n,ko);
       break;
@@ -446,9 +462,12 @@ int api_prototype_sm_kcs(struct katcp_dispatch *d, struct kcs_obj *ko, struct kc
       kn = (struct kcs_node *) ko->payload;
       while (i < kn->childcount){  
         kr = kn->children[i]->payload;
-        if (is_active_sm_kcs(kr))
+        if (get_scheduler_notice_kcs(d,ko) == NULL)
           return KATCP_RESULT_FAIL;
-        kr->ksm = (*call)();
+        /*if (is_active_sm_kcs(kr))
+          return KATCP_RESULT_FAIL;*/
+        kr->ksm = realloc(kr->ksm,sizeof(struct kcs_statemachine *)*++kr->ksmcount);
+        kr->ksm[kr->ksmcount-1] = (*call)();
         kr->data = data;
         oldcount = kn->childcount;
         run_statemachine(d,n,kn->children[i]);
@@ -468,6 +487,7 @@ int statemachine_stop(struct katcp_dispatch *d){
   ko = roachpool_get_obj_by_name_kcs(d,arg_string_katcp(d,2));
   if (!ko)
     return KATCP_RESULT_FAIL;
+/*
   switch (ko->tid){
     case KCS_ID_ROACH:
       kr = (struct kcs_roach*) ko->payload;
@@ -497,6 +517,7 @@ int statemachine_stop(struct katcp_dispatch *d){
       }
       break;
   }
+  */
   return KATCP_RESULT_OK;
 }
 
@@ -510,12 +531,13 @@ int statemachine_ping(struct katcp_dispatch *d){
 
 int statemachine_connect(struct katcp_dispatch *d){
   struct kcs_obj *ko;
-  struct katcp_notice *sn;
-  sn = get_scheduler_notice_kcs(d);
+  //struct katcp_notice *sn;
 
   ko = roachpool_get_obj_by_name_kcs(d,arg_string_katcp(d,2));
   if (!ko)
     return KATCP_RESULT_FAIL;
+  
+  //sn = get_scheduler_notice_kcs(d,ko);
 
   return api_prototype_sm_kcs(d,ko,&get_sm_connect_kcs,arg_string_katcp(d,3));
 }
@@ -579,7 +601,7 @@ void destroy_ksm_kcs(struct kcs_statemachine *ksm){
     free(ksm); 
   }
 }
-
+/*
 void destroy_roach_ksm_kcs(struct kcs_roach *kr){
   if (kr->ksm){
 #ifdef DEBUG
@@ -589,7 +611,7 @@ void destroy_roach_ksm_kcs(struct kcs_roach *kr){
     kr->ksm = NULL; 
   }
 }
-
+*/
 
 int statemachine_greeting(struct katcp_dispatch *d){
   prepend_inform_katcp(d);
