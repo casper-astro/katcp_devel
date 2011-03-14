@@ -624,7 +624,7 @@ int wake_name_notice_katcp(struct katcp_dispatch *d, char *name, struct katcl_pa
 void wake_single_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p, void *data)
 {
   struct katcp_shared *s;
-  struct katcp_parse *tmp;
+  struct katcl_parse *tmp;
   int i;
 
   for(i = 0; i < n->n_count; i++){
