@@ -865,7 +865,7 @@ int notice_cmd_katcp(struct katcp_dispatch *d, int argc)
         n = s->s_notices[i];
         log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "notice %s at %p with %d subscribers and %d references", n->n_name ? n->n_name : "<anonymous>", n, n->n_count, n->n_use);
         for(k = 0; k < n->n_count; k++){
-          log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "subscriber %d has callback %p with data %p and is %s", k, n->n_vector[k].v_call, n->n_vector[k].v_data, n->n_vector[k].v_trigger ? "waiting" : "triggered");
+          log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "subscriber %d has callback %p with data %p and is %s", k, n->n_vector[k].v_call, n->n_vector[k].v_data, n->n_vector[k].v_trigger ? "triggered" : "waiting");
         }
       }
       log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%d notices", s->s_pending);
