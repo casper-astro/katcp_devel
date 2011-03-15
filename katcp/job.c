@@ -507,7 +507,7 @@ int issue_request_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
 
   n = remove_head_job(d, j);
   if(n){
-    update_notice_katcp(d, n, px, 1, 1);
+    update_notice_katcp(d, n, px, KATCP_NOTICE_TRIGGER_ALL, 1, NULL);
   }
 
   /* TODO: try next item if this one fails */
@@ -679,7 +679,7 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
           return -1;
         }
 
-        update_notice_katcp(d, n, p, 1, 1);
+        update_notice_katcp(d, n, p, KATCP_NOTICE_TRIGGER_ALL, 1, NULL);
 
         j->j_state |= JOB_MAY_REQUEST;
 
@@ -725,7 +725,7 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
             fprintf(stderr, "job: waking notice %p\n", n);
 #endif
 
-            update_notice_katcp(d, n, p, 1, 1);
+            update_notice_katcp(d, n, p, KATCP_NOTICE_TRIGGER_ALL, 1, NULL);
           }
 
           /* terminating job, otherwise halt notice can not assume that job is gone */
@@ -936,7 +936,7 @@ int run_jobs_katcp(struct katcp_dispatch *d)
           px = NULL;
         }
 
-        update_notice_katcp(d, n, px, 1, 1);
+        update_notice_katcp(d, n, px, KATCP_NOTICE_TRIGGER_ALL, 1, NULL);
         n = remove_head_job(d, j);
       }
 
@@ -952,7 +952,7 @@ int run_jobs_katcp(struct katcp_dispatch *d)
           add_plain_parse_katcl(p, KATCP_FLAG_STRING | KATCP_FLAG_LAST, string ? string : KATCP_FAIL);
         }
 
-        update_notice_katcp(d, n, p, 1, 1);
+        update_notice_katcp(d, n, p, KATCP_NOTICE_TRIGGER_ALL, 1, NULL);
 
         /* wake makes a copy, so get rid of this instance */
         destroy_parse_katcl(p);
