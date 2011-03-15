@@ -124,6 +124,7 @@ struct kcs_roach {
   char *ip;
   char *mac;
   struct katcp_url *kurl;
+
   struct kcs_statemachine **ksm;
   int ksmcount;
   int ksmactive;

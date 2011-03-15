@@ -49,7 +49,7 @@ int run_statemachine(struct katcp_dispatch *d, struct katcp_notice *n, void *dat
     rtn = (*ksm->sm[ksm->state])(d,n,ko);
   }
   else {  
-    wake_name_notice_katcp(d,KCS_SCHEDULER_NOTICE,NULL);
+    wake_single_name_notice_katcp(d,KCS_SCHEDULER_NOTICE,NULL,ko);
 #ifdef DEBUG
     fprintf(stderr,"SM: cleaning up: (%p)\n",ksm);
 #endif
@@ -186,7 +186,7 @@ int connect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
   ko = data;
   kr = ko->payload;
   kr->io_ksm = kr->ksm[kr->ksmactive];
-  kr->ksm = NULL;
+  //kr->ksm = NULL;
   newpool = kr->data;
 
   if (!n){
@@ -232,7 +232,7 @@ int connect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
     }
   }
   free(dc_kurl);
-  wake_name_notice_katcp(d,KCS_SCHEDULER_NOTICE,NULL);
+  wake_single_name_notice_katcp(d,KCS_SCHEDULER_NOTICE,NULL,ko);
   return KCS_SM_CONNECT_CONNECTED;
 }
 
@@ -404,7 +404,7 @@ int tick_scheduler_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *d
 
   ko = data;
   kr = ko->payload;
-
+/*
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "scheduler tick function");
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "scheduler roach    :%s",ko->name);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "scheduler ksmcount :%d",kr->ksmcount);
@@ -412,13 +412,21 @@ int tick_scheduler_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *d
   for (i=0;i<kr->ksmcount;i++){
     log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "scheduler ksm[%d]  :%p",i,kr->ksm[i]);
   }
+  */
+#ifdef DEBUG
+  fprintf(stderr,"SM: scheduler tick with data: %p\n",data);
+#endif
+  
   return KCS_SCHEDULER_TICK;
 }
-//struct katcp_notice *get_scheduler_notice_kcs(struct katcp_dispatch *d, void *data){
-struct katcp_notice *get_scheduler_notice_kcs(struct katcp_dispatch *d, void *data){
+//struct katcp_notice *add_scheduler_notice_kcs(struct katcp_dispatch *d, void *data){
+struct katcp_notice *add_scheduler_notice_kcs(struct katcp_dispatch *d, void *data){
   struct katcp_notice *n;
 
   n = find_notice_katcp(d,KCS_SCHEDULER_NOTICE);
+#ifdef DEBUG
+  fprintf(stderr,"SM: scheduler: add_scheduler_notice to: %p\n",n);
+#endif
 
   if(n == NULL){
     log_message_katcp(d,KATCP_LEVEL_INFO, NULL, "creating kcs scheduler and attaching tick callback");
@@ -427,11 +435,17 @@ struct katcp_notice *get_scheduler_notice_kcs(struct katcp_dispatch *d, void *da
       log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "unable to create kcs scheduler notice");
       return NULL;
     }
+#ifdef DEBUG
+    fprintf(stderr,"SM: scheduler: needed to create notice %s: %p\n",KCS_SCHEDULER_NOTICE,n);
+#endif
   }
   if (add_notice_katcp(d, n, &tick_scheduler_kcs, data)<0){
     log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "unable to add function to notice");
     return NULL; 
   }
+#ifdef DEBUG
+  fprintf(stderr,"SM: scheduler added tick callback with data: %p\n",data);
+#endif
 
   return n;  
 }
@@ -449,7 +463,7 @@ int api_prototype_sm_kcs(struct katcp_dispatch *d, struct kcs_obj *ko, struct kc
   switch (ko->tid){
     case KCS_ID_ROACH:
       kr = (struct kcs_roach *) ko->payload;
-      if (get_scheduler_notice_kcs(d,ko) == NULL)
+      if (add_scheduler_notice_kcs(d,ko) == NULL)
         return KATCP_RESULT_FAIL;
       /*if (is_active_sm_kcs(kr))
         return KATCP_RESULT_FAIL;*/
@@ -462,7 +476,7 @@ int api_prototype_sm_kcs(struct katcp_dispatch *d, struct kcs_obj *ko, struct kc
       kn = (struct kcs_node *) ko->payload;
       while (i < kn->childcount){  
         kr = kn->children[i]->payload;
-        if (get_scheduler_notice_kcs(d,ko) == NULL)
+        if (add_scheduler_notice_kcs(d,ko) == NULL)
           return KATCP_RESULT_FAIL;
         /*if (is_active_sm_kcs(kr))
           return KATCP_RESULT_FAIL;*/
