@@ -648,7 +648,7 @@ int wake_name_notice_katcp(struct katcp_dispatch *d, char *name, struct katcl_pa
 
 void wake_single_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p, void *data)
 {
-  update_notice_katcp(d, n, p, KATCP_NOTICE_TRIGGER_SINGLE, 0, NULL);
+  update_notice_katcp(d, n, p, KATCP_NOTICE_TRIGGER_SINGLE, 0, data);
 }
 
 int wake_single_name_notice_katcp(struct katcp_dispatch *d, char *name, struct katcl_parse *p, void *data)
@@ -660,7 +660,7 @@ int wake_single_name_notice_katcp(struct katcp_dispatch *d, char *name, struct k
     return -1;
   }
 
-  update_notice_katcp(d, n, p, KATCP_NOTICE_TRIGGER_SINGLE, 0, NULL);
+  update_notice_katcp(d, n, p, KATCP_NOTICE_TRIGGER_SINGLE, 0, data);
 
   return 0;
 }
