@@ -84,7 +84,7 @@ struct katcl_line *create_katcl(int fd)
 
   l->l_error = 0;
 
-  l->l_next = create_parse_katcl(l); /* we require that next is always valid */
+  l->l_next = create_referenced_parse_katcl(l); /* we require that next is always valid */
   if(l->l_next == NULL){
     destroy_katcl(l, 0);
     return NULL;
@@ -411,7 +411,7 @@ static struct katcl_parse *before_append_katcl(struct katcl_line *l, int flags)
       return NULL;
     }
 
-    l->l_stage = create_parse_katcl();
+    l->l_stage = create_referenced_parse_katcl();
   }
 
   return l->l_stage;
@@ -446,6 +446,7 @@ static int after_append_katcl(struct katcl_line *l, int flags, int result)
   }
 
   add_tail_queue(l->l_queue, l->l_stage);
+  destroy_parse_katcl(l->l_stage);
   l->l_stage = NULL;
 
   return result;
@@ -615,7 +616,6 @@ int append_parse_katcl(struct katcl_line *l, struct katcl_parse *p)
 #endif
 
   result = add_tail_queue(l->l_queue, p);	
-  p->p_refs++; /* incrementing ref count for rec instances accessing same parse structure */
 
   return result;
 }

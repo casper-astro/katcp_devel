@@ -28,7 +28,7 @@ static struct katcp_trap *create_trap_katcp(char *name)
   return kt;
 }
 
-static void destroy_trap_katcp(struct katcp_dispatch *d, struct katcp_trap *kt)
+static void destroy_trap_katcp(struct katcp_dispatch *d, struct katcp_trap *kt, struct katcp_parse *p)
 {
   if(kt == NULL){
     return;
@@ -40,7 +40,13 @@ static void destroy_trap_katcp(struct katcp_dispatch *d, struct katcp_trap *kt)
   }
 
   if(kt->t_notice){
-    update_notice_katcp(d, kt->t_notice, NULL, KATCP_NOTICE_TRIGGER_ALL, 1, NULL);
+
+    add_parse_notice_katcp(d, kt->t_notice, p);
+    trigger_notice_katcp(d, kt->t_notice);
+
+    /* WARNING: suboptimal, prefer that caller decrements reference */
+    release_notice_katcp(d, kt->t_notice); 
+
     kt->t_notice = NULL;
   }
 
@@ -62,7 +68,7 @@ struct katcp_map *create_map_katcp()
   return km;
 }
 
-int destroy_map_katcp(struct katcp_dispatch *d, struct katcp_map *km)
+int destroy_map_katcp(struct katcp_dispatch *d, struct katcp_map *km, struct katcp_parse *p)
 {
   unsigned int i;
 
@@ -71,7 +77,7 @@ int destroy_map_katcp(struct katcp_dispatch *d, struct katcp_map *km)
   }
 
   for(i = 0; i < km->m_size; i++){
-    destroy_trap_katcp(d, km->m_traps[i]);
+    destroy_trap_katcp(d, km->m_traps[i], p);
   }
 
   if(km->m_traps){
@@ -131,7 +137,7 @@ struct katcp_trap *find_map_katcp(struct katcp_map *km, char *name)
 }
 
 
-int remove_map_katcp(struct katcp_dispatch *d, struct katcp_map *km, char *name)
+int remove_map_katcp(struct katcp_dispatch *d, struct katcp_map *km, char *name, struct katcp_parse *p)
 {
   int result, i, m;
 
@@ -141,7 +147,7 @@ int remove_map_katcp(struct katcp_dispatch *d, struct katcp_map *km, char *name)
     return -1;
   }
 
-  destroy_trap_katcp(d, km->m_traps[result]);
+  destroy_trap_katcp(d, km->m_traps[result], p);
 
   m = km->m_size - 1 ;
   i = result;
@@ -243,7 +249,7 @@ int main()
     cmd[BUFFER - 1] = '\0';
     switch(cmd[0]){
       case 'r' :
-        if(remove_map_katcp(NULL, km, cmd + 1) < 0){
+        if(remove_map_katcp(NULL, km, cmd + 1, NULL) < 0){
           fprintf(stderr, "unable to remove %s\n", cmd + 1);
         }
         break;
@@ -266,7 +272,7 @@ int main()
     }
   }
 
-  destroy_map_katcp(NULL, km);
+  destroy_map_katcp(NULL, km, NULL);
 
   return 0;
 }

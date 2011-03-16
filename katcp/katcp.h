@@ -316,11 +316,6 @@ static void destroy_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *
 
 int add_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n, void *data), void *data);
 struct katcp_notice *register_notice_katcp(struct katcp_dispatch *d, char *name, unsigned int tag, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n, void *data), void *data);
-struct katcp_notice *find_notice_katcp(struct katcp_dispatch *d, char *name);
-struct katcp_notice *find_used_notice_katcp(struct katcp_dispatch *d, char *name);
-
-struct katcl_msg *message_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
-
 
 #if 0
 int code_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
@@ -328,14 +323,23 @@ char *code_name_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 void forget_parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 #endif
 
+struct katcp_notice *find_notice_katcp(struct katcp_dispatch *d, char *name);
+struct katcp_notice *find_used_notice_katcp(struct katcp_dispatch *d, char *name);
+int has_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n, void *data), void *data);
+
 void release_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 void hold_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
+
 
 #define KATCP_NOTICE_TRIGGER_OFF     0
 #define KATCP_NOTICE_TRIGGER_ALL     1
 #define KATCP_NOTICE_TRIGGER_SINGLE  2
 
+#if 0
 void update_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p, int wake, int forget, void *data);
+#endif
+int trigger_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
+int trigger_single_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *data);
 
 void wake_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p);
 int wake_name_notice_katcp(struct katcp_dispatch *d, char *name, struct katcl_parse *p);
@@ -345,7 +349,10 @@ int wake_single_name_notice_katcp(struct katcp_dispatch *d, char *name, struct k
 
 int change_name_notice_katcp(struct katcp_dispatch *d, char *name, char *newname);
 int rename_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, char *newname);
+
 struct katcl_parse *get_parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
+int set_parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p);
+int add_parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p);
 
 /* job logic */
 
@@ -356,6 +363,7 @@ struct katcp_job *process_create_job_katcp(struct katcp_dispatch *d, struct katc
 struct katcp_job *network_connect_job_katcp(struct katcp_dispatch *d, struct katcp_url *url, struct katcp_notice *halt);
 
 struct katcp_job *find_job_katcp(struct katcp_dispatch *d, char *name);
+struct katcp_job *find_containing_job_katcp(struct katcp_dispatch *d, char *name);
 int zap_job_katcp(struct katcp_dispatch *d, struct katcp_job *j);
 
 int match_inform_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, char *match, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n, void *data), void *data);
@@ -364,11 +372,12 @@ int match_inform_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, char *
 int stop_job_katcp(struct katcp_dispatch *d, struct katcp_job *j);
 #endif
 
+void destroy_kurl_katcp(struct katcp_url *ku);
 char *copy_kurl_string_katcp(struct katcp_url *ku, char *path);
 char *add_kurl_path_copy_string_katcp(struct katcp_url *ku, char *npath);
 struct katcp_url *create_kurl_from_string_katcp(char *url);
 struct katcp_url *create_kurl_katcp(char *scheme, char *host, int port, char *path);
-void destroy_kurl_katcp(struct katcp_url *ku);
+int containing_kurl_katcp(struct katcp_url *ku, char *string);
 
 /* version support logic */
 void destroy_versions_katcp(struct katcp_dispatch *d);

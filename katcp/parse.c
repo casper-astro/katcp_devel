@@ -51,7 +51,7 @@ struct katcl_parse *create_parse_katcl()
   p->p_args = NULL;
   p->p_current = NULL;
 
-  p->p_refs = 1;/*Starting ref count with 1*/
+  p->p_refs = 0; 
   p->p_tag = (-1);
 
   p->p_count = 0;
@@ -60,8 +60,26 @@ struct katcl_parse *create_parse_katcl()
   return p;
 }
 
+struct katcl_parse *create_referenced_parse_katcl()
+{
+  struct katcl_parse *p;
+
+  p = create_parse_katcl();
+  if(p == NULL){
+    return NULL;
+  }
+
+  p->p_refs++;
+
+  return p;
+}
+
 struct katcl_parse *copy_parse_katcl(struct katcl_parse *p)
 {
+  if(p == NULL){
+    return NULL;
+  }
+
   sane_parse_katcl(p);
 
   if(p->p_state != KATCL_PARSE_DONE){
@@ -104,12 +122,12 @@ struct katcl_parse *reuse_parse_katcl(struct katcl_parse *p)
 {
   struct katcl_parse *px;
   
-  if((p != NULL) && (p->p_refs == 1)){
+  if((p != NULL) && (p->p_refs <= 1)){
     clear_parse_katcl(p);
     return p;
   }
 
-  px = create_parse_katcl();
+  px = create_referenced_parse_katcl();
   destroy_parse_katcl(p);
 
   return px;
@@ -149,7 +167,7 @@ void destroy_parse_katcl(struct katcl_parse *p)
     p->p_count = 0;
     p->p_got = 0;
 
-    p->p_refs = 1;
+    p->p_refs = (-1);
     p->p_tag = (-1);
 
     free(p);
@@ -1069,7 +1087,7 @@ int parse_katcl(struct katcl_line *l) /* transform buffer -> args */
 #endif
 
   /* we now need a next entry */
-  l->l_next = create_parse_katcl();
+  l->l_next = create_referenceed_parse_katcl();
   if(l->l_next == NULL){
     l->l_error = ENOMEM;
     return -1; /* is it safe to call parse with a next which is DONE ? */
@@ -1139,7 +1157,7 @@ int main()
   struct katcl_parse *p, *pc;
   char *ptr;
 
-  p = create_parse_katcl();
+  p = create_referenced_parse_katcl();
   if(p == NULL){
     fprintf(stderr, "unable to create parse structure\n");
     return 1;

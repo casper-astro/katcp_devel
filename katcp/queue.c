@@ -28,14 +28,14 @@ struct katcl_parse *get_tail_katcl(struct katcl_queue *q)
 {
   unsigned int tail;
 
-  /*Check for error conditions*/
+  /* Check for error conditions */
   if(q->q_count == 0 || q->q_size == 0 || q->q_count >= q->q_size){
     return NULL;
   }
   tail = ((q->q_head + q->q_count) % q->q_size);
-  /*return ptr to parse structure else NULL*/
+  /* return ptr to parse structure else NULL */
 
-  /*return matching parse*/
+  /* return matching parse */
   return q->q_queue[tail];
 }
 
@@ -114,6 +114,12 @@ int add_tail_queue(struct katcl_queue *q, struct katcl_parse *p)
   struct katcl_parse **tmp;
   unsigned int index;
 
+  /* WARNING: adding to the queue adds to parse reference count */
+
+  if(p == NULL){
+    return -1;
+  }
+
 #ifdef DEBUG
   fprintf(stderr, "add queue: adding %p with ref %u\n", p, p->p_refs);
 #endif
@@ -145,10 +151,12 @@ int add_tail_queue(struct katcl_queue *q, struct katcl_parse *p)
     q->q_size = q->q_size + 1;
   } 
   index = (q->q_head + q->q_count) % q->q_size;
+
 #if DEBUG > 1
   fprintf(stderr, "queue %p add[%d]=%p\n", q, index, p);
 #endif
-  q->q_queue[index] = p;
+
+  q->q_queue[index] = copy_parse_katcl(p);
   q->q_count++;
 
   return 0;
@@ -158,6 +166,8 @@ struct katcl_parse *remove_index_queue(struct katcl_queue *q, unsigned int index
 {
   unsigned int end;
   struct katcl_parse *p;
+
+  /* WARNING: removing from queue does not decrease reference count */
 
   if(q->q_count <= 0){
 #ifdef DEBUG
@@ -236,6 +246,15 @@ struct katcl_parse *remove_index_queue(struct katcl_queue *q, unsigned int index
   return p;
 }
 
+struct katcl_parse *get_head_queue(struct katcl_queue *q)
+{
+  if(q->q_count > 0){
+    return q->q_queue[q->q_head];
+  } else {
+    return NULL;
+  }
+}
+
 struct katcl_parse *remove_head_queue(struct katcl_queue *q)
 {
   return remove_index_queue(q, q->q_head);
@@ -286,7 +305,7 @@ void dump_queue_parse_katcp(struct katcl_queue *q, FILE *fp)
 int main()
 {
   struct katcl_queue *q;
-  struct katcl_parse *p;
+  struct katcl_parse *p, *px;
   int i, k, r;
 
   q = create_queue_katcl();
@@ -325,10 +344,16 @@ int main()
     r = rand() % FUDGE;
     if(r == 0){
       for(k = 0; k < FUDGE; k++){
-        remove_head_queue(q);
+        px = remove_head_queue(q);
+        if(px){
+          destroy_parse_katcl(px);
+        }
       }
     } else if((r % 3) == 0){
-      remove_head_queue(q);
+      px = remove_head_queue(q);
+      if(px){
+        destroy_parse_katcl(px);
+      }
     } else {
       add_tail_queue(q, p);
     }
