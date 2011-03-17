@@ -353,6 +353,7 @@ int rename_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, char *
 struct katcl_parse *get_parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 int set_parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p);
 int add_parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p);
+struct katcl_parse *remove_parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 
 /* job logic */
 

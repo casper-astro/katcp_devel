@@ -241,7 +241,6 @@ struct katcp_notice *create_parse_notice_katcp(struct katcp_dispatch *d, char *n
   struct katcp_notice *n;
   struct katcp_notice **t;
   struct katcp_shared *s;
-  struct katcl_parse *px;
 
 #ifdef DEBUG
   fprintf(stderr, "notice: creating notice (%s) with parse %p\n", name, p);
@@ -265,7 +264,7 @@ struct katcp_notice *create_parse_notice_katcp(struct katcp_dispatch *d, char *n
       log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "not creating notice %s as it already exists but returning a reference to it", n->n_name);
 
       if(p){
-        if(add_tail_queue(n->n_queue, p) < 0){
+        if(add_tail_queue_katcl(n->n_queue, p) < 0){
           return NULL;
         }
       }
@@ -307,7 +306,7 @@ struct katcp_notice *create_parse_notice_katcp(struct katcp_dispatch *d, char *n
   }
 
   n->n_queue = create_queue_katcl();
-  if(n->n_queue = NULL){
+  if(n->n_queue == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate queue for notice %s", name);
     deallocate_notice_katcp(d, n);
     return NULL;
@@ -323,7 +322,7 @@ struct katcp_notice *create_parse_notice_katcp(struct katcp_dispatch *d, char *n
 
   /* has to be last - on failure, deallocate notice will destroy p */
   if(p){
-    if(add_tail_queue(n->n_queue, p) < 0){
+    if(add_tail_queue_katcl(n->n_queue, p) < 0){
       deallocate_notice_katcp(d, n);
       return NULL;
     }
@@ -337,14 +336,12 @@ struct katcp_notice *create_parse_notice_katcp(struct katcp_dispatch *d, char *n
 
 struct katcp_notice *create_notice_katcp(struct katcp_dispatch *d, char *name, unsigned int tag)
 {
-  struct katcl_parse *p;
   struct katcp_notice *n;
 
   /* WARNING: used to have a parse structure associated with it */
 
   n = create_parse_notice_katcp(d, name, tag, NULL);
   if(n == NULL){
-    destroy_parse_katcl(p);
     return NULL;
   }
 
@@ -561,14 +558,11 @@ struct katcl_parse *get_parse_notice_katcp(struct katcp_dispatch *d, struct katc
     return NULL;
   }
 
-  return get_head_queue(n->n_queue);
+  return get_head_queue_katcl(n->n_queue);
 }
 
 int set_parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p)
 {
-  int i;
-  struct katcp_parse *px;
-
   /* WARNING: does not deal with case where added item is the same as already there */
 
   clear_queue_katcl(n->n_queue);
@@ -577,7 +571,7 @@ int set_parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, str
     return 0;
   }
 
-  return add_tail_queue(n->n_queue, p);
+  return add_tail_queue_katcl(n->n_queue, p);
 }
 
 
@@ -587,19 +581,20 @@ struct katcl_parse *remove_parse_notice_katcp(struct katcp_dispatch *d, struct k
     return NULL;
   }
 
-  return remove_head_queue(n->n_queue);
+  return remove_head_queue_katcl(n->n_queue);
 }
 
 int add_parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p)
 {
-  return add_tail_queue(n->n_queue, p);
+  return add_tail_queue_katcl(n->n_queue, p);
 }
 
 /******************************************************************************/
 
 static int configure_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int trigger, void *data)
 {
-  int i, result;
+  struct katcp_shared *s;
+  int i;
 #ifdef DEBUG
   int w;
 #endif
@@ -646,12 +641,12 @@ static int configure_notice_katcp(struct katcp_dispatch *d, struct katcp_notice 
 
 int trigger_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
 {
-  configure_notice_katcp(d, n, KATCP_NOTICE_TRIGGER_ALL, NULL);
+  return configure_notice_katcp(d, n, KATCP_NOTICE_TRIGGER_ALL, NULL);
 }
 
 int trigger_single_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 {
-  configure_notice_katcp(d, n, KATCP_NOTICE_TRIGGER_SINGLE, data);
+  return configure_notice_katcp(d, n, KATCP_NOTICE_TRIGGER_SINGLE, data);
 }
 
 void wake_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p)
@@ -698,7 +693,7 @@ int wake_single_name_notice_katcp(struct katcp_dispatch *d, char *name, struct k
 
 /******************************************************************************/
 
-int rename_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, char *newname)
+int rename_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, char *name)
 {
   char *ptr;
 
@@ -706,7 +701,7 @@ int rename_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, char *
     return -1;
   }
 
-  if(newname){
+  if(name){
     ptr = strdup(name);
     if(ptr == NULL){
       return -1;
@@ -748,12 +743,12 @@ int run_notices_katcp(struct katcp_dispatch *d)
   struct katcp_shared *s;
   struct katcp_notice *n;
   struct katcp_invoke *v;
+  struct katcl_parse  *p;
   int i, k, remove, result, test;
 
   s = d->d_shared;
   i = 0;
   remove = 0;
-  result = 0;
 
   s->s_woken = 0;
 
@@ -772,13 +767,15 @@ int run_notices_katcp(struct katcp_dispatch *d)
       while(k < n->n_count){
         v = &(n->n_vector[k]);
 
-#ifdef DEBUG
+#if 0
         fprintf(stderr, "notice: checking notice=%p, callback=%d, trigger=%d, test=%d (with parse %p)\n", n, k, v->v_trigger, test, n->n_parse);
 #endif
 
         if(v->v_trigger >= test){
           v->v_trigger = 0;
-          
+
+          p = get_head_queue_katcl(n->n_queue);
+
           if((*(v->v_call))(v->v_client, n, v->v_data) <= 0){
 
             dispatch_compact_notice_katcp(v->v_client, n);
@@ -812,7 +809,7 @@ int run_notices_katcp(struct katcp_dispatch *d)
 
   }
 
-  return result;
+  return 0;
 }
 
 #if 0

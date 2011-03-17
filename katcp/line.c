@@ -445,7 +445,7 @@ static int after_append_katcl(struct katcl_line *l, int flags, int result)
     return -1;
   }
 
-  add_tail_queue(l->l_queue, l->l_stage);
+  add_tail_queue_katcl(l->l_queue, l->l_stage);
   destroy_parse_katcl(l->l_stage);
   l->l_stage = NULL;
 
@@ -615,7 +615,7 @@ int append_parse_katcl(struct katcl_line *l, struct katcl_parse *p)
   }
 #endif
 
-  result = add_tail_queue(l->l_queue, p);	
+  result = add_tail_queue_katcl(l->l_queue, p);	
 
   return result;
 }
@@ -932,7 +932,7 @@ int write_katcl(struct katcl_line *l)
         fprintf(stderr, "write: wrote out parse %p (refs %d)\n", p, p->p_refs);
 #endif
 
-        p = remove_head_queue(l->l_queue);
+        p = remove_head_queue_katcl(l->l_queue);
         destroy_parse_katcl(p);
         state = p ? WRITE_STATE_FILL : WRITE_STATE_SEND;
 

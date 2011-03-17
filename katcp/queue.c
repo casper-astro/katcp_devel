@@ -109,7 +109,7 @@ void clear_queue_katcl(struct katcl_queue *q)
 
 /* manage the parse queue logic *************************************************/
 
-int add_tail_queue(struct katcl_queue *q, struct katcl_parse *p)
+int add_tail_queue_katcl(struct katcl_queue *q, struct katcl_parse *p)
 {
   struct katcl_parse **tmp;
   unsigned int index;
@@ -162,7 +162,7 @@ int add_tail_queue(struct katcl_queue *q, struct katcl_parse *p)
   return 0;
 }
 
-struct katcl_parse *remove_index_queue(struct katcl_queue *q, unsigned int index)
+struct katcl_parse *remove_index_queue_katcl(struct katcl_queue *q, unsigned int index)
 {
   unsigned int end;
   struct katcl_parse *p;
@@ -246,7 +246,7 @@ struct katcl_parse *remove_index_queue(struct katcl_queue *q, unsigned int index
   return p;
 }
 
-struct katcl_parse *get_head_queue(struct katcl_queue *q)
+struct katcl_parse *get_head_queue_katcl(struct katcl_queue *q)
 {
   if(q->q_count > 0){
     return q->q_queue[q->q_head];
@@ -255,9 +255,19 @@ struct katcl_parse *get_head_queue(struct katcl_queue *q)
   }
 }
 
-struct katcl_parse *remove_head_queue(struct katcl_queue *q)
+struct katcl_parse *remove_head_queue_katcl(struct katcl_queue *q)
 {
-  return remove_index_queue(q, q->q_head);
+  return remove_index_queue_katcl(q, q->q_head);
+}
+
+int size_queue_katcl(struct katcl_queue *q)
+{
+  return q ? q->q_count : 0;
+}
+
+int roll_queue_katcl(struct katcl_queue *q)
+{
+  return -1;
 }
 
 /***********************************************************************************************************/

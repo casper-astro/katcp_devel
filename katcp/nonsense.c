@@ -2581,7 +2581,7 @@ int match_sensor_status_katcp(struct katcp_dispatch *d, struct katcp_notice *n, 
   struct katcp_sensor *sn;
   struct katcp_acquire *a;
   struct katcl_parse *p;
-  char *name, *status, *value, *combine;
+  char *inform, *name, *status, *value, *combine;
   int code;
 
   p = get_parse_notice_katcp(d, n);

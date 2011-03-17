@@ -28,7 +28,7 @@ static struct katcp_trap *create_trap_katcp(char *name)
   return kt;
 }
 
-static void destroy_trap_katcp(struct katcp_dispatch *d, struct katcp_trap *kt, struct katcp_parse *p)
+static void destroy_trap_katcp(struct katcp_dispatch *d, struct katcp_trap *kt, struct katcl_parse *p)
 {
   if(kt == NULL){
     return;
@@ -40,8 +40,12 @@ static void destroy_trap_katcp(struct katcp_dispatch *d, struct katcp_trap *kt, 
   }
 
   if(kt->t_notice){
-
-    add_parse_notice_katcp(d, kt->t_notice, p);
+    
+    if(p){
+      add_parse_notice_katcp(d, kt->t_notice, p);
+    } else {
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "destroying map entry without giving it a message");
+    }
     trigger_notice_katcp(d, kt->t_notice);
 
     /* WARNING: suboptimal, prefer that caller decrements reference */
@@ -68,7 +72,7 @@ struct katcp_map *create_map_katcp()
   return km;
 }
 
-int destroy_map_katcp(struct katcp_dispatch *d, struct katcp_map *km, struct katcp_parse *p)
+int destroy_map_katcp(struct katcp_dispatch *d, struct katcp_map *km, struct katcl_parse *p)
 {
   unsigned int i;
 
@@ -137,7 +141,7 @@ struct katcp_trap *find_map_katcp(struct katcp_map *km, char *name)
 }
 
 
-int remove_map_katcp(struct katcp_dispatch *d, struct katcp_map *km, char *name, struct katcp_parse *p)
+int remove_map_katcp(struct katcp_dispatch *d, struct katcp_map *km, char *name, struct katcl_parse *p)
 {
   int result, i, m;
 

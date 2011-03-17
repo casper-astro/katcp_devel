@@ -515,7 +515,7 @@ int issue_request_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
 
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to append request message to job");
 
-    p = remove_parse_notice_katcl(p, n);
+    p = remove_parse_notice_katcp(d, n);
     if(p){
       px = turnaround_parse_katcl(p, KATCP_RESULT_FAIL);
       if(px){ 
@@ -530,7 +530,7 @@ int issue_request_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
 
   n = remove_head_job(d, j);
   if(n){
-    trigger_notice(d, n);
+    trigger_notice_katcp(d, n);
     release_notice_katcp(d, n);
   }
 
@@ -543,7 +543,9 @@ int match_inform_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, char *
 {
   struct katcp_notice *n;
   struct katcp_trap *kt;
+#if 0
   struct katcl_parse *p;
+#endif
   char *ptr;
   int len;
 
@@ -630,7 +632,7 @@ int submit_to_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, struct ka
   result = notice_to_job_katcp(d, j, n);
   if(result < 0){
 
-    p = remove_parse_notice_katcl(p, n);
+    p = remove_parse_notice_katcp(d, n);
     if(p){
       /* WARNING: not ideal, would want to pass a FAIL back */
       destroy_parse_katcl(p);
@@ -653,7 +655,9 @@ int submit_to_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, struct ka
 
 int notice_to_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, struct katcp_notice *n)
 {
-  struct katcp_parse *p, *px;
+#if 0
+  struct katcl_parse *p, *px;
+#endif
 
   sane_job_katcp(j);
 
@@ -725,7 +729,7 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
         }
 
         set_parse_notice_katcp(d, n, p);
-        trigger_notice(d, n);
+        trigger_notice_katcp(d, n);
         release_notice_katcp(d, n);
 
         j->j_state |= JOB_MAY_REQUEST;
@@ -746,7 +750,7 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
         kt = find_map_katcp(j->j_map, cmd);
         if(kt){
           add_parse_notice_katcp(d, n, p);
-          trigger_notice(d, n);
+          trigger_notice_katcp(d, n);
         } else {
           log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "ignoring inform %s of job %s", cmd, j->j_url->u_str);
         }
@@ -774,7 +778,7 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
 #endif
 
             set_parse_notice_katcp(d, n, p);
-            trigger_notice(d, n);
+            trigger_notice_katcp(d, n);
             release_notice_katcp(d, n);
           }
 
@@ -988,7 +992,7 @@ int run_jobs_katcp(struct katcp_dispatch *d)
           }
         }
 
-        trigger_notice(d, n);
+        trigger_notice_katcp(d, n);
         release_notice_katcp(d, n);
 
         n = remove_head_job(d, j);
@@ -1006,10 +1010,18 @@ int run_jobs_katcp(struct katcp_dispatch *d)
         n = j->j_halt;
         j->j_halt = NULL;
 
+        
+        set_parse_notice_katcp(d, n, p);
+        trigger_notice_katcp(d, n);
+        release_notice_katcp(d, n);
 
-        update_notice_katcp(d, n, p, KATCP_NOTICE_TRIGGER_ALL, 1, NULL);
+      }
 
-        /* wake makes a copy, so get rid of this instance */
+      destroy_map_katcp(d, j->j_map, p);
+      j->j_map = NULL;
+
+      if(p){
+        /* both the halt notice and all the maps copy the parse, so destroy the reference here */
         destroy_parse_katcl(p);
       }
 

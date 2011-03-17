@@ -1087,7 +1087,7 @@ int parse_katcl(struct katcl_line *l) /* transform buffer -> args */
 #endif
 
   /* we now need a next entry */
-  l->l_next = create_referenceed_parse_katcl();
+  l->l_next = create_referenced_parse_katcl();
   if(l->l_next == NULL){
     l->l_error = ENOMEM;
     return -1; /* is it safe to call parse with a next which is DONE ? */
