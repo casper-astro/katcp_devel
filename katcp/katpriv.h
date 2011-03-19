@@ -416,6 +416,7 @@ struct katcp_dispatch{
 };
 
 struct katcp_url {
+  int u_use;
   char *u_str;
   char *u_scheme;
   char *u_host;

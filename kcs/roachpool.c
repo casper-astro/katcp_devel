@@ -26,7 +26,7 @@ void destroy_roach_kcs(struct kcs_roach *kr){
       free(kr->ksm);
       kr->ksm    = NULL;
     }
-    if (kr->io_ksm) { destroy_ksm_kcs(kr->io_ksm);  kr->io_ksm = NULL; }
+    //if (kr->io_ksm) { destroy_ksm_kcs(kr->io_ksm);  kr->io_ksm = NULL; }
     free(kr);
   }
 }
@@ -82,11 +82,17 @@ struct kcs_obj *new_kcs_roach_obj(struct kcs_obj *parent, char *url, char *ip, c
   kr->ksmactive= 0;
   kr->io_ksm   = NULL;
   kr->data     = NULL;
+  
   if (kr->kurl == NULL){
     destroy_roach_kcs(kr);
     return NULL;
   }
   ko = new_kcs_obj(parent,url,KCS_ID_ROACH,kr);
+  if (ko == NULL){
+    destroy_roach_kcs(kr);
+    return NULL;
+  }
+  kr->kurl->u_use++;
   return ko;
 }
 struct kcs_obj *init_tree(){

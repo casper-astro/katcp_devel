@@ -372,6 +372,8 @@ struct katcp_job *create_job_katcp(struct katcp_dispatch *d, struct katcp_url *n
 
   s->s_tasks[s->s_number] = j;
   s->s_number++;
+  
+  j->j_url->u_use++;
 
   return j;
 }

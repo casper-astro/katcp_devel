@@ -30,18 +30,23 @@ int run_statemachine(struct katcp_dispatch *d, struct katcp_notice *n, void *dat
   struct kcs_roach *kr;
   struct kcs_statemachine *ksm;
   int rtn;
+
   ko = data;
   if (!ko)
     return 0;
+  
   kr = ko->payload;
   if (!kr)
     return 0;
+  
   ksm = kr->ksm[kr->ksmactive];
   if (!ksm)
     return 0;
+
 #ifdef DEBUG
   fprintf(stderr,"SM: run_statemachine (%p) fn %s current state:%d\n",ksm,(!n)?ko->name:n->n_name,ksm->state);
 #endif
+
   if (ksm->sm[ksm->state]){
 #ifdef DEBUG
     fprintf(stderr,"SM: running state: (%p)\n",ksm->sm[ksm->state]);
@@ -59,7 +64,9 @@ int run_statemachine(struct katcp_dispatch *d, struct katcp_notice *n, void *dat
     //destroy_roach_ksm_kcs(kr);
     return 0;
   }
+  
   ksm->state = rtn;
+  
   return rtn;
 }
 
@@ -111,7 +118,7 @@ int kcs_sm_ping_s1(struct katcp_dispatch *d,struct katcp_notice *n, void *data){
   }
   else { 
     /*notice already exists so update it with new parse but dont wake it*/
-    update_notice_katcp(d, n, p, 0, 0);
+    update_notice_katcp(d, n, p, KATCP_NOTICE_TRIGGER_OFF, 0, NULL);
   } 
   gettimeofday(&kr->lastnow, NULL);
   if (notice_to_job_katcp(d, j, n) != 0){
@@ -212,6 +219,7 @@ int connect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
             log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "Unable to create job for %s",kr->kurl->u_str);
             return KCS_SM_CONNECT_STOP;
           } else {
+            //kr->kurl->u_use++;
             if (mod_roach_to_new_pool(root,newpool,ko->name) == KCS_FAIL){
               free(dc_kurl);
               log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "Could not move roach %s to pool %s\n",kr->kurl->u_str,newpool);
@@ -254,10 +262,10 @@ int disconnect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *da
   } else { 
     log_message_katcp(d,KATCP_LEVEL_INFO, NULL, "Success: roach %s moved to pool %s",kr->kurl->u_str,newpool);
   }
-  if (kr->io_ksm){
+  /*if (kr->io_ksm){
     destroy_ksm_kcs(kr->io_ksm);
     kr->io_ksm = NULL;
-  }
+  }*/
   kr->data = NULL; 
   return KCS_SM_CONNECT_STOP;
 }
@@ -314,7 +322,7 @@ int try_progdev_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *d
   }
   else { 
     /*notice already exists so update it with new parse but dont wake it*/
-    update_notice_katcp(d, n, p, 0, 0);
+    update_notice_katcp(d, n, p, KATCP_NOTICE_TRIGGER_OFF, 0, NULL);
   } 
   if (notice_to_job_katcp(d, j, n) != 0){
     /*send the notice to the job this adds it to the bottom of the list of thinngs the job must do*/
@@ -404,7 +412,7 @@ int tick_scheduler_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *d
 
   ko = data;
   kr = ko->payload;
-/*
+
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "scheduler tick function");
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "scheduler roach    :%s",ko->name);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "scheduler ksmcount :%d",kr->ksmcount);
@@ -412,18 +420,20 @@ int tick_scheduler_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *d
   for (i=0;i<kr->ksmcount;i++){
     log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "scheduler ksm[%d]  :%p",i,kr->ksm[i]);
   }
-  */
+  
+  kr->ksmactive++;
+
 #ifdef DEBUG
   fprintf(stderr,"SM: scheduler tick with data: %p\n",data);
 #endif
   
   return KCS_SCHEDULER_TICK;
 }
-//struct katcp_notice *add_scheduler_notice_kcs(struct katcp_dispatch *d, void *data){
 struct katcp_notice *add_scheduler_notice_kcs(struct katcp_dispatch *d, void *data){
   struct katcp_notice *n;
 
   n = find_notice_katcp(d,KCS_SCHEDULER_NOTICE);
+
 #ifdef DEBUG
   fprintf(stderr,"SM: scheduler: add_scheduler_notice to: %p\n",n);
 #endif
@@ -476,7 +486,7 @@ int api_prototype_sm_kcs(struct katcp_dispatch *d, struct kcs_obj *ko, struct kc
       kn = (struct kcs_node *) ko->payload;
       while (i < kn->childcount){  
         kr = kn->children[i]->payload;
-        if (add_scheduler_notice_kcs(d,ko) == NULL)
+        if (add_scheduler_notice_kcs(d,kn->children[i]) == NULL)
           return KATCP_RESULT_FAIL;
         /*if (is_active_sm_kcs(kr))
           return KATCP_RESULT_FAIL;*/

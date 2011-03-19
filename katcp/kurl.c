@@ -99,6 +99,7 @@ struct katcp_url *create_kurl_from_string_katcp(char *url){
   ku = malloc(sizeof(struct katcp_url));
   if (!ku)
     return NULL;
+  ku->u_use    = 0;
   ku->u_str    = strdup(url);
   ku->u_scheme = NULL;
   ku->u_host   = NULL;
@@ -314,6 +315,10 @@ void destroy_kurl_katcp(struct katcp_url *ku){
   int i;
   if (!ku)
     return;
+  if (ku->u_use > 1){
+    ku->u_use--;
+    return;
+  }
   if (ku->u_str)    { free(ku->u_str);    ku->u_str = NULL; }
   if (ku->u_scheme) { free(ku->u_scheme); ku->u_scheme = NULL; }
   if (ku->u_host)   { free(ku->u_host);   ku->u_host = NULL; }

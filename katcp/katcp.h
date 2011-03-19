@@ -335,7 +335,7 @@ void hold_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 #define KATCP_NOTICE_TRIGGER_ALL     1
 #define KATCP_NOTICE_TRIGGER_SINGLE  2
 
-void update_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p, int wake, int forget, void *data);
+void update_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p, int trigger, int forget, void *data);
 
 void wake_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p);
 int wake_name_notice_katcp(struct katcp_dispatch *d, char *name, struct katcl_parse *p);
