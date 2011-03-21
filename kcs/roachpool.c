@@ -80,8 +80,8 @@ struct kcs_obj *new_kcs_roach_obj(struct kcs_obj *parent, char *url, char *ip, c
   kr->ksm      = NULL;
   kr->ksmcount = 0;
   kr->ksmactive= 0;
-  kr->io_ksm   = NULL;
-  kr->data     = NULL;
+  //kr->io_ksm   = NULL;
+  //kr->data     = NULL;
   
   if (kr->kurl == NULL){
     destroy_roach_kcs(kr);
