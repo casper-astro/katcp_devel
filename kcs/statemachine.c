@@ -210,6 +210,7 @@ int connect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 
   if (n != NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "expected null notice but got (%p)", n);
+    destroy_last_roach_ksm_kcs(kr);
     return KCS_SM_CONNECT_STOP;
   }
 
@@ -220,6 +221,7 @@ int connect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
   if (n != NULL) {
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "find notice katcp returns (%p) %s is already connected", n, ko->name);
     free(dc_kurl);
+    destroy_last_roach_ksm_kcs(kr);
     return KCS_SM_CONNECT_STOP;
   }
   
@@ -227,6 +229,7 @@ int connect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
   if (fd < 0) {
     log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "Unable to connect to %s",kr->kurl->u_str);
     free(dc_kurl);
+    destroy_last_roach_ksm_kcs(kr);
     return KCS_SM_CONNECT_STOP;     
   } 
   
@@ -234,6 +237,7 @@ int connect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
   if (n == NULL) {
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to create halt notice %s",dc_kurl);
     free(dc_kurl);
+    destroy_last_roach_ksm_kcs(kr);
     return KCS_SM_CONNECT_STOP;
   } 
 
@@ -244,18 +248,21 @@ int connect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
   j = create_job_katcp(d, kr->kurl, 0, fd, 1, n); /*dispatch, katcp_url, pid, fd, async, notice*/
   if (j == NULL){
     log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "Unable to create job for %s",kr->kurl->u_str);
+    destroy_last_roach_ksm_kcs(kr);
     return KCS_SM_CONNECT_STOP;
   } 
   
   if (add_notice_katcp(d, n, ksm->sm[KCS_SM_CONNECT_CONNECTED], ko)) {
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "Unable to add the halt function to notice");
     zap_job_katcp(d, j);
+    destroy_last_roach_ksm_kcs(kr);
     return KCS_SM_CONNECT_STOP;
   }
 
   if (mod_roach_to_new_pool(root, newpool, ko->name) == KCS_FAIL){
     log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "Could not move roach %s to pool %s\n", kr->kurl->u_str, newpool);
     zap_job_katcp(d, j);
+    destroy_last_roach_ksm_kcs(kr);
     return KCS_SM_CONNECT_STOP;
   } 
   
@@ -264,18 +271,22 @@ int connect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
   p = create_parse_katcl();
   if (p == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR,NULL,"unable to create message");
+    destroy_last_roach_ksm_kcs(kr);
     return KCS_SM_CONNECT_STOP;
   }
   if (add_string_parse_katcl(p, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "!sm") < 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR,NULL,"unable to assemble message");
+    destroy_last_roach_ksm_kcs(kr);
     return KCS_SM_CONNECT_STOP;
   }
   if (add_string_parse_katcl(p, KATCP_FLAG_STRING, "connect") < 0){
+    destroy_last_roach_ksm_kcs(kr);
     log_message_katcp(d, KATCP_LEVEL_ERROR,NULL,"unable to assemble message");
     return KCS_SM_CONNECT_STOP;
   }
   if (add_string_parse_katcl(p, KATCP_FLAG_LAST | KATCP_FLAG_STRING, "ok") < 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR,NULL,"unable to assemble message");
+    destroy_last_roach_ksm_kcs(kr);
     return KCS_SM_CONNECT_STOP;
   }
 
@@ -750,11 +761,88 @@ int statemachine_progdev(struct katcp_dispatch *d){
   return KATCP_RESULT_FAIL;
 }
 
+int statemachine_poweron(struct katcp_dispatch *d)
+{
+  struct kcs_obj *ko;
+  struct kcs_roach *kr;
+  struct kcs_node *kn;
+  struct katcp_job *j;
+  char *obj;
+  int i;
+
+  obj = arg_string_katcp(d,2);
+
+  ko = roachpool_get_obj_by_name_kcs(d,obj);
+  if (!ko)
+    return KATCP_RESULT_FAIL;
+
+  switch (ko->tid) {
+    case KCS_ID_ROACH:
+      kr = ko->payload;
+      if (kr == NULL)
+        return KATCP_RESULT_FAIL;
+      if (strcasecmp(kr->kurl->u_scheme,"xport") != 0) {
+        log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "need a xport:// scheme in url");
+        return KATCP_RESULT_FAIL;
+      }
+      j = run_child_process_kcs(d, kr->kurl, &xport_sync_connect_and_start_subprocess_kcs, kr->kurl, NULL);
+      if (j == NULL){
+        log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "run child process kcs returned null job");
+        return KATCP_RESULT_FAIL;
+      }
+      break;
+    
+    case KCS_ID_NODE:
+      kn = ko->payload;
+      
+      for (i=0;i<kn->childcount;i++){
+        kr = kn->children[i]->payload;
+        if (kr == NULL)
+          return KATCP_RESULT_FAIL;
+        if (strcasecmp(kr->kurl->u_scheme,"xport") != 0) {
+          log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "need a xport:// scheme in url");
+          return KATCP_RESULT_FAIL;
+        }
+        j = run_child_process_kcs(d, kr->kurl, &xport_sync_connect_and_start_subprocess_kcs, kr->kurl, NULL);
+        if (j == NULL){
+          log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "run child process kcs returned null job");
+          return KATCP_RESULT_FAIL;
+        }
+      }
+      break;
+  }
+
+  //return api_prototype_sm_kcs(d, ko, &get_sm_xport_kcs, NULL);
+  return KATCP_RESULT_OK;
+}
+int statemachine_poweroff(struct katcp_dispatch *d)
+{
+
+  return KATCP_RESULT_FAIL;
+}
+int statemachine_powersoft(struct katcp_dispatch *d)
+{
+
+  return KATCP_RESULT_FAIL;
+}
+
 void destroy_ksm_kcs(struct kcs_statemachine *ksm){
   if (ksm){
     if (ksm->n != NULL) { ksm->n = NULL; }
     if (ksm->sm != NULL) { free(ksm->sm); ksm->sm = NULL; }
+    if (ksm->data != NULL) { ksm->data = NULL; }
+#ifdef DEBUG
+    fprintf(stderr,"sm: about to free ksm (%p)\n",ksm);
+#endif
     free(ksm); 
+  }
+}
+void destroy_last_roach_ksm_kcs(struct kcs_roach *kr)
+{
+  if (kr){
+    destroy_ksm_kcs(kr->ksm[kr->ksmcount-1]);
+    kr->ksm[kr->ksmcount-1] = NULL;
+    kr->ksmcount--;
   }
 }
 /*
@@ -792,24 +880,40 @@ int statemachine_cmd(struct katcp_dispatch *d, int argc){
   switch (argc){
     case 1:
       return statemachine_greeting(d);
+      
       break;
     case 2:
+      
       break;
     case 3:
       if (strcmp(arg_string_katcp(d,1),"stop") == 0)
         return statemachine_stop(d);
+
       if (strcmp(arg_string_katcp(d,1),"ping") == 0)
         return statemachine_ping(d);
+      
+      if (strcmp(arg_string_katcp(d,1),"poweron") == 0)
+        return statemachine_poweron(d);
+      
+      if (strcmp(arg_string_katcp(d,1),"poweron") == 0)
+        return statemachine_poweroff(d);
+      
+      if (strcmp(arg_string_katcp(d,1),"poweron") == 0)
+        return statemachine_powersoft(d);
+      
       break;
     case 4:
       if (strcmp(arg_string_katcp(d,1),"connect") == 0)
         return statemachine_connect(d);
+      
       if (strcmp(arg_string_katcp(d,1),"disconnect") == 0)
         return statemachine_disconnect(d);
+      
       break;
     case 6:
       if (strcmp(arg_string_katcp(d,1),"progdev") == 0)
         return statemachine_progdev(d);
+      
       break;
   }
   return KATCP_RESULT_FAIL;

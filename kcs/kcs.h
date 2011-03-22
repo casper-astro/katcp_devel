@@ -169,8 +169,11 @@ int statemachine_stop(struct katcp_dispatch *d);
 int statemachine_connect(struct katcp_dispatch *d);
 int statemachine_disconnect(struct katcp_dispatch *d);
 int statemachine_progdev(struct katcp_dispatch *d);
+int statemachine_poweron(struct katcp_dispatch *d);
+int statemachine_poweroff(struct katcp_dispatch *d);
+int statemachine_powersoft(struct katcp_dispatch *d);
 //void statemachine_destroy(struct katcp_dispatch *d);
-void destroy_roach_ksm_kcs(struct kcs_roach *kr);
+void destroy_last_roach_ksm_kcs(struct kcs_roach *kr);
 void destroy_ksm_kcs(struct kcs_statemachine *ksm);
 
 
