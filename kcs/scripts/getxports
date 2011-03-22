@@ -1,0 +1,4 @@
+#!/bin/bash
+
+grep roach.*x /etc/hosts | tr -s \  | while read myip myhost; do /home/adam/katcp-git/cmd/kcpcmd -s localhost:7147 roach add $(echo xport://$myhost:10001/ | cut -f1 -d.) $myip xport ; done
+
