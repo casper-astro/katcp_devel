@@ -122,6 +122,9 @@ struct katcp_url *create_kurl_from_string_katcp(char *url){
         c = url[i];
         switch(c){
           case '\0':
+#ifdef DEBUG
+            fprintf(stderr,"katcp_url: null char while parsing scheme");
+#endif
             destroy_kurl_katcp(ku);
             return NULL;
           case COL:
@@ -135,6 +138,15 @@ struct katcp_url *create_kurl_from_string_katcp(char *url){
               state = S_HOST;
             else if (strcasecmp(ku->u_scheme,"exec") == 0)
               state = S_CMD;
+            else if (strcasecmp(ku->u_scheme,"xport") == 0)
+              state = S_HOST;
+            else {
+#ifdef DEBUG
+              fprintf(stderr,"katcp_url: scheme is not of expected katcp, exec or xport");
+#endif
+              destroy_kurl_katcp(ku);
+              return NULL;
+            }
             spos = i+1;
             break;
         }
@@ -165,6 +177,9 @@ struct katcp_url *create_kurl_from_string_katcp(char *url){
         c = url[i];
         switch(c){
           case '\0':
+#ifdef DEBUG
+            fprintf(stderr,"katcp_url: null char while parsing host");
+#endif
             destroy_kurl_katcp(ku);
             return NULL;
           case WAK:

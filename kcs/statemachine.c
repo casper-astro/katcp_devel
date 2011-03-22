@@ -779,8 +779,42 @@ int statemachine_greeting(struct katcp_dispatch *d){
   append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"disconnect [roachpool|roachurl] [newpool]");
   prepend_inform_katcp(d);
   append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"progdev [conf-label] [conf-setting] [conf-value] [roachpool|roach]");
+  prepend_inform_katcp(d);
+  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"poweron [xports]");
+  prepend_inform_katcp(d);
+  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"poweroff [xports]");
+  prepend_inform_katcp(d);
+  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"softreset [xports]");
   return KATCP_RESULT_OK;
 }
+
+int statemachine_cmd(struct katcp_dispatch *d, int argc){
+  switch (argc){
+    case 1:
+      return statemachine_greeting(d);
+      break;
+    case 2:
+      break;
+    case 3:
+      if (strcmp(arg_string_katcp(d,1),"stop") == 0)
+        return statemachine_stop(d);
+      if (strcmp(arg_string_katcp(d,1),"ping") == 0)
+        return statemachine_ping(d);
+      break;
+    case 4:
+      if (strcmp(arg_string_katcp(d,1),"connect") == 0)
+        return statemachine_connect(d);
+      if (strcmp(arg_string_katcp(d,1),"disconnect") == 0)
+        return statemachine_disconnect(d);
+      break;
+    case 6:
+      if (strcmp(arg_string_katcp(d,1),"progdev") == 0)
+        return statemachine_progdev(d);
+      break;
+  }
+  return KATCP_RESULT_FAIL;
+}
+
 
 
 #ifdef STANDALONE

@@ -163,6 +163,7 @@ struct kcs_statemachine {
 };
 
 int statemachine_greeting(struct katcp_dispatch *d);
+int statemachine_cmd(struct katcp_dispatch *d, int argc);
 int statemachine_ping(struct katcp_dispatch *d);
 int statemachine_stop(struct katcp_dispatch *d);
 int statemachine_connect(struct katcp_dispatch *d);
@@ -172,5 +173,10 @@ int statemachine_progdev(struct katcp_dispatch *d);
 void destroy_roach_ksm_kcs(struct kcs_roach *kr);
 void destroy_ksm_kcs(struct kcs_statemachine *ksm);
 
+
+struct katcp_job * run_child_process_kcs(struct katcp_dispatch *d, struct katcp_url *url, int (*call)(void *), void *data, struct katcp_notice *n);
+int xport_sync_connect_and_start_subprocess_kcs(void *data);
+int xport_sync_connect_and_stop_subprocess_kcs(void *data);
+int xport_sync_connect_and_soft_restart_subprocess_kcs(void *data);
 
 #endif
