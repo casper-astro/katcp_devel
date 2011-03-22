@@ -811,19 +811,111 @@ int statemachine_poweron(struct katcp_dispatch *d)
       }
       break;
   }
-
-  //return api_prototype_sm_kcs(d, ko, &get_sm_xport_kcs, NULL);
   return KATCP_RESULT_OK;
 }
 int statemachine_poweroff(struct katcp_dispatch *d)
 {
+  struct kcs_obj *ko;
+  struct kcs_roach *kr;
+  struct kcs_node *kn;
+  struct katcp_job *j;
+  char *obj;
+  int i;
 
-  return KATCP_RESULT_FAIL;
+  obj = arg_string_katcp(d,2);
+
+  ko = roachpool_get_obj_by_name_kcs(d,obj);
+  if (!ko)
+    return KATCP_RESULT_FAIL;
+
+  switch (ko->tid) {
+    case KCS_ID_ROACH:
+      kr = ko->payload;
+      if (kr == NULL)
+        return KATCP_RESULT_FAIL;
+      if (strcasecmp(kr->kurl->u_scheme,"xport") != 0) {
+        log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "need a xport:// scheme in url");
+        return KATCP_RESULT_FAIL;
+      }
+      j = run_child_process_kcs(d, kr->kurl, &xport_sync_connect_and_stop_subprocess_kcs, kr->kurl, NULL);
+      if (j == NULL){
+        log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "run child process kcs returned null job");
+        return KATCP_RESULT_FAIL;
+      }
+      break;
+    
+    case KCS_ID_NODE:
+      kn = ko->payload;
+      
+      for (i=0;i<kn->childcount;i++){
+        kr = kn->children[i]->payload;
+        if (kr == NULL)
+          return KATCP_RESULT_FAIL;
+        if (strcasecmp(kr->kurl->u_scheme,"xport") != 0) {
+          log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "need a xport:// scheme in url");
+          return KATCP_RESULT_FAIL;
+        }
+        j = run_child_process_kcs(d, kr->kurl, &xport_sync_connect_and_stop_subprocess_kcs, kr->kurl, NULL);
+        if (j == NULL){
+          log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "run child process kcs returned null job");
+          return KATCP_RESULT_FAIL;
+        }
+      }
+      break;
+  }
+  return KATCP_RESULT_OK;
 }
 int statemachine_powersoft(struct katcp_dispatch *d)
 {
+  struct kcs_obj *ko;
+  struct kcs_roach *kr;
+  struct kcs_node *kn;
+  struct katcp_job *j;
+  char *obj;
+  int i;
 
-  return KATCP_RESULT_FAIL;
+  obj = arg_string_katcp(d,2);
+
+  ko = roachpool_get_obj_by_name_kcs(d,obj);
+  if (!ko)
+    return KATCP_RESULT_FAIL;
+
+  switch (ko->tid) {
+    case KCS_ID_ROACH:
+      kr = ko->payload;
+      if (kr == NULL)
+        return KATCP_RESULT_FAIL;
+      if (strcasecmp(kr->kurl->u_scheme,"xport") != 0) {
+        log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "need a xport:// scheme in url");
+        return KATCP_RESULT_FAIL;
+      }
+      j = run_child_process_kcs(d, kr->kurl, &xport_sync_connect_and_soft_restart_subprocess_kcs, kr->kurl, NULL);
+      if (j == NULL){
+        log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "run child process kcs returned null job");
+        return KATCP_RESULT_FAIL;
+      }
+      break;
+    
+    case KCS_ID_NODE:
+      kn = ko->payload;
+      
+      for (i=0;i<kn->childcount;i++){
+        kr = kn->children[i]->payload;
+        if (kr == NULL)
+          return KATCP_RESULT_FAIL;
+        if (strcasecmp(kr->kurl->u_scheme,"xport") != 0) {
+          log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "need a xport:// scheme in url");
+          return KATCP_RESULT_FAIL;
+        }
+        j = run_child_process_kcs(d, kr->kurl, &xport_sync_connect_and_soft_restart_subprocess_kcs, kr->kurl, NULL);
+        if (j == NULL){
+          log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "run child process kcs returned null job");
+          return KATCP_RESULT_FAIL;
+        }
+      }
+      break;
+  }
+  return KATCP_RESULT_OK;
 }
 
 void destroy_ksm_kcs(struct kcs_statemachine *ksm){
