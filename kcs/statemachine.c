@@ -964,7 +964,7 @@ int statemachine_greeting(struct katcp_dispatch *d){
   prepend_inform_katcp(d);
   append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"poweroff [xports]");
   prepend_inform_katcp(d);
-  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"softreset [xports]");
+  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"powersoft [xports]");
   return KATCP_RESULT_OK;
 }
 
@@ -987,10 +987,10 @@ int statemachine_cmd(struct katcp_dispatch *d, int argc){
       if (strcmp(arg_string_katcp(d,1),"poweron") == 0)
         return statemachine_poweron(d);
       
-      if (strcmp(arg_string_katcp(d,1),"poweron") == 0)
+      if (strcmp(arg_string_katcp(d,1),"poweroff") == 0)
         return statemachine_poweroff(d);
       
-      if (strcmp(arg_string_katcp(d,1),"poweron") == 0)
+      if (strcmp(arg_string_katcp(d,1),"powersoft") == 0)
         return statemachine_powersoft(d);
       
       break;
