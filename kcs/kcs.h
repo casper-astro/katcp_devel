@@ -128,9 +128,8 @@ struct kcs_roach {
   struct kcs_statemachine **ksm;
   int ksmcount;
   int ksmactive;
-  struct kcs_statemachine *io_ksm; /*used for ?sm connect since this sm must stay around*/
+ /* struct kcs_statemachine *io_ksm; *//*used for ?sm connect since this sm must stay around*/
   struct timeval lastnow;
-  void *data; /*used to pass config data around no GC make sure to free when you use*/
 };
 
 int roachpool_greeting(struct katcp_dispatch *d);
@@ -160,6 +159,7 @@ struct kcs_statemachine {
   int (**sm)(struct katcp_dispatch *,struct katcp_notice *, void *); 
   int state;
   struct katcp_notice *n;
+  void *data; /*used to pass config data around no GC make sure to free when you use*/
 };
 
 int statemachine_greeting(struct katcp_dispatch *d);

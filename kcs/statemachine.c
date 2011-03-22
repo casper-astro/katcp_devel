@@ -175,26 +175,28 @@ int kcs_sm_ping_s2(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 /*CONNECT*/
 /*******************************************************************************************************/
 int connect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data){
+  struct kcs_basic *kb;
   struct katcp_job *j;
+  struct katcl_parse *p;
+
   struct kcs_obj *ko;
   struct kcs_roach *kr;
+  struct kcs_obj *root;
+  
   char *dc_kurl, *newpool;
   int fd;
-  struct kcs_basic *kb;
-  struct kcs_obj *root;
 
   kb = need_current_mode_katcp(d,KCS_MODE_BASIC);
   if (!kb)
     return KCS_SM_CONNECT_STOP;
+  
   root = kb->b_pool_head;
   if (!root)
     return KCS_SM_CONNECT_STOP;
 
   ko = data;
   kr = ko->payload;
-  // kr->io_ksm = kr->ksm[kr->ksmactive];
-  //kr->ksm = NULL;
-  newpool = kr->data;
+  newpool = kr->ksm[kr->ksmactive]->data;
 
   if (n != NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "expected null notice but got (%p)", n);
@@ -224,32 +226,44 @@ int connect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
     free(dc_kurl);
     return KCS_SM_CONNECT_STOP;
   } 
+
+  free(dc_kurl);
   
   kr->ksm[kr->ksmactive]->n = n;
 
   j = create_job_katcp(d, kr->kurl, 0, fd, 1, n); /*dispatch, katcp_url, pid, fd, async, notice*/
   if (j == NULL){
     log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "Unable to create job for %s",kr->kurl->u_str);
-    free(dc_kurl);
     return KCS_SM_CONNECT_STOP;
   } 
   
   if (add_notice_katcp(d, n, kr->ksm[kr->ksmactive]->sm[KCS_SM_CONNECT_CONNECTED], ko)) {
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "Unable to add the halt function to notice");
-    free(dc_kurl);
     zap_job_katcp(d, j);
+    return KCS_SM_CONNECT_STOP;
   }
 
   if (mod_roach_to_new_pool(root, newpool, ko->name) == KCS_FAIL){
     log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "Could not move roach %s to pool %s\n", kr->kurl->u_str, newpool);
-    free(dc_kurl);
     zap_job_katcp(d, j);
     return KCS_SM_CONNECT_STOP;
   } 
   
   log_message_katcp(d,KATCP_LEVEL_INFO, NULL, "Success: roach %s moved to pool %s", kr->kurl->u_str, newpool);
-  free(dc_kurl);
-  wake_single_name_notice_katcp(d,KCS_SCHEDULER_NOTICE,NULL,ko);
+  
+  p = create_parse_katcl();
+  if (p == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR,NULL,"unable to create message");
+    return KCS_SM_CONNECT_STOP;
+  }
+  if (add_string_parse_katcl(p, KATCP_FLAG_FIRST | KATCP_FLAG_STRING | KATCP_FLAG_LAST, "!sm connect ok") < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR,NULL,"unable to assemble message");
+    return KCS_SM_CONNECT_STOP;
+  }
+  
+  //update notice with new parse
+
+  wake_single_name_notice_katcp(d, KCS_SCHEDULER_NOTICE, NULL, ko);
   
   return KCS_SM_CONNECT_CONNECTED;
 }
@@ -276,7 +290,7 @@ int disconnect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *da
     destroy_ksm_kcs(kr->io_ksm);
     kr->io_ksm = NULL;
   }*/
-  kr->data = NULL; 
+  //kr->data = NULL; 
   return KCS_SM_CONNECT_STOP;
 }
 
