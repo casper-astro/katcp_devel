@@ -262,54 +262,82 @@ static int prefix_match_kurl_katcp(char *target, char *prefix)
 {
   int i;
 
-  for(i = 0; target[i] == prefix[i]; i++){
-    if(target[i] == '\0'){
-      return i;
+  for(i = 0; prefix[i] != '\0'; i++){
+    if(prefix[i] != target[i]){
+#ifdef DEBUG
+      fprintf(stderr, "kurl: prefix match <%s> failed against <%s> at %d\n", prefix, target, i);
+#endif
+      return -1;
     }
   }
 
-  return -1;
+  return i;
 }
 
-#if  0
-int contains_kurl_katcp(struct katcp_url *ku, char *string)
+int containing_kurl_katcp(struct katcp_url *ku, char *string)
 {
+#define BUFFER 8
   int len, offset;
+  char buffer[BUFFER];
 
   if(string == NULL){
     return 0;
   }
 
   if(ku->u_host){
-    if(strncmp(string, "katcp://", 8)){
+
+    offset = 8;
+    if(strncmp(string, "katcp://", offset)){
       return 0;
     }
 
-    offset = 8;
     len = prefix_match_kurl_katcp(string + offset, ku->u_host);
+    if(len < 0){
+      return 0;
+    }
+    offset += len;
+
+    if(string[offset] != ':'){
+      return 0;
+    }
+    offset++;
+
+    snprintf(buffer, BUFFER, "%d", ku->u_port);
+    buffer[BUFFER - 1] = '\0';
+
+    len = prefix_match_kurl_katcp(string + offset, buffer);
     if(len < 0){
       return 0;
     }
 
     offset += len;
 
-    if(
+    return offset;
 
   } else if(ku->u_cmd){
-    if(strncmp(string, "exec://", 7)){
+
+    offset = 7;
+    if(strncmp(string, "exec://", offset)){
       return 0;
     }
+
+    len = prefix_match_kurl_katcp(string + offset, ku->u_cmd);
+    if(len < 0){
+      return 0;
+    }
+
+    offset += len;
+
+    return offset;
   }
 
-  if(ku->u_host){
-
-
-  } else {
-
-  }
-
-}
+#ifdef DEBUG
+  fprintf(stderr, "kurl: string %s can not be matched, neither cmd nor host are set\n", string);
 #endif
+
+  return 0;
+#undef BUFFER
+}
 
 void destroy_kurl_katcp(struct katcp_url *ku){
   int i;
@@ -354,26 +382,51 @@ void kurl_print(struct katcp_url *ku){
 int main(int argc, char **argv){
   
   struct katcp_url *ku, *ku2;
+  char *temp;
 
   ku = create_kurl_from_string_katcp("katcp://host.domain:7147/");
   ku2 = create_kurl_from_string_katcp("exec:///bin/ls");
-  
-  if (ku != NULL){
-    char *temp;
-    if (!(temp = copy_kurl_string_katcp(ku,"?disconnect")))
-      temp = add_kurl_path_copy_string_katcp(ku,"?disconnect");
-    fprintf(stderr,"%s\n",temp);
-    free(temp);
-    kurl_print(ku);
-    destroy_kurl_katcp(ku);
+
+  if((ku == NULL) || (ku2 == NULL)){
+    fprintf(stderr, "test: unable to assemble urls from strings\n");
+    return 1;
   }
-  if (ku2 != NULL){
-    kurl_print(ku2);
-    destroy_kurl_katcp(ku2);
-    return 0;
+  
+  if (!(temp = copy_kurl_string_katcp(ku,"?disconnect"))) temp = add_kurl_path_copy_string_katcp(ku,"?disconnect");
+  fprintf(stderr,"%s\n",temp);
+  free(temp);
+
+  if(containing_kurl_katcp(ku, "katcp://host.domain:7147") <= 0){
+    fprintf(stderr, "match failed \n");
+    return 1;
   }
 
-  fprintf(stderr,"kurl did not parse\n");
+  if(containing_kurl_katcp(ku, "katcp://host.domain:7147/") <= 0){
+    fprintf(stderr, "match failed\n");
+    return 1;
+  }
+
+  if(containing_kurl_katcp(ku, "katcp://host.domain:7147/?example") <= 0){
+    fprintf(stderr, "match failed\n");
+    return 1;
+  }
+
+  if(containing_kurl_katcp(ku, "katcp://host.domain:7247/") > 0){
+    fprintf(stderr, "match should not work\n");
+    return 1;
+  }
+
+  if(containing_kurl_katcp(ku, "katcp://hxst.domain:7247/") > 0){
+    fprintf(stderr, "match should not work\n");
+    return 1;
+  }
+
+  kurl_print(ku);
+  destroy_kurl_katcp(ku);
+
+  kurl_print(ku2);
+  destroy_kurl_katcp(ku2);
+
   return 0;
 }
 #endif

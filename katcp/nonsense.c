@@ -2441,13 +2441,23 @@ int match_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_notice *n, vo
   struct katcl_parse *p, *px;
   struct katcp_acquire *a;
   struct katcp_job *j;
-  char *name, *description, *type, *units, *combine;
+  char *inform, *name, *description, *type, *units, *combine;
   int code, min, max;
   unsigned int count;
 
   p = get_parse_notice_katcp(d, n);
   if(p == NULL){
     log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "releasing sensor list match");
+    return 0;
+  }
+
+  inform = get_string_parse_katcl(p, 0);
+  if(inform == NULL){
+    return 0;
+  }
+  
+  if(!strcmp(inform, KATCP_RETURN_JOB)){
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "detaching in response to %s", inform);
     return 0;
   }
 
@@ -2538,7 +2548,7 @@ int match_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_notice *n, vo
     return -1;
   }
 
-  j = NULL;
+  j = find_containing_job_katcp(d, n->n_name);
 
   if(j){
     px = create_parse_katcl();
@@ -2548,11 +2558,11 @@ int match_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_notice *n, vo
       add_string_parse_katcl(px,                    KATCP_FLAG_STRING, name);
       add_string_parse_katcl(px, KATCP_FLAG_LAST  | KATCP_FLAG_STRING, "event");
 
-      if(submit_to_job_katcp(d, j, px, NULL, NULL, NULL) < 0){
-        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to submit message to job");
-        destroy_parse_katcl(p);
+      if(submit_to_job_katcp(d, j, px, NULL, NULL, NULL) == 0){
+        log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "submitted request to sample %s to job %s", name, j->j_url->u_str);
       } else {
         log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to submit sampling request to job %s", j->j_url->u_str);
+        destroy_parse_katcl(p);
       }
     } else {
       log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to allocate parse structure while samping sensor %s", name);
@@ -2571,15 +2581,25 @@ int match_sensor_status_katcp(struct katcp_dispatch *d, struct katcp_notice *n, 
   struct katcp_sensor *sn;
   struct katcp_acquire *a;
   struct katcl_parse *p;
-  char *name, *status, *value, *combine;
+  char *inform, *name, *status, *value, *combine;
   int code;
 
   p = get_parse_notice_katcp(d, n);
   if(p == NULL){
     log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "releasing sensor status match");
-
     return 0;
   }
+
+  inform = get_string_parse_katcl(p, 0);
+  if(inform == NULL){
+    return 0;
+  }
+  
+  if(!strcmp(inform, KATCP_RETURN_JOB)){
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "detaching in response to %s", inform);
+    return 0;
+  }
+
 
   /* WARNING: will only extract the first sensor out of a composite list */
   name = get_string_parse_katcl(p, 3);

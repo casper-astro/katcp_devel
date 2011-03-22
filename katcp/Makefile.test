@@ -9,7 +9,7 @@ all: $(TESTS)
 test-queue: misc.c queue.c parse.c line.c 
 	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_QUEUE -o $@ $^
 
-test-map: map.c
+test-map: misc.c parse.c line.c time.c netc.c dispatch.c shared.c ts.c log.c notice.c nonsense.c job.c queue.c map.c kurl.c version.c
 	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_MAP -o $@ $^
 
 test-kurl: kurl.c
@@ -24,7 +24,7 @@ test-line: misc.c parse.c line.c queue.c
 test-rpc: misc.c parse.c line.c time.c netc.c rpc.c queue.c
 	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_RPC -o $@ $^
 
-test-job: misc.c parse.c line.c time.c netc.c dispatch.c shared.c ts.c log.c notice.c nonsense.c job.c queue.c map.c
+test-job: misc.c parse.c line.c time.c netc.c dispatch.c shared.c ts.c log.c notice.c nonsense.c job.c queue.c map.c kurl.c version.c
 	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_JOB -o $@ $^
 
 clean: 
