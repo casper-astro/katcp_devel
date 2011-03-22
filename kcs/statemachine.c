@@ -73,6 +73,7 @@ int run_statemachine(struct katcp_dispatch *d, struct katcp_notice *n, void *dat
 /*******************************************************************************************************/
 /*PING*/
 /*******************************************************************************************************/
+#if 0
 int kcs_sm_ping_s1(struct katcp_dispatch *d,struct katcp_notice *n, void *data){
   struct katcp_job *j;
   struct katcl_parse *p;
@@ -170,7 +171,7 @@ int kcs_sm_ping_s2(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
     return KCS_SM_PING_STOP;
   return KCS_SM_PING_S1;
 }
-
+#endif
 /*******************************************************************************************************/
 /*CONNECT*/
 /*******************************************************************************************************/
@@ -182,6 +183,8 @@ int connect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
   struct kcs_obj *ko;
   struct kcs_roach *kr;
   struct kcs_obj *root;
+
+  struct kcs_statemachine *ksm;
   
   char *dc_kurl, *newpool;
   int fd;
@@ -196,7 +199,14 @@ int connect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 
   ko = data;
   kr = ko->payload;
-  newpool = kr->ksm[kr->ksmactive]->data;
+  
+  ksm = kr->ksm[kr->ksmactive];
+  if (ksm == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "ksm is null for roach cannot continue");
+    return KCS_SM_CONNECT_STOP;
+  }
+
+  newpool = ksm->data;
 
   if (n != NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "expected null notice but got (%p)", n);
@@ -229,7 +239,7 @@ int connect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 
   free(dc_kurl);
   
-  kr->ksm[kr->ksmactive]->n = n;
+  ksm->n = n;
 
   j = create_job_katcp(d, kr->kurl, 0, fd, 1, n); /*dispatch, katcp_url, pid, fd, async, notice*/
   if (j == NULL){
@@ -237,7 +247,7 @@ int connect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
     return KCS_SM_CONNECT_STOP;
   } 
   
-  if (add_notice_katcp(d, n, kr->ksm[kr->ksmactive]->sm[KCS_SM_CONNECT_CONNECTED], ko)) {
+  if (add_notice_katcp(d, n, ksm->sm[KCS_SM_CONNECT_CONNECTED], ko)) {
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "Unable to add the halt function to notice");
     zap_job_katcp(d, j);
     return KCS_SM_CONNECT_STOP;
@@ -256,35 +266,47 @@ int connect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
     log_message_katcp(d, KATCP_LEVEL_ERROR,NULL,"unable to create message");
     return KCS_SM_CONNECT_STOP;
   }
-  if (add_string_parse_katcl(p, KATCP_FLAG_FIRST | KATCP_FLAG_STRING | KATCP_FLAG_LAST, "!sm connect ok") < 0){
+  if (add_string_parse_katcl(p, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "!sm") < 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR,NULL,"unable to assemble message");
     return KCS_SM_CONNECT_STOP;
   }
-  
-  //update notice with new parse
+  if (add_string_parse_katcl(p, KATCP_FLAG_STRING, "connect") < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR,NULL,"unable to assemble message");
+    return KCS_SM_CONNECT_STOP;
+  }
+  if (add_string_parse_katcl(p, KATCP_FLAG_LAST | KATCP_FLAG_STRING, "ok") < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR,NULL,"unable to assemble message");
+    return KCS_SM_CONNECT_STOP;
+  }
 
-  wake_single_name_notice_katcp(d, KCS_SCHEDULER_NOTICE, NULL, ko);
+  ksm->data = NULL;
+  wake_single_name_notice_katcp(d, KCS_SCHEDULER_NOTICE, p, ko);
   
   return KCS_SM_CONNECT_CONNECTED;
 }
 
 int disconnect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data){
+  struct kcs_basic *kb;
+  
   struct kcs_roach *kr;
   struct kcs_obj *ko;
-  struct kcs_basic *kb;
+  struct kcs_statemachine *ksm;
+
   char *newpool;
 
   kb = need_current_mode_katcp(d, KCS_MODE_BASIC);
   ko = data;
   kr = ko->payload;
+  ksm = kr->ksm[0]; /*state machine at zero will be the connect one if it is valid*/
 
-  newpool = kr->data?kr->data:"disconnected";
+  newpool = ksm ? ( ksm->data ? ksm->data : "disconnected") : "disconnected";
   
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Halt notice (%p) %s",n,n->n_name);
-  if (mod_roach_to_new_pool(kb->b_pool_head,newpool,ko->name) == KCS_FAIL){
-    log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "Could not move roach %s to pool %s\n",kr->kurl->u_str,newpool);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Halt notice (%p) %s", n, n->n_name);
+  if (mod_roach_to_new_pool(kb->b_pool_head, newpool, ko->name) == KCS_FAIL){
+    log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "Could not move roach %s to pool %s\n", kr->kurl->u_str, newpool);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "scheduler ksmactive:%d",kr->ksmactive);
   } else { 
-    log_message_katcp(d,KATCP_LEVEL_INFO, NULL, "Success: roach %s moved to pool %s",kr->kurl->u_str,newpool);
+    log_message_katcp(d,KATCP_LEVEL_INFO, NULL, "Success: roach %s moved to pool %s", kr->kurl->u_str, newpool);
   }
   /*if (kr->io_ksm){
     destroy_ksm_kcs(kr->io_ksm);
@@ -297,6 +319,7 @@ int disconnect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *da
 /*******************************************************************************************************/
 /*PROGDEV*/
 /*******************************************************************************************************/
+#if 0
 int try_progdev_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data){
   struct katcp_job *j;
   struct katcl_parse *p;
@@ -376,11 +399,11 @@ int okay_progdev_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *
   //log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "done okay progdev %s",n->n_name);
   return KCS_SM_PROGDEV_STOP;
 }
-
+#endif
 /*******************************************************************************************************/
 /*StateMachine Setups*/
 /*******************************************************************************************************/
-
+#if 0
 struct kcs_statemachine *get_sm_ping_kcs(void *data){
   struct kcs_statemachine *ksm;
   
@@ -405,8 +428,9 @@ struct kcs_statemachine *get_sm_ping_kcs(void *data){
   fprintf(stderr,"SM: pointer to ping sm: %p\n",ksm);
 #endif
 
-return ksm;
+  return ksm;
 }
+#endif
 
 struct kcs_statemachine *get_sm_connect_kcs(void *data){
   struct kcs_statemachine *ksm;
@@ -434,7 +458,7 @@ struct kcs_statemachine *get_sm_connect_kcs(void *data){
 
   return ksm;
 }
-
+#if 0
 struct kcs_statemachine *get_sm_progdev_kcs(void *data){
   struct kcs_statemachine *ksm;
   
@@ -461,27 +485,39 @@ struct kcs_statemachine *get_sm_progdev_kcs(void *data){
   
   return ksm;
 }
-
+#endif
 /*******************************************************************************************************/
 /*KCS Scheduler Stuff*/
 /* ******************************************************************************************************/
 int tick_scheduler_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data){
   struct kcs_obj *ko;
   struct kcs_roach *kr;
+  struct katcl_parse *p;
+
   int i;
+  char *ptr;
 
   ko = data;
   kr = ko->payload;
 
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "scheduler tick function");
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "scheduler roach    :%s",ko->name);
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "scheduler ksmcount :%d",kr->ksmcount);
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "scheduler ksmactive:%d",kr->ksmactive);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "scheduler tick function r: %s ksmcount: %d ksmactive: %d", ko->name, kr->ksmcount, kr->ksmactive);
   for (i=0;i<kr->ksmcount;i++){
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "scheduler ksm[%d]  :%p",i,kr->ksm[i]);
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "scheduler ksm[%d]: %p",i,kr->ksm[i]);
   }
-  
-  kr->ksmactive++;
+ 
+  p = get_parse_notice_katcp(d,n);
+  if (p){
+    i = get_count_parse_katcl(p);
+    if (i == 3){
+      ptr = get_string_parse_katcl(p,2);
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "sm: %s returns %s", get_string_parse_katcl(p,1), ptr);
+      if (strcmp(ptr,"ok") == 0){
+        kr->ksmactive++;
+      } else {
+        return 0;
+      }
+    }
+  }
 
 #ifdef DEBUG
   fprintf(stderr,"SM: scheduler tick with data: %p\n",data);
@@ -575,14 +611,13 @@ int api_prototype_sm_kcs(struct katcp_dispatch *d, struct kcs_obj *ko, struct kc
 }
 
 int statemachine_stop(struct katcp_dispatch *d){
-  struct kcs_obj *ko;
+  /*struct kcs_obj *ko;
   struct kcs_node *kn;
   struct kcs_roach *kr;
-  int state,i;
+  int state, i;
   ko = roachpool_get_obj_by_name_kcs(d,arg_string_katcp(d,2));
   if (!ko)
     return KATCP_RESULT_FAIL;
-/*
   switch (ko->tid){
     case KCS_ID_ROACH:
       kr = (struct kcs_roach*) ko->payload;
@@ -625,8 +660,10 @@ int statemachine_ping(struct katcp_dispatch *d){
   ko = roachpool_get_obj_by_name_kcs(d,obj);
   if (!ko)
     return KATCP_RESULT_FAIL;
-
+#if 0
   return api_prototype_sm_kcs(d,ko,&get_sm_ping_kcs,NULL);
+#endif
+  return KATCP_RESULT_FAIL;
 }
 
 int statemachine_connect(struct katcp_dispatch *d){
@@ -648,7 +685,7 @@ int statemachine_disconnect(struct katcp_dispatch *d){
   struct kcs_roach *kr;
   struct katcp_job *j;
   int i;
-  char *obj, newpool;
+  char *obj, *newpool;
 
   obj = arg_string_katcp(d,2);
   newpool = arg_string_katcp(d,3);
@@ -662,12 +699,11 @@ int statemachine_disconnect(struct katcp_dispatch *d){
       j = find_job_katcp(d,ko->name);
       if (!j){
         log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "Unable to find job %s",ko->name);
-        return KATCP_RESULT_OK;
+        return KATCP_RESULT_FAIL;
       }
       
       kr = ko->payload;
-      //kr->data = arg_string_katcp(d,3);
-      kr->ksm[kr->ksmactive]->data = newpool;
+      kr->ksm[0]->data = newpool;
       zap_job_katcp(d,j);
       break;
     
@@ -678,12 +714,11 @@ int statemachine_disconnect(struct katcp_dispatch *d){
         j = find_job_katcp(d,kn->children[i]->name);
         if (!j){
           log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "Unable to find job %s",kn->children[i]->name);
-          return KATCP_RESULT_OK;
+          return KATCP_RESULT_FAIL;
         }
         
         kr = kn->children[i]->payload;
-        //kr->data = arg_string_katcp(d,3);
-        kr->ksm[kr->ksmactive]->data = newpool;
+        kr->ksm[0]->data = newpool;
         zap_job_katcp(d,j);
       }
       break;
@@ -709,8 +744,10 @@ int statemachine_progdev(struct katcp_dispatch *d){
   conf_bitstream = parser_get(d, label, setting, atoi(value));
   if (!conf_bitstream)
     return KATCP_RESULT_FAIL;
-  
+#if 0  
   return api_prototype_sm_kcs(d,ko,&get_sm_progdev_kcs,conf_bitstream);
+#endif
+  return KATCP_RESULT_FAIL;
 }
 
 void destroy_ksm_kcs(struct kcs_statemachine *ksm){
