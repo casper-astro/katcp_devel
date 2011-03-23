@@ -157,9 +157,6 @@ int xport_sync_connect_and_soft_restart_subprocess_kcs(struct katcl_line *l, voi
 #undef ARRAYSIZE
 }
 
-
-
-
 #if 0
 void process(void *data) {
 #ifdef DEBUG

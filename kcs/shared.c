@@ -4,7 +4,7 @@
 
 #include "kcs.h"
 
-
+#if 0
 char *create_str(char *s){
   char *nstr;
   if (!s)
@@ -17,3 +17,4 @@ char *create_str(char *s){
   nstr[strlen(s)] = '\0';
   return nstr;
 }
+#endif

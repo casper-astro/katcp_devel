@@ -481,6 +481,7 @@ int setup_basic_kcs(struct katcp_dispatch *d, char *scripts)
   result += register_flag_mode_katcp(d, "?parser" , "ROACH Configuration file parser (?parser [load|save|get|set|list])", &parser_cmd, 0, KCS_MODE_BASIC);
   result += register_flag_mode_katcp(d, "?roach" , "Control the pool of roaches (?roach [add|del|start|stop|start-pool|stop-pool])", &roach_cmd, 0, KCS_MODE_BASIC);
   result += register_flag_mode_katcp(d, "?sm" , "Run a statemachine on a pool of roaches (?sm [[ping|connect] pool])", &statemachine_cmd, 0, KCS_MODE_BASIC);
+  result += register_flag_mode_katcp(d, "?udpear" , "spawn the udp ear listener (?udpear port)", &udpear_cmd, 0, KCS_MODE_BASIC);
   /*result += register_flag_mode_katcp(d, "?k7-snap-shot" , "Grab a snap shot (?k7-snap-shot [antenna polarisation])", &k7_snap_shot_cmd, 0, KCS_MODE_BASIC);
   */
 
