@@ -9,12 +9,16 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/select.h>
+#include <sys/utsname.h>
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
 #include <katcl.h>
 #include <katcp.h>
+#include <katpriv.h>
+
+#include "kcs.h"
 
 #define MTU 1500
 
@@ -102,15 +106,46 @@ int udp_ear_kcs(struct katcl_line *l, void *data)
 
 int udpear_cmd(struct katcp_dispatch *d, int argc)
 {
+  struct utsname utn;
   struct katcp_job *j;
   struct katcp_url *url;
-  switch (argc){
-    case 2:
-   //   url = create
-   //   j = find_job_katcp(d,
+  char *rtn;
+  int port;
 
-        
+  if (uname(&utn) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "udpear: unable to uname");
+    return KATCP_RESULT_FAIL;
   }
-  return KATCP_RESULT_FAIL;
+  
+  switch (argc){
+    case 1:
+      port = 7147;
+    case 2:
+      rtn = arg_string_katcp(d,1);
+      if (rtn != NULL)
+        port = atoi(rtn);
+      url = create_kurl_katcp("katcp",utn.nodename,port,"?udpear");
+      if (url == NULL){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "udpear: could not create kurl");
+        return KATCP_RESULT_FAIL;
+      }
+
+      j = find_job_katcp(d,url->u_str);
+      if (j){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "udpear: found job for %s",url->u_str);
+        destroy_kurl_katcp(url);
+        return KATCP_RESULT_FAIL;
+      }
+      
+      j = run_child_process_kcs(d, url, &udp_ear_kcs, &port, NULL);
+      if (j == NULL){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "udpear: run child process returned null for %s",url->u_str);
+        destroy_kurl_katcp(url);
+        return KATCP_RESULT_FAIL;
+      }
+
+      break; 
+  }
+  return KATCP_RESULT_OK;
 }
 
