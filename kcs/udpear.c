@@ -45,16 +45,25 @@ int udp_ear_kcs(struct katcl_line *l, void *data)
 
   fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
   if (fd < 0){
+#ifdef DEBUG
+    fprintf(stderr,"udp ear: socket error: %s\n",strerror(errno));
+#endif
     sync_message_katcl(l, KATCP_LEVEL_ERROR, NULL, "udp ear: socket error: %s", strerror(errno));
     return -1;
   }
   if (bind(fd, (struct sockaddr *) &ear, sizeof(struct sockaddr_in)) < 0) {
+#ifdef DEBUG
+    fprintf(stderr,"udp ear: bind error: %s\n",strerror(errno));
+#endif
     sync_message_katcl(l, KATCP_LEVEL_ERROR, NULL, "udp ear: bind error: %s", strerror(errno));
     return -1;
   }
 
   lfd = fileno_katcl(l);
   mfd = ((lfd > fd) ? lfd : fd) + 1;
+#ifdef DEBUG
+    fprintf(stderr,"udp ear: about to run\n");
+#endif
 
   for (run = 1; run > 0;) {
 
@@ -76,6 +85,9 @@ int udp_ear_kcs(struct katcl_line *l, void *data)
           break;
       }
     } else {
+#ifdef DEBUG
+      fprintf(stderr,"udp ear: got select %d\n",rtn);
+#endif
       if (FD_ISSET(lfd, &outs)){
         write_katcl(l);
       }
@@ -86,11 +98,18 @@ int udp_ear_kcs(struct katcl_line *l, void *data)
           run = 0;
           break;
         }
+#ifdef DEBUG
+        fprintf(stderr,"udp ear: fd %d read\n",fd);
+#endif
         log_message_katcl(l, KATCP_LEVEL_INFO, NULL, "udp ear: recv %d bytes: %s", rb, buffer);
       }
       if (FD_ISSET(lfd,&ins)){
         rb = read_katcl(l);
         if (rb) {
+#ifdef DEBUG
+          fprintf(stderr,"udp ear: fd %d read EOF\n",lfd);
+#endif
+          fflush(stderr);
           run = 0;
           break;
         }

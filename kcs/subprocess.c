@@ -39,7 +39,7 @@ struct katcp_job * run_child_process_kcs(struct katcp_dispatch *d, struct katcp_
     close(fds[0]);
     fcntl(fds[1], F_SETFD, FD_CLOEXEC);
 #ifdef DEBUG
-    fprintf(stderr,"subprocess: in parent child has pid: %d",pid);
+    fprintf(stderr,"subprocess: in parent child has pid: %d\n",pid);
 #endif
     j = create_job_katcp(d, url, pid, fds[1], 0, n);
     if (j == NULL){
@@ -50,7 +50,9 @@ struct katcp_job * run_child_process_kcs(struct katcp_dispatch *d, struct katcp_
     }
     return j;
   }
-
+#ifdef DEBUG
+  fprintf(stderr,"subprocess: in child: %d\n",getpid());
+#endif
   /*in child use exit not return*/
   xl = create_katcl(fds[0]);
   close(fds[1]);
