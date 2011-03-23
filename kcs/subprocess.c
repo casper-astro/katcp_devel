@@ -17,7 +17,7 @@
 #include "kcs.h"
 
 
-struct katcp_job * run_child_process_kcs(struct katcp_dispatch *d, struct katcp_url *url, int (*call)(void *), void *data, struct katcp_notice *n) 
+struct katcp_job * run_child_process_kcs(struct katcp_dispatch *d, struct katcp_url *url, int (*call)(struct katcl_line *, void *), void *data, struct katcp_notice *n) 
 {
   int fds[2];
   pid_t pid;
@@ -74,7 +74,7 @@ struct katcp_job * run_child_process_kcs(struct katcp_dispatch *d, struct katcp_
     fcntl(fds[0], F_SETFD, FD_CLOEXEC);
   }
       
-  if ((*call)(data) < 0)
+  if ((*call)(xl,data) < 0)
     sync_message_katcl(xl, KATCP_LEVEL_ERROR, NULL, "run child process kcs fail"); 
   
   exit(EX_OK);
@@ -82,11 +82,11 @@ struct katcp_job * run_child_process_kcs(struct katcp_dispatch *d, struct katcp_
 }
 
 
-int xport_sync_connect_and_start_subprocess_kcs(void *data)
+int xport_sync_connect_and_start_subprocess_kcs(struct katcl_line *l, void *data)
 {
 #define ARRAYSIZE 5
   struct katcp_url *url;
-  int fd;
+  int fd, wb;
   unsigned char onstring[ARRAYSIZE] = { 0002, 0201, 0002, 0377, 0377 };
 
   url = data;
@@ -98,18 +98,20 @@ int xport_sync_connect_and_start_subprocess_kcs(void *data)
   if (fd < 0)
     return -1;
   
-  write(fd, onstring, ARRAYSIZE);
+  wb = write(fd, onstring, ARRAYSIZE);
   
+  sync_message_katcl(l, KATCP_LEVEL_INFO, NULL, "poweron %s wrote %d bytes", url->u_str ,wb); 
+
   close(fd);
   return 0;
 #undef ARRAYSIZE
 }
 
-int xport_sync_connect_and_stop_subprocess_kcs(void *data)
+int xport_sync_connect_and_stop_subprocess_kcs(struct katcl_line *l, void *data)
 {
 #define ARRAYSIZE 5
   struct katcp_url *url;
-  int fd;
+  int fd, wb;
   unsigned char onstring[ARRAYSIZE] = { 0002, 0202, 0002, 0377, 0377 };
 
   url = data;
@@ -121,18 +123,20 @@ int xport_sync_connect_and_stop_subprocess_kcs(void *data)
   if (fd < 0)
     return -1;
   
-  write(fd, onstring, ARRAYSIZE);
+  wb = write(fd, onstring, ARRAYSIZE);
+  
+  sync_message_katcl(l, KATCP_LEVEL_INFO, NULL, "poweroff %s wrote %d bytes", url->u_str ,wb); 
   
   close(fd);
   return 0;
 #undef ARRAYSIZE
 }
 
-int xport_sync_connect_and_soft_restart_subprocess_kcs(void *data)
+int xport_sync_connect_and_soft_restart_subprocess_kcs(struct katcl_line *l, void *data)
 {
 #define ARRAYSIZE 5
   struct katcp_url *url;
-  int fd;
+  int fd, wb;
   unsigned char onstring[ARRAYSIZE] = { 0002, 0202, 0002, 00, 00 };
   
   url = data;
@@ -144,12 +148,16 @@ int xport_sync_connect_and_soft_restart_subprocess_kcs(void *data)
   if (fd < 0)
     return -1;
   
-  write(fd, onstring, ARRAYSIZE);
+  wb = write(fd, onstring, ARRAYSIZE);
+  
+  sync_message_katcl(l, KATCP_LEVEL_INFO, NULL, "powersoft %s wrote %d bytes", url->u_str ,wb); 
   
   close(fd);
   return 0;
 #undef ARRAYSIZE
 }
+
+
 
 
 #if 0
