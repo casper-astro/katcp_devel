@@ -39,8 +39,12 @@ int udp_ear_kcs(struct katcl_line *l, void *data)
   if (lport  <= 0)
     return -1;
 
+#ifdef DEBUG
+  fprintf(stderr,"udp ear: about to try port: %d\n",*lport);
+#endif
+
   ear.sin_family = AF_INET;
-  ear.sin_port = *lport;
+  ear.sin_port = htons(*lport);
   ear.sin_addr.s_addr = htonl(INADDR_ANY);
 
   fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -61,20 +65,23 @@ int udp_ear_kcs(struct katcl_line *l, void *data)
 
   lfd = fileno_katcl(l);
   mfd = ((lfd > fd) ? lfd : fd) + 1;
+  //mfd = fd + 1;
+
 #ifdef DEBUG
-    fprintf(stderr,"udp ear: about to run\n");
+  fprintf(stderr,"udp ear: about to run with socket on fd: %d\n",fd);
 #endif
 
   for (run = 1; run > 0;) {
 
     FD_ZERO(&ins);
-    FD_ZERO(&outs);
+//    FD_ZERO(&outs);
     FD_SET(lfd, &ins);
     FD_SET(fd, &ins);
     if (flushing_katcl(l))
       FD_SET(lfd, &outs);
 
     rtn = select(mfd, &ins, &outs, NULL, NULL);
+    //rtn = select(mfd, &ins, NULL, NULL, NULL);
     if (rtn < 0){
       switch (errno){
         case EAGAIN :
@@ -89,7 +96,11 @@ int udp_ear_kcs(struct katcl_line *l, void *data)
       fprintf(stderr,"udp ear: got select %d\n",rtn);
 #endif
       if (FD_ISSET(lfd, &outs)){
+#ifdef DEBUG
+        fprintf(stderr,"udp ear: need to write katcl %d\n",rtn);
+#endif
         write_katcl(l);
+        FD_CLR(lfd, &outs);
       }
       if (FD_ISSET(fd,&ins)){
         rb = recv(fd, buffer, MTU, 0); 
@@ -99,7 +110,7 @@ int udp_ear_kcs(struct katcl_line *l, void *data)
           break;
         }
 #ifdef DEBUG
-        fprintf(stderr,"udp ear: fd %d read\n",fd);
+        fprintf(stderr,"udp ear: fd %d read: %d bytes %s\n", fd, rb, buffer);
 #endif
         log_message_katcl(l, KATCP_LEVEL_INFO, NULL, "udp ear: recv %d bytes: %s", rb, buffer);
       }
