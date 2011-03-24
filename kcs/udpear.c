@@ -109,7 +109,7 @@ int udp_ear_kcs(struct katcl_line *l, void *data)
         fprintf(stderr,"udp ear: fd %d read: %d bytes %s\n", fd, rb, buffer);
 #endif
         //log_message_katcl(l, KATCP_LEVEL_INFO, NULL, "udp ear: recv %d bytes: %s", rb, buffer);
-        p = create_parse_katcl();
+        p = create_referenced_parse_katcl();
         if (p) {
           add_string_parse_katcl(p, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#roach");
           add_string_parse_katcl(p,                    KATCP_FLAG_STRING, "add");
