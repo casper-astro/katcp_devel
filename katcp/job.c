@@ -749,6 +749,7 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
 
         kt = find_map_katcp(j->j_map, cmd);
         if(kt){
+          n = kt->t_notice;
           add_parse_notice_katcp(d, n, p);
           trigger_notice_katcp(d, n);
         } else {
@@ -829,7 +830,7 @@ int wait_jobs_katcp(struct katcp_dispatch *d)
           log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "process %d terminated by signal %d", j->j_pid, code);
           j->j_code = KATCP_RESULT_FAIL;
         } else {
-          log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "process %d exited abnormally", j->j_pid, code);
+          log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "process %d exited abnormally", j->j_pid);
           j->j_code = KATCP_RESULT_FAIL;
         }
         j->j_state &= ~(JOB_MAY_KILL | JOB_MAY_COLLECT);
@@ -1277,6 +1278,9 @@ int subprocess_start_job_katcp(struct katcp_dispatch *d, int argc, int options)
       }
       n = create_notice_katcp(d, KATCP_GLOBAL_NOTICE, 0);
       break;
+    default :
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "bad option to subprocess");
+      return KATCP_RESULT_FAIL;
   }
 
   if(n == NULL){
