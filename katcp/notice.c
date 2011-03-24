@@ -837,7 +837,7 @@ int run_notices_katcp(struct katcp_dispatch *d)
   struct katcp_shared *s;
   struct katcp_notice *n;
   struct katcp_invoke *v;
-  int i, k, remove, result, test;
+  int i, k, remove, result, test, limit;
 
   s = d->d_shared;
   i = 0;
@@ -857,7 +857,13 @@ int run_notices_katcp(struct katcp_dispatch *d)
       test = (n->n_trigger == KATCP_NOTICE_TRIGGER_ALL) ? 0 : 1;
 
       n->n_trigger = KATCP_NOTICE_TRIGGER_OFF;
+
+      if(n->n_changes == 0){
+        log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "major logic problem: parse value left");
+      }
+
       n->n_changes = 0;
+      limit = size_queue_katcl(n->n_queue);
 
       if(n->n_parse){
         log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "major logic problem: parse value left");
@@ -897,14 +903,18 @@ int run_notices_katcp(struct katcp_dispatch *d)
 
         if(n->n_parse){
           destroy_parse_katcl(n->n_parse);
+          n->n_parse = NULL;
         }
 
-        n->n_parse = remove_head_queue_katcl(n->n_queue);
-        /* WARNING: will not let go of processor */
+        /* make sure we let go of the cpu, even if callbacks schedule more stuff */
+        limit--;
+        if(limit > 0){
+          n->n_parse = remove_head_queue_katcl(n->n_queue);
+        } else {
+          n->n_parse = NULL;
+        }
 
       } while(n->n_parse != NULL);
-
-      n->n_changes = 0;
 
     }
 
