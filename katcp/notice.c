@@ -9,6 +9,33 @@
 
 /**********************************************************************************/
 
+#define NOTICE_CHANGE_ADD     0x01
+#define NOTICE_CHANGE_CLEAR   0x02
+#define NOTICE_CHANGE_REMOVE  0x04
+#define NOTICE_CHANGE_GONE    0x80
+
+/**********************************************************************************/
+
+
+#ifdef DEBUG
+static void sane_notice_katcp(struct katcp_notice *n)
+{
+  if(n == NULL){
+    fprintf(stderr, "sane: notice is null\n");
+    abort();
+  }
+
+  if(n->n_queue == NULL){
+    fprintf(stderr, "sane: empty queue structure in notice\n");
+    abort();
+  }
+}
+#else
+#define sane_notice_katcp(n)
+#endif
+
+/**********************************************************************************/
+
 static void deallocate_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
 {
   if(n == NULL){
@@ -42,6 +69,17 @@ static void deallocate_notice_katcp(struct katcp_dispatch *d, struct katcp_notic
     destroy_queue_katcl(n->n_queue);
     n->n_queue = NULL;
   }
+
+  if(n->n_parse){
+    destroy_parse_katcl(n->n_parse);
+    n->n_parse = NULL;
+  }
+
+#if 0
+  n->n_position = (-1);
+#endif
+
+  n->n_changes = NOTICE_CHANGE_GONE;
 
   free(n);
 }
@@ -267,6 +305,7 @@ struct katcp_notice *create_parse_notice_katcp(struct katcp_dispatch *d, char *n
         if(add_tail_queue_katcl(n->n_queue, p) < 0){
           return NULL;
         }
+        n->n_changes |= NOTICE_CHANGE_ADD;
       }
 
       return n;
@@ -289,6 +328,13 @@ struct katcp_notice *create_parse_notice_katcp(struct katcp_dispatch *d, char *n
   n->n_use = 0;
 
   n->n_queue = NULL;
+  n->n_parse = NULL;
+
+#if 0
+  n->n_position = (-1);
+#endif
+
+  n->n_changes = NOTICE_CHANGE_CLEAR;
 
 #if 0
   n->n_msg = NULL;
@@ -326,6 +372,7 @@ struct katcp_notice *create_parse_notice_katcp(struct katcp_dispatch *d, char *n
       deallocate_notice_katcp(d, n);
       return NULL;
     }
+    n->n_changes |= NOTICE_CHANGE_ADD;
   }
 
   s->s_notices[s->s_pending] = n;
@@ -554,39 +601,86 @@ void release_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
 
 struct katcl_parse *get_parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
 {
-  if(n == NULL){
-    return NULL;
+  struct katcl_parse *p;
+
+  sane_notice_katcp(n);
+
+  p = get_head_queue_katcl(n->n_queue);
+  if(p){
+    return p;
   }
 
-  return get_head_queue_katcl(n->n_queue);
+  return n->n_parse;
+
+#if 0
+  if(n->n_position < 0){
+#ifdef DEBUG
+    fprintf(stderr, "warning: calling get_parse_notice outsite a notice callback. Results may be unpredictable\n");
+#endif
+    pos = 0;
+  } else {
+    pos = n->n_position;
+  }
+
+  return get_index_queue_katcl(n->n_queue, pos);
+#endif
 }
 
 int set_parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p)
 {
   /* WARNING: does not deal with case where added item is the same as already there */
+  int result;
+
+  sane_notice_katcp(n);
+
+  if(n->n_parse){
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "notice: setting parse %p in notice callback for %p", p, n);
+  } else {
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "notice: setting parse %p outside notice callback for %p", p, n);
+  }
 
   clear_queue_katcl(n->n_queue);
+  n->n_changes |= NOTICE_CHANGE_CLEAR;
 
   if(p == NULL){
     return 0;
   }
 
-  return add_tail_queue_katcl(n->n_queue, p);
+  result = add_tail_queue_katcl(n->n_queue, p);
+  if(result == 0){
+    n->n_changes |= NOTICE_CHANGE_ADD;
+  }
+  
+  return result;
 }
-
 
 struct katcl_parse *remove_parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
 {
-  if(n == NULL){
-    return NULL;
+  struct katcl_parse *p;
+
+  sane_notice_katcp(n);
+
+  p = remove_head_queue_katcl(n->n_queue);
+  if(p){
+    n->n_changes |= NOTICE_CHANGE_REMOVE;
   }
 
-  return remove_head_queue_katcl(n->n_queue);
+  return p;
 }
 
 int add_parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p)
 {
-  return add_tail_queue_katcl(n->n_queue, p);
+  int result;
+
+  sane_notice_katcp(n);
+
+  result = add_tail_queue_katcl(n->n_queue, p);
+
+  if(result == 0){
+    n->n_changes |= NOTICE_CHANGE_ADD;
+  }
+
+  return result;
 }
 
 /******************************************************************************/
@@ -743,8 +837,7 @@ int run_notices_katcp(struct katcp_dispatch *d)
   struct katcp_shared *s;
   struct katcp_notice *n;
   struct katcp_invoke *v;
-  struct katcl_parse  *p;
-  int i, k, remove, result, test;
+  int i, k, remove, result, test, limit;
 
   s = d->d_shared;
   i = 0;
@@ -760,41 +853,72 @@ int run_notices_katcp(struct katcp_dispatch *d)
     n = s->s_notices[i];
 
     if(n->n_trigger != KATCP_NOTICE_TRIGGER_OFF){
+
       test = (n->n_trigger == KATCP_NOTICE_TRIGGER_ALL) ? 0 : 1;
+
       n->n_trigger = KATCP_NOTICE_TRIGGER_OFF;
 
-      k = 0;
-      while(k < n->n_count){
-        v = &(n->n_vector[k]);
+      if(n->n_changes == 0){
+        log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "major logic problem: parse value left");
+      }
 
-#if 0
-        fprintf(stderr, "notice: checking notice=%p, callback=%d, trigger=%d, test=%d (with parse %p)\n", n, k, v->v_trigger, test, n->n_parse);
-#endif
+      n->n_changes = 0;
+      limit = size_queue_katcl(n->n_queue);
 
-        if(v->v_trigger >= test){
-          v->v_trigger = 0;
+      if(n->n_parse){
+        log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "major logic problem: parse value left");
+        destroy_parse_katcl(n->n_parse);
+        n->n_parse = NULL;
+      }
 
-          p = get_head_queue_katcl(n->n_queue);
+      /* WARNING: vague semantics ahead. What does it mean to only have woken a single call back which then clears the set of parse messages ?  */
 
-          if((*(v->v_call))(v->v_client, n, v->v_data) <= 0){
+      n->n_parse = remove_head_queue_katcl(n->n_queue);
+      do{ /* WARNING: will run once only if triggered zero or more times but no parse has been set ...  */
+        k = 0;
+        while(k < n->n_count){
+          v = &(n->n_vector[k]);
+          if(v->v_trigger >= test){
+            
+            v->v_trigger = 0;
+            result = (*(v->v_call))(v->v_client, n, v->v_data);
 
-            dispatch_compact_notice_katcp(v->v_client, n);
+            if(result <= 0){
+              dispatch_compact_notice_katcp(v->v_client, n);
 
-            n->n_count--;
-            if(k < n->n_count){
-              n->n_vector[k].v_client  = n->n_vector[n->n_count].v_client;
-              n->n_vector[k].v_call    = n->n_vector[n->n_count].v_call;
-              n->n_vector[k].v_data    = n->n_vector[n->n_count].v_data;
-              n->n_vector[k].v_trigger = n->n_vector[n->n_count].v_trigger;
+              n->n_count--;
+              if(k < n->n_count){
+                n->n_vector[k].v_client  = n->n_vector[n->n_count].v_client;
+                n->n_vector[k].v_call    = n->n_vector[n->n_count].v_call;
+                n->n_vector[k].v_data    = n->n_vector[n->n_count].v_data;
+                n->n_vector[k].v_trigger = n->n_vector[n->n_count].v_trigger;
+              }
+            } else {
+              k++;
             }
           } else {
             k++;
           }
-        } else {
-          k++;
         }
-      }
+
+        if(n->n_parse){
+          destroy_parse_katcl(n->n_parse);
+          n->n_parse = NULL;
+        }
+
+        /* make sure we let go of the cpu, even if callbacks schedule more stuff */
+        limit--;
+        if(limit > 0){
+          n->n_parse = remove_head_queue_katcl(n->n_queue);
+        } else {
+          n->n_parse = NULL;
+        }
+
+      } while(n->n_parse != NULL);
+
     }
+
+    /* move onto the next notice */
 
     if((n->n_count <= 0) && (n->n_use <= 0)){
       deallocate_notice_katcp(d, n);

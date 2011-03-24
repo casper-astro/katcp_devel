@@ -119,7 +119,7 @@ int kcs_sm_ping_s1(struct katcp_dispatch *d,struct katcp_notice *n, void *data){
   }
   else { 
     /*notice already exists so update it with new parse but dont wake it*/
-    update_notice_katcp(d, n, p, KATCP_NOTICE_TRIGGER_OFF, 0, NULL);
+    set_parse_notice_katcp(d, n, p);
   } 
   gettimeofday(&kr->lastnow, NULL);
   if (notice_to_job_katcp(d, j, n) != 0){
@@ -380,7 +380,10 @@ int try_progdev_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *d
   }
   else { 
     /*notice already exists so update it with new parse but dont wake it*/
+#if 0
     update_notice_katcp(d, n, p, KATCP_NOTICE_TRIGGER_OFF, 0, NULL);
+#endif
+    set_parse_notice_katcp(d, n, p);
   } 
   if (notice_to_job_katcp(d, j, n) != 0){
     /*send the notice to the job this adds it to the bottom of the list of thinngs the job must do*/
