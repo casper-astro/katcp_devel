@@ -814,7 +814,7 @@ int write_katcl(struct katcl_line *l)
 
       case WRITE_STATE_FILL : 
 
-        p = get_head_katcl(l->l_queue);
+        p = get_head_queue_katcl(l->l_queue);
         if(p == NULL){
           state = (l->l_pending > 0) ? WRITE_STATE_SEND : WRITE_STATE_DONE;
           continue; /* WARNING */
@@ -896,7 +896,7 @@ int write_katcl(struct katcl_line *l)
       case WRITE_STATE_NEXT : /* move onto next */
         /* gets a proposed position, updates to next parse or end if needed, adding separators and tags */
 
-        p = get_head_katcl(l->l_queue);
+        p = get_head_queue_katcl(l->l_queue);
         if(p == NULL){
           l->l_offset = 0;
           l->l_arg = 0;
@@ -940,7 +940,7 @@ int write_katcl(struct katcl_line *l)
 
       case WRITE_STATE_SEND : /* do io */
 
-        p = get_head_katcl(l->l_queue);
+        p = get_head_queue_katcl(l->l_queue);
         if(l->l_pending <= 0){ /* nothing more to write ? */
           state = p ? WRITE_STATE_FILL : WRITE_STATE_DONE;
         }
@@ -981,15 +981,15 @@ int write_katcl(struct katcl_line *l)
 
 int flushing_katcl(struct katcl_line *l)
 {
-  int result;
+  unsigned int result;
 
-  result = is_empty_queue_katcl(l->l_queue);
+  result = size_queue_katcl(l->l_queue);
 
 #if DEBUG
   fprintf(stderr, "flushing: is empty returns %d\n", result);
 #endif
 
-  return result ? 0 : 1;
+  return (result > 0) ? 1 : 0;
 }
 
 /***************************/

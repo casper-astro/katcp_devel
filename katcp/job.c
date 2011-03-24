@@ -634,7 +634,7 @@ int submit_to_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, struct ka
 
     p = remove_parse_notice_katcp(d, n);
     if(p){
-      /* WARNING: not ideal, would want to pass a FAIL back */
+      /* WARNING: problem: we need to set a parse for notice to trigger */
       destroy_parse_katcl(p);
 #if 0
       px = turnaround_parse_katcl(p, KATCP_RESULT_FAIL);

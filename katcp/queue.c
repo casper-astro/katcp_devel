@@ -19,17 +19,18 @@
 #include "katsensor.h"
 #include "netc.h"
 
-struct katcl_parse *get_head_katcl(struct katcl_queue *q)
+#if 0
+static struct katcl_parse *get_head_katcl(struct katcl_queue *q)
 {
   return (q->q_count ? q->q_queue[q->q_head] : NULL);
 }
 
-struct katcl_parse *get_tail_katcl(struct katcl_queue *q)
+static struct katcl_parse *get_tail_katcl(struct katcl_queue *q)
 {
   unsigned int tail;
 
   /* Check for error conditions */
-  if(q->q_count == 0 || q->q_size == 0 || q->q_count >= q->q_size){
+  if((q->q_count == 0) || (q->q_size == 0) || (q->q_count >= q->q_size)){
     return NULL;
   }
   tail = ((q->q_head + q->q_count) % q->q_size);
@@ -38,7 +39,12 @@ struct katcl_parse *get_tail_katcl(struct katcl_queue *q)
   /* return matching parse */
   return q->q_queue[tail];
 }
+#endif
 
+
+/**************************************************************************/
+
+#if 0
 unsigned int is_empty_queue_katcl(struct katcl_queue *q)
 {
   if(q->q_count <= 0){
@@ -47,6 +53,7 @@ unsigned int is_empty_queue_katcl(struct katcl_queue *q)
 
   return 0;
 }
+#endif
 
 struct katcl_queue *create_queue_katcl(void)
 {
@@ -90,6 +97,8 @@ void destroy_queue_katcl(struct katcl_queue *q)
 void clear_queue_katcl(struct katcl_queue *q)
 {
   unsigned int i, j;
+
+  /* WARNING: clear queue *does* remove reference count of parse structures */
 
 #ifdef DEBUG
   if(q == NULL){
@@ -161,6 +170,31 @@ int add_tail_queue_katcl(struct katcl_queue *q, struct katcl_parse *p)
 
   return 0;
 }
+
+/*************************************************************************/
+
+struct katcl_parse *get_index_queue_katcl(struct katcl_queue *q, unsigned int index)
+{
+  unsigned int wrap;
+
+  if(q->q_count == 0 || q->q_size == 0 || q->q_count >= q->q_size){
+    return NULL;
+  }
+
+  if((q->q_count > index) && (index < q->q_size)){
+    wrap = ((q->q_head + index) % q->q_size);
+    return q->q_queue[wrap];
+  } else {
+    return NULL;
+  }
+}
+
+struct katcl_parse *get_head_queue_katcl(struct katcl_queue *q)
+{
+  return (q->q_count > 0) ? q->q_queue[q->q_head] : NULL;
+}
+
+/*************************************************************************/
 
 struct katcl_parse *remove_index_queue_katcl(struct katcl_queue *q, unsigned int index)
 {
@@ -246,31 +280,19 @@ struct katcl_parse *remove_index_queue_katcl(struct katcl_queue *q, unsigned int
   return p;
 }
 
-struct katcl_parse *get_head_queue_katcl(struct katcl_queue *q)
-{
-  if(q->q_count > 0){
-    return q->q_queue[q->q_head];
-  } else {
-    return NULL;
-  }
-}
-
 struct katcl_parse *remove_head_queue_katcl(struct katcl_queue *q)
 {
   return remove_index_queue_katcl(q, q->q_head);
 }
 
-int size_queue_katcl(struct katcl_queue *q)
+/**************************************************************************************/
+
+unsigned int size_queue_katcl(struct katcl_queue *q)
 {
   return q ? q->q_count : 0;
 }
 
-int roll_queue_katcl(struct katcl_queue *q)
-{
-  return -1;
-}
-
-/***********************************************************************************************************/
+/**************************************************************************************/
 
 #ifdef DEBUG
 void dump_queue_parse_katcp(struct katcl_queue *q, FILE *fp)

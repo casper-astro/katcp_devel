@@ -319,7 +319,9 @@ struct katcp_notice{
   struct katcp_invoke *n_vector;
   unsigned int n_count;
 
+#if 0
   int n_code;
+#endif
   char *n_name;
 
   int n_trigger;
@@ -332,6 +334,12 @@ struct katcp_notice{
 #endif
 
   struct katcl_queue *n_queue;
+  struct katcl_parse *n_parse;
+
+#if 0
+  int n_position;
+#endif
+  int n_changes;
 
 #if 0
   void *n_target;
@@ -545,12 +553,18 @@ int add_args_parse_katcl(struct katcl_parse *p, int flags, char *fmt, ...);
 int dump_parse_katcl(struct katcl_parse *p, char *prefix, FILE *fp);
 
 /* queue logic */
+#if 0
 struct katcl_parse *get_head_katcl(struct katcl_queue *q);
 struct katcl_parse *get_tail_katcl(struct katcl_queue *q);
+unsigned int is_empty_queue_katcl(struct katcl_queue *q);
+#endif
+
+struct katcl_parse *get_index_queue_katcl(struct katcl_queue *q, unsigned int index);
+
 struct katcl_queue *create_queue_katcl(void);
 void destroy_queue_katcl(struct katcl_queue *q);
 void clear_queue_katcl(struct katcl_queue *q);
-unsigned int is_empty_queue_katcl(struct katcl_queue *q);
+unsigned int size_queue_katcl(struct katcl_queue *q);
 
 int add_tail_queue_katcl(struct katcl_queue *q, struct katcl_parse *p);
 struct katcl_parse *remove_index_queue_katcl(struct katcl_queue *q, unsigned int index);
