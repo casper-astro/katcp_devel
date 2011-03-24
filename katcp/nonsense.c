@@ -2466,6 +2466,10 @@ int match_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_notice *n, vo
   units = get_string_parse_katcl(p, 3);
   type = get_string_parse_katcl(p, 4);
 
+#ifdef DEBUG
+  fprintf(stderr, "sensor: saw sensor %s, type %s\n", name, type);
+#endif
+
   if((name == NULL) || 
      (description == NULL) || 
      (type == NULL)){

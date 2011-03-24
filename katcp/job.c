@@ -686,6 +686,10 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
   struct katcp_notice *n;
   struct katcl_parse *p;
   struct katcp_trap *kt;
+#ifdef DEBUG
+  int i;
+  char *tmp;
+#endif
 
   while((result = have_katcl(j->j_line)) > 0){
 
@@ -695,7 +699,15 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
     }
 
 #ifdef DEBUG
-    fprintf(stderr, "job: processing message starting with <%s ..>\n", cmd);
+    p = ready_katcl(j->j_line);
+
+    fprintf(stderr, "job: processing message starting with <%s %s ...>\n", cmd, arg_string_katcl(j->j_line, 1));
+
+    fprintf(stderr, "job: alt:");
+    for(i = 0; (tmp = get_string_parse_katcl(p, i)); i++){
+      fprintf(stderr, " <%s>", tmp);
+    }
+    fprintf(stderr, "\n");
 #endif
 
     switch(cmd[0]){

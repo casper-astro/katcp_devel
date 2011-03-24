@@ -130,7 +130,7 @@ int add_tail_queue_katcl(struct katcl_queue *q, struct katcl_parse *p)
   }
 
 #ifdef DEBUG
-  fprintf(stderr, "add queue: adding %p with ref %u\n", p, p->p_refs);
+  fprintf(stderr, "add queue: adding %p with ref %u to queue %p of size %d\n", p, p->p_refs, q, q->q_count);
 #endif
 
   if(q->q_count >= q->q_size){
