@@ -601,16 +601,13 @@ void release_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
 
 struct katcl_parse *get_parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
 {
-  struct katcl_parse *p;
-
   sane_notice_katcp(n);
 
-  p = get_head_queue_katcl(n->n_queue);
-  if(p){
-    return p;
+  if(n->n_parse){
+    return n->n_parse;
   }
 
-  return n->n_parse;
+  return get_head_queue_katcl(n->n_queue);
 
 #if 0
   if(n->n_position < 0){
@@ -871,6 +868,10 @@ int run_notices_katcp(struct katcp_dispatch *d)
         n->n_parse = NULL;
       }
 
+#ifdef DEBUG
+     fprintf(stderr, "notice: notice %p triggered with %d messages and %d subscribers\n", n, limit, n->n_count);
+#endif
+
       /* WARNING: vague semantics ahead. What does it mean to only have woken a single call back which then clears the set of parse messages ?  */
 
       n->n_parse = remove_head_queue_katcl(n->n_queue);
@@ -882,6 +883,10 @@ int run_notices_katcp(struct katcp_dispatch *d)
             
             v->v_trigger = 0;
             result = (*(v->v_call))(v->v_client, n, v->v_data);
+
+#ifdef DEBUG
+            fprintf(stderr, "notice: notice %p callback[%d]=%p returns %d (parse=%p)\n", n, k, v->v_call, result, n->n_parse);
+#endif
 
             if(result <= 0){
               dispatch_compact_notice_katcp(v->v_client, n);
