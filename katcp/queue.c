@@ -376,18 +376,18 @@ int main()
     r = rand() % FUDGE;
     if(r == 0){
       for(k = 0; k < FUDGE; k++){
-        px = remove_head_queue(q);
+        px = remove_head_queue_katcl(q);
         if(px){
           destroy_parse_katcl(px);
         }
       }
     } else if((r % 3) == 0){
-      px = remove_head_queue(q);
+      px = remove_head_queue_katcl(q);
       if(px){
         destroy_parse_katcl(px);
       }
     } else {
-      add_tail_queue(q, p);
+      add_tail_queue_katcl(q, p);
     }
     dump_queue_parse_katcp(q, stderr);
   }
