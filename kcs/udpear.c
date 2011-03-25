@@ -30,7 +30,7 @@ int udp_ear_kcs(struct katcl_line *l, void *data)
   struct sockaddr_in ear;
   int mfd, run, fd, lfd, rb, rtn;
   int *lport;
-  char buffer[MTU];
+  unsigned char buffer[MTU];
   fd_set ins;
   fd_set outs;
 
