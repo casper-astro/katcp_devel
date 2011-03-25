@@ -23,18 +23,42 @@ char *copy_kurl_string_katcp(struct katcp_url *ku, char *path){
   fprintf(stderr,"kurl: copy string\n");
 #endif
   
-  i = snprintf(NULL,0,"%s://%s:%d/",ku->u_scheme,ku->u_host,ku->u_port);
-  if(i <= 0){
+#ifdef DEBUG
+  if(ku->u_scheme == NULL){
+    fprintf(stderr, "kurl: no scheme in url\n");
     return NULL;
   }
+#endif
+  
+  if(ku->u_cmd){ 
 
-  str = malloc(sizeof(char)*(i+1));
-  if(str == NULL){
-    return NULL;
+    i = strlen(ku->u_scheme) + 3 + strlen(ku->u_cmd) + 1;
+
+    str = malloc(sizeof(char) * (i));
+    if(str == NULL){
+      return NULL;
+    }
+
+    snprintf(str, i + 1, "%s://%s", ku->u_scheme, ku->u_cmd);
+    str[i] = '\0'; 
+
+  } else {
+
+    i = snprintf(NULL,0,"%s://%s:%d/", ku->u_scheme, ku->u_host, ku->u_port);
+    if(i <= 0){
+      return NULL;
+    }
+
+    str = malloc(sizeof(char)*(i+1));
+    if(str == NULL){
+      return NULL;
+    }
+
+    i = snprintf(str, i + 1, "%s://%s:%d/", ku->u_scheme, ku->u_host, ku->u_port);
+    str[i] = '\0'; 
+
   }
 
-  i = snprintf(str, i + 1, "%s://%s:%d/", ku->u_scheme, ku->u_host, ku->u_port);
-  str[i] = '\0'; 
   if (!path){
     return str;
   }
@@ -49,6 +73,7 @@ char *copy_kurl_string_katcp(struct katcp_url *ku, char *path){
     free(str);
     return NULL;
   }
+
   i = snprintf(NULL,0,"%s%s",str,ku->u_path[found]);
   str = realloc(str,sizeof(char)*(i+1));
   str = strcat(str,ku->u_path[found]);
@@ -248,6 +273,38 @@ struct katcp_url *create_kurl_katcp(char *scheme, char *host, int port, char *pa
   ku->u_str    = copy_kurl_string_katcp(ku,NULL);
   ku->u_path = realloc(ku->u_path,sizeof(char*)*++ku->u_pcount);
   ku->u_path[ku->u_pcount-1] = strdup(path);
+  return ku;
+}
+
+struct katcp_url *create_exec_kurl_katcp(char *cmd){
+  struct katcp_url *ku;
+  
+  ku = malloc(sizeof(struct katcp_url));
+  if (ku == NULL){
+    return NULL;
+  }
+
+  ku->u_str    = NULL;
+  ku->u_host   = NULL;
+  ku->u_port   = 0;
+
+  ku->u_path = NULL;
+  ku->u_pcount = 0;
+
+  ku->u_scheme = strdup("exec");
+  ku->u_cmd = strdup(cmd);
+
+  if((ku->u_scheme == NULL) || (ku->u_cmd == NULL)){
+    destroy_kurl_katcp(ku);
+    return NULL;
+  }
+
+  ku->u_str = copy_kurl_string_katcp(ku, NULL);
+  if(ku->u_str == NULL){
+    destroy_kurl_katcp(ku);
+    return NULL;
+  }
+
   return ku;
 }
 

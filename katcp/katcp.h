@@ -378,6 +378,7 @@ char *copy_kurl_string_katcp(struct katcp_url *ku, char *path);
 char *add_kurl_path_copy_string_katcp(struct katcp_url *ku, char *npath);
 struct katcp_url *create_kurl_from_string_katcp(char *url);
 struct katcp_url *create_kurl_katcp(char *scheme, char *host, int port, char *path);
+struct katcp_url *create_exec_kurl_katcp(char *cmd);
 int containing_kurl_katcp(struct katcp_url *ku, char *string);
 
 /* version support logic */
