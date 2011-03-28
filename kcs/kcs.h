@@ -132,6 +132,7 @@ struct kcs_roach {
   struct timeval lastnow;
 };
 
+int roach_cmd(struct katcp_disptach *d, int argc);
 int roachpool_greeting(struct katcp_dispatch *d);
 int roachpool_add(struct katcp_dispatch *d);
 int roachpool_mod(struct katcp_dispatch *d);
@@ -143,6 +144,7 @@ int roachpool_connect_pool(struct katcp_dispatch *d);
 int add_roach_to_pool_kcs(struct katcp_dispatch *d, char *pool, char *url, char *ip);
 struct kcs_obj *roachpool_get_obj_by_name_kcs(struct katcp_dispatch *d, char *name);
 int mod_roach_to_new_pool(struct kcs_obj *root, char *pool, char *hostname);
+int roachpool_count_kcs(struct katcp_disptach *d);
 
 #define KCS_SM_PING_STOP 0 
 #define KCS_SM_PING_S1   1

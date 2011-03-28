@@ -13,6 +13,7 @@
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 
 #include "netc.h"
 
@@ -21,7 +22,7 @@ int net_connect(char *name, int port, int flags)
   /* WARNING: this function may call resolvers, and blocks for those */
   /* WARNING: uses ipv4 API */
 
-  int p, len, fd, se;
+  int p, len, fd, se, option;
   char *ptr, *host;
   struct hostent *he;
   struct sockaddr_in sa;
@@ -89,6 +90,29 @@ int net_connect(char *name, int port, int flags)
   if(flags & NETC_VERBOSE_STATS){
     ptr = inet_ntoa(sa.sin_addr);
     fprintf(stderr, "connect: connecting to %s:%u\n", ptr, p);
+  }
+  
+  if(flags & NETC_TCP_KEEP_ALIVE){
+    option = 1;
+    if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &option, sizeof(option)) < 0){
+      fprintf(stderr,"connect: cannot set keepalive socket option\n");
+      return -1;
+    }
+    option = 10;
+    if (setsockopt(fd, SOL_TCP, TCP_KEEPIDLE, &option, sizeof(option)) < 0){
+      fprintf(stderr,"connect: cannot set keepalive socket option\n");
+      return -1;
+    }
+    option = 10;
+    if (setsockopt(fd, SOL_TCP, TCP_KEEPINTVL, &option, sizeof(option)) < 0){
+      fprintf(stderr,"connect: cannot set keepalive socket option\n");
+      return -1;
+    }
+    option = 3;
+    if (setsockopt(fd, SOL_TCP, TCP_KEEPCNT, &option, sizeof(option)) < 0){
+      fprintf(stderr,"connect: cannot set keepalive socket option\n");
+      return -1;
+    }
   }
 
   len = sizeof(struct sockaddr_in);

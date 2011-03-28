@@ -330,55 +330,6 @@ int parser_cmd(struct katcp_dispatch *d, int argc){
 }
 
 
-int roach_cmd(struct katcp_dispatch *d, int argc){
-  char *p_cmd;
-
-  switch (argc){
-    case 1:
-      return roachpool_greeting(d);        
-    case 2:
-      p_cmd = arg_string_katcp(d,1);
-      if (strcmp("start-pool",p_cmd) == 0){
-      
-      } else if(strcmp("stop-pool",p_cmd) == 0){
-        
-      } else if (strcmp("list",p_cmd) == 0){
-        return roachpool_list(d); 
-      }/* else if (strcmp("tts",p_cmd) == 0){
-        return roachpool_test_timer(d);
-      }*/
-      return KATCP_RESULT_FAIL;
-    case 3:
-      p_cmd = arg_string_katcp(d,1);
-      if (strcmp("del",p_cmd) == 0){
- 
-      } else if (strcmp("start",p_cmd) == 0){
-
-      } else if (strcmp("stop",p_cmd) == 0){
-
-      } else if (strcmp("get-conf",p_cmd) == 0){
-        return roachpool_getconf(d);
-      }/* else if (strcmp("connect",p_cmd) == 0){
-        return roachpool_connect_pool(d);
-      } */
-      return KATCP_RESULT_FAIL;
-    case 4:
-      p_cmd = arg_string_katcp(d,1);
-      if (strcmp("mod",p_cmd) == 0){
-        return roachpool_mod(d);
-      }
-      return KATCP_RESULT_FAIL;
-    case 5:
-      p_cmd = arg_string_katcp(d,1);
-      if (strcmp("add",p_cmd) == 0){
-        return roachpool_add(d);
-      }
-      return KATCP_RESULT_FAIL;
-  }
-
-  return KATCP_RESULT_FAIL;
-}
-
 int k7_resume_job(struct katcp_dispatch *d, struct katcp_notice *n){
   struct katcl_parse *p;
   char *ptr;

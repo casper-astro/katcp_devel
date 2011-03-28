@@ -225,7 +225,7 @@ int connect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
     return KCS_SM_CONNECT_STOP;
   }
   
-  fd = net_connect(kr->kurl->u_host, kr->kurl->u_port, NETC_ASYNC);
+  fd = net_connect(kr->kurl->u_host, kr->kurl->u_port, NETC_ASYNC | NETC_TCP_KEEP_ALIVE);
   if (fd < 0) {
     log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "Unable to connect to %s",kr->kurl->u_str);
     free(dc_kurl);
