@@ -330,8 +330,9 @@ int disconnect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *da
 /*******************************************************************************************************/
 /*PROGDEV*/
 /*******************************************************************************************************/
-#if 0
-int try_progdev_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data){
+#if 1 
+int try_progdev_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
+{
   struct katcp_job *j;
   struct katcl_parse *p;
   struct kcs_obj *ko;
@@ -339,15 +340,18 @@ int try_progdev_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *d
   struct kcs_statemachine *ksm;
   char * p_kurl;
   struct p_value *conf_bs;
+  
   ko = data;
   kr = ko->payload;
   ksm = kr->ksm[kr->ksmactive];
-  conf_bs = kr->data;
+  conf_bs = ksm->data;
+  
   j = find_job_katcp(d,ko->name);
   if (j == NULL){
     log_message_katcp(d,KATCP_LEVEL_ERROR,NULL,"Couldn't find job labeled %s",ko->name);
     return KCS_SM_PROGDEV_STOP;
   }
+  
   p = create_parse_katcl();
   if (p == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR,NULL,"unable to create message");
@@ -361,18 +365,22 @@ int try_progdev_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *d
     log_message_katcp(d, KATCP_LEVEL_ERROR,NULL,"unable to assemble message");
     return KCS_SM_PROGDEV_STOP;
   }
-  kr->data = NULL;
+  
+  ksm->data = NULL;
   if (!n){
     if (!(p_kurl = copy_kurl_string_katcp(kr->kurl,"?progdev")))
       p_kurl = add_kurl_path_copy_string_katcp(kr->kurl,"?progdev");
+    
     n = create_parse_notice_katcp(d, p_kurl, 0, p);
     if (!n){
       log_message_katcp(d, KATCP_LEVEL_ERROR,NULL,"unable to create notice %s",p_kurl);
       free(p_kurl);
       return KCS_SM_PROGDEV_STOP;
     }
+    
     ksm->n = n;
     if (p_kurl) { free(p_kurl); p_kurl = NULL; }
+    
     if (add_notice_katcp(d, n, &run_statemachine, ko) != 0){
       log_message_katcp(d, KATCP_LEVEL_ERROR,NULL,"unable to add to notice %s",n->n_name);
       return KCS_SM_PROGDEV_STOP;
@@ -395,10 +403,13 @@ int try_progdev_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *d
   return KCS_SM_PROGDEV_OKAY;
 }
 
-int okay_progdev_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data){
+int okay_progdev_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
+{
   struct katcl_parse *p;
   char *ptr;
+
   p = get_parse_notice_katcp(d,n);
+  
   if (p){
     ptr = get_string_parse_katcl(p,1);
     log_message_katcp(d,KATCP_LEVEL_INFO,NULL,"%s replies: %s",n->n_name,ptr);
@@ -408,8 +419,10 @@ int okay_progdev_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *
 #ifdef DEBUG
   fprintf(stderr,"SM: about to run wake_notice_katcp\n");
 #endif
+  
   //wake_notice_katcp(d,n,p);
   wake_notice_katcp(d,n,NULL);
+  //wake_single_name_notice_katcp(d, KCS_SCHEDULER_NOTICE, p, ko);
   //log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "done okay progdev %s",n->n_name);
   return KCS_SM_PROGDEV_STOP;
 }
@@ -472,7 +485,7 @@ struct kcs_statemachine *get_sm_connect_kcs(void *data){
 
   return ksm;
 }
-#if 0
+#if 1
 struct kcs_statemachine *get_sm_progdev_kcs(void *data){
   struct kcs_statemachine *ksm;
   
@@ -500,10 +513,14 @@ struct kcs_statemachine *get_sm_progdev_kcs(void *data){
   return ksm;
 }
 #endif
+
+
 /*******************************************************************************************************/
 /*KCS Scheduler Stuff*/
 /* ******************************************************************************************************/
-int tick_scheduler_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data){
+
+int tick_scheduler_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
+{
   struct kcs_obj *ko;
   struct kcs_roach *kr;
   struct katcl_parse *p;
@@ -514,23 +531,35 @@ int tick_scheduler_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *d
   ko = data;
   kr = ko->payload;
 
+#ifdef DEBUG
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "scheduler tick function r: %s ksmcount: %d ksmactive: %d", ko->name, kr->ksmcount, kr->ksmactive);
   for (i=0;i<kr->ksmcount;i++){
     log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "scheduler ksm[%d]: %p",i,kr->ksm[i]);
   }
+#endif
  
   p = get_parse_notice_katcp(d,n);
+  
   if (p){
+  
     i = get_count_parse_katcl(p);
+    
     if (i == 3){
+  
       ptr = get_string_parse_katcl(p,2);
-      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "sm: %s returns %s", get_string_parse_katcl(p,1), ptr);
+      
       if (strcmp(ptr,"ok") == 0){
+#ifdef DEBUG
+        log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "statemachine scheduler: current ksm [%d] %s returns %s", kr->ksmactive, get_string_parse_katcl(p,1), ptr);
+#endif
         kr->ksmactive++;
-      } else {
+      } 
+      else {   
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "sm: %s returns %s, about to stop scheduler", get_string_parse_katcl(p,1), ptr);
         return 0;
       }
     }
+
   }
 
 #ifdef DEBUG
@@ -539,7 +568,9 @@ int tick_scheduler_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *d
   
   return KCS_SCHEDULER_TICK;
 }
-struct katcp_notice *add_scheduler_notice_kcs(struct katcp_dispatch *d, void *data){
+
+struct katcp_notice *add_scheduler_notice_kcs(struct katcp_dispatch *d, void *data)
+{
   struct katcp_notice *n;
 
   n = find_notice_katcp(d,KCS_SCHEDULER_NOTICE);
@@ -549,16 +580,21 @@ struct katcp_notice *add_scheduler_notice_kcs(struct katcp_dispatch *d, void *da
 #endif
 
   if(n == NULL){
+#ifdef DEBUG
     log_message_katcp(d,KATCP_LEVEL_INFO, NULL, "creating kcs scheduler and attaching tick callback");
+#endif
     n = create_notice_katcp(d,KCS_SCHEDULER_NOTICE,0);
+    
     if (n == NULL){
       log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "unable to create kcs scheduler notice");
       return NULL;
     }
+
 #ifdef DEBUG
     fprintf(stderr,"SM: scheduler: needed to create notice %s: %p\n",KCS_SCHEDULER_NOTICE,n);
 #endif
   }
+
   if (add_notice_katcp(d, n, &tick_scheduler_kcs, data)<0){
     log_message_katcp(d,KATCP_LEVEL_ERROR, NULL, "unable to add function to notice");
     return NULL; 
@@ -570,10 +606,13 @@ struct katcp_notice *add_scheduler_notice_kcs(struct katcp_dispatch *d, void *da
   return n;  
 }
 
+
 /*******************************************************************************************************/
 /*API Functions*/
 /*******************************************************************************************************/
-int api_prototype_sm_kcs(struct katcp_dispatch *d, struct kcs_obj *ko, struct kcs_statemachine *(*call)(void *),void *data){
+
+int api_prototype_sm_kcs(struct katcp_dispatch *d, struct kcs_obj *ko, struct kcs_statemachine *(*call)(void *),void *data)
+{
   struct kcs_roach *kr;
   struct kcs_node *kn;
   struct katcp_notice *n;
@@ -624,7 +663,8 @@ int api_prototype_sm_kcs(struct katcp_dispatch *d, struct kcs_obj *ko, struct kc
   return KATCP_RESULT_OK;
 }
 
-int statemachine_stop(struct katcp_dispatch *d){
+int statemachine_stop(struct katcp_dispatch *d)
+{
   /*struct kcs_obj *ko;
   struct kcs_node *kn;
   struct kcs_roach *kr;
@@ -665,7 +705,8 @@ int statemachine_stop(struct katcp_dispatch *d){
   return KATCP_RESULT_OK;
 }
 
-int statemachine_ping(struct katcp_dispatch *d){
+int statemachine_ping(struct katcp_dispatch *d)
+{
   struct kcs_obj *ko;
   char *obj;
 
@@ -680,7 +721,8 @@ int statemachine_ping(struct katcp_dispatch *d){
   return KATCP_RESULT_FAIL;
 }
 
-int statemachine_connect(struct katcp_dispatch *d){
+int statemachine_connect(struct katcp_dispatch *d)
+{
   struct kcs_obj *ko;
   char *obj, *pool;
 
@@ -693,7 +735,9 @@ int statemachine_connect(struct katcp_dispatch *d){
 
   return api_prototype_sm_kcs(d,ko,&get_sm_connect_kcs,pool);
 }
-int statemachine_disconnect(struct katcp_dispatch *d){
+
+int statemachine_disconnect(struct katcp_dispatch *d)
+{
   struct kcs_obj *ko;
   struct kcs_node *kn;
   struct kcs_roach *kr;
@@ -740,7 +784,8 @@ int statemachine_disconnect(struct katcp_dispatch *d){
   return KATCP_RESULT_OK;
 }
 
-int statemachine_progdev(struct katcp_dispatch *d){
+int statemachine_progdev(struct katcp_dispatch *d)
+{
   struct kcs_obj *ko;
   struct p_value *conf_bitstream;
   char *label, *setting, *value;
@@ -758,10 +803,11 @@ int statemachine_progdev(struct katcp_dispatch *d){
   conf_bitstream = parser_get(d, label, setting, atoi(value));
   if (!conf_bitstream)
     return KATCP_RESULT_FAIL;
-#if 0  
+
   return api_prototype_sm_kcs(d,ko,&get_sm_progdev_kcs,conf_bitstream);
-#endif
+#if 0  
   return KATCP_RESULT_FAIL;
+#endif
 }
 
 int statemachine_poweron(struct katcp_dispatch *d)

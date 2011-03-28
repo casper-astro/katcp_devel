@@ -204,6 +204,37 @@ int add_new_roach_to_tree(struct kcs_obj *root, char *poolname, char *url, char 
   return KCS_OK;    
 }
 
+int add_roach_to_pool_kcs(struct katcp_dispatch *d, char *pool, char *url, char *ip){
+  struct kcs_basic *kb;
+  struct kcs_obj *root;
+  int rtn;
+
+  kb = need_current_mode_katcp(d, KCS_MODE_BASIC);
+  
+  root = kb->b_pool_head;
+  if (root == NULL){
+    root = init_tree();
+    kb->b_pool_head = root;
+  }
+  rtn = add_new_roach_to_tree(root, pool, url, ip, NULL);
+
+  switch (rtn){
+    case KCS_FAIL:
+#ifdef DEBUG
+      fprintf(stderr,"roachpool: error adding roach <%s> to pool <%s>\n", url, pool); 
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "roachpool: error adding roach <%s> to pool <%s>\n", url, pool); 
+#endif
+      break;
+    case KCS_OK:
+#ifdef DEBUG
+      fprintf(stderr,"roachpool: added roach <%s> to pool <%s>\n", url, pool); 
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "roachpool: added roach <%s> to pool <%s>\n", url, pool); 
+#endif
+      break;
+  }
+  return rtn;
+}
+
 void show_pool(struct katcp_dispatch *d,struct kcs_obj *o,int depth){
 
   struct kcs_node *n;

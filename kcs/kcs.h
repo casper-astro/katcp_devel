@@ -140,6 +140,7 @@ int roachpool_list(struct katcp_dispatch *d);
 int roachpool_destroy(struct katcp_dispatch *d);
 int roachpool_getconf(struct katcp_dispatch *d);
 int roachpool_connect_pool(struct katcp_dispatch *d);
+int add_roach_to_pool_kcs(struct katcp_dispatch *d, char *pool, char *url, char *ip);
 struct kcs_obj *roachpool_get_obj_by_name_kcs(struct katcp_dispatch *d, char *name);
 int mod_roach_to_new_pool(struct kcs_obj *root, char *pool, char *hostname);
 

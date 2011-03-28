@@ -27,12 +27,14 @@ int udp_ear_kcs(struct katcl_line *l, void *data)
 {
   struct katcl_parse *p;
 
-  struct sockaddr_in ear;
+  struct sockaddr_in ear, peer;
   int mfd, run, fd, lfd, rb, rtn;
   int *lport;
   unsigned char buffer[MTU];
   fd_set ins;
   fd_set outs;
+  socklen_t len;
+  char *ptr;
 
   if (data == NULL)
     return -1;
@@ -72,6 +74,8 @@ int udp_ear_kcs(struct katcl_line *l, void *data)
   fprintf(stderr,"udp ear: about to run with socket on fd: %d\n",fd);
 #endif
 
+  len = sizeof(struct sockaddr_in);
+
   FD_ZERO(&outs);
   for (run = 1; run > 0;) {
 
@@ -99,7 +103,10 @@ int udp_ear_kcs(struct katcl_line *l, void *data)
 #endif
       if (FD_ISSET(fd,&ins)){
         bzero(buffer, MTU);
+#if 0
         rb = recv(fd, buffer, MTU, 0); 
+#endif
+        rb = recvfrom(fd, buffer, MTU, 0, (struct sockaddr *) &peer, &len);
         if (rb <= 0){
           log_message_katcl(l, KATCP_LEVEL_ERROR, NULL, "udp ear: recv error: %s", strerror(errno));
           run = 0;
@@ -108,12 +115,32 @@ int udp_ear_kcs(struct katcl_line *l, void *data)
 #ifdef DEBUG
         fprintf(stderr,"udp ear: fd %d read: %d bytes %s\n", fd, rb, buffer);
 #endif
+       
+#if 0
+        if (getpeername(fd,  (struct sockaddr *) &peer, &len) < 0){
+       // if (getsockname(fd, (struct sockaddr *) &peer, &len) < 0){
+#ifdef DEBUG
+          fprintf(stderr,"udp ear: getpeername error %s\n",strerror(errno));
+#endif
+          ptr = NULL;
+        }
+        else {
+          ptr = inet_ntoa(peer.sin_addr);
+        }
+#endif
+
+        ptr = inet_ntoa(peer.sin_addr);
+#ifdef DEBUG
+        fprintf(stderr,"udp ear: %s\n", ptr);
+#endif
+
         //log_message_katcl(l, KATCP_LEVEL_INFO, NULL, "udp ear: recv %d bytes: %s", rb, buffer);
         p = create_referenced_parse_katcl();
         if (p) {
           add_string_parse_katcl(p, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#roach");
           add_string_parse_katcl(p,                    KATCP_FLAG_STRING, "add");
-          add_string_parse_katcl(p,                    KATCP_FLAG_STRING, buffer);
+          add_string_parse_katcl(p,                    KATCP_FLAG_STRING, (char *) buffer);
+          add_string_parse_katcl(p,                    KATCP_FLAG_STRING, ptr);
           add_string_parse_katcl(p, KATCP_FLAG_LAST  | KATCP_FLAG_STRING, "spare");
           if (append_parse_katcl(l, p) < 0){
             log_message_katcl(l, KATCP_LEVEL_ERROR, NULL, "udp ear: unable to append parse to line recv %d bytes: %s", rb, buffer);
@@ -154,15 +181,39 @@ int handle_roach_via_udp_ear_kcs(struct katcp_dispatch *d, struct katcp_notice *
 {
   struct katcl_parse *p;
   int i, argc;
-
-#ifdef DEBUG
-  fprintf(stderr, "udpear: in handle_roach_via_udp_ear");
+  char *dcmd, *rcmd, *url, *ip, *pool;
+  
+#if 0
+  fprintf(stderr, "udpear: in handle_roach_via_udp_ear\n");
   log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "udpear: in handle_roach_via_udp_ear");
 #endif
   
   p = get_parse_notice_katcp(d, n);
   if (p) {
     argc = get_count_parse_katcl(p);
+    
+    switch (argc){
+      case 5:
+          
+          dcmd = get_string_parse_katcl(p,0);
+          rcmd = get_string_parse_katcl(p,1);
+          url  = get_string_parse_katcl(p,2);
+          ip   = get_string_parse_katcl(p,3);
+          pool = get_string_parse_katcl(p,4);
+          
+          if (strcmp(dcmd,"#roach") == 0 && strcmp(rcmd,"add") == 0 && url && ip && pool){
+            if (add_roach_to_pool_kcs(d, pool, url, ip) == KCS_FAIL) {
+#ifdef DEBUG
+              fprintf(stderr, "udpear: error adding roach to pool in kcs\n");
+              log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "udpear: error adding roach to the pool");
+#endif
+            }
+
+          }
+
+        break;
+    }
+
     for (i=0; i<argc; i++){
       log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "udpear[%d]: %s", i, get_string_parse_katcl(p, i));
     }
