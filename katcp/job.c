@@ -168,7 +168,7 @@ static struct katcp_notice *remove_head_job(struct katcp_dispatch *d, struct kat
 
 /***********************************************************************************************************/
 
-#ifdef DEBUG
+#if defined (DEBUG) || defined(UNIT_TEST_JOB)
 void dump_queue_job_katcp(struct katcp_job *j, FILE *fp)
 {
   unsigned int i, k;

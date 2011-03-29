@@ -2430,6 +2430,14 @@ char *assemble_sensor_name_katcp(struct katcp_notice *n, char *suffix)
   }
 
   copy[total - 1] = '\0';
+
+#if 0
+  ptr = strchr(copy, '#');
+  if(ptr){
+    ptr[0] = '\0';
+  }
+#endif
+
   destroy_kurl_katcp(ku);
 
   return copy;
