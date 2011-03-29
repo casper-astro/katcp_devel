@@ -180,7 +180,10 @@ int udp_ear_kcs(struct katcl_line *l, void *data)
 int handle_roach_via_udp_ear_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 {
   struct katcl_parse *p;
-  int i, argc;
+#if 0
+  int i;
+#endif
+  int argc;
   char *dcmd, *rcmd, *url, *ip, *pool;
   
 #if 0
@@ -204,8 +207,8 @@ int handle_roach_via_udp_ear_kcs(struct katcp_dispatch *d, struct katcp_notice *
           if (strcmp(dcmd,"#roach") == 0 && strcmp(rcmd,"add") == 0 && url && ip && pool){
             if (add_roach_to_pool_kcs(d, pool, url, ip) == KCS_FAIL) {
 #ifdef DEBUG
-              fprintf(stderr, "udpear: error adding roach to pool in kcs\n");
-              log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "udpear: error adding roach to the pool");
+              fprintf(stderr, "udpear: error cannot add roach to pool in kcs\n");
+              log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "udpear: error cannot add roach to pool");
 #endif
             }
 
@@ -213,10 +216,11 @@ int handle_roach_via_udp_ear_kcs(struct katcp_dispatch *d, struct katcp_notice *
 
         break;
     }
-
+#if 0
     for (i=0; i<argc; i++){
       log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "udpear[%d]: %s", i, get_string_parse_katcl(p, i));
     }
+#endif 
   }
   
   return 1; 

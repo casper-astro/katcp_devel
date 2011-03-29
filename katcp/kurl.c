@@ -5,15 +5,17 @@
 #include <katpriv.h>
 #include <katcp.h>
 
-#define COL ':'
-#define WAK '/'
+#define COL   ':'
+#define WAK   '/'
+#define HASH  '#'
 
-#define S_SCHEME 2
-#define S_HOST 3
-#define S_PORT 4
-#define S_PATH 5
-#define S_END 0
-#define S_CMD 6
+#define S_SCHEME  2
+#define S_HOST    3
+#define S_PORT    4
+#define S_PATH    5
+#define S_END     0
+#define S_CMD     6
+#define S_HASH    7
 
 char *copy_kurl_string_katcp(struct katcp_url *ku, char *path){
   char *str;
@@ -160,6 +162,7 @@ struct katcp_url *create_kurl_from_string_katcp(char *url){
             if (j < 3)
               spos = i+1;
             break;
+          case HASH:
           case '\r':
           case '\n':
           case '\0':
@@ -168,6 +171,25 @@ struct katcp_url *create_kurl_from_string_katcp(char *url){
             ku->u_cmd = malloc(sizeof(char)*len);
             ku->u_cmd = strncpy(ku->u_cmd,url+spos,len-1);
             ku->u_cmd[len-1] = '\0';
+            state = S_HASH;
+            spos = i+1;
+            break;
+        }
+        i++;
+        break;
+      case S_HASH:
+        c = url[i];
+        switch (c){
+          case '\r':
+          case '\n':
+          case '\0':
+            epos = i+1;
+            len = epos-spos;
+            ku->u_path = malloc(sizeof(char *));
+            ku->u_path[ku->u_pcount] = malloc(sizeof(char)*len);
+            ku->u_path[ku->u_pcount] = strncpy(ku->u_path[ku->u_pcount], url+spos, len-1);
+            ku->u_path[ku->u_pcount][len-1] = '\0'; 
+            ku->u_pcount++;
             state = S_END;
             break;
         }
@@ -313,6 +335,7 @@ int containing_kurl_katcp(struct katcp_url *ku, char *string)
     offset += len;
 
     if(string[offset] != ':'){
+          
       return 0;
     }
     offset++;
@@ -400,7 +423,8 @@ int main(int argc, char **argv){
   char *temp;
 
   ku = create_kurl_from_string_katcp("katcp://host.domain:7147/");
-  ku2 = create_kurl_from_string_katcp("exec:///bin/ls");
+  ku2 = create_kurl_from_string_katcp("exec:///bin/ls#thisisatest");
+  kurl_print(ku2);
 
   if((ku == NULL) || (ku2 == NULL)){
     fprintf(stderr, "test: unable to assemble urls from strings\n");
@@ -439,7 +463,6 @@ int main(int argc, char **argv){
   kurl_print(ku);
   destroy_kurl_katcp(ku);
 
-  kurl_print(ku2);
   destroy_kurl_katcp(ku2);
 
   return 0;

@@ -224,8 +224,8 @@ int add_roach_to_pool_kcs(struct katcp_dispatch *d, char *pool, char *url, char 
   switch (rtn){
     case KCS_FAIL:
 #ifdef DEBUG
-      fprintf(stderr,"roachpool: error adding roach <%s> to pool <%s>\n", url, pool); 
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "roachpool: error adding roach <%s> to pool <%s>\n", url, pool); 
+      fprintf(stderr,"roachpool: error not adding roach <%s> to pool <%s>\n", url, pool); 
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "roachpool: error cannot add roach <%s> to pool <%s>\n", url, pool); 
 #endif
       break;
     case KCS_OK:
