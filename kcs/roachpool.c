@@ -548,8 +548,35 @@ struct kcs_obj *roachpool_get_obj_by_name_kcs(struct katcp_dispatch *d, char *na
 
 int roachpool_count_kcs(struct katcp_dispatch *d)
 {
-
+  struct kcs_obj *ko;
+  struct kcs_node *kn;
+  char *obj;
+  int count;
   
+  obj = arg_string_katcp(d, 2); 
+  count = 0;
+
+  ko = roachpool_get_obj_by_name_kcs(d, obj);
+  if (ko == NULL)
+    return KATCP_RESULT_FAIL;
+
+  switch (ko->tid){
+    case KCS_ID_ROACH:
+        count = 1;
+      break;
+
+    case KCS_ID_NODE:
+        kn = ko->payload;
+        if (kn == NULL)
+          return KATCP_RESULT_FAIL;
+        count = kn->childcount;
+      break;
+  }
+  
+  prepend_reply_katcp(d);
+  append_unsigned_long_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, count);
+
+  return KATCP_RESULT_OK;
 }
 
 int roachpool_greeting(struct katcp_dispatch *d){
@@ -559,6 +586,8 @@ int roachpool_greeting(struct katcp_dispatch *d){
   //append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST ,"del [roach hostname | pool type]");
   prepend_inform_katcp(d);
   append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST ,"mod [roach hostname] [new pool type]");
+  prepend_inform_katcp(d);
+  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST ,"count [roachpool object]");
   prepend_inform_katcp(d);
   append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, "get-conf [config settings (servers_x / servers_f)]");
   prepend_inform_katcp(d);
