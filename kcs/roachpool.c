@@ -574,7 +574,7 @@ int roachpool_count_kcs(struct katcp_dispatch *d)
   }
   
   prepend_reply_katcp(d);
-  append_unsigned_long_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, count);
+  append_unsigned_long_katcp(d, KATCP_FLAG_UNSIGNED_LONG, count);
 
   return KATCP_RESULT_OK;
 }
