@@ -581,7 +581,7 @@ int roachpool_count_kcs(struct katcp_dispatch *d)
 
 int roachpool_greeting(struct katcp_dispatch *d){
   prepend_inform_katcp(d);
-  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST ,"add [kurl (katcp://roach.hostname:port/)] [roach ip] [pool type]");/*[roach hostname] [roach ip] [pool type]");*/
+  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST ,"add [kurl (katcp://roach.hostname:port/)] [roach ip] [pool type]");
   //prepend_inform_katcp(d);
   //append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST ,"del [roach hostname | pool type]");
   prepend_inform_katcp(d);
@@ -592,17 +592,6 @@ int roachpool_greeting(struct katcp_dispatch *d){
   append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, "get-conf [config settings (servers_x / servers_f)]");
   prepend_inform_katcp(d);
   append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, "list");
-  /*prepend_inform_katcp(d);
-  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, "connect [pool]");
-  prepend_inform_katcp(d);
-  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST ,"start [roach hostname]");
-  prepend_inform_katcp(d);
-  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST ,"stop [roach hostname]");
-  prepend_inform_katcp(d);
-  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST ,"start-pool");
-  prepend_inform_katcp(d);
-  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST ,"stop-pool");
-  */
   return KATCP_RESULT_OK;
 }
 
