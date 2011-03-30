@@ -22,6 +22,11 @@
 
 #endif
 
+#define KCS_SCHEDULER_NOTICE "<kcs_scheduler>"
+#define KCS_SCHEDULER_STOP  0
+#define KCS_SCHEDULER_TICK  1
+
+
 char *create_str(char *s);
 
 int setup_basic_kcs(struct katcp_dispatch *d, char *scripts);
@@ -119,12 +124,15 @@ struct kcs_roach {
   char *ip;
   char *mac;
   struct katcp_url *kurl;
-  struct kcs_statemachine *ksm;
-  struct kcs_statemachine *io_ksm; /*used for ?sm connect since this sm must stay around*/
+
+  struct kcs_statemachine **ksm;
+  int ksmcount;
+  int ksmactive;
+ /* struct kcs_statemachine *io_ksm; *//*used for ?sm connect since this sm must stay around*/
   struct timeval lastnow;
-  void *data; /*used to pass config data around no GC make sure to free when you use*/
 };
 
+int roach_cmd(struct katcp_dispatch *d, int argc);
 int roachpool_greeting(struct katcp_dispatch *d);
 int roachpool_add(struct katcp_dispatch *d);
 int roachpool_mod(struct katcp_dispatch *d);
@@ -133,8 +141,10 @@ int roachpool_list(struct katcp_dispatch *d);
 int roachpool_destroy(struct katcp_dispatch *d);
 int roachpool_getconf(struct katcp_dispatch *d);
 int roachpool_connect_pool(struct katcp_dispatch *d);
+int add_roach_to_pool_kcs(struct katcp_dispatch *d, char *pool, char *url, char *ip);
 struct kcs_obj *roachpool_get_obj_by_name_kcs(struct katcp_dispatch *d, char *name);
 int mod_roach_to_new_pool(struct kcs_obj *root, char *pool, char *hostname);
+int roachpool_count_kcs(struct katcp_dispatch *d);
 
 #define KCS_SM_PING_STOP 0 
 #define KCS_SM_PING_S1   1
@@ -152,17 +162,28 @@ struct kcs_statemachine {
   int (**sm)(struct katcp_dispatch *,struct katcp_notice *, void *); 
   int state;
   struct katcp_notice *n;
+  void *data; /*used to pass config data around no GC make sure to free when you use*/
 };
 
 int statemachine_greeting(struct katcp_dispatch *d);
+int statemachine_cmd(struct katcp_dispatch *d, int argc);
 int statemachine_ping(struct katcp_dispatch *d);
 int statemachine_stop(struct katcp_dispatch *d);
 int statemachine_connect(struct katcp_dispatch *d);
 int statemachine_disconnect(struct katcp_dispatch *d);
 int statemachine_progdev(struct katcp_dispatch *d);
+int statemachine_poweron(struct katcp_dispatch *d);
+int statemachine_poweroff(struct katcp_dispatch *d);
+int statemachine_powersoft(struct katcp_dispatch *d);
 //void statemachine_destroy(struct katcp_dispatch *d);
-void destroy_roach_ksm_kcs(struct kcs_roach *kr);
+void destroy_last_roach_ksm_kcs(struct kcs_roach *kr);
 void destroy_ksm_kcs(struct kcs_statemachine *ksm);
 
 
+struct katcp_job * run_child_process_kcs(struct katcp_dispatch *d, struct katcp_url *url, int (*call)(struct katcl_line *, void *), void *data, struct katcp_notice *n);
+int xport_sync_connect_and_start_subprocess_kcs(struct katcl_line *l, void *data);
+int xport_sync_connect_and_stop_subprocess_kcs(struct katcl_line *l, void *data);
+int xport_sync_connect_and_soft_restart_subprocess_kcs(struct katcl_line *l, void *data);
+
+int udpear_cmd(struct katcp_dispatch *d, int argc);
 #endif

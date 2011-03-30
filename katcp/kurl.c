@@ -5,15 +5,17 @@
 #include <katpriv.h>
 #include <katcp.h>
 
-#define COL ':'
-#define WAK '/'
+#define COL   ':'
+#define WAK   '/'
+#define HASH  '#'
 
-#define S_SCHEME 2
-#define S_HOST 3
-#define S_PORT 4
-#define S_PATH 5
-#define S_END 0
-#define S_CMD 6
+#define S_SCHEME  2
+#define S_HOST    3
+#define S_PORT    4
+#define S_PATH    5
+#define S_END     0
+#define S_CMD     6
+#define S_HASH    7
 
 char *copy_kurl_string_katcp(struct katcp_url *ku, char *path){
   char *str;
@@ -124,6 +126,7 @@ struct katcp_url *create_kurl_from_string_katcp(char *url){
   ku = malloc(sizeof(struct katcp_url));
   if (!ku)
     return NULL;
+  ku->u_use    = 0;
   ku->u_str    = strdup(url);
   ku->u_scheme = NULL;
   ku->u_host   = NULL;
@@ -146,6 +149,9 @@ struct katcp_url *create_kurl_from_string_katcp(char *url){
         c = url[i];
         switch(c){
           case '\0':
+#ifdef DEBUG
+            fprintf(stderr,"katcp_url: null char while parsing scheme");
+#endif
             destroy_kurl_katcp(ku);
             return NULL;
           case COL:
@@ -159,6 +165,15 @@ struct katcp_url *create_kurl_from_string_katcp(char *url){
               state = S_HOST;
             else if (strcasecmp(ku->u_scheme,"exec") == 0)
               state = S_CMD;
+            else if (strcasecmp(ku->u_scheme,"xport") == 0)
+              state = S_HOST;
+            else {
+#ifdef DEBUG
+              fprintf(stderr,"katcp_url: scheme is not of expected katcp, exec or xport");
+#endif
+              destroy_kurl_katcp(ku);
+              return NULL;
+            }
             spos = i+1;
             break;
         }
@@ -172,6 +187,7 @@ struct katcp_url *create_kurl_from_string_katcp(char *url){
             if (j < 3)
               spos = i+1;
             break;
+          case HASH:
           case '\r':
           case '\n':
           case '\0':
@@ -180,6 +196,25 @@ struct katcp_url *create_kurl_from_string_katcp(char *url){
             ku->u_cmd = malloc(sizeof(char)*len);
             ku->u_cmd = strncpy(ku->u_cmd,url+spos,len-1);
             ku->u_cmd[len-1] = '\0';
+            state = S_HASH;
+            spos = i+1;
+            break;
+        }
+        i++;
+        break;
+      case S_HASH:
+        c = url[i];
+        switch (c){
+          case '\r':
+          case '\n':
+          case '\0':
+            epos = i+1;
+            len = epos-spos;
+            ku->u_path = malloc(sizeof(char *));
+            ku->u_path[ku->u_pcount] = malloc(sizeof(char)*len);
+            ku->u_path[ku->u_pcount] = strncpy(ku->u_path[ku->u_pcount], url+spos, len-1);
+            ku->u_path[ku->u_pcount][len-1] = '\0'; 
+            ku->u_pcount++;
             state = S_END;
             break;
         }
@@ -189,6 +224,9 @@ struct katcp_url *create_kurl_from_string_katcp(char *url){
         c = url[i];
         switch(c){
           case '\0':
+#ifdef DEBUG
+            fprintf(stderr,"katcp_url: null char while parsing host");
+#endif
             destroy_kurl_katcp(ku);
             return NULL;
           case WAK:
@@ -354,6 +392,7 @@ int containing_kurl_katcp(struct katcp_url *ku, char *string)
     offset += len;
 
     if(string[offset] != ':'){
+          
       return 0;
     }
     offset++;
@@ -399,6 +438,10 @@ void destroy_kurl_katcp(struct katcp_url *ku){
   int i;
   if (!ku)
     return;
+  if (ku->u_use > 1){
+    ku->u_use--;
+    return;
+  }
   if (ku->u_str)    { free(ku->u_str);    ku->u_str = NULL; }
   if (ku->u_scheme) { free(ku->u_scheme); ku->u_scheme = NULL; }
   if (ku->u_host)   { free(ku->u_host);   ku->u_host = NULL; }
@@ -437,7 +480,8 @@ int main(int argc, char **argv){
   char *temp;
 
   ku = create_kurl_from_string_katcp("katcp://host.domain:7147/");
-  ku2 = create_kurl_from_string_katcp("exec:///bin/ls");
+  ku2 = create_kurl_from_string_katcp("exec:///bin/ls#thisisatest");
+  kurl_print(ku2);
 
   if((ku == NULL) || (ku2 == NULL)){
     fprintf(stderr, "test: unable to assemble urls from strings\n");
@@ -476,7 +520,6 @@ int main(int argc, char **argv){
   kurl_print(ku);
   destroy_kurl_katcp(ku);
 
-  kurl_print(ku2);
   destroy_kurl_katcp(ku2);
 
   return 0;

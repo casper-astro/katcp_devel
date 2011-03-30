@@ -257,12 +257,12 @@ int start_parser(struct p_parser *p, char *f) {
   temp   = NULL;
   buffer = NULL;
   file   = fopen(f,"r");
-  fd     = fileno(file);
 
   if (file == NULL){
     fprintf(stderr,"Error Reading File: %s\n",f);
     return errno;
   }
+  fd     = fileno(file);
   if (stat(f,&file_stats) != 0)
     return errno;
   

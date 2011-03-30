@@ -5,12 +5,13 @@ LIB = -L$(KATCP) -lkatcp
 
 SERVER = kcs
 SRCSHARED = shared.c
-SRC = $(SRCSHARED) statemachine.c roachpool.c fork-parent.c execpy.c parser.c kcserver.c basic.c
+SRC = $(SRCSHARED) udpear.c subprocess.c statemachine.c roachpool.c fork-parent.c execpy.c parser.c kcserver.c basic.c
 
 OBJ = $(patsubst %.c,%.o,$(SRC))
 all: $(SERVER)
 
-$(SERVER): $(OBJ) ../katcp/libkatcp.a
+#$(SERVER): $(OBJ) ../katcp/libkatcp.a
+$(SERVER): $(OBJ) 
 	$(CC) -o $@ $^ $(LIB)
 
 clean: 

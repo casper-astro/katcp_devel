@@ -330,55 +330,6 @@ int parser_cmd(struct katcp_dispatch *d, int argc){
 }
 
 
-int roach_cmd(struct katcp_dispatch *d, int argc){
-  char *p_cmd;
-
-  switch (argc){
-    case 1:
-      return roachpool_greeting(d);        
-    case 2:
-      p_cmd = arg_string_katcp(d,1);
-      if (strcmp("start-pool",p_cmd) == 0){
-      
-      } else if(strcmp("stop-pool",p_cmd) == 0){
-        
-      } else if (strcmp("list",p_cmd) == 0){
-        return roachpool_list(d); 
-      }/* else if (strcmp("tts",p_cmd) == 0){
-        return roachpool_test_timer(d);
-      }*/
-      return KATCP_RESULT_FAIL;
-    case 3:
-      p_cmd = arg_string_katcp(d,1);
-      if (strcmp("del",p_cmd) == 0){
- 
-      } else if (strcmp("start",p_cmd) == 0){
-
-      } else if (strcmp("stop",p_cmd) == 0){
-
-      } else if (strcmp("get-conf",p_cmd) == 0){
-        return roachpool_getconf(d);
-      }/* else if (strcmp("connect",p_cmd) == 0){
-        return roachpool_connect_pool(d);
-      } */
-      return KATCP_RESULT_FAIL;
-    case 4:
-      p_cmd = arg_string_katcp(d,1);
-      if (strcmp("mod",p_cmd) == 0){
-        return roachpool_mod(d);
-      }
-      return KATCP_RESULT_FAIL;
-    case 5:
-      p_cmd = arg_string_katcp(d,1);
-      if (strcmp("add",p_cmd) == 0){
-        return roachpool_add(d);
-      }
-      return KATCP_RESULT_FAIL;
-  }
-
-  return KATCP_RESULT_FAIL;
-}
-
 int k7_resume_job(struct katcp_dispatch *d, struct katcp_notice *n){
   struct katcl_parse *p;
   char *ptr;
@@ -402,35 +353,6 @@ int k7_resume_job(struct katcp_dispatch *d, struct katcp_notice *n){
   resume_katcp(d);
   return 0;
 
-}
-
-int statemachine_cmd(struct katcp_dispatch *d, int argc){
-
-  switch (argc){
-    case 1:
-      return statemachine_greeting(d);
-      break;
-    case 2:
-      break;
-    case 3:
-      if (strcmp(arg_string_katcp(d,1),"stop") == 0)
-        return statemachine_stop(d);
-      if (strcmp(arg_string_katcp(d,1),"ping") == 0)
-        return statemachine_ping(d);
-      break;
-    case 4:
-      if (strcmp(arg_string_katcp(d,1),"connect") == 0)
-        return statemachine_connect(d);
-      if (strcmp(arg_string_katcp(d,1),"disconnect") == 0)
-        return statemachine_disconnect(d);
-      break;
-    case 6:
-      if (strcmp(arg_string_katcp(d,1),"progdev") == 0)
-        return statemachine_progdev(d);
-      break;
-  }
-  
-  return KATCP_RESULT_FAIL;
 }
 
 /*
@@ -510,6 +432,7 @@ int setup_basic_kcs(struct katcp_dispatch *d, char *scripts)
   result += register_flag_mode_katcp(d, "?parser" , "ROACH Configuration file parser (?parser [load|save|get|set|list])", &parser_cmd, 0, KCS_MODE_BASIC);
   result += register_flag_mode_katcp(d, "?roach" , "Control the pool of roaches (?roach [add|del|start|stop|start-pool|stop-pool])", &roach_cmd, 0, KCS_MODE_BASIC);
   result += register_flag_mode_katcp(d, "?sm" , "Run a statemachine on a pool of roaches (?sm [[ping|connect] pool])", &statemachine_cmd, 0, KCS_MODE_BASIC);
+  result += register_flag_mode_katcp(d, "?udpear" , "spawn the udp ear listener (?udpear port)", &udpear_cmd, 0, KCS_MODE_BASIC);
   /*result += register_flag_mode_katcp(d, "?k7-snap-shot" , "Grab a snap shot (?k7-snap-shot [antenna polarisation])", &k7_snap_shot_cmd, 0, KCS_MODE_BASIC);
   */
 
