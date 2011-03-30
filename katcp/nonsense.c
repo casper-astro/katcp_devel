@@ -252,6 +252,22 @@ int create_acquire_intbool_katcp(struct katcp_dispatch *d, struct katcp_acquire 
   return 0;
 }
 
+int set_value_intbool_katcp(struct katcp_acquire *a, int value)
+{
+  char *end;
+  int got;
+
+  ia = a->a_more;
+
+  if(ia == NULL){
+    return -1;
+  }
+
+  ia->ia_current = value;
+
+  return 0;
+}
+
 int scan_value_intbool_katcp(struct katcp_acquire *a, char *value)
 {
   struct katcp_integer_acquire *ia;
@@ -513,6 +529,11 @@ int diff_check_integer_katcp(struct katcp_nonsense *ns)
   return 1;
 }
 
+int set_integer_acquire_katcp(struct katcp_acquire *a, int value)
+{
+  return set_value_intbool_katcp(a, value);
+}
+
 /* boolean specific logic *********************************************************************/
 
 int extract_direct_boolean_katcp(struct katcp_dispatch *d, struct katcp_sensor *sn)
@@ -605,6 +626,11 @@ int create_sensor_boolean_katcp(struct katcp_dispatch *d, struct katcp_sensor *s
   sn->s_more = is;
 
   return 0;
+}
+
+int set_boolean_acquire_katcp(struct katcp_acquire *a, int value)
+{
+  return set_value_intbool_katcp(a, value);
 }
 
 /* populate type dispatch lookup **************************************************************/
