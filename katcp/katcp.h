@@ -253,7 +253,7 @@ int register_multi_integer_sensor_katcp(struct katcp_dispatch *d, int mode, char
 
 struct katcp_acquire *setup_integer_acquire_katcp(struct katcp_dispatch *d, int (*get)(struct katcp_dispatch *d, struct katcp_acquire *), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a));
 
-int set_integer_acquire_katcp(struct katcp_acquire *a, int value);
+int set_integer_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a, int value);
 
 int register_boolean_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, int (*get)(struct katcp_dispatch *d, struct katcp_acquire *a), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a));
 
@@ -263,7 +263,7 @@ int register_multi_boolean_sensor_katcp(struct katcp_dispatch *d, int mode, char
 
 struct katcp_acquire *setup_boolean_acquire_katcp(struct katcp_dispatch *d, int (*get)(struct katcp_dispatch *d, struct katcp_acquire *a), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a));
 
-int set_boolean_acquire_katcp(struct katcp_acquire *a, int value);
+int set_boolean_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a, int value);
 
 #if 0
 int register_discrete_sensor_katcp(struct katcp_dispatch *d, char *name, char *description, char *units, int preferred, int (*get)(struct katcp_sensor *s, void *local), ...);
