@@ -17,6 +17,10 @@
 
 /**********************************************************************************************/
 
+static int run_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a, int forced);
+
+/**********************************************************************************************/
+
 #ifdef PARANOID
 static void sane_nonsense(struct katcp_nonsense *ns)
 {
@@ -892,37 +896,37 @@ static int del_acquire_katcp(struct katcp_dispatch *d, struct katcp_sensor *sn)
 
 /* core function invoked to emit sensor notifications ********************************/
 
-int run_acquire_katcp(struct katcp_dispatch *d, void *data)
+int run_timer_acquire_katcp(struct katcp_dispatch *d, void *data)
 {
   struct katcp_acquire *a;
-  struct katcp_integer_acquire *ia;
-  struct timeval now, legal;
-  struct katcp_shared *s;
-
-#if 0
-  struct katcp_sensor *sn;
-  struct katcp_nonsense *ns;
-  struct katcp_dispatch *dx;
-  int i, j;
-#endif
 
   a = data;
+
   if(a == NULL){
     return -1;
   }
+
+#ifdef DEBUG
+  if(a->a_periodics <= 0){
+    fprintf(stderr, "run: major logic failure: polling acquire %p from timer without any polling clients (%d users)\n", a, a->a_users);
+    abort();
+  }
+  fprintf(stderr, "sensor: running acquire %p with %d users, %d periodic\n", a, a->a_users, a->a_periodics);
+#endif
+
+  return run_acquire_katcp(d, a, 0);
+}
+
+static int run_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a, int forced)
+{
+  struct katcp_integer_acquire *ia;
+  struct timeval now, legal;
+  struct katcp_shared *s;
 
   s = d->d_shared;
 
   /* TODO: deschedule sensor if we have left our mode: should be done before first acquire attempt (!) */
   /* should move mode to acquire, rather than sensor */
-
-#ifdef DEBUG
-  if(a->a_periodics <= 0){
-    fprintf(stderr, "run: major logic failure - polling acquire %p without any polling clients (%d users)\n", a, a->a_users);
-    abort();
-  }
-  fprintf(stderr, "sensor: running acquire %p with %d users, %d periodic\n", a, a->a_users, a->a_periodics);
-#endif
 
   log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "sensor: running acquire %p with %d sensors %d users of which %d periodic\n", a, a->a_count, a->a_users, a->a_periodics);
 
@@ -1243,9 +1247,18 @@ static int reload_sensor_katcp(struct katcp_dispatch *d, struct katcp_sensor *sz
         sane_nonsense(ns);
 
         switch(ns->n_strategy){
+          case KATCP_STRATEGY_FORCED :
+#ifdef DEBUG
+            if(sn->s_refs > 1){
+              log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "expected forced acquisition of sensor %s to only have one reference, not %d", sn->s_name, sn->s_refs);
+            }
+#endif
+            break;
+
           case KATCP_STRATEGY_OFF   :
             log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "did not expect an off strategy while recomputing poll periods\n");
-            /* WARNING */
+            break; /* WARNING: there wasn't a break here previously */
+
           case KATCP_STRATEGY_EVENT : 
             if(polling == 0){
               break;
@@ -1286,7 +1299,7 @@ static int reload_sensor_katcp(struct katcp_dispatch *d, struct katcp_sensor *sz
     return 0;
   }
 
-  if(register_every_tv_katcp(d, &(a->a_current), &run_acquire_katcp, a) < 0){
+  if(register_every_tv_katcp(d, &(a->a_current), &run_timer_acquire_katcp, a) < 0){
     return -1;
   }
 
@@ -1839,7 +1852,7 @@ int force_acquire_katcp(struct katcp_dispatch *d, struct katcp_sensor *sn)
     old = ns->n_strategy;
     ns->n_strategy = KATCP_STRATEGY_FORCED;
 
-    result = run_acquire_katcp(d, a);
+    result = run_acquire_katcp(d, a, 1);
 
     ns->n_strategy = old;
   } else {
@@ -1849,7 +1862,7 @@ int force_acquire_katcp(struct katcp_dispatch *d, struct katcp_sensor *sn)
     if(configure_sensor_katcp(d, sn, KATCP_STRATEGY_FORCED, 1, NULL) < 0){
       result = (-1);
     } else {
-      result = run_acquire_katcp(d, a);
+      result = run_acquire_katcp(d, a, 1);
       configure_sensor_katcp(d, sn, KATCP_STRATEGY_OFF, 1, NULL);
     }
   }
@@ -2175,6 +2188,12 @@ static int configure_sensor_katcp(struct katcp_dispatch *d, struct katcp_sensor 
 
   ns = find_nonsense_katcp(d, sn->s_name);
   if(ns){
+#ifdef DEBUG
+    if(strategy == KATCP_STRATEGY_FORCED){
+      fprintf(stderr, "sensor: did not expect reconfiguration for forced acquire on existing sensor\n");
+      abort();
+    }
+#endif
     if(ns->n_sensor != sn){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "logic problem sensor reference to client not bidirectional");
 #ifdef DEBUG
