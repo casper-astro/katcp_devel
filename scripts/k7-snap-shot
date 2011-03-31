@@ -4,9 +4,19 @@ set -e
 
 source functions.sh
 
-kcs_arg_check $# 2
+if [ $# -lt 1 ] ; then
+  echo "#k7-snap-shot adc"
+  exit 0
+fi
 
-kcpcmd -k get-adc-snapshot ${2} | sed -e 's/^!get-adc-snapshot/#return/'
-
-kcs_corr_log
+case "$1" in
+  adc)
+    kcpcmd -k get-adc-snapshot ${2} | sed -e 's/^!get-adc-snapshot/#return/'
+    kcs_corr_log
+    ;;
+  *)
+    kcs_error "unknown snap shot ${1}"
+    exit 1
+    ;;
+esac
 

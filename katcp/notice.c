@@ -291,7 +291,7 @@ struct katcp_notice *create_parse_notice_katcp(struct katcp_dispatch *d, char *n
   }
 
   if(p == NULL){
-    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "creating a notice without a message");
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "creating %s notice without a message", name ? name : "<anonymous>");
   }
 
   s = d->d_shared;

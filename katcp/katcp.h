@@ -243,6 +243,8 @@ int set_status_sensor_katcp(struct katcp_sensor *sn, int status);
 void *get_local_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a);
 void generic_release_local_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a);
 
+struct katcp_acquire *acquire_from_sensor_katcp(struct katcp_dispatch *d, struct katcp_sensor *sn);
+
 int is_up_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a);
 
 void adjust_acquire_katcp(struct katcp_acquire *a, struct timeval *defpoll, struct timeval *maxrate);
@@ -253,6 +255,7 @@ int register_multi_integer_sensor_katcp(struct katcp_dispatch *d, int mode, char
 
 struct katcp_acquire *setup_integer_acquire_katcp(struct katcp_dispatch *d, int (*get)(struct katcp_dispatch *d, struct katcp_acquire *), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a));
 
+int set_integer_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a, int value);
 
 int register_boolean_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, int (*get)(struct katcp_dispatch *d, struct katcp_acquire *a), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a));
 
@@ -261,6 +264,8 @@ int register_invert_multi_boolean_sensor_katcp(struct katcp_dispatch *d, int mod
 int register_multi_boolean_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, struct katcp_acquire *a, int (*extract)(struct katcp_dispatch *d, struct katcp_sensor *sn));
 
 struct katcp_acquire *setup_boolean_acquire_katcp(struct katcp_dispatch *d, int (*get)(struct katcp_dispatch *d, struct katcp_acquire *a), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a));
+
+int set_boolean_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a, int value);
 
 #if 0
 int register_discrete_sensor_katcp(struct katcp_dispatch *d, char *name, char *description, char *units, int preferred, int (*get)(struct katcp_sensor *s, void *local), ...);
@@ -378,6 +383,7 @@ char *copy_kurl_string_katcp(struct katcp_url *ku, char *path);
 char *add_kurl_path_copy_string_katcp(struct katcp_url *ku, char *npath);
 struct katcp_url *create_kurl_from_string_katcp(char *url);
 struct katcp_url *create_kurl_katcp(char *scheme, char *host, int port, char *path);
+struct katcp_url *create_exec_kurl_katcp(char *cmd);
 int containing_kurl_katcp(struct katcp_url *ku, char *string);
 
 /* version support logic */

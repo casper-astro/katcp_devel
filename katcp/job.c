@@ -168,7 +168,7 @@ static struct katcp_notice *remove_head_job(struct katcp_dispatch *d, struct kat
 
 /***********************************************************************************************************/
 
-#ifdef DEBUG
+#if defined (DEBUG) || defined(UNIT_TEST_JOB)
 void dump_queue_job_katcp(struct katcp_job *j, FILE *fp)
 {
   unsigned int i, k;
@@ -1235,20 +1235,19 @@ int subprocess_start_job_katcp(struct katcp_dispatch *d, int argc, int options)
   char **vector;
   struct katcp_job *j;
   struct katcp_notice *n;
-  char *ptr, *tname;
+  char *ptr, *cmd;
   int i, len;
-  struct katcp_url *name;
+  struct katcp_url *u;
 
-  tname = arg_string_katcp(d,0);
-  if(tname == NULL) {
+  cmd = arg_string_katcp(d, 0);
+  if((cmd == NULL) || (cmd[0] != KATCP_REQUEST)) {
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire name");
     return KATCP_RESULT_FAIL;
   }
 
-  tname++;
-  name = create_kurl_from_string_katcp(tname);
-  if (name == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse name uri from %s", tname);
+  u = create_exec_kurl_katcp(cmd + 1);
+  if (u == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse name uri from %s", cmd);
     return KATCP_RESULT_FAIL;
   }
 
@@ -1259,20 +1258,20 @@ int subprocess_start_job_katcp(struct katcp_dispatch *d, int argc, int options)
 
     case KATCP_JOB_LOCAL  : /* only run one instance of this command */
 
-      len = strlen(KATCP_LOCAL_NOTICE) + strlen(name->u_cmd);
+      len = strlen(KATCP_LOCAL_NOTICE) + strlen(u->u_cmd);
       ptr = malloc(len + 1);
       if(ptr == NULL){
-        destroy_kurl_katcp(name);
+        destroy_kurl_katcp(u);
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate %d bytes", len + 1);
         return KATCP_RESULT_FAIL;
       }
 
-      snprintf(ptr, len, KATCP_LOCAL_NOTICE, name->u_cmd);
+      snprintf(ptr, len, KATCP_LOCAL_NOTICE, u->u_cmd);
       ptr[len] = '\0';
 
       n = find_used_notice_katcp(d, ptr);
       if(n){
-        destroy_kurl_katcp(name);
+        destroy_kurl_katcp(u);
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "still waiting for %s", ptr);
         free(ptr);
         return KATCP_RESULT_FAIL;
@@ -1286,7 +1285,7 @@ int subprocess_start_job_katcp(struct katcp_dispatch *d, int argc, int options)
     case KATCP_JOB_GLOBAL  : /* only run one instance of any command */
       n = find_notice_katcp(d, KATCP_GLOBAL_NOTICE);
       if(n){
-        destroy_kurl_katcp(name);
+        destroy_kurl_katcp(u);
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "still waiting for %s", KATCP_GLOBAL_NOTICE);
         return KATCP_RESULT_FAIL;
       }
@@ -1298,36 +1297,36 @@ int subprocess_start_job_katcp(struct katcp_dispatch *d, int argc, int options)
   }
 
   if(n == NULL){
-    destroy_kurl_katcp(name);
+    destroy_kurl_katcp(u);
     log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "unable to create notice");
     return KATCP_RESULT_FAIL;
   }
 
   vector = malloc(sizeof(char *) * (argc + 1));
-  if(  vector == NULL){
-    destroy_kurl_katcp(name);
+  if(vector == NULL){
+    destroy_kurl_katcp(u);
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate %d bytes", sizeof(char *) * (argc + 1));
     return KATCP_RESULT_FAIL;
   }
 
-  vector[0] = name->u_cmd;
+  vector[0] = u->u_cmd;
   for(i = 1; i < argc; i++){
     /* WARNING: won't deal with arguments containing \0, but then again, the command-line doesn't do either */
     vector[i] = arg_string_katcp(d, i);
   }
 
   vector[i] = NULL;
-  j = process_create_job_katcp(d, name, vector, n);
+  j = process_create_job_katcp(d, u, vector, n);
   free(vector);
 
   if(j == NULL){
-    destroy_kurl_katcp(name);
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to create job for command %s", name);
+    destroy_kurl_katcp(u);
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to create job for command %s", cmd);
     return KATCP_RESULT_FAIL;
   }
 
   if(add_notice_katcp(d, n, &subprocess_resume_job_katcp, NULL)){
-    destroy_kurl_katcp(name);
+    destroy_kurl_katcp(u);
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to watch notice");
     return KATCP_RESULT_FAIL;
   }

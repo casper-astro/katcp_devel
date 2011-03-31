@@ -127,7 +127,7 @@ struct katcp_acquire{
 
   int a_type;
   int a_users;
-  int a_periodics;
+  int a_periodics;          /* tracks if timer callback is running */
 
   struct timeval a_poll;    /* rate at which we poll this sensor */
   struct timeval a_current; /* current rate */
