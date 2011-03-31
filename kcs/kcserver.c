@@ -19,7 +19,6 @@
 #include <sys/utsname.h>
 
 #include <katcp.h>
-#include <katsensor.h>
 
 #include "kcs.h"
 #include "fork-parent.h"
