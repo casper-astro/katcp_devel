@@ -243,6 +243,8 @@ int set_status_sensor_katcp(struct katcp_sensor *sn, int status);
 void *get_local_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a);
 void generic_release_local_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a);
 
+struct katcp_acquire *acquire_from_sensor_katcp(struct katcp_dispatch *d, struct katcp_sensor *sn);
+
 int is_up_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a);
 
 void adjust_acquire_katcp(struct katcp_acquire *a, struct timeval *defpoll, struct timeval *maxrate);

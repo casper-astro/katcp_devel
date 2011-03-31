@@ -811,6 +811,11 @@ static struct katcp_acquire *create_acquire_katcp(struct katcp_dispatch *d, int 
 }
 #endif
 
+struct katcp_acquire *acquire_from_sensor_katcp(struct katcp_dispatch *d, struct katcp_sensor *sn)
+{
+  return sn ? sn->s_acquire : NULL;
+}
+
 /**************************************************************************/
 
 struct katcp_acquire *setup_intbool_acquire_katcp(struct katcp_dispatch *d, int (*get)(struct katcp_dispatch *d, struct katcp_acquire *a), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a), int type)
