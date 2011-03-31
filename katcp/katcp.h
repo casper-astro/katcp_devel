@@ -237,7 +237,12 @@ int exiting_katcp(struct katcp_dispatch *d); /* run cleanup functions once */
 #define KATCP_PHASES_COUNT     2
 #endif
 
+void destroy_sensors_katcp(struct katcp_dispatch *d);
+void destroy_nonsensors_katcp(struct katcp_dispatch *d);
+
 void destroy_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a);
+
+struct katcp_sensor *find_sensor_katcp(struct katcp_dispatch *d, char *name);
 
 int set_status_sensor_katcp(struct katcp_sensor *sn, int status);
 void *get_local_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a);

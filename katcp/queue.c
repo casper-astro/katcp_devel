@@ -16,7 +16,6 @@
 #include "katcp.h"
 #include "katcl.h"
 #include "katpriv.h"
-#include "katsensor.h"
 #include "netc.h"
 
 #if 0

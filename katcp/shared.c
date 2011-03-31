@@ -15,7 +15,6 @@
 #include "katcp.h"
 #include "katcl.h"
 #include "katpriv.h"
-#include "katsensor.h"
 #include "netc.h"
 
 #define SHARED_MAGIC 0x548a52ed

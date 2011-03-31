@@ -16,7 +16,6 @@
 #include <sys/time.h>
 
 #include "katpriv.h"
-#include "katsensor.h"
 #include "katcl.h"
 #include "katcp.h"
 

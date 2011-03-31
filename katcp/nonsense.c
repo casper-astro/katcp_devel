@@ -5,7 +5,6 @@
 
 #include "katcp.h"
 #include "katpriv.h"
-#include "katsensor.h"
 
 #define SENSOR_MAGIC   0x0005e507
 #define NONSENSE_MAGIC 0xffee3393
@@ -1368,7 +1367,7 @@ static struct katcp_nonsense *match_nonsense_katcp(struct katcp_dispatch *d, str
   return NULL;
 }
 
-static struct katcp_sensor *find_sensor_katcp(struct katcp_dispatch *d, char *name)
+struct katcp_sensor *find_sensor_katcp(struct katcp_dispatch *d, char *name)
 {
   struct katcp_shared *s;
   struct katcp_sensor *sn;

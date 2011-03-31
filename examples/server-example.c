@@ -17,7 +17,6 @@
 #include <sys/select.h>
 
 #include <katcp.h>
-#include <katsensor.h>
 
 /* build string **************************************************************/
 /* when compiled with gcc BUILD can be set at compile time with -DBUILD=...  */
