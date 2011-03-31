@@ -128,8 +128,9 @@ struct kcs_roach {
   struct kcs_statemachine **ksm;
   int ksmcount;
   int ksmactive;
- /* struct kcs_statemachine *io_ksm; *//*used for ?sm connect since this sm must stay around*/
   struct timeval lastnow;
+
+  struct katcp_acquire *r_acquire;
 };
 
 int roach_cmd(struct katcp_dispatch *d, int argc);

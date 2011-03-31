@@ -207,7 +207,75 @@ int add_new_roach_to_tree(struct kcs_obj *root, char *poolname, char *url, char 
   return KCS_OK;    
 }
 
-int add_roach_to_pool_kcs(struct katcp_dispatch *d, char *pool, char *url, char *ip){
+int update_sensor_for_roach_kcs( struct katcp_dispatch *d, struct kcs_obj *ko, int val)
+{
+  struct kcs_roach *kr;
+
+  if (ko == NULL)
+    return KATCP_RESULT_FAIL;
+
+  if (ko->tid == KCS_ID_NODE)
+    return KATCP_RESULT_FAIL;
+  
+  kr = ko->payload;
+
+  if (kr == NULL)
+    return KATCP_RESULT_FAIL;
+ 
+  
+  
+  return KATCP_RESULT_OK;
+}
+
+int add_sensor_to_roach_kcs(struct katcp_dispatch *d, struct kcs_obj *ko)
+{
+  struct katcp_sensor *sn;
+  struct katcp_acquire *a;
+  struct kcs_roach *kr;
+  char *name;
+  int wb;
+  
+  name = NULL;
+
+  if (ko == NULL)
+    return KATCP_RESULT_FAIL;
+
+  if (ko->tid == KCS_ID_NODE)
+    return KATCP_RESULT_FAIL;
+  
+  kr = ko->payload;
+
+  if (kr == NULL)
+    return KATCP_RESULT_FAIL;
+
+  wb = snprintf(name, 0, "%s.lru", kr->kurl->u_host);
+  name = malloc(sizeof(char) * wb);
+  if (name == NULL)
+    return KATCP_RESULT_FAIL;
+  snprintf(name, wb, "%s.lru", kr->kurl->u_host);
+  
+  sn = find_sensor_katcp(d, name);
+  if(sn){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "roachpool: sensor %s already exists", name);
+    free(name);
+    return KATCP_RESULT_FAIL;
+  }
+
+  a = setup_boolean_acquire_katcp(d, NULL, NULL, NULL);
+
+  if (a == NULL) {
+    free(name);
+    return KATCP_RESULT_FAIL;
+  }
+
+  register_direct_multi_boolean_sensor_katcp(d, 0, name, "roach is functional", "none", a);
+
+  free(name);
+  return KATCP_RESULT_OK;
+}
+
+int add_roach_to_pool_kcs(struct katcp_dispatch *d, char *pool, char *url, char *ip)
+{
   struct kcs_basic *kb;
   struct kcs_obj *root;
   int rtn;
