@@ -5,7 +5,7 @@ export PATH=/usr/local/sbin:$PATH
 
 case "$1" in
   start)
-    kcs -i /usr/local/lib/kcs/cmds/init.katcp
+    kcs -i /usr/local/lib/kcs/init.katcp
     ;;
   stop)
     kcpcmd -s localhost:7147 halt
