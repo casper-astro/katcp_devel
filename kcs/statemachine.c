@@ -267,6 +267,12 @@ int connect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
   } 
   
   log_message_katcp(d,KATCP_LEVEL_INFO, NULL, "Success: roach %s moved to pool %s", kr->kurl->u_str, newpool);
+
+  if (add_sensor_to_roach_kcs(d, ko) < 0){
+       
+  }
+
+  update_sensor_for_roach_kcs(d, ko, 1);
   
   p = create_parse_katcl();
   if (p == NULL){
@@ -321,6 +327,9 @@ int disconnect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *da
   else { 
     log_message_katcp(d,KATCP_LEVEL_INFO, NULL, "Success: roach %s moved to pool %s", kr->kurl->u_str, newpool);
   }
+
+  update_sensor_for_roach_kcs(d, ko, 0);
+
   /*if (kr->io_ksm){
     destroy_ksm_kcs(kr->io_ksm);
     kr->io_ksm = NULL;

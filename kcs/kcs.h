@@ -146,6 +146,8 @@ int add_roach_to_pool_kcs(struct katcp_dispatch *d, char *pool, char *url, char 
 struct kcs_obj *roachpool_get_obj_by_name_kcs(struct katcp_dispatch *d, char *name);
 int mod_roach_to_new_pool(struct kcs_obj *root, char *pool, char *hostname);
 int roachpool_count_kcs(struct katcp_dispatch *d);
+int update_sensor_for_roach_kcs(struct katcp_dispatch *d, struct kcs_obj *ko, int val);
+int add_sensor_to_roach_kcs(struct katcp_dispatch *d, struct kcs_obj *ko);
 
 #define KCS_SM_PING_STOP 0 
 #define KCS_SM_PING_S1   1

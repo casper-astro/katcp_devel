@@ -210,6 +210,7 @@ int add_new_roach_to_tree(struct kcs_obj *root, char *poolname, char *url, char 
 int update_sensor_for_roach_kcs( struct katcp_dispatch *d, struct kcs_obj *ko, int val)
 {
   struct kcs_roach *kr;
+  struct katcp_acquire *a;
 
   if (ko == NULL)
     return KATCP_RESULT_FAIL;
@@ -222,7 +223,10 @@ int update_sensor_for_roach_kcs( struct katcp_dispatch *d, struct kcs_obj *ko, i
   if (kr == NULL)
     return KATCP_RESULT_FAIL;
  
-  
+  a = kr->r_acquire;
+
+  if (set_boolean_acquire_katcp(d, a, val) < 0)
+    return KATCP_RESULT_FAIL;
   
   return KATCP_RESULT_OK;
 }
