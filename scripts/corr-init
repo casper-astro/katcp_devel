@@ -6,7 +6,13 @@ source functions.sh
 if [ $# -gt 0 ] ; then
   config=/home/jmanley/${1}.conf
 else
-  config=/home/jmanley/k7-dbes.conf
+  if [ -f /etc/corr/config ] ; then
+    config=/etc/corr/config
+  elif [ -f /home/jmanley/k7-dbes.conf ] ; then
+    config=/home/jmanley/k7-dbes.conf
+  else
+    kcs_error "no correlator config file available"
+  fi 
 fi
 
 status=1
