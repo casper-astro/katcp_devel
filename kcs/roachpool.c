@@ -273,6 +273,8 @@ int add_sensor_to_roach_kcs(struct katcp_dispatch *d, struct kcs_obj *ko)
   }
 
   register_direct_multi_boolean_sensor_katcp(d, 0, name, "roach is functional", "none", a);
+  
+  kr->r_acquire = a;
 
   free(name);
   return KATCP_RESULT_OK;
