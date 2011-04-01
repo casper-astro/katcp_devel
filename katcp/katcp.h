@@ -245,6 +245,8 @@ void destroy_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a);
 struct katcp_sensor *find_sensor_katcp(struct katcp_dispatch *d, char *name);
 
 int set_status_sensor_katcp(struct katcp_sensor *sn, int status);
+int set_status_group_sensor_katc(struct katcp_dispatch, char *prefix, int status);
+
 void *get_local_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a);
 void generic_release_local_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a);
 
@@ -282,6 +284,8 @@ int register_double_sensor_katcp(struct katcp_dispatch *d, char *name, char *des
 #endif
 
 int job_match_sensor_katcp(struct katcp_dispatch *d, struct katcp_job *j);
+int job_enable_sensor_katcp(struct katcp_dispatch *d, struct katcp_job *j);
+int job_suspend_sensor_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *data);
 
 /***************************************************************************/
 

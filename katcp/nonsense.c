@@ -1,3 +1,6 @@
+/* (c) 2010,2011 SKA SA */
+/* Released under the GNU GPLv3 - see COPYING */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -2751,6 +2754,79 @@ int job_match_sensor_katcp(struct katcp_dispatch *d, struct katcp_job *j)
 
   return result;
 }
+
+int job_enable_sensor_katcp(struct katcp_dispatch *d, struct katcp_job *j)
+{
+  struct katcp_dispatch *dl;
+  struct katcp_parse *p;
+
+  dl = template_shared_katcp(d);
+  if(dl == NULL){
+    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "unable to acquire template");
+    return -1;
+  }
+
+  p = create_parse_katcl();
+  if(p == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to create message");
+    return -1;
+  }
+
+  if(add_string_parse_katcl(p, KATCP_FLAG_FIRST | KATCP_FLAG_LAST | KATCP_FLAG_STRING, "?sensor-list") < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to assemble message");
+    destroy_parse_katcl(p);
+    return -1;
+  }
+
+  if(submit_to_job_katcp(dl, j, p, NULL, NULL, NULL) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to submit message to job");
+    destroy_parse_katcl(p);
+    return -1;
+  }
+
+  return 0;
+}
+
+int set_status_group_sensor_katc(struct katcp_dispatch, char *prefix, int status)
+{
+  struct katcp_shared *s;
+  struct katcp_sensor *sn;
+  unsigned int i, len;
+  int count;
+
+  if((status < 0) || (status >= KATCP_STATA_COUNT)){
+    return -1;
+  }
+
+  s = d->d_shared;
+  if(s == NULL){
+    return -1;
+  }
+
+  len = strlen(prefix);
+
+  count = 0;
+  for(i = 0; i < s->s_tally; i++){
+    sn = s->s_sensors[i];
+
+    sane_sensor(sn);
+
+    if(!strncmp(prefix, sn->s_name, len)){
+      sn->s_status = status;
+      count++;
+    }
+  }
+
+  return count;
+}
+
+int job_suspend_sensor_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
+{
+  int i;
+
+  return 0;
+}
+
 
 /***************************************************************************/
 

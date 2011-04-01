@@ -1,3 +1,5 @@
+/* GPLed code taken from shore:lib/net-connect.c */
+
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>

@@ -1,3 +1,5 @@
+/* (c) 2010,2011 SKA SA */
+/* Released under the GNU GPLv3 - see COPYING */
 
 #include <stdio.h>
 #include <stdlib.h>
