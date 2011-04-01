@@ -1,3 +1,6 @@
+/* (c) 2010,2011 SKA SA */
+/* Released under the GNU GPLv3 - see COPYING */
+
 /* Slightly higher level dispatch routines, handles callback registration
  * and dispatch. Wraps a fair amount of line handling stuff
  */

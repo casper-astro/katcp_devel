@@ -1,3 +1,6 @@
+/* (c) 2010,2011 SKA SA */
+/* Released under the GNU GPLv3 - see COPYING */
+
 /* lower level parsing routes, arbitrarily having the katcl suffix */
 /* these routines do their own IO buffering over file descriptors */
 

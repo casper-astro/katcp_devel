@@ -1,4 +1,4 @@
-/* time comparison code grabbed from libloop */
+/* GPLed time comparison code grabbed from libloop */
 
 #include <stdio.h>
 #include <stdlib.h>
