@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sysexits.h>
 
 #include <sys/select.h>
 #include <sys/types.h>
@@ -594,13 +595,15 @@ int recv_ntp_poco(struct katcp_dispatch *d, struct ntp_sensor_poco *nt)
 
 int main(int argc, char **argv)
 {
+#define BUFFER 128
   struct ntp_state *nt;
   struct katcp_dispatch *d;
-  int result, previous, current;
+  int result, previous, current, mfd, rr;
   char *level;
   unsigned int period;
   struct timeval delta, now, limit;
   fd_set fsr;
+  char buffer[BUFFER];
 
   period = TMON_POLL_INTERVAL;
   previous = (-1);
@@ -608,14 +611,14 @@ int main(int argc, char **argv)
 
   d = setup_katcp(STDOUT_FILENO);
   if(d == NULL){
-    return 1;
+    return EX_OSERR;
   }
 
   nt = create_ntp(d);
   if(nt == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, TMON_MODULE_NAME, "unable to allocate local ntp state");
     write_katcp(d);
-    return 1;
+    return EX_OSERR;
   }
 
   if(argc > 1){
@@ -654,14 +657,40 @@ int main(int argc, char **argv)
     if(send_ntp(d, nt) > 0){
 
       FD_ZERO(&fsr);
+
+      FD_SET(STDIN_FILENO, &fsr);
+      mfd = STDIN_FILENO + 1;
+
       if(nt->n_fd >= 0){
         FD_SET(nt->n_fd, &fsr);
+        if(nt->n_fd >= mfd){
+          mfd = nt->n_fd + 1;
+        }
       }
 
-      result = select(nt->n_fd + 1, &fsr, NULL, NULL, &delta);
+      result = select(mfd, &fsr, NULL, NULL, &delta);
 
-      if(result > 0){
-        current = (recv_ntp(d, nt) > 0) ? 1 : 0;
+      if(nt->n_fd >= 0){
+        if(FD_ISSET(nt->n_fd, &fsr)){
+          current = (recv_ntp(d, nt) > 0) ? 1 : 0;
+        }
+      }
+
+      if(FD_ISSET(STDIN_FILENO, &fsr)){
+        rr = read(STDIN_FILENO, buffer, BUFFER);
+        if(rr == 0){
+          return EX_OK;
+        }
+        if(rr < 0){
+          switch(errno){
+            case EAGAIN :
+            case EINTR  :
+              break;
+            default : 
+              return EX_OSERR;
+          }
+        }
+
       }
     }
 
@@ -695,6 +724,7 @@ int main(int argc, char **argv)
   destroy_ntp(d, nt);
   shutdown_katcp(d);
 
-  return 0;
+  return EX_OK;
+#undef BUFFER
 }
 

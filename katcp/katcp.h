@@ -12,6 +12,8 @@ struct katcp_dispatch;
 struct katcp_cmd;
 struct katcp_job;
 
+struct katcp_notice;
+
 struct katcp_url;
 
 #include <sys/types.h>
@@ -245,7 +247,7 @@ void destroy_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a);
 struct katcp_sensor *find_sensor_katcp(struct katcp_dispatch *d, char *name);
 
 int set_status_sensor_katcp(struct katcp_sensor *sn, int status);
-int set_status_group_sensor_katc(struct katcp_dispatch, char *prefix, int status);
+int set_status_group_sensor_katcp(struct katcp_dispatch *d, char *prefix, int status);
 
 void *get_local_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a);
 void generic_release_local_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a);
