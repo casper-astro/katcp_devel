@@ -2758,7 +2758,7 @@ int job_match_sensor_katcp(struct katcp_dispatch *d, struct katcp_job *j)
 int job_enable_sensor_katcp(struct katcp_dispatch *d, struct katcp_job *j)
 {
   struct katcp_dispatch *dl;
-  struct katcp_parse *p;
+  struct katcl_parse *p;
 
   dl = template_shared_katcp(d);
   if(dl == NULL){
@@ -2787,7 +2787,7 @@ int job_enable_sensor_katcp(struct katcp_dispatch *d, struct katcp_job *j)
   return 0;
 }
 
-int set_status_group_sensor_katc(struct katcp_dispatch, char *prefix, int status)
+int set_status_group_sensor_katcp(struct katcp_dispatch *d, char *prefix, int status)
 {
   struct katcp_shared *s;
   struct katcp_sensor *sn;
@@ -2822,9 +2822,27 @@ int set_status_group_sensor_katc(struct katcp_dispatch, char *prefix, int status
 
 int job_suspend_sensor_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 {
-  int i;
+  struct katcp_url *ku;
+  char *prefix;
 
-  return 0;
+  ku = create_kurl_from_string_katcp(n->n_name);
+  if(ku == NULL){
+    return -1;
+  }
+
+  destroy_kurl_katcp(ku);
+
+  if(ku->u_cmd){
+    prefix = ku->u_cmd;
+  } else {
+    prefix = ku->u_host;
+  }
+
+  if(prefix == NULL){
+    return -1;
+  }
+
+  return set_status_group_sensor_katcp(d, prefix, KATCP_STATUS_UNKNOWN);
 }
 
 
