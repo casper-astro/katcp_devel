@@ -22,6 +22,8 @@ if kcpcmd -k -r -t 120 connect $config 1000 ; then
   if kcpcmd -k -r -t 120 initialise 2 ; then
     status=0
   fi
+else
+  kcs_error "corr connect using $config failed"
 fi
 
 kcs_corr_log
