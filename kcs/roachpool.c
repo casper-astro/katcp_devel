@@ -255,11 +255,12 @@ int add_sensor_to_roach_kcs(struct katcp_dispatch *d, struct kcs_obj *ko)
   if (kr == NULL)
     return KATCP_RESULT_FAIL;
 
-  wb = snprintf(name, 0, "%s.lru", kr->kurl->u_host);
+  wb = snprintf(name, 0, "%s.%d.lru", kr->kurl->u_host, kr->kurl->u_port);
+  wb++;
   name = malloc(sizeof(char) * wb);
   if (name == NULL)
     return KATCP_RESULT_FAIL;
-  snprintf(name, wb, "%s.lru", kr->kurl->u_host);
+  snprintf(name, wb, "%s.%d.lru", kr->kurl->u_host, kr->kurl->u_port);
   
   sn = find_sensor_katcp(d, name);
   if(sn){
