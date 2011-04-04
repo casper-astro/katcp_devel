@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 set -e
 source functions.sh
@@ -21,7 +21,11 @@ if kcpcmd -k -r -t 120 connect $config 1000 ; then
   kcs_debug "running initialise"
   if kcpcmd -k -r -t 120 initialise 2 ; then
     status=0
+  else
+     kcs_error "corr initialise failed"
   fi
+else
+  kcs_error "corr connect using $config failed"
 fi
 
 kcs_corr_log

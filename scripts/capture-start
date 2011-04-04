@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 set -e 
 source functions.sh
@@ -16,10 +16,14 @@ status=1
 if [ $# -gt 1 ] ; then
   if kcpcmd -k -r tx-start $2 ; then
     status=0
+  else 
+    kcs_error "corr tx-start failed"
   fi
 else 
   if kcpcmd -k -r tx-start ; then
     status=0
+  else 
+    kcs_error "corr tx-start failed"
   fi 
 fi
 
