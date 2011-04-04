@@ -309,8 +309,8 @@ int add_roach_to_pool_kcs(struct katcp_dispatch *d, char *pool, char *url, char 
     case KCS_OK:
 #ifdef DEBUG
       fprintf(stderr,"roachpool: added roach <%s> to pool <%s>\n", url, pool); 
-      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "roachpool: added roach <%s> to pool <%s>\n", url, pool); 
 #endif
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "roachpool: added roach <%s> to pool <%s>\n", url, pool); 
       break;
   }
   return rtn;
