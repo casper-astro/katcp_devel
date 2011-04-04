@@ -41,7 +41,7 @@ static char *log_levels_vector[KATCP_MAX_LEVELS] = {
   "off"
 };
 
-int log_to_code(char *name)
+int log_to_code_katcl(char *name)
 {
   int code;
 
@@ -63,7 +63,7 @@ int log_to_code(char *name)
   return -1;
 }
 
-char *log_to_string(int code)
+char *log_to_string_katcl(int code)
 {
   if((code < 0) || (code >= KATCP_MAX_LEVELS)){
     return NULL;
@@ -128,7 +128,7 @@ int vlog_message_katcl(struct katcl_line *cl, int level, char *name, char *fmt, 
   }
 #endif
 
-  logstring = log_to_string(level);
+  logstring = log_to_string_katcl(level);
   if(logstring == NULL){
 #ifdef DEBUG
     fprintf(stderr, "log: bad log level\n");

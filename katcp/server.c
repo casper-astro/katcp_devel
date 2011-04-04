@@ -86,10 +86,9 @@ static int client_list_cmd_katcp(struct katcp_dispatch *d, int argc)
       if(detail){
         append_string_katcp(d, KATCP_FLAG_STRING, dx->d_name);
 
-        level = log_to_string(dx->d_level);
+        level = log_to_string_katcl(dx->d_level);
         append_string_katcp(d, KATCP_FLAG_STRING, level ? level : "unknown");
 
-        level = log_to_string(dx->d_level);
         append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, dx->d_pause ? "paused" : "parsing");
 
       } else {
