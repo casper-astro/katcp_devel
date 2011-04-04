@@ -252,7 +252,8 @@ int udpear_cmd(struct katcp_dispatch *d, int argc)
       rtn = arg_string_katcp(d,1);
       if (rtn != NULL)
         port = atoi(rtn);
-      url = create_kurl_katcp("katcp",utn.nodename,port,"?udpear");
+      //url = create_kurl_katcp("katcp", utn.nodename, port, "?udpear");
+      url = create_exec_kurl_katcp("udpear");
       if (url == NULL){
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "udpear: could not create kurl");
         return KATCP_RESULT_FAIL;

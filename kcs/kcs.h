@@ -29,11 +29,13 @@
 
 char *create_str(char *s);
 
-int setup_basic_kcs(struct katcp_dispatch *d, char *scripts);
+int setup_basic_kcs(struct katcp_dispatch *d, char *scripts, char **argv, int argc);
 
 struct kcs_basic
 {
   char *b_scripts;
+  char **b_argv;
+  int b_argc;
   struct p_parser *b_parser;
   struct kcs_obj *b_pool_head;
   struct kcs_statemachines *b_sms;

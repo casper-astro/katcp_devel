@@ -397,7 +397,7 @@ int k7_snap_shot_cmd(struct katcp_dispatch *d, int argc){
 */
 
 
-int setup_basic_kcs(struct katcp_dispatch *d, char *scripts)
+int setup_basic_kcs(struct katcp_dispatch *d, char *scripts, char **argv, int argc)
 {
   struct kcs_basic *kb;
   int result;
@@ -415,6 +415,8 @@ int setup_basic_kcs(struct katcp_dispatch *d, char *scripts)
   kb->b_parser     = NULL;
   kb->b_pool_head  = NULL;
   kb->b_sms        = NULL;
+  kb->b_argv       = argv;
+  kb->b_argc       = argc;
   
   kb->b_scripts = strdup(scripts);
   if(kb->b_scripts == NULL){

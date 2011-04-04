@@ -19,6 +19,27 @@
 #include <netc.h>
 #include "kcs.h"
 
+void replace_argv(struct katcp_dispatch *d, char *str)
+{
+  struct kcs_basic *kb;
+  int i, argc;
+  char **argv;
+
+  kb = need_current_mode_katcp(d, KCS_MODE_BASIC);
+
+  if (kb == NULL)
+    return;
+
+  argc = kb->b_argc;
+  argv = kb->b_argv;
+  
+  for (i=0; i<argc; i++){
+    bzero(argv[i],strlen(argv[i]));
+  }
+
+  sprintf(argv[0], "%s", str);
+
+}
 
 struct katcp_job * run_child_process_kcs(struct katcp_dispatch *d, struct katcp_url *url, int (*call)(struct katcl_line *, void *), void *data, struct katcp_notice *n) 
 {
@@ -59,6 +80,8 @@ struct katcp_job * run_child_process_kcs(struct katcp_dispatch *d, struct katcp_
   /*in child use exit not return*/
   xl = create_katcl(fds[0]);
   close(fds[1]);
+
+  replace_argv(d, url->u_str);
   
   copies = 0;
   if (fds[0] != STDOUT_FILENO){
