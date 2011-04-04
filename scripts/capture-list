@@ -1,5 +1,5 @@
 #!/bin/bash
 
-echo "#capture-list k7"
+echo "#capture-list k7 unknown unknown"
 
 exit 0
