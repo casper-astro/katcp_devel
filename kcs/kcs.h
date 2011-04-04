@@ -29,11 +29,13 @@
 
 char *create_str(char *s);
 
-int setup_basic_kcs(struct katcp_dispatch *d, char *scripts);
+int setup_basic_kcs(struct katcp_dispatch *d, char *scripts, char **argv, int argc);
 
 struct kcs_basic
 {
   char *b_scripts;
+  char **b_argv;
+  int b_argc;
   struct p_parser *b_parser;
   struct kcs_obj *b_pool_head;
   struct kcs_statemachines *b_sms;
@@ -128,8 +130,9 @@ struct kcs_roach {
   struct kcs_statemachine **ksm;
   int ksmcount;
   int ksmactive;
- /* struct kcs_statemachine *io_ksm; *//*used for ?sm connect since this sm must stay around*/
   struct timeval lastnow;
+
+  struct katcp_acquire *r_acquire;
 };
 
 int roach_cmd(struct katcp_dispatch *d, int argc);
@@ -145,6 +148,8 @@ int add_roach_to_pool_kcs(struct katcp_dispatch *d, char *pool, char *url, char 
 struct kcs_obj *roachpool_get_obj_by_name_kcs(struct katcp_dispatch *d, char *name);
 int mod_roach_to_new_pool(struct kcs_obj *root, char *pool, char *hostname);
 int roachpool_count_kcs(struct katcp_dispatch *d);
+int update_sensor_for_roach_kcs(struct katcp_dispatch *d, struct kcs_obj *ko, int val);
+int add_sensor_to_roach_kcs(struct katcp_dispatch *d, struct kcs_obj *ko);
 
 #define KCS_SM_PING_STOP 0 
 #define KCS_SM_PING_S1   1

@@ -308,6 +308,7 @@ struct katcp_url *create_kurl_katcp(char *scheme, char *host, int port, char *pa
   ku = malloc(sizeof(struct katcp_url));
   if (!ku)
     return NULL;
+  ku->u_cmd    = NULL;
   ku->u_scheme = strdup(scheme);
   ku->u_host   = strdup(host);
   ku->u_port   = port;

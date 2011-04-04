@@ -151,7 +151,7 @@ int main(int argc, char **argv)
 #endif
   }
 
-  if(setup_basic_kcs(d, scripts) < 0){
+  if(setup_basic_kcs(d, scripts, argv, argc) < 0){
     fprintf(stderr, "%s: unable to set up basic logic\n", argv[0]);
   }
 
