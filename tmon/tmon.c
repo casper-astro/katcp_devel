@@ -638,7 +638,7 @@ int main(int argc, char **argv)
     }
   }
 
-  log_message_katcp(d, KATCP_LEVEL_INFO, TMON_MODULE_NAME, "polling local ntp server every %ds", period);
+  log_message_katcp(d, KATCP_LEVEL_INFO, TMON_MODULE_NAME, "polling local ntp server every %dms", period);
 
   append_string_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#sensor-list");
   append_string_katcp(d,                    KATCP_FLAG_STRING, TMON_SENSOR_NAME);
@@ -672,8 +672,10 @@ int main(int argc, char **argv)
 
       if(nt->n_fd >= 0){
         if(FD_ISSET(nt->n_fd, &fsr)){
-          while((result = recv_ntp(d, nt)) != 0);
-          current = (result > 0) ? 1 : 0;
+          current = 0;
+          while((result = recv_ntp(d, nt)) != 0){
+            current = (result > 0) ? 1 : 0;
+          }
         }
       }
 
