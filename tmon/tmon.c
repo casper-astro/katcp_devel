@@ -255,7 +255,7 @@ int recv_ntp(struct katcp_dispatch *d, struct ntp_state *nt)
 {
   struct ntp_message buffer, *nm;
   struct ntp_peer *np;
-  int rr, i, good;
+  int rr, i, result;
   uint16_t word, field;
 
   nm = &buffer;
@@ -273,7 +273,7 @@ int recv_ntp(struct katcp_dispatch *d, struct ntp_state *nt)
         log_message_katcp(d, KATCP_LEVEL_ERROR, TMON_MODULE_NAME, "ntp receive failed with %s", strerror(errno));
         close(nt->n_fd);
         nt->n_fd = (-1);
-        return -1;
+        return 0;
     }
   }
 
@@ -359,7 +359,7 @@ int recv_ntp(struct katcp_dispatch *d, struct ntp_state *nt)
     return -1;
   }
 
-  good = 0;
+  result = (-1);
 
   for(i = 0; i < nm->n_count; i += 4){
     np = (struct ntp_peer *)(nm->n_data + i);
@@ -375,7 +375,7 @@ int recv_ntp(struct katcp_dispatch *d, struct ntp_state *nt)
       switch(field){
         case NTP_PEER_SELECT_FAR : 
         case NTP_PEER_SELECT_CLOSE : 
-          good = 1;
+          result = 1;
           break;
         default :
           log_message_katcp(d, KATCP_LEVEL_DEBUG, TMON_MODULE_NAME, "ntp peer %d not yet ready with code %d", ntohs(np->p_id), field);
@@ -401,9 +401,9 @@ int recv_ntp(struct katcp_dispatch *d, struct ntp_state *nt)
   }
 #endif
 
-  nt->n_sync = good;
+  nt->n_sync = (result <= 0) ? 0 : 1;
 
-  return good;
+  return result;
 }
 
 /*****************************************************************************/
@@ -672,7 +672,8 @@ int main(int argc, char **argv)
 
       if(nt->n_fd >= 0){
         if(FD_ISSET(nt->n_fd, &fsr)){
-          current = (recv_ntp(d, nt) > 0) ? 1 : 0;
+          while((result = recv_ntp(d, nt)) != 0);
+          current = (result > 0) ? 1 : 0;
         }
       }
 
