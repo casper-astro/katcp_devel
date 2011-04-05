@@ -19,10 +19,13 @@
 #include <katcp.h>
 #include <katpriv.h>
 
-#define TMON_POLL_INTERVAL        1000
+#define TMON_POLL_INTERVAL        1000    /* default poll interval */
+#define TMON_POLL_MIN               50    /* minimum (in ms) between a recv followed by another send */
+
 #define TMON_MODULE_NAME         "ntp"
 #define TMON_SENSOR_NAME         "timing.sync"
 #define TMON_SENSOR_DESCRIPTION  "clock good"
+
 
 /************************************************************/
 
@@ -601,7 +604,7 @@ int main(int argc, char **argv)
   int result, previous, current, mfd, rr;
   char *level;
   unsigned int period;
-  struct timeval delta, now, limit;
+  struct timeval delta, now, limit, template, margin;
   fd_set fsr;
   char buffer[BUFFER];
 
@@ -646,10 +649,31 @@ int main(int argc, char **argv)
   append_string_katcp(d,                    KATCP_FLAG_STRING, "none");
   append_string_katcp(d, KATCP_FLAG_LAST  | KATCP_FLAG_STRING, "boolean");
 
+  template.tv_sec = period / 1000;
+  template.tv_usec = (period % 1000) * 1000;
+
+  delta.tv_sec = 0;
+  delta.tv_usec = (2 * TMON_POLL_MIN) * 1000;
+
+  result = cmp_time_katcp(&template, &delta);
+  
+  margin.tv_sec = 0;
+  margin.tv_usec = TMON_POLL_MIN * 1000;
+
+  if(result < 0){
+
+    log_message_katcp(d, KATCP_LEVEL_WARN, TMON_MODULE_NAME, "requested poll interval too small, limiting interval to %dms", 2 * TMON_POLL_MIN);
+
+    template.tv_sec = 0;
+    template.tv_usec = TMON_POLL_MIN * 1000;
+  } else {
+    sub_time_katcp(&template, &template, &margin);
+  }
+
   for(;;){
     
-    delta.tv_sec = period / 1000;
-    delta.tv_usec = (period % 1000) * 1000;
+    delta.tv_sec  = template.tv_sec;
+    delta.tv_usec = template.tv_usec;
 
     gettimeofday(&now, NULL);
     add_time_katcp(&limit, &now, &delta);
@@ -667,6 +691,10 @@ int main(int argc, char **argv)
           mfd = nt->n_fd + 1;
         }
       }
+
+#ifdef DEBUG
+      fprintf(stderr, "tmon: about to select after send: %ld.%06lu\n", delta.tv_sec, delta.tv_usec);
+#endif
 
       result = select(mfd, &fsr, NULL, NULL, &delta);
 
@@ -703,14 +731,18 @@ int main(int argc, char **argv)
 
     gettimeofday(&now, NULL);
     if(cmp_time_katcp(&now, &limit) < 0){
+      sub_time_katcp(&delta, &limit, &now);
+    } else {
+      delta.tv_sec = 0;
+      delta.tv_usec = 0;
+    }
+
+    add_time_katcp(&delta, &delta, &margin);
 
 #ifdef DEBUG
-      fprintf(stderr, "tmon: about to sleep for %ld.%06lu\n", delta.tv_sec, delta.tv_usec);
+    fprintf(stderr, "tmon: about to sleep for %ld.%06lu\n", delta.tv_sec, delta.tv_usec);
 #endif
-
-      sub_time_katcp(&delta, &limit, &now);
-      select(0, NULL, NULL, NULL, &delta);
-    }
+    select(0, NULL, NULL, NULL, &delta);
 
     if(current != previous){
       append_string_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#sensor-status");
