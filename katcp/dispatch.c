@@ -1196,7 +1196,7 @@ int name_log_level_katcp(struct katcp_dispatch *d, char *name)
     return d->d_level;
   }
 
-  level = log_to_code(name);
+  level = log_to_code_katcl(name);
   if(level < 0){
     return -1;
   }
@@ -1235,7 +1235,7 @@ int log_level_cmd_katcp(struct katcp_dispatch *d, int argc)
         ok = 1;
         d->d_level = KATCP_LEVEL_TRACE;
       }
-      code = log_to_code(requested);
+      code = log_to_code_katcl(requested);
       if(code >= 0){
         ok = 1;
         d->d_level = code;
@@ -1246,7 +1246,7 @@ int log_level_cmd_katcp(struct katcp_dispatch *d, int argc)
     requested = NULL;
   }
 
-  got = log_to_string(d->d_level);
+  got = log_to_string_katcl(d->d_level);
   if(got == NULL){
     ok = 0;
   }
@@ -1316,7 +1316,7 @@ int log_relay_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
   priority = get_string_parse_katcl(p, 1);
 
   if(priority){
-    code = log_to_code(priority);
+    code = log_to_code_katcl(priority);
   }
 
   if(code < 0){
@@ -1758,7 +1758,7 @@ int dispatch_cmd_katcp(struct katcp_dispatch *d, int argc)
   if(!strcmp(name, "list")){
     for(i = 0; i < s->s_used; i++){
       dx = s->s_clients[i];
-      level = log_to_string(dx->d_level);
+      level = log_to_string_katcl(dx->d_level);
 
       log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "dispatch %s (%s) logging %s with %d notices and %d sensors", dx->d_name, (dx == d) ? "this" : "other", level ? level : "unknown", dx->d_count, dx->d_size);
     }

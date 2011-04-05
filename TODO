@@ -1,31 +1,10 @@
 
-Urgent things to do
+    - complete kcs
 
-  - sensors
-
-    - ntp sync sensor. Done. Kindof. As an external 
-      program. Use 
-      
-        ?job process  ...
-      
-      to spawn tmon, then run
-
-        ?sensor relay ... 
-
-      to capture the sensor data 
-
-    - infrastructure sensors. Monitor power, temperature
-      and fans. Semi done for roaches (power, fan - not
-      temperature). Needs relay logic to grab the data
-      from tcpborphserver (working on that). 
+      - state machine logic 
 
     - data path sensors. Not yet done. Could be done in
       two ways: Either on tcpborphserver, or polling 
       registers from kcs itself
-
-    - lru sensors: not yet done, these sensors will have to 
-      be part of a roach pool: As things get moved in or
-      out of a pool, lru states should change
-
 
 
