@@ -14,16 +14,17 @@
 #include <katcl.h>
 #include <katcp.h>
 #include <katpriv.h>
-
+#include <fork-parent.h>
 
 #define NAME "kl"
 
 static volatile int log_level = KATCP_LEVEL_INFO;
 static volatile int log_changed = 0;
+static volatile int log_reload = 0;
 
 void usage(char *app)
 {
-  printf("usage: %s [-l level] [-o logfile] [-a reconnect-attempts] [-d] [-s server:port]\n", app);
+  printf("usage: %s [-l level] [-o logfile] [-a reconnect-attempts] [-d] [-t] [-s server:port]\n", app);
 }
 
 static void handle_signal(int signal)
@@ -32,30 +33,31 @@ static void handle_signal(int signal)
     case SIGUSR1 : 
       if(log_level > KATCP_LEVEL_TRACE){
         log_level--;
+        log_changed = 1;
       }
       break;
 
     case SIGUSR2 : 
       if(log_level < KATCP_LEVEL_OFF){
         log_level++;
+        log_changed = 1;
       }
       break;
 
     case SIGHUP : 
-      log_level = KATCP_LEVEL_INFO;
+      log_reload = 1;
       break;
 
     default :
       return;
   }
 
-  log_changed = 1;
 }
 
 int main(int argc, char **argv)
 {
   char *level, *app, *server, *output;
-  int run, fd, i, j, c, verbose, attempts, detach, result;
+  int run, fd, i, j, c, verbose, attempts, detach, result, truncate, flags;
   struct katcl_parse *p;
   struct katcl_line *ls, *lo;
   struct sigaction sa;
@@ -66,10 +68,13 @@ int main(int argc, char **argv)
   verbose = 0;
   attempts = 2;
   detach = 0;
+  truncate = 0;
 
   server = NULL;
   output = NULL;
   level = NULL;
+
+  flags = 0; /* placate -Wall */
 
   while (i < argc) {
     if (argv[i][0] == '-') {
@@ -86,7 +91,17 @@ int main(int argc, char **argv)
           break;
 
         case 'd' : 
-          detach = 1 - detach;
+          detach = 1;
+          j++;
+          break;
+
+        case 'f' : 
+          detach = 0;
+          j++;
+          break;
+
+        case 't' : 
+          truncate = 1;
           j++;
           break;
 
@@ -150,6 +165,13 @@ int main(int argc, char **argv)
     }
   }
 
+  if(detach){
+    if(fork_parent() < 0){
+      fprintf(stderr, "%s: unable to detach process\n", app);
+      return EX_OSERR;
+    }
+  }
+
   sa.sa_handler = handle_signal;
 #if 0
   sa.sa_flags = SA_RESTART;
@@ -181,7 +203,11 @@ int main(int argc, char **argv)
     }
     fd = STDOUT_FILENO;
   } else {
-    fd = open(output, O_CREAT | O_WRONLY | O_APPEND, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
+    flags = O_CREAT | O_WRONLY;
+    if(truncate == 0){
+      flags |= O_APPEND;
+    }
+    fd = open(output, flags, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
     if(fd < 0){
       fprintf(stderr, "%s: unable to open file %s: %s\n", app, output, strerror(errno));
       return EX_OSERR;
@@ -212,7 +238,22 @@ int main(int argc, char **argv)
     return EX_OSERR;
   }
 
+  if(detach){
+    fclose(stderr);
+  }
+
   for(run = 1; run > 0;){
+
+    if(log_reload > 0){
+      if(output){
+        fd = open(output, flags, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
+        if(fd >= 0){
+          exchange_katcl(lo, fd);
+        }
+      }
+
+      log_reload = 0;
+    }
  
     /* WARNING: will only run after the next message - may have to interrupt syscall to get past this */
     if(log_changed > 0){

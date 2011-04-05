@@ -3,8 +3,8 @@ include ../Makefile.inc
 INC = -I$(KATCP)
 LIB = -L$(KATCP) -lkatcp
 
-EXE = kl
-SRC = kl.c
+EXE = kcplog
+SRC = log.c
 
 OBJ = $(patsubst %.c,%.o,$(SRC))
 

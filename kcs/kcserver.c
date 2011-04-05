@@ -22,9 +22,9 @@
 #include <sys/utsname.h>
 
 #include <katcp.h>
+#include <fork-parent.h>
 
 #include "kcs.h"
-#include "fork-parent.h"
 
 void usage(char *app)
 {
