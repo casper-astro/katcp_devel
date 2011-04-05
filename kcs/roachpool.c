@@ -303,14 +303,14 @@ int add_roach_to_pool_kcs(struct katcp_dispatch *d, char *pool, char *url, char 
     case KCS_FAIL:
 #ifdef DEBUG
       fprintf(stderr,"roachpool: error not adding roach <%s> to pool <%s>\n", url, pool); 
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "roachpool: error cannot add roach <%s> to pool <%s>\n", url, pool); 
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "roachpool: error cannot add roach <%s> to pool <%s>", url, pool); 
 #endif
       break;
     case KCS_OK:
 #ifdef DEBUG
       fprintf(stderr,"roachpool: added roach <%s> to pool <%s>\n", url, pool); 
 #endif
-      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "roachpool: added roach <%s> to pool <%s>\n", url, pool); 
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "roachpool: added roach <%s> to pool <%s>", url, pool); 
       break;
   }
   return rtn;
@@ -366,8 +366,42 @@ void show_pool(struct katcp_dispatch *d, struct kcs_obj *o, int depth){
   
 }
 
-void destroy_tree(struct kcs_obj *o){
+int remove_obj_from_current_pool(struct kcs_obj *ro) 
+{
+  struct kcs_node *opn;
+  int i;
+
+  if (ro->parent == NULL) {
+#ifdef DEBUG
+    fprintf(stderr,"roachpool: in a node with no parent\n");
+#endif
+    return KCS_OK;
+  }
+
+  if (ro->parent->tid != KCS_ID_NODE) {
+#ifdef DEBUG
+    fprintf(stderr,"roachpool: the parent obj is not NODE type\n");
+#endif
+    return KCS_FAIL;
+  }
+
+  opn = (struct kcs_node*) ro->parent->payload;
+
+  for (i=0;i<opn->childcount;i++){
+    if (opn->children[i] == ro){
+      opn->children[i] = opn->children[opn->childcount-1];
+      opn->children = realloc(opn->children, sizeof(struct kcs_obj *) * --(opn->childcount));
+      break;
+    }
+  }
   
+  ro->parent = NULL;
+
+  return KCS_OK;
+}
+
+void destroy_tree(struct kcs_obj *o)
+{
   struct kcs_node *n;
   struct kcs_roach *r;
   int i;
@@ -376,7 +410,6 @@ void destroy_tree(struct kcs_obj *o){
   r = NULL;
   
   if (!o) return;
-  
 
   switch (o->tid){
     
@@ -390,7 +423,8 @@ void destroy_tree(struct kcs_obj *o){
 
       for (i=0;i<n->childcount;i++){
         destroy_tree(n->children[i]);
-        n->children[i] = NULL;
+        /*if (n->children[i])
+          n->children[i] = NULL;*/
       }
       if (n->children) { free(n->children); n->children = NULL; }
       if (n) { free(n); n = NULL; }
@@ -417,34 +451,14 @@ void destroy_tree(struct kcs_obj *o){
   fprintf(stderr,"roachpool: destroy in kcs_obj (%p) %s type:%d\n", o, o->name, o->tid);
 #endif
   if (o->name) { free(o->name); o->name = NULL; }
+  if (remove_obj_from_current_pool(o) == KCS_FAIL){
+#ifdef DEBUG 
+    fprintf(stderr,"roachpool: dangeling pointer in parent pool\n");
+#endif
+  }
   if (o) free(o);
 }
 
-int remove_obj_from_current_pool(struct kcs_obj *ro){
-  struct kcs_node *opn;
-  int i;
-
-  if (ro->parent->tid != KCS_ID_NODE){
-#ifdef DEBUG
-    fprintf(stderr,"roachpool: the parent obj is not NODE type\n");
-#endif
-    return KCS_FAIL;
-  }
-
-  opn = (struct kcs_node*) ro->parent->payload;
-
-  for (i=0;i<opn->childcount;i++){
-    if (opn->children[i] == ro){
-      opn->children[i] = opn->children[opn->childcount-1];
-      opn->children = realloc(opn->children, sizeof(struct kcs_obj *) * --(opn->childcount));
-      break;
-    }
-  }
-  
-  ro->parent = NULL;
-
-  return KCS_OK;
-}
 
 int mod_roach_to_new_pool(struct kcs_obj *root, char *pool, char *hostname){
   
@@ -547,7 +561,8 @@ int roachpool_getconf(struct katcp_dispatch *d){
   return KATCP_RESULT_OK;
 }
 
-int roachpool_add(struct katcp_dispatch *d){
+int roachpool_add(struct katcp_dispatch *d)
+{
 
   struct kcs_basic *kb;
   struct kcs_obj   *root;
@@ -576,7 +591,8 @@ int roachpool_add(struct katcp_dispatch *d){
   return KATCP_RESULT_OK;
 }
 
-int roachpool_mod(struct katcp_dispatch *d){
+int roachpool_mod(struct katcp_dispatch *d)
+{
   
   struct kcs_basic *kb;
   struct kcs_obj *root;
@@ -596,9 +612,35 @@ int roachpool_mod(struct katcp_dispatch *d){
   
   return KATCP_RESULT_OK;
 }
-int roachpool_del(struct katcp_dispatch *d){
+
+int roachpool_flush(struct katcp_dispatch *d)
+{
+  struct kcs_obj *ko;
+  struct kcs_basic *kb;
+  char *obj;
+  
+  obj = NULL; 
+  obj = arg_string_katcp(d, 2); 
+  
+  if (obj == NULL){  
+    kb = need_current_mode_katcp(d, KCS_MODE_BASIC);
+    //obj = "root";
+    ko = kb->b_pool_head;
+    kb->b_pool_head = NULL;
+  } else {
+    ko = roachpool_get_obj_by_name_kcs(d, obj);
+  }
+
+  if (ko == NULL)
+    return KATCP_RESULT_FAIL;
+  
+  destroy_tree(ko);
+
+  ko = NULL;
+  
   return KATCP_RESULT_OK;
 }
+
 int roachpool_list(struct katcp_dispatch *d){
   struct kcs_basic *kb;
   kb = need_current_mode_katcp(d, KCS_MODE_BASIC);
@@ -609,14 +651,17 @@ int roachpool_list(struct katcp_dispatch *d){
   show_pool(d,kb->b_pool_head,0);
   return KATCP_RESULT_OK;
 }
-int roachpool_destroy(struct katcp_dispatch *d){
+
+int roachpool_destroy(struct katcp_dispatch *d)
+{
   struct kcs_basic *kb;
   kb = need_current_mode_katcp(d, KCS_MODE_BASIC);
   destroy_tree(kb->b_pool_head);
   return KATCP_RESULT_OK;
 }
 
-struct kcs_obj *roachpool_get_obj_by_name_kcs(struct katcp_dispatch *d, char *name){
+struct kcs_obj *roachpool_get_obj_by_name_kcs(struct katcp_dispatch *d, char *name)
+{
   struct kcs_basic *kb;
   kb = need_current_mode_katcp(d,KCS_MODE_BASIC);
   if (name == NULL)
@@ -658,11 +703,12 @@ int roachpool_count_kcs(struct katcp_dispatch *d)
   return KATCP_RESULT_OWN;
 }
 
-int roachpool_greeting(struct katcp_dispatch *d){
+int roachpool_greeting(struct katcp_dispatch *d)
+{
   prepend_inform_katcp(d);
   append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST ,"add [kurl (katcp://roach.hostname:port/)] [roach ip] [pool type]");
-  //prepend_inform_katcp(d);
-  //append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST ,"del [roach hostname | pool type]");
+  prepend_inform_katcp(d);
+  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST ,"flush [none | kurl | pool]");
   prepend_inform_katcp(d);
   append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST ,"mod [roach hostname] [new pool type]");
   prepend_inform_katcp(d);
@@ -686,19 +732,20 @@ int roach_cmd(struct katcp_dispatch *d, int argc)
       p_cmd = arg_string_katcp(d,1);
       if (strcmp("list", p_cmd) == 0)
         return roachpool_list(d); 
+      else if (!strcmp("flush", p_cmd))
+        return roachpool_flush(d);
       return KATCP_RESULT_FAIL;
     
     case 3:
       p_cmd = arg_string_katcp(d,1);
-      if (strcmp("del", p_cmd) == 0){
- 
-      }
-      else if (strcmp("get-conf", p_cmd) == 0){
+      if (strcmp("get-conf", p_cmd) == 0){
         return roachpool_getconf(d);
       }
       else if (strcmp("count", p_cmd) == 0){
         return roachpool_count_kcs(d);
       } 
+      else if (!strcmp("flush", p_cmd))
+        return roachpool_flush(d);
       return KATCP_RESULT_FAIL;
     
     case 4:

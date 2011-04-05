@@ -130,7 +130,8 @@ struct kcs_roach {
   struct kcs_statemachine **ksm;
   int ksmcount;
   int ksmactive;
-  struct timeval lastnow;
+
+  struct timeval r_seen;
 
   struct katcp_acquire *r_acquire;
 };
@@ -139,7 +140,7 @@ int roach_cmd(struct katcp_dispatch *d, int argc);
 int roachpool_greeting(struct katcp_dispatch *d);
 int roachpool_add(struct katcp_dispatch *d);
 int roachpool_mod(struct katcp_dispatch *d);
-int roachpool_del(struct katcp_dispatch *d);
+int roachpool_flush(struct katcp_dispatch *d);
 int roachpool_list(struct katcp_dispatch *d);
 int roachpool_destroy(struct katcp_dispatch *d);
 int roachpool_getconf(struct katcp_dispatch *d);
