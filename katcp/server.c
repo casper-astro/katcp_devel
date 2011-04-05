@@ -51,7 +51,7 @@ static int inform_client_connect_katcp(struct katcp_dispatch *d)
       fprintf(stderr, "multi[%d]: informing %p of new connection\n", i, d);
 #endif
 
-      send_katcp(dx, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#client-connected", KATCP_FLAG_LAST | KATCP_FLAG_STRING, dx->d_name);
+      send_katcp(dx, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#client-connected", KATCP_FLAG_LAST | KATCP_FLAG_STRING, d->d_name);
     }
   }
 
