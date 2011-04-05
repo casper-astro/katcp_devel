@@ -1,0 +1,19 @@
+
+This package contains a C katcp library implementation and selected applications using it. 
+Unless otherwise noted the code base is released under the terms described in COPYING
+
+General purpose components
+
+  katcp       - the katcp library itself
+  cmd         - send arbitrary katcp commands to a remote server
+  examples    - simple examples (may be out of date)
+  sq          - katcp sensor query utility
+  log         - a utility to monitor a remote katcp server
+
+Utilities for particular tasks
+
+  bulkread    - a utlity to perform a ?bulkread request
+
+  kcs         - a control server using katcp
+  tmon        - monitor a local ntp server via katcp (used by kcs)
+  scripts     - supporting logic to interface kcs to corr 
