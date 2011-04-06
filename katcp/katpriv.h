@@ -241,6 +241,7 @@ struct katcp_entry{
 struct katcp_version{
   char *v_label;
   char *v_value;
+  char *v_build;
   unsigned int v_mode;
 };
 
@@ -457,6 +458,10 @@ int run_shared_katcp(struct katcp_dispatch *d);
 int ended_shared_katcp(struct katcp_dispatch *d);
 
 void shutdown_cmd_katcp(struct katcp_cmd *c);
+
+int define_cmd_katcp(struct katcp_dispatch *d, int argc);
+
+/* sensor stuff */
 
 int sensor_value_cmd_katcp(struct katcp_dispatch *d, int argc);
 int sensor_list_cmd_katcp(struct katcp_dispatch *d, int argc);

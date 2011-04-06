@@ -604,7 +604,7 @@ int main(int argc, char **argv)
   int result, previous, current, mfd, rr;
   char *level;
   unsigned int period;
-  struct timeval delta, now, limit, template, margin;
+  struct timeval delta, now, when, template;
   fd_set fsr;
   char buffer[BUFFER];
 
@@ -649,9 +649,18 @@ int main(int argc, char **argv)
   append_string_katcp(d,                    KATCP_FLAG_STRING, "none");
   append_string_katcp(d, KATCP_FLAG_LAST  | KATCP_FLAG_STRING, "boolean");
 
+
+  if(period < TMON_POLL_MIN){
+    period = TMON_POLL_MIN;
+  }
+
   template.tv_sec = period / 1000;
   template.tv_usec = (period % 1000) * 1000;
 
+  delta.tv_sec = 0;
+  delta.tv_usec = TMON_POLL_MIN;
+
+#if 0
   delta.tv_sec = 0;
   delta.tv_usec = (2 * TMON_POLL_MIN) * 1000;
 
@@ -669,80 +678,67 @@ int main(int argc, char **argv)
   } else {
     sub_time_katcp(&template, &template, &margin);
   }
+#endif
+
+  gettimeofday(&when, NULL);
 
   for(;;){
     
+    if(cmp_time_katcp(&now, &when) >= 0){
+#ifdef DEBUG
+      fprintf(stderr, "tmon: next send time, when is %ld.%06lu\n", when.tv_sec, when.tv_usec);
+#endif
+      send_ntp(d, nt);
+      add_time_katcp(&when, &when, &delta);
+    } 
+
+    FD_ZERO(&fsr);
+
+    FD_SET(STDIN_FILENO, &fsr);
+    mfd = STDIN_FILENO + 1;
+
+    if(nt->n_fd >= 0){
+      FD_SET(nt->n_fd, &fsr);
+      if(nt->n_fd >= mfd){
+        mfd = nt->n_fd + 1;
+      }
+    }
+
     delta.tv_sec  = template.tv_sec;
     delta.tv_usec = template.tv_usec;
 
+    result = select(mfd, &fsr, NULL, NULL, &delta);
+
     gettimeofday(&now, NULL);
-    add_time_katcp(&limit, &now, &delta);
 
-    if(send_ntp(d, nt) > 0){
-
-      FD_ZERO(&fsr);
-
-      FD_SET(STDIN_FILENO, &fsr);
-      mfd = STDIN_FILENO + 1;
-
-      if(nt->n_fd >= 0){
-        FD_SET(nt->n_fd, &fsr);
-        if(nt->n_fd >= mfd){
-          mfd = nt->n_fd + 1;
+    if(nt->n_fd >= 0){
+      if(FD_ISSET(nt->n_fd, &fsr)){
+        current = 0;
+        while((result = recv_ntp(d, nt)) != 0){
+          current = (result > 0) ? 1 : 0;
         }
       }
+    }
 
-#ifdef DEBUG
-      fprintf(stderr, "tmon: about to select after send: %ld.%06lu\n", delta.tv_sec, delta.tv_usec);
-#endif
-
-      result = select(mfd, &fsr, NULL, NULL, &delta);
-
-      if(nt->n_fd >= 0){
-        if(FD_ISSET(nt->n_fd, &fsr)){
-          current = 0;
-          while((result = recv_ntp(d, nt)) != 0){
-            current = (result > 0) ? 1 : 0;
-          }
-        }
+    if(FD_ISSET(STDIN_FILENO, &fsr)){
+      rr = read(STDIN_FILENO, buffer, BUFFER);
+      if(rr == 0){
+        return EX_OK;
       }
-
-      if(FD_ISSET(STDIN_FILENO, &fsr)){
-        rr = read(STDIN_FILENO, buffer, BUFFER);
-        if(rr == 0){
-          return EX_OK;
+      if(rr < 0){
+        switch(errno){
+          case EAGAIN :
+          case EINTR  :
+            break;
+          default : 
+            return EX_OSERR;
         }
-        if(rr < 0){
-          switch(errno){
-            case EAGAIN :
-            case EINTR  :
-              break;
-            default : 
-              return EX_OSERR;
-          }
-        }
-
       }
     }
 
     if(flushing_katcp(d)){
       write_katcp(d);
     }
-
-    gettimeofday(&now, NULL);
-    if(cmp_time_katcp(&now, &limit) < 0){
-      sub_time_katcp(&delta, &limit, &now);
-    } else {
-      delta.tv_sec = 0;
-      delta.tv_usec = 0;
-    }
-
-    add_time_katcp(&delta, &delta, &margin);
-
-#ifdef DEBUG
-    fprintf(stderr, "tmon: about to sleep for %ld.%06lu\n", delta.tv_sec, delta.tv_usec);
-#endif
-    select(0, NULL, NULL, NULL, &delta);
 
     if(current != previous){
       append_string_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#sensor-status");

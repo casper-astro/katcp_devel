@@ -14,6 +14,8 @@ CFLAGS += -DPARANOID
 CFLAGS += -DREPORT
 CFLAGS += -ggdb
 
+GITVER = $(shell git describe  --tags --dirty  2> /dev/null || echo unknown)
+
 CC = $(CROSS_COMPILE)gcc
 LOCALCC = gcc
 

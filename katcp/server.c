@@ -335,6 +335,10 @@ int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, ch
     register_katcp(dl, "?client-list", "displays client list (?client-list)", &client_list_cmd_katcp);
   }
 
+#if 1
+  add_kernel_version_katcp(dl);
+#endif
+
   dl->d_exit = KATCP_EXIT_ABORT; /* assume the worst */
 
   result = listen_shared_katcp(dl, count, host, port);
@@ -362,6 +366,8 @@ int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, ch
   register_flag_mode_katcp(dl, "?dispatch","dispatch operations (?dispatch [list])", &dispatch_cmd_katcp, 0, 0);
   register_flag_mode_katcp(dl, "?notice",  "notice operations (?notice [list|watch|wake])", &notice_cmd_katcp, 0, 0);
   register_flag_mode_katcp(dl, "?job",     "job operations (?job [list|process notice-name exec://executable-file|network notice-name katcp://net-host:remote-port|watchdog job-name|match job-name inform-message|stop job-name])", &job_cmd_katcp, 0, 0);
+  register_flag_mode_katcp(dl, "?define",  "runtime definitions (?define [mode name]", &define_cmd_katcp, 0, 0);
+
   register_flag_mode_katcp(dl, "?process", "register a process command (?process executable help-string [mode]", &register_subprocess_cmd_katcp, 0, 0);
   register_flag_mode_katcp(dl, "?sensor",  "sensor operations (?sensor [list|create|relay job-name])", &sensor_cmd_katcp, 0, 0);
   register_flag_mode_katcp(dl, "?version", "version operations (?sensor [add module version [mode]|remove module])", &version_cmd_katcp, 0, 0);

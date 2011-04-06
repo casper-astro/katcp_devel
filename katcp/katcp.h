@@ -400,9 +400,11 @@ int containing_kurl_katcp(struct katcp_url *ku, char *string);
 /* version support logic */
 void destroy_versions_katcp(struct katcp_dispatch *d);
 int remove_version_katcp(struct katcp_dispatch *d, char *label);
-int add_version_katcp(struct katcp_dispatch *d, char *label, unsigned int mode, char *prefix, char *value);
+int add_version_katcp(struct katcp_dispatch *d, char *label, unsigned int mode, char *prefix, char *value, char *build);
 
-int print_versions_katcp(struct katcp_dispatch *d);
+int add_kernel_version_katcp(struct katcp_dispatch *d);
+
+int print_versions_katcp(struct katcp_dispatch *d, int initial);
 int version_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 #endif

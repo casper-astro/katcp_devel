@@ -1,18 +1,22 @@
 ?setenv KATCP_SERVER localhost:1235
 ?setenv PATH /usr/local/lib/kcs/scripts:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/sbin:/usr/sbin
 ?chdir /usr/local/lib/kcs
+?define mode wbc
+?define mode ready
 ?job process foobar exec://tmon
 ?udpear
 ?forget ?halt
 ?forget ?restart
 ?process ?halt halt\_the\_control\_server_\(?halt)
 ?process ?restart restart\_the\_system\_(?restart)
-?process ?capture-start start\_a\_capture\_(?capture-start\_name\_[time])
-?process ?capture-stop stop\_a\_capture\_(?capture-start\_name\_[time])
-?process ?capture-list list\_available\_data\_streams\_(?capture-list)
-?process ?k7-accumulation-length sets\_the\_accumulation\_length\_(?k7-accumlation-length\_accumulation-period)
-?process ?k7-delay set\_the\_delay\_and\_fringe\_correction\_(?k7-delay\_board-input\_time\_delay-value\_delay-rate\_fringe-offset\_fringe-rate)
-?process ?k7-snap-shot retrieve\_an\_adc\_data\_block\_(?k7-snap-shot\_board-input)
-?process ?k7-gain sets\_the\_digital\_gain\_(?k7-gain\_board-input\_values)
-?process ?corr-init initialise\_packetised\_correlator
+?process ?capture-start start\_a\_capture\_(?capture-start\_name\_[time]) wbc
+?process ?capture-stop stop\_a\_capture\_(?capture-start\_name\_[time]) wbc
+?process ?capture-list list\_available\_data\_streams\_(?capture-list) wbc
+?process ?k7-accumulation-length sets\_the\_accumulation\_length\_(?k7-accumlation-length\_accumulation-period) wbc
+?process ?k7-delay set\_the\_delay\_and\_fringe\_correction\_(?k7-delay\_board-input\_time\_delay-value\_delay-rate\_fringe-offset\_fringe-rate) wbc
+?process ?k7-snap-shot retrieve\_an\_adc\_data\_block\_(?k7-snap-shot\_board-input) wbc
+?process ?k7-gain sets\_the\_digital\_gain\_(?k7-gain\_board-input\_values) wbc
+?process ?corr-init initialise\_packetised\_correlator 
+?mode ready
 ?corr-init
+?mode wbc

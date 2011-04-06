@@ -425,7 +425,7 @@ void on_connect_katcp(struct katcp_dispatch *d)
     return;
   }
 
-  print_versions_katcp(d);
+  print_versions_katcp(d, 1);
 
   e = &(s->s_vector[s->s_mode]);
 

@@ -758,6 +758,17 @@ int mode_cmd_katcp(struct katcp_dispatch *d, int argc)
 
 /***********************************************************************/
 
+static unsigned int count_modes_katcp(struct katcp_dispatch *d)
+{
+  struct katcp_shared *s;
+
+  sane_shared_katcp(d);
+
+  s = d->d_shared;
+
+  return s->s_size;
+}
+
 static int expand_modes_katcp(struct katcp_dispatch *d, unsigned int mode)
 {
   struct katcp_shared *s;
@@ -817,7 +828,7 @@ int mode_version_katcp(struct katcp_dispatch *d, int mode, char *subsystem, int 
     snprintf(buffer, BUFFER, "%d.%d", major, minor);
     buffer[BUFFER - 1] = '\0';
 
-    add_version_katcp(d, subsystem, mode, NULL, buffer);
+    add_version_katcp(d, subsystem, mode, NULL, buffer, NULL);
   }
 
 #if 0
@@ -1062,3 +1073,50 @@ char *query_mode_name_katcp(struct katcp_dispatch *d)
 
   return s->s_vector[s->s_mode].e_name;
 }
+
+int define_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  struct katcp_shared *s;
+  char *name, *label;
+  unsigned int m;
+
+  s = d->d_shared;
+
+  if(s == NULL){
+    return KATCP_RESULT_FAIL;
+  }
+
+  name = arg_string_katcp(d, 1);
+  if(name == NULL){
+    return KATCP_RESULT_FAIL;
+  } else {
+    if(!strcmp(name, "mode")){
+
+      label = arg_string_katcp(d, 2);
+
+      if(label == NULL){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a mode label");
+        return KATCP_RESULT_FAIL;
+      }
+
+      if(query_mode_code_katcp(d, label) >= 0){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "mode %s already defined", label);
+        return KATCP_RESULT_FAIL;
+      }
+
+      m = count_modes_katcp(d);
+
+      if(store_full_mode_katcp(d, m, label, NULL, NULL, NULL, NULL) < 0){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate mode %s", label);
+        return KATCP_RESULT_FAIL;
+      }
+
+      return KATCP_RESULT_OK;
+    } else {
+      return KATCP_RESULT_FAIL;
+    }
+  }
+
+  return KATCP_RESULT_FAIL;
+}
+

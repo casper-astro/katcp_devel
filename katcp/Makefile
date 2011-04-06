@@ -1,10 +1,17 @@
 include ../Makefile.inc
 
+VERSION = 0.1
+
+BUILD = $(shell date +%Y-%m-%dT%H:%M:%S)
+VERSION = $(GITVER)
+
 INC = -I.
 LIB = libkatcp.a
 SHARED = libkatcp.so
 
-CFLAGS += -fPIC
+CFLAGS += -fPIC 
+CFLAGS += -DVERSION=\"$(VERSION)\"
+CFLAGS += -DBUILD=\"$(BUILD)\"
 
 SUB = examples utils
 SRC = line.c netc.c dispatch.c loop.c log.c time.c shared.c misc.c server.c client.c ts.c nonsense.c notice.c job.c parse.c rpc.c queue.c map.c kurl.c version.c fork-parent.c
