@@ -9,7 +9,6 @@ kcs_error () {
 
 kcs_info () {
   echo "#log info $(date +%s)000 script $(echo $1 | sed -e 's/ /\\_/g')"
-  return 1
 }
 
 kcs_arg_check () {
