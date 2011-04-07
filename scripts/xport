@@ -11,16 +11,19 @@ case "$1" in
   start)
     cmd=${startcmd}
     delay=20
+    kcs_info "about to start roaches"
     ;;
   stop)
     cmd=${stopcmd}
     delay=1
+    kcs_info "about to stop roaches"
     ;;
   *)
     kcs_error "invalid argument"
     exit 1
     ;;
 esac
+
 
 for roach in $(grep roach.*x /etc/hosts | cut -f 1 -d \ ) ; do
   if echo -n -e "${cmd}" | netcat -w 1 ${roach} 10001 > /dev/null ; then
