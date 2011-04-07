@@ -339,7 +339,7 @@ static int hold_version_job_katcp(struct katcp_dispatch *d, struct katcp_notice 
     return 1;
   }
 
-  if(add_version_katcp(d, copy, 0, value, build) < 0){
+  if(add_version_katcp(d, copy, 0, version, build) < 0){
     log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "unable to record version information for %s", copy);
   }
 
