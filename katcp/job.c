@@ -412,6 +412,9 @@ struct katcp_job *create_job_katcp(struct katcp_dispatch *d, struct katcp_url *n
     if(match_inform_job_katcp(dl, j, "#log", &relay_log_job_katcp, NULL) < 0){
       log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to register log relay for job %s", j->j_url->u_str ? j->j_url->u_str : "<anonymous>");
     }
+    if(match_inform_job_katcp(dl, j, "#version", &hold_version_job_katcp, NULL) < 0){
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to register version recorder for job %s", j->j_url->u_str ? j->j_url->u_str : "<anonymous>");
+    }
   } 
 
   /* WARNING: do line clone last, so that fd isn't closed on failure */

@@ -10,8 +10,8 @@ SRC = $(SRCSHARED) udpear.c subprocess.c statemachine.c roachpool.c execpy.c par
 OBJ = $(patsubst %.c,%.o,$(SRC))
 all: $(SERVER)
 
-#$(SERVER): $(OBJ) ../katcp/libkatcp.a
-$(SERVER): $(OBJ) 
+#$(SERVER): $(OBJ) 
+$(SERVER): $(OBJ) ../katcp/libkatcp.a
 	$(CC) -o $@ $^ $(LIB)
 
 clean: 
