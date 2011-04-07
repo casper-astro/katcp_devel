@@ -27,7 +27,7 @@ esac
 
 for roach in $(grep roach.*x /etc/hosts | cut -f 1 -d \ ) ; do
   if echo -n -e "${cmd}" | netcat -w 1 ${roach} 10001 > /dev/null ; then
-    kcs_error "unable to contact ${roach}"
+    kcs_info "unable to contact ${roach}" 
   fi
 done
 
