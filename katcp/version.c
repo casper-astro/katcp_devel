@@ -74,10 +74,9 @@ static struct katcp_version *allocate_version_katcp(struct katcp_dispatch *d, ch
   return v;
 }
 
-static int set_version_katcp(struct katcp_dispatch *d, struct katcp_version *v, unsigned int mode, char *prefix, char *value, char *build)
+static int set_version_katcp(struct katcp_dispatch *d, struct katcp_version *v, unsigned int mode, char *value, char *build)
 {
   char *vt, *bt;
-  int len;
 
   if(build){
     bt = strdup(build);
@@ -88,6 +87,19 @@ static int set_version_katcp(struct katcp_dispatch *d, struct katcp_version *v, 
     bt = NULL;
   }
 
+  if(value){
+    vt = strdup(value);
+    if(vt == NULL){
+      if(bt){
+        free(bt);
+      }
+      return -1;
+    }
+  } else {
+    vt = NULL;
+  }
+
+#if 0
   if(value){
     if(prefix){
       len = strlen(prefix) + 1 + strlen(value) + 1;
@@ -108,6 +120,7 @@ static int set_version_katcp(struct katcp_dispatch *d, struct katcp_version *v, 
   } else {
     vt = NULL;
   }
+#endif
 
   if(v->v_value){
     free(v->v_value);
@@ -199,7 +212,7 @@ int remove_version_katcp(struct katcp_dispatch *d, char *label)
   return 0;
 }
 
-int add_version_katcp(struct katcp_dispatch *d, char *label, unsigned int mode, char *prefix, char *value, char *build)
+int add_version_katcp(struct katcp_dispatch *d, char *label, unsigned int mode, char *value, char *build)
 {
   int pos;
   struct katcp_version *v;
@@ -214,13 +227,13 @@ int add_version_katcp(struct katcp_dispatch *d, char *label, unsigned int mode, 
   if(pos >= 0){
     /* existing case */
     v = s->s_versions[pos];
-    return set_version_katcp(d, v, mode, prefix, value, build);
+    return set_version_katcp(d, v, mode, value, build);
   }
 
   /* new option */
   v = allocate_version_katcp(d, label);
   if(v){
-    if(set_version_katcp(d, v, mode, prefix, value, build) == 0){
+    if(set_version_katcp(d, v, mode, value, build) == 0){
       if(insert_version_katcp(d, v) == 0){
         return 0;
       }
@@ -271,7 +284,7 @@ int add_kernel_version_katcp(struct katcp_dispatch *d)
     return -1;
   }
 
-  return add_version_katcp(d, "kernel", 0, NULL, u.release, u.version);
+  return add_version_katcp(d, "kernel", 0, u.release, u.version);
 }
 
 int version_cmd_katcp(struct katcp_dispatch *d, int argc)
@@ -315,7 +328,7 @@ int version_cmd_katcp(struct katcp_dispatch *d, int argc)
 #endif
     }
 
-    if(add_version_katcp(d, label, md, NULL, value, build)){
+    if(add_version_katcp(d, label, md, value, build)){
       log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to add version for module %s", label);
       return KATCP_RESULT_FAIL;
     }

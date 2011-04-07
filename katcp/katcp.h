@@ -343,6 +343,8 @@ struct katcp_notice *find_notice_katcp(struct katcp_dispatch *d, char *name);
 struct katcp_notice *find_used_notice_katcp(struct katcp_dispatch *d, char *name);
 int has_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n, void *data), void *data);
 
+char *path_from_notice_katcp(struct katcp_notice *n, char *suffix);
+
 void release_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 void hold_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 
@@ -400,7 +402,7 @@ int containing_kurl_katcp(struct katcp_url *ku, char *string);
 /* version support logic */
 void destroy_versions_katcp(struct katcp_dispatch *d);
 int remove_version_katcp(struct katcp_dispatch *d, char *label);
-int add_version_katcp(struct katcp_dispatch *d, char *label, unsigned int mode, char *prefix, char *value, char *build);
+int add_version_katcp(struct katcp_dispatch *d, char *label, unsigned int mode, char *value, char *build);
 
 int add_kernel_version_katcp(struct katcp_dispatch *d);
 

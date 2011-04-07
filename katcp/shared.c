@@ -828,7 +828,7 @@ int mode_version_katcp(struct katcp_dispatch *d, int mode, char *subsystem, int 
     snprintf(buffer, BUFFER, "%d.%d", major, minor);
     buffer[BUFFER - 1] = '\0';
 
-    add_version_katcp(d, subsystem, mode, NULL, buffer, NULL);
+    add_version_katcp(d, subsystem, mode, buffer, NULL);
   }
 
 #if 0

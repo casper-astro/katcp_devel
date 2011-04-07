@@ -305,6 +305,49 @@ static int relay_log_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n,
   return 1;
 }
 
+static int hold_version_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
+{
+  struct katcl_parse *p;
+  char *inform, *module, *version, *build, *copy;
+
+  p = get_parse_notice_katcp(d, n);
+  if(p == NULL){
+    return 0;
+  }
+
+  inform = get_string_parse_katcl(p, 0);
+  if(inform == NULL){
+    return 0;
+  }
+  
+  if(!strcmp(inform, KATCP_RETURN_JOB)){
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "detaching in response to %s", inform);
+    return 0;
+  }
+
+  module = get_string_parse_katcl(p, 1);
+  version = get_string_parse_katcl(p, 2);
+  build = get_string_parse_katcl(p, 3);
+
+  if((module == NULL) || (version == NULL)){
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "insufficent parameters in version inform");
+    return 1;
+  }
+  
+  copy = path_from_notice_katcp(n, module);
+  if(copy == NULL){
+    return 1;
+  }
+
+  if(add_version_katcp(d, copy, 0, value, build) < 0){
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "unable to record version information for %s", copy);
+  }
+
+  free(copy);
+
+  return 1;
+}
+
 struct katcp_job *create_job_katcp(struct katcp_dispatch *d, struct katcp_url *name, pid_t pid, int fd, int async, struct katcp_notice *halt)
 {
   struct katcp_job *j, **t;

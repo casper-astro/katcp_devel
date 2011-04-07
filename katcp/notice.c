@@ -8,6 +8,7 @@
 #include "katcp.h"
 #include "katcl.h"
 #include "katpriv.h"
+#include "netc.h"
 
 /**********************************************************************************/
 
@@ -532,6 +533,90 @@ struct katcp_notice *find_used_notice_katcp(struct katcp_dispatch *d, char *name
   }
 
   return n;
+}
+
+char *path_from_notice_katcp(struct katcp_notice *n, char *suffix)
+{
+  char *copy;
+  int last, first, total;
+  struct katcp_url *ku;
+
+  if(suffix == NULL){
+    return NULL;
+  }
+
+  last = strlen(suffix);
+
+
+  /* anonymous notices */
+  if(n->n_name == NULL){
+    total = 9 + 18 + 1 + last + 1;
+
+    copy = malloc(total);
+    if(copy == NULL){
+      return NULL;
+    }
+
+    snprintf(copy, total, "anonymous%p.%s", n, suffix);
+    copy[total - 1] = '\0';
+
+    return copy;
+  }
+
+  ku = create_kurl_from_string_katcp(n->n_name);
+  /* notices which are not urls (should not happen, should be prohibited */
+  if(ku == NULL){
+
+    total = strlen(n->n_name) + 1 + last + 1;
+
+    copy = malloc(total);
+    if(copy == NULL){
+      return NULL;
+    }
+
+    snprintf(copy, total, "%s.%s", n->n_name, suffix);
+    copy[total - 1] = '\0';
+
+    return NULL;
+  }
+
+  /* names from urls */
+  if(ku->u_cmd){
+    first = strlen(ku->u_cmd);
+  } else {
+    first = strlen(ku->u_host);
+  }
+
+  total = first + 7 + last + 1;
+
+  copy = malloc(total);
+  if(copy == NULL){
+    destroy_kurl_katcp(ku);
+    return NULL;
+  }
+
+  if(ku->u_cmd){
+    snprintf(copy, total, "%s.%s", ku->u_cmd, suffix);
+  } else {
+    if(ku->u_port == NETC_DEFAULT_PORT){
+      snprintf(copy, total, "%s.%s", ku->u_host, suffix);
+    } else {
+      snprintf(copy, total, "%s.%d.%s", ku->u_host, ku->u_port, suffix);
+    }
+  }
+
+  copy[total - 1] = '\0';
+
+#if 0
+  ptr = strchr(copy, '#');
+  if(ptr){
+    ptr[0] = '\0';
+  }
+#endif
+
+  destroy_kurl_katcp(ku);
+
+  return copy;
 }
 
 /*******************************************************************************/

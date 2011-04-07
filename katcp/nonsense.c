@@ -8,6 +8,7 @@
 
 #include "katcp.h"
 #include "katpriv.h"
+#include "netc.h"
 
 #define SENSOR_MAGIC   0x0005e507
 #define NONSENSE_MAGIC 0xffee3393
@@ -2451,6 +2452,7 @@ int sensor_dump_cmd_katcp(struct katcp_dispatch *d, int argc)
 
 /***************************************************************************/
 
+#if 0
 char *assemble_sensor_name_katcp(struct katcp_notice *n, char *suffix)
 {
   char *copy;
@@ -2485,7 +2487,7 @@ char *assemble_sensor_name_katcp(struct katcp_notice *n, char *suffix)
   if(ku->u_cmd){
     snprintf(copy, total, "%s.%s", ku->u_cmd, suffix);
   } else {
-    if(ku->u_port == 7147){
+    if(ku->u_port == NETC_DEFAULT_PORT){
       snprintf(copy, total, "%s.%s", ku->u_host, suffix);
     } else {
       snprintf(copy, total, "%s.%d.%s", ku->u_host, ku->u_port, suffix);
@@ -2505,6 +2507,7 @@ char *assemble_sensor_name_katcp(struct katcp_notice *n, char *suffix)
 
   return copy;
 }
+#endif
 
 int match_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 {
@@ -2547,7 +2550,7 @@ int match_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_notice *n, vo
     return -1;
   }
   
-  combine = assemble_sensor_name_katcp(n, name);
+  combine = path_from_notice_katcp(n, name);
   if(combine == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate combined name for upstream sensor %s", name);
     return -1;
@@ -2688,7 +2691,7 @@ int match_sensor_status_katcp(struct katcp_dispatch *d, struct katcp_notice *n, 
     return -1;
   }
 
-  combine = assemble_sensor_name_katcp(n, name);
+  combine = path_from_notice_katcp(n, name);
   if(combine == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate combined name for upstream sensor %s", name);
     return -1;

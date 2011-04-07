@@ -29,7 +29,7 @@ int net_connect(char *name, int port, int flags)
   struct hostent *he;
   struct sockaddr_in sa;
 
-  p = 7147;
+  p = NETC_DEFAULT_PORT;
 
   ptr = strchr(name, ':');
   if(ptr){
@@ -177,7 +177,7 @@ int net_listen(char *name, int port, int flags)
   }
 
   if(p == 0){
-    p = 7147;
+    p = NETC_DEFAULT_PORT;
   }
 
   if(host){
