@@ -16,7 +16,9 @@
 ?process ?k7-delay set\_the\_delay\_and\_fringe\_correction\_(?k7-delay\_board-input\_time\_delay-value\_delay-rate\_fringe-offset\_fringe-rate) wbc
 ?process ?k7-snap-shot retrieve\_an\_adc\_data\_block\_(?k7-snap-shot\_board-input) wbc
 ?process ?k7-gain sets\_the\_digital\_gain\_(?k7-gain\_board-input\_values) wbc
+?process ?xport
 ?process ?corr-init initialise\_packetised\_correlator 
+?xport start
 ?mode ready
 ?corr-init
 ?mode wbc

@@ -1,0 +1,32 @@
+#!/bin/bash
+
+set -e 
+
+source functions.sh
+
+startcmd="\0002\0201\0002\0377\0377"
+stopcmd="\0002\0202\0002\0377\0377"
+
+case "$1" in
+  start)
+    cmd=${startcmd}
+    delay=20
+    ;;
+  stop)
+    cmd=${stopcmd}
+    delay=1
+    ;;
+  *)
+    kcs_error "invalid argument"
+    exit 1
+    ;;
+esac
+
+for roach in $(grep roach.*x /etc/hosts | cut -f 1 -d \ ) ; do
+  if echo -n -e "${cmd}" | netcat -w 1 ${roach} 10001 > /dev/null ; then
+    kcs_error "unable to contact ${roach}"
+  fi
+done
+
+sleep ${delay}
+

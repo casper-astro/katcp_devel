@@ -4,6 +4,9 @@ set -e
 source functions.sh
 
 kcs_info "initiating halt"
-shutdown -h now
+
+xport stop
+
+shutdown -h now < /dev/console >& /dev/console
 
 exit 0
