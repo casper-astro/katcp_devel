@@ -11,8 +11,8 @@ OBJ = $(patsubst %.c,%.o,$(SRC))
 all: $(SERVER)
 
 #$(SERVER): $(OBJ) 
-$(SERVER): $(OBJ) ../katcp/libkatcp.a
-	$(CC) -o $@ $^ $(LIB)
+$(SERVER): $(OBJ) $(KATCP)/libkatcp.a
+	$(CC) -o $@ $(OBJ) $(LIB)
 
 clean: 
 	$(RM) -f $(SERVER) *.o
