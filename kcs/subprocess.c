@@ -45,7 +45,7 @@ struct katcp_job * run_child_process_kcs(struct katcp_dispatch *d, struct katcp_
 {
   int fds[2];
   pid_t pid;
-  int copies;
+  int i;
   struct katcp_job *j;
   struct katcl_line *xl;
 
@@ -80,9 +80,14 @@ struct katcp_job * run_child_process_kcs(struct katcp_dispatch *d, struct katcp_
   /*in child use exit not return*/
   xl = create_katcl(fds[0]);
   close(fds[1]);
+  
+  for (i=0; i<1024; i++)
+    if (i != fds[0])
+      close(i);
 
   replace_argv(d, url->u_str);
-  
+
+#if 0 
   copies = 0;
   if (fds[0] != STDOUT_FILENO){
     if (dup2(fds[0], STDOUT_FILENO) != STDOUT_FILENO) {
@@ -101,7 +106,8 @@ struct katcp_job * run_child_process_kcs(struct katcp_dispatch *d, struct katcp_
   if(copies >= 2){
     fcntl(fds[0], F_SETFD, FD_CLOEXEC);
   }
-      
+#endif
+
   if ((*call)(xl,data) < 0)
     sync_message_katcl(xl, KATCP_LEVEL_ERROR, NULL, "run child process kcs fail"); 
   
