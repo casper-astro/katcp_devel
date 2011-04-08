@@ -1,3 +1,5 @@
+KATCP ?= ../katcp
+
 include ../Makefile.inc
 
 INC = -I$(KATCP)
