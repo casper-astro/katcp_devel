@@ -192,7 +192,7 @@ int connect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
   char *dc_kurl, *newpool;
   int fd;
 
-  kb = need_current_mode_katcp(d,KCS_MODE_BASIC);
+  kb = get_mode_katcp(d,KCS_MODE_BASIC);
   if (!kb)
     return KCS_SM_CONNECT_STOP;
   
@@ -315,7 +315,11 @@ int disconnect_sm_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *da
 
   char *newpool;
 
-  kb = need_current_mode_katcp(d, KCS_MODE_BASIC);
+  kb = get_mode_katcp(d, KCS_MODE_BASIC);
+  if (kb == NULL){
+    return KCS_SM_CONNECT_STOP;
+  }
+
   ko = data;
   kr = ko->payload;
   ksm = kr->ksm[0]; /*state machine at zero will be the connect one if it is valid*/
