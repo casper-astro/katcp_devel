@@ -2,7 +2,7 @@
 PREFIX=/usr/local
 
 # where to find the KATCP library (change this in case katcp isn't included locally)
-KATCP = katcp
+KATCP ?= katcp
 
 # compiler flags 
 CFLAGS = -Wall
