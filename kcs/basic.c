@@ -129,6 +129,8 @@ int script_wildcard_cmd(struct katcp_dispatch *d, int argc)
 #endif
 
   kb = get_mode_katcp(d, KCS_MODE_BASIC);
+  if (kb == NULL)
+    return KATCP_RESULT_FAIL;
 
   name = create_kurl_from_string_katcp(arg_string_katcp(d, 0)+1);
   if(name == NULL){
