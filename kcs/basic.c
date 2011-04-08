@@ -128,7 +128,7 @@ int script_wildcard_cmd(struct katcp_dispatch *d, int argc)
   fprintf(stderr, "script cmd: dispatch is %p\n", d);
 #endif
 
-  kb = need_current_mode_katcp(d, KCS_MODE_BASIC);
+  kb = get_mode_katcp(d, KCS_MODE_BASIC);
 
   name = create_kurl_from_string_katcp(arg_string_katcp(d, 0)+1);
   if(name == NULL){

@@ -750,7 +750,7 @@ struct p_value * parser_get(struct katcp_dispatch *d, char *srcl, char *srcs, un
 
   struct kcs_basic *kb;
   struct p_parser *p;
-  kb = need_current_mode_katcp(d,KCS_MODE_BASIC);
+  kb = get_mode_katcp(d,KCS_MODE_BASIC);
   if (kb == NULL)
     return NULL;
 
@@ -768,7 +768,7 @@ int parser_set(struct katcp_dispatch *d, char *srcl, char *srcs, unsigned long v
 
   struct kcs_basic *kb;
   struct p_parser *p;
-  kb = need_current_mode_katcp(d,KCS_MODE_BASIC);
+  kb = get_mode_katcp(d,KCS_MODE_BASIC);
   if (kb == NULL)
     return KATCP_RESULT_FAIL;
 
@@ -786,7 +786,7 @@ int parser_save(struct katcp_dispatch *d, char *filename, int force){
   
   struct kcs_basic *kb;
   struct p_parser *p;
-  kb = need_current_mode_katcp(d,KCS_MODE_BASIC);
+  kb = get_mode_katcp(d,KCS_MODE_BASIC);
   if (kb == NULL)
     return KATCP_RESULT_FAIL;
 
@@ -822,7 +822,7 @@ int parser_load(struct katcp_dispatch *d, char *filename){
   
   struct kcs_basic *kb;
   struct p_parser *p;
-  kb = need_current_mode_katcp(d,KCS_MODE_BASIC);
+  kb = get_mode_katcp(d,KCS_MODE_BASIC);
   
   if (kb == NULL)
     return KATCP_RESULT_FAIL;
@@ -859,7 +859,7 @@ int parser_destroy(struct katcp_dispatch *d){
 
   struct kcs_basic *kb;
   struct p_parser *p;
-  kb = need_current_mode_katcp(d,KCS_MODE_BASIC);
+  kb = get_mode_katcp(d,KCS_MODE_BASIC);
   p = kb->b_parser;
 #ifdef DEBUG  
   fprintf(stderr,"PARSER Destroy called\n");
@@ -875,7 +875,7 @@ int parser_list(struct katcp_dispatch *d){
   
   struct kcs_basic *kb;
   struct p_parser *p;
-  kb = need_current_mode_katcp(d,KCS_MODE_BASIC);
+  kb = get_mode_katcp(d,KCS_MODE_BASIC);
   p = kb->b_parser;
 
   if (p != NULL) {
@@ -891,7 +891,7 @@ int parser_list(struct katcp_dispatch *d){
 #ifdef STANDALONE
 struct kcs_basic *tkb;
 
-void * need_current_mode_katcp(struct katcp_dispatch *d, unsigned int mode){
+void * get_mode_katcp(struct katcp_dispatch *d, unsigned int mode){
   return tkb;
 }
 
