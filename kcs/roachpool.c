@@ -290,7 +290,9 @@ int add_roach_to_pool_kcs(struct katcp_dispatch *d, char *pool, char *url, char 
   struct kcs_obj *root;
   int rtn;
 
-  kb = need_current_mode_katcp(d, KCS_MODE_BASIC);
+  kb = get_mode_katcp(d, KCS_MODE_BASIC);
+  if (!kb)
+    return KCS_FAIL;
   
   root = kb->b_pool_head;
   if (root == NULL){
@@ -519,7 +521,9 @@ int roachpool_getconf(struct katcp_dispatch *d){
   pvc  = 0;
   errc = 0;
 
-  kb = need_current_mode_katcp(d, KCS_MODE_BASIC);
+  kb = get_mode_katcp(d, KCS_MODE_BASIC);
+  if (!kb)
+    return KATCP_RESULT_FAIL;
 
   confsetting = arg_string_katcp(d,2);
   
@@ -573,7 +577,9 @@ int roachpool_add(struct katcp_dispatch *d)
   mac      = NULL;
   pool     = NULL;
 
-  kb = need_current_mode_katcp(d, KCS_MODE_BASIC);
+  kb = get_mode_katcp(d, KCS_MODE_BASIC);
+  if (!kb)
+    return KATCP_RESULT_FAIL;
   
   root = kb->b_pool_head;
   if (root == NULL){
@@ -598,7 +604,9 @@ int roachpool_mod(struct katcp_dispatch *d)
   struct kcs_obj *root;
   char *hostname, *newpool;
 
-  kb = need_current_mode_katcp(d,KCS_MODE_BASIC);
+  kb = get_mode_katcp(d, KCS_MODE_BASIC);
+  if (!kb)
+    return KATCP_RESULT_FAIL;
 
   root = kb->b_pool_head;
   if (!root)
@@ -623,8 +631,9 @@ int roachpool_flush(struct katcp_dispatch *d)
   obj = arg_string_katcp(d, 2); 
   
   if (obj == NULL){  
-    kb = need_current_mode_katcp(d, KCS_MODE_BASIC);
-    //obj = "root";
+    kb = get_mode_katcp(d, KCS_MODE_BASIC);
+    if (!kb)
+      return KATCP_RESULT_FAIL;
     ko = kb->b_pool_head;
     kb->b_pool_head = NULL;
   } else {
@@ -643,7 +652,9 @@ int roachpool_flush(struct katcp_dispatch *d)
 
 int roachpool_list(struct katcp_dispatch *d){
   struct kcs_basic *kb;
-  kb = need_current_mode_katcp(d, KCS_MODE_BASIC);
+  kb = get_mode_katcp(d, KCS_MODE_BASIC);
+  if (!kb)
+    return KATCP_RESULT_FAIL;
   if (kb->b_pool_head == NULL){
     log_message_katcp(d, KATCP_LEVEL_INFO,NULL,"The roach pool is uninitialized");
     return KATCP_RESULT_FAIL;
@@ -655,7 +666,9 @@ int roachpool_list(struct katcp_dispatch *d){
 int roachpool_destroy(struct katcp_dispatch *d)
 {
   struct kcs_basic *kb;
-  kb = need_current_mode_katcp(d, KCS_MODE_BASIC);
+  kb = get_mode_katcp(d, KCS_MODE_BASIC);
+  if (!kb)
+    return KATCP_RESULT_FAIL;
   destroy_tree(kb->b_pool_head);
   return KATCP_RESULT_OK;
 }
@@ -663,7 +676,9 @@ int roachpool_destroy(struct katcp_dispatch *d)
 struct kcs_obj *roachpool_get_obj_by_name_kcs(struct katcp_dispatch *d, char *name)
 {
   struct kcs_basic *kb;
-  kb = need_current_mode_katcp(d,KCS_MODE_BASIC);
+  kb = get_mode_katcp(d, KCS_MODE_BASIC);
+  if (!kb)
+    return NULL;
   if (name == NULL)
     return NULL;
   return search_tree(kb->b_pool_head,name);

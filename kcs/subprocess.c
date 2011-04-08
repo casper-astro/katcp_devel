@@ -25,7 +25,7 @@ void replace_argv(struct katcp_dispatch *d, char *str)
   int i, argc;
   char **argv;
 
-  kb = need_current_mode_katcp(d, KCS_MODE_BASIC);
+  kb = get_mode_katcp(d, KCS_MODE_BASIC);
 
   if (kb == NULL)
     return;

@@ -1,3 +1,9 @@
+/***
+  An AVLTree Implementation
+  with rotation algorithms from
+  http://www.cse.ohio-state.edu/~sgomori/570/avlrotations.html
+***/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -39,6 +45,124 @@ struct avl_node *create_node_avltree(char *key, void *data)
   n->n_balance = 0;
 
   return n;
+}
+
+struct avl_node *rotate_rightright_avltree(struct avl_node *a)
+{
+  struct avl_node *f, *b;
+
+  f = a->n_parent;
+  b = a->n_right;
+
+  if (a == NULL || b == NULL)
+    return NULL;
+
+  a->n_right = b->n_left;
+  b->n_left  = a;
+
+  if (f == NULL)
+    return b;
+  else {
+    if (f->n_right == a)
+      f->n_right = b;
+    else
+      f->n_left = b;
+  }
+  
+  a->n_balance -= 2;
+  b->n_balance--;
+
+  return b;
+}
+
+struct avl_node *rotate_leftleft_avltree(struct avl_node *a)
+{
+  struct avl_node *f, *b;  
+
+  f = a->n_parent;
+  b = a->n_right;
+
+  if (a == NULL || b == NULL)
+    return NULL;
+
+  a->n_left = b->n_right;
+  b->n_right  = a;
+
+  if (f == NULL)
+    return b;
+  else {
+    if (f->n_right == a)
+      f->n_right = b;
+    else
+      f->n_left = b;
+  }
+  
+  a->n_balance += 2;
+  b->n_balance++;
+
+  return b;
+}
+
+struct avl_node *rotate_leftright_avltree(struct avl_node *a)
+{
+  struct avl_node *f, *b, *c;  
+
+  f = a->n_parent;
+  b = a->n_left;
+  c = b->n_right;
+
+  if (a == NULL || b == NULL || c == NULL)
+    return NULL;
+
+  a->n_left  = c->n_right;
+  b->n_right = c->n_left;
+  c->n_left  = b;
+  c->n_right = a;
+  
+  if (f == NULL)
+    return c;
+  else {
+    if (f->n_right == a)
+      f->n_right = c;
+    else
+      f->n_left = c;
+  }
+  
+  a->n_balance -= 2;
+  b->n_balance--;
+
+  return c;
+}
+
+struct avl_node *rotate_rightleft_avltree(struct avl_node *a)
+{
+  struct avl_node *f, *b, *c;  
+
+  f = a->n_parent;
+  b = a->n_right;
+  c = b->n_left;
+
+  if (a == NULL || b == NULL || c == NULL)
+    return NULL;
+
+  b->n_left  = c->n_right;
+  a->n_right = c->n_left;
+  c->n_right = b; 
+  c->n_left  = a;
+  
+  if (f == NULL)
+    return c;
+  else {
+    if (f->n_right == a)
+      f->n_right = c;
+    else
+      f->n_left = c;
+  }
+  
+  a->n_balance -= 2;
+  b->n_balance--;
+
+  return c;
 }
 
 int add_node_avltree(struct avl_tree *t, struct avl_node *n)
@@ -103,9 +227,11 @@ int add_node_avltree(struct avl_tree *t, struct avl_node *n)
   while (run){
     
     if (c->n_parent == NULL){
+#ifdef DEBUG
+      fprintf(stderr,"avl_tree: found null parent %s ending\n", c->n_key);
+#endif
       run = 0;
     } else {
-      //rtype = rtype << abs(c->n_balance)*2;
 
       if (c->n_parent->n_left == c) {
         c->n_parent->n_balance--;
@@ -117,20 +243,59 @@ int add_node_avltree(struct avl_tree *t, struct avl_node *n)
       c = c->n_parent;
 
 #ifdef DEBUG
-      fprintf(stderr,"avl_tree:\t%s balance is %d cmp is 0x%X\n", c->n_key, c->n_balance, rtype);
+      fprintf(stderr,"avl_tree:\t%s balance is %d rtype is 0x%X\n", c->n_key, c->n_balance, rtype);
 #endif
 
       if (abs(c->n_balance) > 1){
 
-#ifdef DEBUG
-        fprintf(stderr,"avl_tree:\t time to rotate\n");
-#endif
+        switch (rtype){
 
+          case AVL_LEFTRIGHT:
+#ifdef DEBUG
+            fprintf(stderr,"avl_tree:\t LEFT RIGHT Rotation\n");
+#endif
+            c = rotate_leftright_avltree(c);
+
+            break;
+          
+          case AVL_RIGHTLEFT:
+#ifdef DEBUG
+            fprintf(stderr,"avl_tree:\t RIGHT LEFT Rotation\n");
+#endif
+            c = rotate_rightleft_avltree(c);
+
+            break;
+          
+          case AVL_LEFTLEFT:
+#ifdef DEBUG
+            fprintf(stderr,"avl_tree:\t LEFT LEFT Rotation\n");
+#endif
+            c = rotate_leftleft_avltree(c);
+            
+            break;
+          
+          case AVL_RIGHTRIGHT:
+#ifdef DEBUG
+            fprintf(stderr,"avl_tree:\t RIGHT RIGHT Rotation\n");
+#endif
+            c = rotate_rightright_avltree(c);
+            
+            break;
+
+        }
+        rtype = 0;
+        
       }
 
     }
     
-  }
+  } /*while*/
+
+  t->t_root = c;
+#ifdef DEBUG
+  fprintf(stderr,"avl_tree: new root node is %s\n", c->n_key);
+#endif
+  
   return 0;
 }
 
@@ -173,6 +338,24 @@ void destroy_tree(struct avl_tree *t)
 }
 #endif
 
+void print_avltree(struct avl_node *n, int depth)
+{
+  int i;
+
+  if (n == NULL)
+    return;
+
+#ifdef DEBUG
+  for (i=0; i<depth; i++)
+    fprintf(stderr,"\t");
+  fprintf(stderr,"in %s bal %d\n", n->n_key, n->n_balance);
+#endif
+
+  print_avltree(n->n_left, depth+1);
+  print_avltree(n->n_right, depth+1);
+  
+}
+
 #ifndef LIBRARY
 
 int main(int argc, char *argv[])
@@ -185,19 +368,18 @@ int main(int argc, char *argv[])
   a = create_node_avltree("a", NULL);
   b = create_node_avltree("b", NULL);
   c = create_node_avltree("c", NULL);
-/*  d = create_node_avltree("d", NULL);
+ /* d = create_node_avltree("d", NULL);
   e = create_node_avltree("e", NULL);
   f = create_node_avltree("f", NULL);
   g = create_node_avltree("g", NULL);
   */
-  if (add_node_avltree(tree,c) < 0)
+  if (add_node_avltree(tree,a) < 0)
     fprintf(stderr,"avl_tree: couldn't add\n");
   if (add_node_avltree(tree,b) < 0)
     fprintf(stderr,"avl_tree: couldn't add\n");
-  if (add_node_avltree(tree,a) < 0)
+  if (add_node_avltree(tree,c) < 0)
     fprintf(stderr,"avl_tree: couldn't add\n");
-/*
-  if (add_node_avltree(tree,d) < 0)
+  /*if (add_node_avltree(tree,d) < 0)
     fprintf(stderr,"avl_tree: couldn't add\n");
   if (add_node_avltree(tree,e) < 0)
     fprintf(stderr,"avl_tree: couldn't add\n");
@@ -206,6 +388,7 @@ int main(int argc, char *argv[])
   if (add_node_avltree(tree,g) < 0)
     fprintf(stderr,"avl_tree: couldn't add\n");
   */
+  print_avltree(tree->t_root, 0);
   
   return 0;
 }
