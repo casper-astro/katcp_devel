@@ -17,7 +17,7 @@ $(SERVER): $(OBJ) $(KATCP)/libkatcp.a
 	$(CC) -o $@ $(OBJ) $(LIB)
 
 clean: 
-	$(RM) -f $(SERVER) *.o
+	$(RM) -f $(SERVER) *.o test-*
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@ $(INC)
@@ -40,4 +40,6 @@ test-kurl: $(SRCSHARED) kurl.c
 test-statemachine: statemachine.c 
 	$(CC) $(CFLAGS) -DSTANDALONE -o $@ $^ -I../katcp
 
+test-avltree: avltree.c 
+	$(CC) $(CFLAGS) -DSTANDALONE -o $@ $^
 

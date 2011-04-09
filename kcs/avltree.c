@@ -1,7 +1,6 @@
 /***
   An AVLTree Implementation
-  with rotation algorithms from
-  http://www.cse.ohio-state.edu/~sgomori/570/avlrotations.html
+  with parent pointers 
 ***/
 
 #include <stdio.h>
@@ -47,6 +46,38 @@ struct avl_node *create_node_avltree(char *key, void *data)
   return n;
 }
 
+void print_avltree(struct avl_node *n, int depth)
+{
+#define SPACER "  "
+  int i;
+
+  if (n == NULL){
+#ifdef DEBUG
+    fprintf(stderr,"%p\n", n);
+#endif
+    return;
+  }
+
+#ifdef DEBUG
+  fprintf(stderr,"in %s (%p) bal %d p(%p)\n", n->n_key, n, n->n_balance, n->n_parent);
+#endif
+
+#ifdef DEBUG
+  for (i=0; i<depth; i++)
+    fprintf(stderr,SPACER);
+  fprintf(stderr," L ");
+#endif
+  print_avltree(n->n_left, depth+1);
+
+#ifdef DEBUG
+  for (i=0; i<depth; i++)
+    fprintf(stderr, SPACER);
+  fprintf(stderr," R ");
+#endif
+  print_avltree(n->n_right, depth+1);
+#undef SPACER   
+}
+
 struct avl_node *rotate_rightright_avltree(struct avl_node *a)
 {
   struct avl_node *f, *b;
@@ -58,11 +89,13 @@ struct avl_node *rotate_rightright_avltree(struct avl_node *a)
     return NULL;
 
   a->n_right = b->n_left;
+  if (b->n_left != NULL)
+    b->n_left->n_parent = a;
   b->n_left  = a;
+  a->n_parent = b;
+  b->n_parent = f;
 
-  if (f == NULL)
-    return b;
-  else {
+  if (f != NULL) {
     if (f->n_right == a)
       f->n_right = b;
     else
@@ -80,17 +113,19 @@ struct avl_node *rotate_leftleft_avltree(struct avl_node *a)
   struct avl_node *f, *b;  
 
   f = a->n_parent;
-  b = a->n_right;
+  b = a->n_left;
 
   if (a == NULL || b == NULL)
     return NULL;
 
   a->n_left = b->n_right;
+  if (b->n_right != NULL)
+    b->n_right->n_parent = a;
   b->n_right  = a;
+  a->n_parent = b;
+  b->n_parent = f;
 
-  if (f == NULL)
-    return b;
-  else {
+  if (f != NULL) {
     if (f->n_right == a)
       f->n_right = b;
     else
@@ -115,20 +150,28 @@ struct avl_node *rotate_leftright_avltree(struct avl_node *a)
     return NULL;
 
   a->n_left  = c->n_right;
-  b->n_right = c->n_left;
-  c->n_left  = b;
-  c->n_right = a;
+  if (c->n_right != NULL)
+    c->n_right->n_parent = a; 
   
-  if (f == NULL)
-    return c;
-  else {
+  b->n_right = c->n_left;
+  if (c->n_left != NULL)
+    c->n_left->n_parent = b;
+  
+  c->n_right = a;
+  c->n_left  = b;
+  
+  b->n_parent = c;
+  a->n_parent = c;
+  c->n_parent = f;
+
+  if (f != NULL){
     if (f->n_right == a)
       f->n_right = c;
     else
       f->n_left = c;
   }
   
-  a->n_balance -= 2;
+  a->n_balance += 2;
   b->n_balance--;
 
   return c;
@@ -146,13 +189,21 @@ struct avl_node *rotate_rightleft_avltree(struct avl_node *a)
     return NULL;
 
   b->n_left  = c->n_right;
+  if (c->n_right != NULL)
+    c->n_right->n_parent = b;
+
   a->n_right = c->n_left;
+  if (c->n_left != NULL)
+    c->n_left->n_parent = a;
+
   c->n_right = b; 
   c->n_left  = a;
   
-  if (f == NULL)
-    return c;
-  else {
+  b->n_parent = c;
+  a->n_parent = c;
+  c->n_parent = f;
+  
+  if (f != NULL) {
     if (f->n_right == a)
       f->n_right = c;
     else
@@ -160,7 +211,7 @@ struct avl_node *rotate_rightleft_avltree(struct avl_node *a)
   }
   
   a->n_balance -= 2;
-  b->n_balance--;
+  b->n_balance++;
 
   return c;
 }
@@ -179,6 +230,7 @@ int add_node_avltree(struct avl_tree *t, struct avl_node *n)
     fprintf(stderr,"avl_tree: root node is %s\n", n->n_key);
 #endif
     t->t_root = n;
+    print_avltree(t->t_root, 0);
     return 0;
   }
 
@@ -234,12 +286,19 @@ int add_node_avltree(struct avl_tree *t, struct avl_node *n)
     } else {
 
       if (c->n_parent->n_left == c) {
+#ifdef DEBUG
+        fprintf(stderr,"avl_tree: decrementing %s balance\n",c->n_parent->n_key);
+#endif
         c->n_parent->n_balance--;
         rtype = rtype | (AVL_LEFT << abs(c->n_balance)*2);
       } else {
+#ifdef DEBUG
+        fprintf(stderr,"avl_tree: incrementing %s balance\n",c->n_parent->n_key);
+#endif
         c->n_parent->n_balance++;
         rtype = rtype | (AVL_RIGHT << abs(c->n_balance)*2);
       }
+
       c = c->n_parent;
 
 #ifdef DEBUG
@@ -255,7 +314,6 @@ int add_node_avltree(struct avl_tree *t, struct avl_node *n)
             fprintf(stderr,"avl_tree:\t LEFT RIGHT Rotation\n");
 #endif
             c = rotate_leftright_avltree(c);
-
             break;
           
           case AVL_RIGHTLEFT:
@@ -263,7 +321,6 @@ int add_node_avltree(struct avl_tree *t, struct avl_node *n)
             fprintf(stderr,"avl_tree:\t RIGHT LEFT Rotation\n");
 #endif
             c = rotate_rightleft_avltree(c);
-
             break;
           
           case AVL_LEFTLEFT:
@@ -271,7 +328,6 @@ int add_node_avltree(struct avl_tree *t, struct avl_node *n)
             fprintf(stderr,"avl_tree:\t LEFT LEFT Rotation\n");
 #endif
             c = rotate_leftleft_avltree(c);
-            
             break;
           
           case AVL_RIGHTRIGHT:
@@ -279,16 +335,16 @@ int add_node_avltree(struct avl_tree *t, struct avl_node *n)
             fprintf(stderr,"avl_tree:\t RIGHT RIGHT Rotation\n");
 #endif
             c = rotate_rightright_avltree(c);
-            
             break;
 
         }
         rtype = 0;
+#if 0
+        fprintf(stderr,"avl_tree:\t%s balance is %d rtype is 0x%X\n", c->n_key, c->n_balance, rtype);
+#endif
         
       }
-
     }
-    
   } /*while*/
 
   t->t_root = c;
@@ -296,6 +352,7 @@ int add_node_avltree(struct avl_tree *t, struct avl_node *n)
   fprintf(stderr,"avl_tree: new root node is %s\n", c->n_key);
 #endif
   
+  print_avltree(t->t_root, 0);
   return 0;
 }
 
@@ -338,23 +395,6 @@ void destroy_tree(struct avl_tree *t)
 }
 #endif
 
-void print_avltree(struct avl_node *n, int depth)
-{
-  int i;
-
-  if (n == NULL)
-    return;
-
-#ifdef DEBUG
-  for (i=0; i<depth; i++)
-    fprintf(stderr,"\t");
-  fprintf(stderr,"in %s bal %d\n", n->n_key, n->n_balance);
-#endif
-
-  print_avltree(n->n_left, depth+1);
-  print_avltree(n->n_right, depth+1);
-  
-}
 
 #ifndef LIBRARY
 
@@ -365,21 +405,21 @@ int main(int argc, char *argv[])
 
   tree = create_avltree();
 
-  a = create_node_avltree("a", NULL);
-  b = create_node_avltree("b", NULL);
-  c = create_node_avltree("c", NULL);
- /* d = create_node_avltree("d", NULL);
-  e = create_node_avltree("e", NULL);
-  f = create_node_avltree("f", NULL);
-  g = create_node_avltree("g", NULL);
-  */
-  if (add_node_avltree(tree,a) < 0)
+  a = create_node_avltree("adam", NULL);
+  b = create_node_avltree("ben", NULL);
+  c = create_node_avltree("charlie", NULL);
+  d = create_node_avltree("doug", NULL);
+  e = create_node_avltree("eric", NULL);
+  f = create_node_avltree("fred", NULL);
+  g = create_node_avltree("gareth", NULL);
+  
+  if (add_node_avltree(tree, c) < 0)
     fprintf(stderr,"avl_tree: couldn't add\n");
-  if (add_node_avltree(tree,b) < 0)
+  if (add_node_avltree(tree, a) < 0)
     fprintf(stderr,"avl_tree: couldn't add\n");
-  if (add_node_avltree(tree,c) < 0)
+  if (add_node_avltree(tree, b) < 0)
     fprintf(stderr,"avl_tree: couldn't add\n");
-  /*if (add_node_avltree(tree,d) < 0)
+  if (add_node_avltree(tree,d) < 0)
     fprintf(stderr,"avl_tree: couldn't add\n");
   if (add_node_avltree(tree,e) < 0)
     fprintf(stderr,"avl_tree: couldn't add\n");
@@ -387,9 +427,6 @@ int main(int argc, char *argv[])
     fprintf(stderr,"avl_tree: couldn't add\n");
   if (add_node_avltree(tree,g) < 0)
     fprintf(stderr,"avl_tree: couldn't add\n");
-  */
-  print_avltree(tree->t_root, 0);
-  
   return 0;
 }
 
