@@ -339,10 +339,8 @@ int add_node_avltree(struct avl_tree *t, struct avl_node *n)
 
         }
         rtype = 0;
-#if 0
-        fprintf(stderr,"avl_tree:\t%s balance is %d rtype is 0x%X\n", c->n_key, c->n_balance, rtype);
-#endif
-        
+        if (c->n_parent != NULL)
+          c = c->n_parent;
       }
     }
   } /*while*/
@@ -401,7 +399,7 @@ void destroy_tree(struct avl_tree *t)
 int main(int argc, char *argv[])
 {
   struct avl_tree *tree;
-  struct avl_node *a, *b, *c, *d, *e, *f, *g;
+  struct avl_node *a, *b, *c, *d, *e, *f, *g, *h, *i, *j, *k;
 
   tree = create_avltree();
 
@@ -412,6 +410,10 @@ int main(int argc, char *argv[])
   e = create_node_avltree("eric", NULL);
   f = create_node_avltree("fred", NULL);
   g = create_node_avltree("gareth", NULL);
+  h = create_node_avltree("dennis", NULL);
+  i = create_node_avltree("thomas", NULL);
+  j = create_node_avltree("mark", NULL);
+  k = create_node_avltree("megan", NULL);
   
   if (add_node_avltree(tree, c) < 0)
     fprintf(stderr,"avl_tree: couldn't add\n");
@@ -419,14 +421,23 @@ int main(int argc, char *argv[])
     fprintf(stderr,"avl_tree: couldn't add\n");
   if (add_node_avltree(tree, b) < 0)
     fprintf(stderr,"avl_tree: couldn't add\n");
-  if (add_node_avltree(tree,d) < 0)
+  if (add_node_avltree(tree, d) < 0)
     fprintf(stderr,"avl_tree: couldn't add\n");
-  if (add_node_avltree(tree,e) < 0)
+  if (add_node_avltree(tree, e) < 0)
     fprintf(stderr,"avl_tree: couldn't add\n");
-  if (add_node_avltree(tree,f) < 0)
+  if (add_node_avltree(tree, f) < 0)
     fprintf(stderr,"avl_tree: couldn't add\n");
-  if (add_node_avltree(tree,g) < 0)
+  if (add_node_avltree(tree, g) < 0)
     fprintf(stderr,"avl_tree: couldn't add\n");
+  if (add_node_avltree(tree, h) < 0)
+    fprintf(stderr,"avl_tree: couldn't add\n");
+  if (add_node_avltree(tree, i) < 0)
+    fprintf(stderr,"avl_tree: couldn't add\n");
+  if (add_node_avltree(tree, j) < 0)
+    fprintf(stderr,"avl_tree: couldn't add\n");
+  if (add_node_avltree(tree, k) < 0)
+    fprintf(stderr,"avl_tree: couldn't add\n");
+
   return 0;
 }
 
