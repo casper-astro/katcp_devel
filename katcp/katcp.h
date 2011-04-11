@@ -293,6 +293,7 @@ int job_suspend_sensor_katcp(struct katcp_dispatch *d, struct katcp_notice *n, v
 
 struct katcp_dispatch *template_shared_katcp(struct katcp_dispatch *d);
 
+int store_prepared_mode_katcp(struct katcp_dispatch *d, unsigned int mode, char *name, struct katcp_notice *(*prepare)(struct katcp_dispatch *d, char *flags, unsigned int from), int (*enter)(struct katcp_dispatch *d, char *flags, unsigned int from), void (*leave)(struct katcp_dispatch *d, unsigned int to), void *state, void (*clear)(struct katcp_dispatch *d));
 int store_full_mode_katcp(struct katcp_dispatch *d, unsigned int mode, char *name, int (*enter)(struct katcp_dispatch *d, char *flags, unsigned int from), void (*leave)(struct katcp_dispatch *d, unsigned int to), void *state, void (*clear)(struct katcp_dispatch *d));
 int store_mode_katcp(struct katcp_dispatch *d, unsigned int mode, void *state);
 int store_clear_mode_katcp(struct katcp_dispatch *d, unsigned int mode, void *state, void (*clear)(struct katcp_dispatch *d));
@@ -379,7 +380,10 @@ struct katcp_job *create_job_katcp(struct katcp_dispatch *d, struct katcp_url *n
 struct katcp_job *via_notice_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 
 struct katcp_job *process_create_job_katcp(struct katcp_dispatch *d, struct katcp_url *file, char **argv, struct katcp_notice *halt);
+struct katcp_job *process_name_create_job_katcp(struct katcp_dispatch *d, char *cmd, char **argv, struct katcp_notice *halt);
+
 struct katcp_job *network_connect_job_katcp(struct katcp_dispatch *d, struct katcp_url *url, struct katcp_notice *halt);
+struct katcp_job *network_name_connect_job_katcp(struct katcp_dispatch *d, char *host, int port, struct katcp_notice *halt);
 
 struct katcp_job *find_job_katcp(struct katcp_dispatch *d, char *name);
 struct katcp_job *find_containing_job_katcp(struct katcp_dispatch *d, char *name);

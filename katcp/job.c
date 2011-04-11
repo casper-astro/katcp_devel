@@ -1143,6 +1143,23 @@ struct katcp_job *find_containing_job_katcp(struct katcp_dispatch *d, char *name
   return NULL;
 }
 
+struct katcp_job *process_name_create_job_katcp(struct katcp_dispatch *d, char *cmd, char **argv, struct katcp_notice *halt)
+{
+  struct katcp_url *u;
+  struct katcp_job *j;
+
+  u = create_exec_kurl_katcp(cmd);
+  if(u){
+    j = process_create_job_katcp(d, u, argv, halt);
+    if(j){
+      return j;
+    }
+    destroy_kurl_katcp(u);
+  }
+
+  return NULL;
+}
+
 struct katcp_job *process_create_job_katcp(struct katcp_dispatch *d, struct katcp_url *file, char **argv, struct katcp_notice *halt)
 {
   int fds[2];
@@ -1152,7 +1169,6 @@ struct katcp_job *process_create_job_katcp(struct katcp_dispatch *d, struct katc
   struct katcp_job *j;
 
   if(socketpair(AF_UNIX, SOCK_STREAM, 0, fds) < 0){
-    destroy_kurl_katcp(file);
     return NULL;
   }
 
@@ -1160,7 +1176,6 @@ struct katcp_job *process_create_job_katcp(struct katcp_dispatch *d, struct katc
   if(pid < 0){
     close(fds[0]);
     close(fds[1]);
-    destroy_kurl_katcp(file);
     return NULL;
   }
 
@@ -1173,7 +1188,10 @@ struct katcp_job *process_create_job_katcp(struct katcp_dispatch *d, struct katc
       log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "unable to allocate job logic so terminating child process");
       kill(pid, SIGTERM);
       close(fds[1]);
+#if 0
+      /* convention: on sucess we assume responsibility for all pointers we are given, on failure we are not responsibly for anything. A failure should be equivalnet to the call never happening */
       destroy_kurl_katcp(file);
+#endif
     }
 
     return j;
@@ -1213,7 +1231,23 @@ struct katcp_job *process_create_job_katcp(struct katcp_dispatch *d, struct katc
   return NULL;
 }
 
-//struct katcp_job *network_connect_job_katcp(struct katcp_dispatch *d, char *host, int port, struct katcp_notice *halt)
+struct katcp_job *network_name_connect_job_katcp(struct katcp_dispatch *d, char *host, int port, struct katcp_notice *halt)
+{
+  struct katcp_url *u;
+  struct katcp_job *j;
+
+  u = create_kurl_katcp("katcp", host, port, "/");
+  if(u){
+    j = network_connect_job_katcp(d, u, halt);
+    if(j){
+      return j;
+    }
+    destroy_kurl_katcp(u);
+  }
+
+  return NULL;
+}
+
 struct katcp_job *network_connect_job_katcp(struct katcp_dispatch *d, struct katcp_url *url, struct katcp_notice *halt)
 {
   struct katcp_job *j;
@@ -1222,7 +1256,7 @@ struct katcp_job *network_connect_job_katcp(struct katcp_dispatch *d, struct kat
   fd = net_connect(url->u_host, url->u_port, NETC_ASYNC);
 
   if (fd < 0){
-    log_message_katcp(d,KATCP_LEVEL_ERROR,NULL,"Unable to connect to: %s:%d",url->u_host,url->u_port);
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to connect to %s:%d: %s", url->u_host, url->u_port, strerror(errno));
     return NULL;
   }
   
@@ -1374,7 +1408,10 @@ int subprocess_start_job_katcp(struct katcp_dispatch *d, int argc, int options)
   }
 
   if(add_notice_katcp(d, n, &subprocess_resume_job_katcp, NULL)){
+#if 0
+    /* once proces_create has succeeded, it is its responsibility to clean up and destroy kurl - so rather end the job */
     destroy_kurl_katcp(u);
+#endif
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to watch notice");
     return KATCP_RESULT_FAIL;
   }

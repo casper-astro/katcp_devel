@@ -304,22 +304,41 @@ struct katcp_url *create_kurl_from_string_katcp(char *url){
 
 struct katcp_url *create_kurl_katcp(char *scheme, char *host, int port, char *path){
   struct katcp_url *ku;
-  ku = NULL;
+  char *tmp;
+
   ku = malloc(sizeof(struct katcp_url));
-  if (!ku)
+  if (!ku){
     return NULL;
+  }
+
   ku->u_use    = 0;
+  ku->u_str    = NULL;
+
+  ku->u_path   = NULL;
   ku->u_cmd    = NULL;
+
   ku->u_scheme = strdup(scheme);
   ku->u_host   = strdup(host);
   ku->u_port   = port;
+
+  if((ku->u_scheme == NULL) || (ku->u_host == NULL)){
+    destroy_kurl_katcp(ku);
+    return NULL;
+  }
+
   ku->u_str    = copy_kurl_string_katcp(ku,NULL);
-  ku->u_path = realloc(ku->u_path,sizeof(char*)*++ku->u_pcount);
-  ku->u_path[ku->u_pcount-1] = strdup(path);
+
+  tmp          = realloc(ku->u_path, sizeof(char*)*++ku->u_pcount);
+  if(tmp){
+    ku->u_path = tmp;
+    ku->u_path[ku->u_pcount-1] = strdup(path);
+  }
+
   return ku;
 }
 
-struct katcp_url *create_exec_kurl_katcp(char *cmd){
+struct katcp_url *create_exec_kurl_katcp(char *cmd)
+{
   struct katcp_url *ku;
   
   ku = malloc(sizeof(struct katcp_url));
@@ -328,16 +347,16 @@ struct katcp_url *create_exec_kurl_katcp(char *cmd){
   }
   
   ku->u_use    = 0;
-
   ku->u_str    = NULL;
+
   ku->u_host   = NULL;
   ku->u_port   = 0;
 
-  ku->u_path = NULL;
-  ku->u_pcount = 0;
+  ku->u_path    = NULL;
+  ku->u_pcount  = 0;
 
-  ku->u_scheme = strdup("exec");
-  ku->u_cmd = strdup(cmd);
+  ku->u_scheme  = strdup("exec");
+  ku->u_cmd     = strdup(cmd);
 
   if((ku->u_scheme == NULL) || (ku->u_cmd == NULL)){
     destroy_kurl_katcp(ku);

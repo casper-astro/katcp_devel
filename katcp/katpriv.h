@@ -227,8 +227,11 @@ struct katcp_nonsense_float{
 
 struct katcp_entry{
   char *e_name;
+  struct katcp_notice *(*e_prep)(struct katcp_dispatch *d, char *flags, unsigned int mode);
+
   int (*e_enter)(struct katcp_dispatch *d, char *flags, unsigned int mode);
   void (*e_leave)(struct katcp_dispatch *d, unsigned int mode);
+
   void *e_state;
   void (*e_clear)(struct katcp_dispatch *d);
 #if 0
@@ -356,6 +359,9 @@ struct katcp_shared{
 
   struct katcp_cmd *s_commands;
   unsigned int s_mode;
+
+  unsigned int s_new;
+  struct katcp_notice *s_transition;
 
   struct katcp_dispatch *s_template;
   struct katcp_dispatch **s_clients;
