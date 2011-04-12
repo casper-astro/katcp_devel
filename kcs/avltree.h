@@ -3,15 +3,15 @@
 
 #define AVL_LEFT        0x2 
 #define AVL_RIGHT       0x1
-  
-#define AVL_LEFTRIGHT   0x9
-#define AVL_RIGHTLEFT   0x6
+#define AVL_MASK        0xF
+
+#define AVL_LEFTRIGHT   0x6
+#define AVL_RIGHTLEFT   0x9
 #define AVL_LEFTLEFT    0xA
 #define AVL_RIGHTRIGHT  0X5
 
 struct avl_tree {
   struct avl_node *t_root;
-
 };
 
 struct avl_node {
