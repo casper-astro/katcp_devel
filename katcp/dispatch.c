@@ -330,7 +330,7 @@ void set_state_katcp(struct katcp_dispatch *d, void *p)
   store_clear_mode_katcp(d, 0, p, NULL);
 }
 
-void set_clear_state_katcp(struct katcp_dispatch *d, void *p, void (*clear)(struct katcp_dispatch *d))
+void set_clear_state_katcp(struct katcp_dispatch *d, void *p, void (*clear)(struct katcp_dispatch *d, unsigned int mode))
 {
   store_clear_mode_katcp(d, 0, p, clear);
 }

@@ -227,13 +227,13 @@ struct katcp_nonsense_float{
 
 struct katcp_entry{
   char *e_name;
-  struct katcp_notice *(*e_prep)(struct katcp_dispatch *d, char *flags, unsigned int mode);
+  struct katcp_notice *(*e_prep)(struct katcp_dispatch *d, char *flags, unsigned int from, unsigned int to);
 
-  int (*e_enter)(struct katcp_dispatch *d, char *flags, unsigned int mode);
-  void (*e_leave)(struct katcp_dispatch *d, unsigned int mode);
+  int (*e_enter)(struct katcp_dispatch *d, char *flags, unsigned int to);
+  void (*e_leave)(struct katcp_dispatch *d, unsigned int from);
 
   void *e_state;
-  void (*e_clear)(struct katcp_dispatch *d);
+  void (*e_clear)(struct katcp_dispatch *d, unsigned int mode);
 #if 0
   char *e_version;
   unsigned int e_minor;
@@ -443,6 +443,11 @@ struct katcp_url {
   char **u_path;
   int u_pcount;
   char *u_cmd;
+};
+
+struct katcp_dynamic_mode{
+  int d_magic;
+  char *d_cmd;
 };
 
 void exchange_katcl(struct katcl_line *l, int fd);

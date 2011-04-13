@@ -1,0 +1,20 @@
+#!/bin/bash
+
+set -e
+source functions.sh
+
+status=1
+kcs_debug "running connect"
+if kcpcmd -k -r -t 120 connect 1000 ; then
+  kcs_debug "running initialise"
+  if kcpcmd -k -r -t 120 initialise 2 ; then
+    status=0
+  else
+     kcs_error "corr initialise failed"
+  fi
+else
+  kcs_error "corr connect failed"
+fi
+
+kcs_corr_log
+exit $status

@@ -65,6 +65,7 @@ static struct katcp_version *allocate_version_katcp(struct katcp_dispatch *d, ch
   v->v_label = strdup(label);
   v->v_mode = 0;
   v->v_value = NULL;
+  v->v_build = NULL;
 
   if(v->v_label == NULL){
     destroy_version_katcp(d, v);

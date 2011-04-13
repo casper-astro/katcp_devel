@@ -393,7 +393,6 @@ struct katcp_job *create_job_katcp(struct katcp_dispatch *d, struct katcp_url *n
 
   j->j_map = NULL;
 
-  //j->j_url = create_kurl_from_string_katcp(name);
   j->j_url = name;
   if(j->j_url == NULL){
     delete_job_katcp(d, j);
@@ -438,6 +437,8 @@ struct katcp_job *create_job_katcp(struct katcp_dispatch *d, struct katcp_url *n
   s->s_number++;
   
   j->j_url->u_use++;
+
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "created job %s", j->j_url->u_str);
 
   return j;
 }

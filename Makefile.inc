@@ -5,8 +5,8 @@ PREFIX=/usr/local
 KATCP ?= katcp
 
 # compiler flags 
-CFLAGS = -Wall
-CFLAGS += -O2
+CFLAGS += -Wall
+#CFLAGS += -O2
 CFLAGS += -DKATCP_USE_FLOATS
 CFLAGS += -DPARANOID
 #CFLAGS += -DDEBUG=4

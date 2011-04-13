@@ -1,10 +1,9 @@
 ?setenv KATCP_SERVER localhost:1235
 ?setenv PATH /usr/local/lib/kcs/scripts:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/sbin:/usr/sbin
 ?chdir /usr/local/lib/kcs
-?define mode wbc
 ?define mode ready
+?define mode wbc mode-wbc
 ?job process foobar exec://tmon
-?udpear
 ?forget ?halt
 ?forget ?restart
 ?process ?halt halt\_the\_control\_server_\(?halt)
@@ -20,5 +19,4 @@
 ?process ?corr-init initialise\_packetised\_correlator 
 ?xport start
 ?mode ready
-?corr-init
 ?mode wbc

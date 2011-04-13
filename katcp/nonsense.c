@@ -2827,13 +2827,12 @@ int job_suspend_sensor_katcp(struct katcp_dispatch *d, struct katcp_notice *n, v
 {
   struct katcp_url *ku;
   char *prefix;
+  int result;
 
   ku = create_kurl_from_string_katcp(n->n_name);
   if(ku == NULL){
     return -1;
   }
-
-  destroy_kurl_katcp(ku);
 
   if(ku->u_cmd){
     prefix = ku->u_cmd;
@@ -2845,7 +2844,11 @@ int job_suspend_sensor_katcp(struct katcp_dispatch *d, struct katcp_notice *n, v
     return -1;
   }
 
-  return set_status_group_sensor_katcp(d, prefix, KATCP_STATUS_UNKNOWN);
+  result =  set_status_group_sensor_katcp(d, prefix, KATCP_STATUS_UNKNOWN);
+
+  destroy_kurl_katcp(ku);
+
+  return result;
 }
 
 
