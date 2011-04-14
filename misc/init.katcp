@@ -1,4 +1,3 @@
-?setenv KATCP_SERVER localhost:1235
 ?setenv PATH /usr/local/lib/kcs/scripts:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/sbin:/usr/sbin
 ?chdir /usr/local/lib/kcs
 ?define mode ready
@@ -16,7 +15,6 @@
 ?process ?k7-snap-shot retrieve\_an\_adc\_data\_block\_(?k7-snap-shot\_board-input) wbc
 ?process ?k7-gain sets\_the\_digital\_gain\_(?k7-gain\_board-input\_values) wbc
 ?process ?xport start
-?process ?corr-init initialise\_packetised\_correlator 
 ?xport start
 ?mode ready
 ?mode wbc

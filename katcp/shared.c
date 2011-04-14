@@ -1132,7 +1132,7 @@ int enter_mode_katcp(struct katcp_dispatch *d, unsigned int mode, char *flags)
 
   if(s->s_new == s->s_mode){
     log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "already in requested mode");
-    return s->s_mode;
+    return 0;
   }
 
   if(flags){
