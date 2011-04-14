@@ -236,7 +236,7 @@ int enter_basic_kcs(struct katcp_dispatch *d, char *flags, unsigned int from)
   return KCS_MODE_BASIC;
 }
 
-void destroy_basic_kcs(struct katcp_dispatch *d)
+void destroy_basic_kcs(struct katcp_dispatch *d, unsigned int mode)
 {
   struct kcs_basic *kb;
 
@@ -429,7 +429,7 @@ int setup_basic_kcs(struct katcp_dispatch *d, char *scripts, char **argv, int ar
   /* TODO: trim out trailing / to make things look neater */
   if(store_full_mode_katcp(d, KCS_MODE_BASIC, KCS_MODE_BASIC_NAME, &enter_basic_kcs, NULL, kb, &destroy_basic_kcs) < 0){
     fprintf(stderr, "setup: unable to register basic mode\n");
-    destroy_basic_kcs(d);
+    destroy_basic_kcs(d, 0);
     return -1;
   }
 
