@@ -5,7 +5,7 @@ source functions.sh
 
 status=1
 kcs_debug "running connect"
-if kcpcmd -k -r -t 120 connect 1000 ; then
+if kcpcmd -k -r -t 120 connect ; then
   kcs_debug "running initialise"
   if kcpcmd -k -r -t 120 initialise 2 ; then
     status=0
