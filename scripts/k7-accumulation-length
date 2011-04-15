@@ -5,11 +5,5 @@ source functions.sh
 
 kcs_arg_check $# 1
 
-status=1
-if kcpcmd -k -r acc-time $(echo ${1}/1000 | bc -l | sed -e 's/^\./0./' ) ; then
-  status=0
-fi
-
 kcs_corr_log
-exit $status
-
+kcpcmd -k acc-time $(echo ${1}/1000 | bc -l | sed -e 's/^\./0./' ) | sed -e 's/^!acc-time/#return/'
