@@ -12,7 +12,7 @@
 ?process ?capture-list list\_available\_data\_streams\_(?capture-list) wbc
 ?process ?k7-accumulation-length sets\_the\_accumulation\_length\_(?k7-accumlation-length\_accumulation-period) wbc
 ?process ?k7-delay set\_the\_delay\_and\_fringe\_correction\_(?k7-delay\_board-input\_time\_delay-value\_delay-rate\_fringe-offset\_fringe-rate) wbc
-?process ?k7-snap-shot retrieve\_an\_adc\_data\_block\_(?k7-snap-shot\_board-input) wbc
+?process ?k7-snap-shot retrieve\_an\_processing\_pipeline\_data\_block\_(?k7-snap-shot\_[adc\_board-input|quant\_[count]]) wbc
 ?process ?k7-gain sets\_the\_digital\_gain\_(?k7-gain\_board-input\_values) wbc
 ?process ?xport start
 ?xport start

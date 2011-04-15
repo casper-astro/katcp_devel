@@ -5,7 +5,8 @@ set -e
 source functions.sh
 
 if [ $# -lt 1 ] ; then
-  echo "#k7-snap-shot adc"
+  echo "#k7-snap-shot\_adc"
+  echo "#k7-snap-shot\_quant"
   exit 0
 fi
 
@@ -14,9 +15,14 @@ case "$1" in
     kcpcmd -k get-adc-snapshot ${2} | sed -e 's/^!get-adc-snapshot/#return/'
     kcs_corr_log
     ;;
+  quant)
+    kcpcmd -k get-quant-snapshot ${2} | sed -e 's/^!get-quant-snapshot/#return/'
+    kcs_corr_log
+    ;;
   *)
     kcs_error "unknown snap shot ${1}"
     exit 1
+
     ;;
 esac
 
