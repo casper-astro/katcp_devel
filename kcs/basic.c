@@ -206,7 +206,7 @@ int script_wildcard_cmd(struct katcp_dispatch *d, int argc)
   vector[i] = NULL;
 
 #if 0 
-  j = process_create_job_katcp(d, path, vector, n);
+  j = process_relay_create_job_katcp(d, path, vector, n, NULL);
 #endif
 #if 1 
   j = wrapper_process_create_job_katcp(d, name, vector, n);

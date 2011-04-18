@@ -379,8 +379,12 @@ struct katcl_parse *remove_parse_notice_katcp(struct katcp_dispatch *d, struct k
 struct katcp_job *create_job_katcp(struct katcp_dispatch *d, struct katcp_url *name, pid_t pid, int fd, int async, struct katcp_notice *halt);
 struct katcp_job *via_notice_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 
+#if 0
 struct katcp_job *process_create_job_katcp(struct katcp_dispatch *d, struct katcp_url *file, char **argv, struct katcp_notice *halt);
-struct katcp_job *process_name_create_job_katcp(struct katcp_dispatch *d, char *cmd, char **argv, struct katcp_notice *halt);
+#endif
+
+struct katcp_job *process_relay_create_job_katcp(struct katcp_dispatch *d, struct katcp_url *file, char **argv, struct katcp_notice *halt, struct katcp_notice *relay);
+struct katcp_job *process_name_create_job_katcp(struct katcp_dispatch *d, char *cmd, char **argv, struct katcp_notice *halt, struct katcp_notice *relay);
 
 struct katcp_job *network_connect_job_katcp(struct katcp_dispatch *d, struct katcp_url *url, struct katcp_notice *halt);
 struct katcp_job *network_name_connect_job_katcp(struct katcp_dispatch *d, char *host, int port, struct katcp_notice *halt);
@@ -389,6 +393,7 @@ struct katcp_job *find_job_katcp(struct katcp_dispatch *d, char *name);
 struct katcp_job *find_containing_job_katcp(struct katcp_dispatch *d, char *name);
 int zap_job_katcp(struct katcp_dispatch *d, struct katcp_job *j);
 
+int match_notice_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, char *match, struct katcp_notice *n);
 int match_inform_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, char *match, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n, void *data), void *data);
 
 #if 0

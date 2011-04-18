@@ -113,7 +113,7 @@ int subprocess_check_cmd(struct katcp_dispatch *d, int argc)
   }
 
   /* create a job, something which isn't a timer or a client issuing commands, give it the notice so that it can trigger it when it needs to */
-  j = process_create_job_katcp(d, create_kurl_from_string_katcp("exec://sleep"), arguments, n);
+  j = process_name_create_job_katcp(d, arguments[0], arguments, n, NULL);
   if(j == NULL){
     log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "unable to create a subprocess handling job");
     return KATCP_RESULT_FAIL;

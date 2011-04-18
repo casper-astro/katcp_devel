@@ -293,9 +293,7 @@ struct katcp_notice *create_parse_notice_katcp(struct katcp_dispatch *d, char *n
     log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "creating anonymous notice with tag %d", tag);
   }
 
-  if(p == NULL){
-    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "creating %s notice without a message", name ? name : "<anonymous>");
-  }
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "creating %s notice %s message", name ? name : "<anonymous>", p ? "with" : "without");
 
   s = d->d_shared;
 
@@ -906,7 +904,7 @@ int change_name_notice_katcp(struct katcp_dispatch *d, char *name, char *newname
     return -1;
   }
 
-  if(rename_notice_katcp(d,n,newname) < 0){
+  if(rename_notice_katcp(d, n, newname) < 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not rename notice %p",n);
     return -1;
   }

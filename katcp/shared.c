@@ -1279,7 +1279,7 @@ struct katcp_notice *prepare_dynamic_enter_katcp(struct katcp_dispatch *d, char 
   vector[0] = dm->d_cmd;
   vector[1] = NULL;
 
-  j = process_name_create_job_katcp(d, dm->d_cmd, vector, halt);
+  j = process_name_create_job_katcp(d, dm->d_cmd, vector, halt, NULL);
   if(j == NULL){
     return NULL;
   }

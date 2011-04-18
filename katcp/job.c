@@ -280,6 +280,39 @@ static void delete_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
 
 /* create, modify notices to point back at job ********************/
 
+static int relay_cmd_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
+{
+  struct katcl_parse *p;
+  char *inform;
+
+#ifdef DEBUG
+  fprintf(stderr, "job: running cmd relay with dispatch %p and notice %p\n", d, n);
+#endif
+
+  p = get_parse_notice_katcp(d, n);
+  if(p == NULL){
+    return 0;
+  }
+
+  inform = get_string_parse_katcl(p, 0);
+  if(inform == NULL){
+    return 0;
+  }
+
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "about to relay cmd message %s ...", inform);
+  
+  if(!strcmp(inform, KATCP_RETURN_JOB)){
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "detaching command match in response to %s", inform);
+    return 0;
+  }
+
+  if(append_parse_katcl(d->d_line, p) < 0){
+    return -1;
+  }
+
+  return 1;
+}
+
 static int relay_log_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 {
   struct katcl_parse *p;
@@ -296,7 +329,7 @@ static int relay_log_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n,
   }
   
   if(!strcmp(inform, KATCP_RETURN_JOB)){
-    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "detaching in response to %s", inform);
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "detaching log match in response to %s", inform);
     return 0;
   }
 
@@ -594,67 +627,70 @@ int match_inform_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, char *
 {
   struct katcp_notice *n;
   struct katcp_trap *kt;
-#if 0
-  struct katcl_parse *p;
-#endif
-  char *ptr;
-  int len;
 
   sane_job_katcp(j);
 
   kt = find_map_katcp(j->j_map, match);
   if(kt == NULL){
-    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "allocating new inform match for %s", match);
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "new inform match for %s", match);
 
-#if 0 /* unclear if this is really needed, could probably do with an empty parse  ... */
-    p = create_parse_katcl(NULL);
-    if(p == NULL){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate empty message");
-      return -1;
-    }
-
-    if(add_plain_parse_katcl(p, KATCP_FLAG_STRING | KATCP_FLAG_FIRST | KATCP_FLAG_LAST, match) < 0){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to assemble empty message");
-      destroy_parse_katcl(p);
-      return -1;
-    }
-#endif
-
-    /* TODO: adjust when katcp:// scheme is sorted out */
-    len = (j->j_url->u_str ? strlen(j->j_url->u_str) : 0) + strlen(match) + 1;
-
-    ptr = malloc(len);
-    if(ptr){
-      snprintf(ptr, len, "%s%s", j->j_url->u_str, match);
-    }
-
-#if 0
-    n = create_parse_notice_katcp(d, ptr ? ptr : match, 0, p);
-#endif
-    n = create_parse_notice_katcp(d, ptr ? ptr : match, 0, NULL);
-    if(ptr){
-      free(ptr);
-    }
-
+    n = create_parse_notice_katcp(d, NULL, 0, NULL);
     if(n == NULL){
-#if 0
-      destroy_parse_katcl(p);
-#endif
       return -1;
     }
 
-    if(add_map_katcp(d, j->j_map, match, n) < 0){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to add match %s to job", match);
+    if(match_notice_job_katcp(d, j, match, n) < 0){
       return -1;
     }
 
   } else {
-    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "adding extra inform match for %s", match);
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "reusing inform match for %s", match);
+
     n = kt->t_notice;
   }
 
   if(add_notice_katcp(d, n, call, data)){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to add to notice %s", n->n_name);
+    return -1;
+  }
+
+  return 0;
+}
+
+int match_notice_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, char *match, struct katcp_notice *n)
+{
+  struct katcp_trap *kt;
+  struct katcp_url *ku;
+  char *ptr;
+  int len;
+
+  kt = find_map_katcp(j->j_map, match);
+  if(kt){
+    return -1;
+  }
+
+  /* WARNING: ties a notice to a job via a name. At some stage this could be a firmer link */
+  ku = j->j_url;
+  if(ku && ku->u_str){
+    len = strlen(ku->u_str) + strlen(match) + 1;
+    ptr = malloc(len);
+    if(ptr == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to duplicate string of %d bytes", len);
+      return -1;
+    }
+
+    snprintf(ptr, len, "%s%s", ku->u_str, match);
+    ptr[len - 1] = '\0';
+    rename_notice_katcp(d, n, ptr);
+
+    free(ptr);
+
+  } else {
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "no proper name for job %p", j);
+  }
+
+  if(add_map_katcp(d, j->j_map, match, n) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to add match %s to job", match);
     return -1;
   }
 
@@ -812,6 +848,9 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
 
         kt = find_map_katcp(j->j_map, cmd);
         if(kt){
+#ifdef DEBUG
+          fprintf(stderr, "job: found match for %s in map\n", cmd);
+#endif
           n = kt->t_notice;
           add_parse_notice_katcp(d, n, p);
           trigger_notice_katcp(d, n);
@@ -1144,14 +1183,14 @@ struct katcp_job *find_containing_job_katcp(struct katcp_dispatch *d, char *name
   return NULL;
 }
 
-struct katcp_job *process_name_create_job_katcp(struct katcp_dispatch *d, char *cmd, char **argv, struct katcp_notice *halt)
+struct katcp_job *process_name_create_job_katcp(struct katcp_dispatch *d, char *cmd, char **argv, struct katcp_notice *halt, struct katcp_notice *relay)
 {
   struct katcp_url *u;
   struct katcp_job *j;
 
   u = create_exec_kurl_katcp(cmd);
   if(u){
-    j = process_create_job_katcp(d, u, argv, halt);
+    j = process_relay_create_job_katcp(d, u, argv, halt, relay);
     if(j){
       return j;
     }
@@ -1161,11 +1200,19 @@ struct katcp_job *process_name_create_job_katcp(struct katcp_dispatch *d, char *
   return NULL;
 }
 
+#if 0
 struct katcp_job *process_create_job_katcp(struct katcp_dispatch *d, struct katcp_url *file, char **argv, struct katcp_notice *halt)
+{
+  return process_relay_create_job_katcp(d, file, argv, halt, NULL);
+}
+#endif
+
+struct katcp_job *process_relay_create_job_katcp(struct katcp_dispatch *d, struct katcp_url *file, char **argv, struct katcp_notice *halt, struct katcp_notice *relay)
 {
   int fds[2];
   pid_t pid;
-  int copies;
+  char *ptr;
+  int copies, len;
   struct katcl_line *xl;
   struct katcp_job *j;
 
@@ -1193,6 +1240,22 @@ struct katcp_job *process_create_job_katcp(struct katcp_dispatch *d, struct katc
       /* convention: on sucess we assume responsibility for all pointers we are given, on failure we are not responsibly for anything. A failure should be equivalnet to the call never happening */
       destroy_kurl_katcp(file);
 #endif
+      return NULL;
+    }
+
+    /* construct a #inform from the command given, register it triggering given relay */
+    if(relay && file->u_cmd){
+      len = strlen(file->u_cmd) + 2;
+      ptr = malloc(len);
+      if(ptr){
+        snprintf(ptr, len, "%c%s", KATCP_INFORM, file->u_cmd);
+        ptr[len - 1] = '\0';
+
+        if(match_notice_job_katcp(d, j, ptr, relay) < 0){
+          log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to register command relay for job %s", j->j_url->u_str ? j->j_url->u_str : "<anonymous>");
+        }
+        free(ptr);
+      }
     }
 
     return j;
@@ -1317,7 +1380,7 @@ int subprocess_start_job_katcp(struct katcp_dispatch *d, int argc, int options)
 {
   char **vector;
   struct katcp_job *j;
-  struct katcp_notice *n;
+  struct katcp_notice *n, *nr;
   char *ptr, *cmd;
   int i, len;
   struct katcp_url *u;
@@ -1398,8 +1461,19 @@ int subprocess_start_job_katcp(struct katcp_dispatch *d, int argc, int options)
     vector[i] = arg_string_katcp(d, i);
   }
 
+#if 0
+  nr = create_notice_katcp(d, NULL, 0);
+  if(nr){
+    if(add_notice_katcp(d, nr, &relay_cmd_job_katcp, NULL)){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to add to notice %s", n->n_name);
+    }
+  }
+#endif
+
+  nr = register_notice_katcp(d, NULL, 0, &relay_cmd_job_katcp, NULL);
+
   vector[i] = NULL;
-  j = process_create_job_katcp(d, u, vector, n);
+  j = process_relay_create_job_katcp(d, u, vector, n, nr);
   free(vector);
 
   if(j == NULL){
@@ -1617,6 +1691,11 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
         return KATCP_RESULT_FAIL;
       }
 
+      if(url->u_cmd){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "url %s has no executable component", cmd);
+        return KATCP_RESULT_FAIL;
+      }
+
       n = create_notice_katcp(d, watch, 0);
       if(n == NULL){
         destroy_kurl_katcp(url);
@@ -1627,7 +1706,7 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
       vector[0] = url->u_cmd;
       vector[1] = NULL;
 
-      j = process_create_job_katcp(d, url, vector, n);
+      j = process_relay_create_job_katcp(d, url, vector, n, NULL);
       if(j == NULL){
         destroy_kurl_katcp(url);
         return KATCP_RESULT_FAIL;
