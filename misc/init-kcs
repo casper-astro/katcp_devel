@@ -6,6 +6,7 @@ export PATH=/usr/local/sbin:$PATH
 case "$1" in
   start)
     kcs -i /usr/local/lib/kcs/init.katcp
+    kcplog -d -o /var/log/kcplog -s localhost:7147 
     ;;
   stop)
     kcpcmd -s localhost:7147 halt

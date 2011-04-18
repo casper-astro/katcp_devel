@@ -16,7 +16,7 @@
 #include <katpriv.h>
 #include <fork-parent.h>
 
-#define NAME "kl"
+#define NAME "kcplog"
 
 static volatile int log_level = KATCP_LEVEL_INFO;
 static volatile int log_changed = 0;
