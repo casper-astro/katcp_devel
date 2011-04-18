@@ -84,6 +84,7 @@ struct katcl_line{
   struct katcl_queue *l_queue;
 
   int l_error;
+  int l_sendable;
 };
 
 struct katcp_dispatch;

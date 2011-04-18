@@ -86,6 +86,7 @@ struct katcl_line *create_katcl(int fd)
   l->l_queue = NULL;
 
   l->l_error = 0;
+  l->l_sendable = 1;
 
   l->l_next = create_referenced_parse_katcl(l); /* we require that next is always valid */
   if(l->l_next == NULL){
@@ -143,6 +144,7 @@ void destroy_katcl(struct katcl_line *l, int mode)
   }
 
   l->l_error = EINVAL;
+  l->l_sendable = 0;
 
   free(l);
 }
@@ -158,7 +160,6 @@ void exchange_katcl(struct katcl_line *l, int fd)
   }
   l->l_fd = fd;
 
-  /* move ready to spare */
   if(l->l_ready){
     destroy_parse_katcl(l->l_ready);
     l->l_ready = NULL;
@@ -180,6 +181,7 @@ void exchange_katcl(struct katcl_line *l, int fd)
   clear_queue_katcl(l->l_queue);
 
   l->l_error = 0;
+  l->l_sendable = 1;
 }
 
 int fileno_katcl(struct katcl_line *l)
@@ -946,10 +948,12 @@ int write_katcl(struct katcl_line *l)
         p = get_head_queue_katcl(l->l_queue);
         if(l->l_pending <= 0){ /* nothing more to write ? */
           state = p ? WRITE_STATE_FILL : WRITE_STATE_DONE;
+          continue; /* WARNING: added later, attempt to remove write(,,0) cases */
         }
 
-        wr = send(l->l_fd, l->l_buffer, l->l_pending, MSG_DONTWAIT | MSG_NOSIGNAL);
-        if((wr < 0) && (errno == ENOTSOCK)){
+        if(l->l_sendable){
+          wr = send(l->l_fd, l->l_buffer, l->l_pending, MSG_DONTWAIT | MSG_NOSIGNAL);
+        } else {
           wr = write(l->l_fd, l->l_buffer, l->l_pending);
         }
 
@@ -958,6 +962,12 @@ int write_katcl(struct katcl_line *l)
             case EAGAIN :
             case EINTR  :
               return 0; /* returns zero if still more to do */
+            case ENOTSOCK :
+              if(l->l_sendable > 0){
+                l->l_sendable = 0; /* try again, this time with write() not send() */
+                continue; /* WARNING, restart for();  */
+              }
+              /* WARNING: drop through */
             default :
               l->l_error = errno;
               return -1;
