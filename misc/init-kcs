@@ -9,7 +9,8 @@ case "$1" in
     kcplog -d -o /var/log/kcplog -s localhost:7147 
     ;;
   stop)
-    kcpcmd -s localhost:7147 halt
+    #kcpcmd -s localhost:7147 halt
+    killall kcs
     ;;
   *)
     echo "Usage: $0 {start|stop}" >&2
