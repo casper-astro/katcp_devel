@@ -3,7 +3,7 @@
 set -e
 source functions.sh
 
-timeout=120
+timeout=300
 status=1
 kcs_debug "running connect"
 
