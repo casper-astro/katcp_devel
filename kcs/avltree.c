@@ -56,26 +56,27 @@ void print_avltree(struct avl_node *n, int depth)
 {
 #define SPACER "  "
   int i;
+  i=0;
 
   if (n == NULL){
-#if DEBUG > 0
+#if DEBUG >1
     fprintf(stderr,"%p\n", n);
 #endif
     return;
   }
 
-#if DEBUG > 0
+#if DEBUG >1
   fprintf(stderr,"in %s (%p) bal %d p(%p)\n", n->n_key, n, n->n_balance, n->n_parent);
 #endif
 
-#if DEBUG > 0
+#if DEBUG >1
   for (i=0; i<depth; i++)
     fprintf(stderr,SPACER);
   fprintf(stderr," L ");
 #endif
   print_avltree(n->n_left, depth+1);
 
-#if DEBUG > 0
+#if DEBUG >1
   for (i=0; i<depth; i++)
     fprintf(stderr, SPACER);
   fprintf(stderr," R ");
@@ -110,7 +111,8 @@ int check_balances_avltree(struct avl_node *n, int depth)
     r_bal = check_balances_avltree(n->n_right, depth+1);
     
 #if DEBUG >0
-    fprintf(stderr,"%s\tn_bal: %d\t %d-%d=%d %s\n", n->n_key, n->n_balance, r_bal, l_bal, r_bal-l_bal, ((r_bal-l_bal)!=n->n_balance)?"ERROR":"OKAY");
+    if ((r_bal-l_bal) != n->n_balance)
+      fprintf(stderr,"%s\tn_bal: %d\t %d-%d=%d %s\n", n->n_key, n->n_balance, r_bal, l_bal, r_bal-l_bal, ((r_bal-l_bal)!=n->n_balance)?"ERROR":"OKAY");
 #endif
     
     bal = (r_bal > l_bal) ? r_bal : l_bal;
@@ -144,7 +146,7 @@ struct avl_node *rotate_rightright_avltree(struct avl_node *a)
       f->n_left = b;
   }
 
-#if DEBUG >1
+#if DEBUG >2
   fprintf(stderr,"avl_tree:\tRR a: <%s> bal %d\n", a->n_key, a->n_balance);
   fprintf(stderr,"avl_tree:\tRR b: <%s> bal %d\n", b->n_key, b->n_balance);
 #endif
@@ -155,7 +157,7 @@ struct avl_node *rotate_rightright_avltree(struct avl_node *a)
     a->n_balance = 0;
     b->n_balance = 0;
   }
-#if DEBUG >1
+#if DEBUG >2
   fprintf(stderr,"avl_tree:\tRR a: <%s> bal %d\n", a->n_key, a->n_balance);
   fprintf(stderr,"avl_tree:\tRR b: <%s> bal %d\n", b->n_key, b->n_balance);
 #endif
@@ -186,7 +188,7 @@ struct avl_node *rotate_leftleft_avltree(struct avl_node *a)
     else
       f->n_left = b;
   }
-#if DEBUG >1
+#if DEBUG >2
   fprintf(stderr,"avl_tree:\tLL a: <%s> bal %d\n", a->n_key, a->n_balance);
   fprintf(stderr,"avl_tree:\tLL b: <%s> bal %d\n", b->n_key, b->n_balance);
 #endif
@@ -197,7 +199,7 @@ struct avl_node *rotate_leftleft_avltree(struct avl_node *a)
     a->n_balance = 0;
     b->n_balance = 0;
   }
-#if DEBUG >1
+#if DEBUG >2
   fprintf(stderr,"avl_tree:\tLL a: <%s> bal %d\n", a->n_key, a->n_balance);
   fprintf(stderr,"avl_tree:\tLL b: <%s> bal %d\n", b->n_key, b->n_balance);
 #endif
@@ -238,12 +240,13 @@ struct avl_node *rotate_leftright_avltree(struct avl_node *a)
       f->n_left = c;
   }
 
-#if DEBUG >1
+#if DEBUG >2
   fprintf(stderr,"avl_tree:\tLR a: <%s> bal %d\n", a->n_key, a->n_balance);
   fprintf(stderr,"avl_tree:\tLR b: <%s> bal %d\n", b->n_key, b->n_balance);
   fprintf(stderr,"avl_tree:\tLR c: <%s> bal %d\n", c->n_key, c->n_balance);
 #endif
   
+  /*this is correct AFIK*/
   switch (c->n_balance){
     case 0:
       a->n_balance = 0;
@@ -260,7 +263,7 @@ struct avl_node *rotate_leftright_avltree(struct avl_node *a)
   }
   c->n_balance = 0;
 
-#if DEBUG >1
+#if DEBUG >2
   fprintf(stderr,"avl_tree:\tLR a: <%s> bal %d\n", a->n_key, a->n_balance);
   fprintf(stderr,"avl_tree:\tLR b: <%s> bal %d\n", b->n_key, b->n_balance);
   fprintf(stderr,"avl_tree:\tLR c: <%s> bal %d\n", c->n_key, c->n_balance);
@@ -302,7 +305,7 @@ struct avl_node *rotate_rightleft_avltree(struct avl_node *a)
       f->n_left = c;
   }
 
-#if DEBUG >1
+#if DEBUG >2
   fprintf(stderr,"avl_tree:\tRL a: <%s> bal %d\n", a->n_key, a->n_balance);
   fprintf(stderr,"avl_tree:\tRL b: <%s> bal %d\n", b->n_key, b->n_balance);
   fprintf(stderr,"avl_tree:\tRL c: <%s> bal %d\n", c->n_key, c->n_balance);
@@ -324,7 +327,7 @@ struct avl_node *rotate_rightleft_avltree(struct avl_node *a)
   }
   c->n_balance = 0;
 
-#if DEBUG >1
+#if DEBUG >2
   fprintf(stderr,"avl_tree:\tRL a: <%s> bal %d\n", a->n_key, a->n_balance);
   fprintf(stderr,"avl_tree:\tRL b: <%s> bal %d\n", b->n_key, b->n_balance);
   fprintf(stderr,"avl_tree:\tRL c: <%s> bal %d\n", c->n_key, c->n_balance);
@@ -340,11 +343,18 @@ struct avl_node *rebalance_avltree(struct avl_node *n)
 
   if (n == NULL)
     return NULL;
-
+#if 0
   c = (n->n_left == NULL) ? n->n_right : n->n_left;
-
+#endif
+  
+  c = (n->n_balance == -2) ? n->n_left : n->n_right;
+  
   rtype = ((n->n_balance == -2) ? AVL_LEFT : AVL_RIGHT ) & AVL_MASK;
-  rtype = rtype | ( ((c->n_balance == -1) ? (AVL_LEFT<<2) : (AVL_RIGHT<<2)) & AVL_MASK );
+  if (c->n_balance == 0){
+    rtype = rtype | (rtype << 2);
+  } else {
+    rtype = rtype | ( ((c->n_balance == -1) ? (AVL_LEFT<<2) : (AVL_RIGHT<<2)) & AVL_MASK );
+  }
 
 #if DEBUG >1
   fprintf(stderr,"avl_tree:\trtype is 0x%X\n",rtype);
@@ -540,6 +550,7 @@ int del_node_avltree(struct avl_tree *t, struct avl_node *n)
   if (n == NULL)
     return -2;
 
+  run = 1;
   flag = 0;
   if (n->n_right == NULL){
 
@@ -548,9 +559,6 @@ int del_node_avltree(struct avl_tree *t, struct avl_node *n)
 #if DEBUG > 1
     fprintf(stderr,"avl_tree: delete CASE 1 n has no right child replace with left child %p\n", c);
 #endif
-    if (c != NULL){
-      c->n_parent = n->n_parent;
-    }
     if (n->n_parent){
       if (n->n_parent->n_balance == 0){
         flag = 1;
@@ -570,8 +578,17 @@ int del_node_avltree(struct avl_tree *t, struct avl_node *n)
 #endif
       }
     }
-    if (c == NULL)
+    if (c == NULL){
       c = n->n_parent;
+      if (c == NULL)
+        run = 0;
+    } else if (c != NULL){
+      c->n_parent = n->n_parent;
+      if (c->n_parent != NULL)
+        c = c->n_parent;
+      else
+        run = 0;
+    }
 
     free_node_avltree(n);
   
@@ -582,10 +599,16 @@ int del_node_avltree(struct avl_tree *t, struct avl_node *n)
     if (c->n_left == NULL){
       
 #if DEBUG > 1
-      fprintf(stderr,"avl_tree: delete CASE 2 n's <%s> right child <%s> has no left replace with right child %p\n", n->n_key, c->n_key, c);
+      fprintf(stderr,"avl_tree: delete CASE 2 n's <%s> right child <%s> has no left replace with right child %s\n", n->n_key, c->n_key, c->n_key);
 #endif
       c->n_parent = n->n_parent;
       if (n->n_parent){
+       if (n->n_balance == 0){
+#if DEBUG >1
+          fprintf(stderr, "avl_tree:\tn balance is 0 set flag\n");
+#endif
+          flag = 1;
+        }
         if (n->n_parent->n_left == n) {
           n->n_parent->n_left = c;
         }
@@ -617,7 +640,6 @@ int del_node_avltree(struct avl_tree *t, struct avl_node *n)
 #if DEBUG > 1
       fprintf(stderr,"avl_tree: delete CASE 3 replace with inorder successor %s %p\n", s->n_key, s);
 #endif
-      /*TODO: finish*/
       
       s->n_left = n->n_left;
       s->n_left->n_parent = s;
@@ -661,7 +683,6 @@ int del_node_avltree(struct avl_tree *t, struct avl_node *n)
     }
   }
 
-  run = 1;
   while (run){
     
     if (flag){
@@ -880,17 +901,17 @@ int add_file_words_to_avltree(struct avl_tree *t, char *buffer, int bsize)
 int main(int argc, char *argv[])
 {
   struct avl_tree *tree;
-#if 1
+#if 0 
   int fd, fsize;
   struct stat file_stats;
   char *buffer;
 #endif
 
-#if 0 
+#if 1 
   struct avl_node *a, *b, *c, *d, *e, *f, *g, *h, *i, *j, *k, *l, *m, *n, *o, *p, *q;
 #endif
 
-#if 1
+#if 0
   fd = open("/usr/share/dict/words", O_RDONLY);
   if (fd < 0){
 #if DEBUG >0
@@ -932,12 +953,12 @@ int main(int argc, char *argv[])
     return 0;
   }
   
-  print_avltree(tree->t_root, 0);
+ // print_avltree(tree->t_root, 0);
   check_balances_avltree(tree->t_root, 0);
 
 #endif 
 
-#if 0 
+#if 1 
   tree = create_avltree();
   
   a = create_node_avltree("adam", NULL);
@@ -958,6 +979,12 @@ int main(int argc, char *argv[])
   p = create_node_avltree("amy", NULL);
   q = create_node_avltree("alex", NULL);
   
+  if (add_node_avltree(tree, h) < 0)
+    fprintf(stderr,"avl_tree: couldn't add\n");
+  if (add_node_avltree(tree, i) < 0)
+    fprintf(stderr,"avl_tree: couldn't add\n");
+  if (add_node_avltree(tree, j) < 0)
+    fprintf(stderr,"avl_tree: couldn't add\n");
   if (add_node_avltree(tree, c) < 0)
     fprintf(stderr,"avl_tree: couldn't add\n");
   if (add_node_avltree(tree, a) < 0)
@@ -971,12 +998,6 @@ int main(int argc, char *argv[])
   if (add_node_avltree(tree, f) < 0)
     fprintf(stderr,"avl_tree: couldn't add\n");
   if (add_node_avltree(tree, g) < 0)
-    fprintf(stderr,"avl_tree: couldn't add\n");
-  if (add_node_avltree(tree, h) < 0)
-    fprintf(stderr,"avl_tree: couldn't add\n");
-  if (add_node_avltree(tree, i) < 0)
-    fprintf(stderr,"avl_tree: couldn't add\n");
-  if (add_node_avltree(tree, j) < 0)
     fprintf(stderr,"avl_tree: couldn't add\n");
   if (add_node_avltree(tree, k) < 0)
     fprintf(stderr,"avl_tree: couldn't add\n");
@@ -996,39 +1017,61 @@ int main(int argc, char *argv[])
     fprintf(stderr,"avl_tree: couldn't add\n");
   if (add_node_avltree(tree, create_node_avltree("nicole", NULL)) < 0)
     fprintf(stderr,"avl_tree: couldn't add\n");
+ /* 
+  if (add_node_avltree(tree, create_node_avltree("fred", NULL)) < 0)
+    fprintf(stderr,"avl_tree: couldn't add\n");
+  if (add_node_avltree(tree, create_node_avltree("adam", NULL)) < 0)
+    fprintf(stderr,"avl_tree: couldn't add\n");
+  if (add_node_avltree(tree, create_node_avltree("eric", NULL)) < 0)
+    fprintf(stderr,"avl_tree: couldn't add\n");
+  if (add_node_avltree(tree, create_node_avltree("alan", NULL)) < 0)
+    fprintf(stderr,"avl_tree: couldn't add\n");
+  if (add_node_avltree(tree, create_node_avltree("abe", NULL)) < 0)
+    fprintf(stderr,"avl_tree: couldn't add\n");
+  if (add_node_avltree(tree, create_node_avltree("ben", NULL)) < 0)
+    fprintf(stderr,"avl_tree: couldn't add\n");
+  if (add_node_avltree(tree, create_node_avltree("basil", NULL)) < 0)
+    fprintf(stderr,"avl_tree: couldn't add\n");
+  if (add_node_avltree(tree, create_node_avltree("barry", NULL)) < 0)
+    fprintf(stderr,"avl_tree: couldn't add\n");
+  
+  if (del_name_node_avltree(tree, "abe") < 0)
+    fprintf(stderr,"avl_tree: couldn't delete\n");
+  
+  if (del_name_node_avltree(tree, "fred") < 0)
+    fprintf(stderr,"avl_tree: couldn't delete\n");
+  
+  if (del_name_node_avltree(tree, "eric") < 0)
+    fprintf(stderr,"avl_tree: couldn't delete\n");
+  
+  if (del_name_node_avltree(tree, "ben") < 0)
+    fprintf(stderr,"avl_tree: couldn't delete\n");
+  */
 
   print_avltree(tree->t_root, 0);
   check_balances_avltree(tree->t_root, 0);
   
+  
+  while (1){
+    if (del_node_avltree(tree, tree->t_root) < 0)
+      break;
+    else {
+      print_avltree(tree->t_root, 0);
+      check_balances_avltree(tree->t_root, 0);
+    }
+  }
+
 #if 0 
   print_inorder_avltree(tree->t_root);
 
 #endif
-  if (del_name_node_avltree(tree, "doug") < 0)
-    fprintf(stderr,"avl_tree: couldn't delete\n");
-  print_avltree(tree->t_root, 0);
-  check_balances_avltree(tree->t_root, 0);
-  
-  if (del_name_node_avltree(tree, "mark") < 0)
-    fprintf(stderr,"avl_tree: couldn't delete\n");
-  print_avltree(tree->t_root, 0);
-  check_balances_avltree(tree->t_root, 0);
-  
-  if (del_name_node_avltree(tree, "nicole") < 0)
-    fprintf(stderr,"avl_tree: couldn't delete\n");
-  print_avltree(tree->t_root, 0);
-  check_balances_avltree(tree->t_root, 0);
-  
+#if 0 
+
   if (del_name_node_avltree(tree, "test") < 0)
     fprintf(stderr,"avl_tree: couldn't delete\n");
   print_avltree(tree->t_root, 0);
   check_balances_avltree(tree->t_root, 0);
   
-  if (del_name_node_avltree(tree, "dennis") < 0)
-    fprintf(stderr,"avl_tree: couldn't delete\n");
-  print_avltree(tree->t_root, 0);
-  check_balances_avltree(tree->t_root, 0);
- 
   if (del_name_node_avltree(tree, "charlie") < 0)
     fprintf(stderr,"avl_tree: couldn't delete\n");
   print_avltree(tree->t_root, 0);
@@ -1044,16 +1087,31 @@ int main(int argc, char *argv[])
   print_avltree(tree->t_root, 0);
   check_balances_avltree(tree->t_root, 0);
   
+  if (del_name_node_avltree(tree, "mark") < 0)
+    fprintf(stderr,"avl_tree: couldn't delete\n");
+  print_avltree(tree->t_root, 0);
+  check_balances_avltree(tree->t_root, 0);
+  
+  if (del_name_node_avltree(tree, "doug") < 0)
+    fprintf(stderr,"avl_tree: couldn't delete\n");
+  print_avltree(tree->t_root, 0);
+  check_balances_avltree(tree->t_root, 0);
+  
+  if (del_name_node_avltree(tree, "nicole") < 0)
+    fprintf(stderr,"avl_tree: couldn't delete\n");
+  print_avltree(tree->t_root, 0);
+  check_balances_avltree(tree->t_root, 0);
+  
+  if (del_name_node_avltree(tree, "eric") < 0)
+    fprintf(stderr,"avl_tree: couldn't delete\n");
+  print_avltree(tree->t_root, 0);
+  check_balances_avltree(tree->t_root, 0);
+  
   if (del_name_node_avltree(tree, "fred") < 0)
     fprintf(stderr,"avl_tree: couldn't delete\n");
   print_avltree(tree->t_root, 0);
   check_balances_avltree(tree->t_root, 0);
   
-  if (del_name_node_avltree(tree, "andrea") < 0)
-    fprintf(stderr,"avl_tree: couldn't delete\n");
-  print_avltree(tree->t_root, 0);
-  check_balances_avltree(tree->t_root, 0);
- 
   if (del_name_node_avltree(tree, "andrea") < 0)
     fprintf(stderr,"avl_tree: couldn't delete\n");
   print_avltree(tree->t_root, 0);
@@ -1064,10 +1122,12 @@ int main(int argc, char *argv[])
   print_avltree(tree->t_root, 0);
   check_balances_avltree(tree->t_root, 0);
   
-  if (del_name_node_avltree(tree, "eric") < 0)
+  if (del_name_node_avltree(tree, "dennis") < 0)
     fprintf(stderr,"avl_tree: couldn't delete\n");
   print_avltree(tree->t_root, 0);
   check_balances_avltree(tree->t_root, 0);
+  
+#endif
 
 #endif
   
