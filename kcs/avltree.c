@@ -864,7 +864,7 @@ void destroy_avltree(struct avl_tree *t)
 }
 
 
-#ifndef LIBRARY
+#ifdef STANDALONE
 
 int add_file_words_to_avltree(struct avl_tree *t, char *buffer, int bsize)
 {

@@ -26,7 +26,7 @@
 #define MTU 1500
 
 /*call with &someint*/
-int udp_ear_kcs(struct katcl_line *l, void *data)
+int watch_announce_kcs(struct katcl_line *l, void *data)
 {
   struct katcl_parse *p;
 
@@ -180,7 +180,7 @@ int udp_ear_kcs(struct katcl_line *l, void *data)
   return 0;
 }
 
-int handle_roach_via_udp_ear_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
+int handle_roach_via_watch_announce_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 {
   struct katcl_parse *p;
 #if 0
@@ -229,7 +229,7 @@ int handle_roach_via_udp_ear_kcs(struct katcp_dispatch *d, struct katcp_notice *
   return 1; 
 }
   
-int udpear_cmd(struct katcp_dispatch *d, int argc)
+int watchannounce_cmd(struct katcp_dispatch *d, int argc)
 {
   struct katcp_dispatch *dl;
   struct utsname utn;
@@ -253,7 +253,7 @@ int udpear_cmd(struct katcp_dispatch *d, int argc)
       if (rtn != NULL)
         port = atoi(rtn);
       //url = create_kurl_katcp("katcp", utn.nodename, port, "?udpear");
-      url = create_exec_kurl_katcp("udpear");
+      url = create_exec_kurl_katcp("watchannounce");
       if (url == NULL){
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "udpear: could not create kurl");
         return KATCP_RESULT_FAIL;
@@ -266,14 +266,14 @@ int udpear_cmd(struct katcp_dispatch *d, int argc)
         return KATCP_RESULT_FAIL;
       }
       
-      j = run_child_process_kcs(dl, url, &udp_ear_kcs, &port, NULL);
+      j = run_child_process_kcs(dl, url, &watch_announce_kcs, &port, NULL);
       if (j == NULL){
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "udpear: run child process returned null for %s",url->u_str);
         destroy_kurl_katcp(url);
         return KATCP_RESULT_FAIL;
       }
       
-      if (match_inform_job_katcp(dl, j, "#roach", &handle_roach_via_udp_ear_kcs, NULL) < 0){
+      if (match_inform_job_katcp(dl, j, "#roach", &handle_roach_via_watch_announce_kcs, NULL) < 0){
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "udpear: run child process returned null for %s",url->u_str);
         zap_job_katcp(dl,j);
         return KATCP_RESULT_FAIL;

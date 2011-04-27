@@ -191,5 +191,5 @@ int xport_sync_connect_and_start_subprocess_kcs(struct katcl_line *l, void *data
 int xport_sync_connect_and_stop_subprocess_kcs(struct katcl_line *l, void *data);
 int xport_sync_connect_and_soft_restart_subprocess_kcs(struct katcl_line *l, void *data);
 
-int udpear_cmd(struct katcp_dispatch *d, int argc);
+int watchannounce_cmd(struct katcp_dispatch *d, int argc);
 #endif
