@@ -31,7 +31,16 @@ int add_node_avltree(struct avl_tree *t, struct avl_node *n);
 int del_node_avltree(struct avl_tree *t, struct avl_node *n);
 struct avl_node *find_name_node_avltree(struct avl_tree *t, char *key);
 int del_name_node_avltree(struct avl_tree *t, char *key);
+void free_node_avltree(struct avl_node *n);
 void destroy_avltree(struct avl_tree *t);
 
+/*node api*/
+
+char *get_node_name_avltree(struct avl_node *n);
+void *get_node_data_avltree(struct avl_node *n);
+int update_node_data_avltree(struct avl_node *n, void *data);
+
+/*testing api*/
+void print_avltree(struct avl_node *n, int depth);
 
 #endif

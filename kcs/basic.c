@@ -266,6 +266,11 @@ void destroy_basic_kcs(struct katcp_dispatch *d)
     kb->b_sms = NULL;
   }
 */
+  if (kb->b_ds != NULL){
+    destroy_statemachine_list_kcs(d);
+    destroy_avltree(kb->b_ds);
+    kb->b_ds = NULL;
+  }
   free(kb);
 }
 
@@ -416,10 +421,11 @@ int setup_basic_kcs(struct katcp_dispatch *d, char *scripts, char **argv, int ar
   kb->b_scripts    = NULL;
   kb->b_parser     = NULL;
   kb->b_pool_head  = NULL;
-  kb->b_sms        = NULL;
+  //kb->b_sms        = NULL;
   kb->b_argv       = argv;
   kb->b_argc       = argc;
-  
+  kb->b_ds         = NULL;
+
   kb->b_scripts = strdup(scripts);
   if(kb->b_scripts == NULL){
     free(kb);

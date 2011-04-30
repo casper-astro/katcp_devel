@@ -2,6 +2,7 @@
 #define KCS_H_
 
 #include <katcp.h>
+#include "avltree.h"
 
 #define KCS_MAX_CLIENTS          32
 
@@ -34,11 +35,14 @@ int setup_basic_kcs(struct katcp_dispatch *d, char *scripts, char **argv, int ar
 struct kcs_basic
 {
   char *b_scripts;
+
   char **b_argv;
   int b_argc;
+  
   struct p_parser *b_parser;
   struct kcs_obj *b_pool_head;
-  struct kcs_statemachines *b_sms;
+
+  struct avl_tree *b_ds;
 };
 
 
@@ -127,9 +131,11 @@ struct kcs_roach {
   char *mac;
   struct katcp_url *kurl;
 
+/*
   struct kcs_statemachine **ksm;
   int ksmcount;
   int ksmactive;
+*/
 
   struct timeval r_seen;
 
@@ -152,6 +158,7 @@ int roachpool_count_kcs(struct katcp_dispatch *d);
 int update_sensor_for_roach_kcs(struct katcp_dispatch *d, struct kcs_obj *ko, int val);
 int add_sensor_to_roach_kcs(struct katcp_dispatch *d, struct kcs_obj *ko);
 
+#if 0
 #define KCS_SM_PING_STOP 0 
 #define KCS_SM_PING_S1   1
 #define KCS_SM_PING_S2   2
@@ -170,9 +177,33 @@ struct kcs_statemachine {
   struct katcp_notice *n;
   void *data; /*used to pass config data around no GC make sure to free when you use*/
 };
+#endif
 
-int statemachine_greeting(struct katcp_dispatch *d);
+struct kcs_sm_list {
+  struct kcs_sm **l_sm;
+  int l_count;
+};
+
+struct kcs_sm {
+  char *m_name;
+  struct kcs_sm_state *m_start;
+};
+
+struct kcs_sm_state {
+  char *s_name;
+  struct kcs_sm_edge *s_edge;
+  void *s_data;
+};
+
+struct kcs_sm_edge {
+  struct kcs_sm_state *e_next;
+  int (*e_call)(struct katcp_dispatch *, struct katcp_notice *, void *);
+};
+
 int statemachine_cmd(struct katcp_dispatch *d, int argc);
+void destroy_statemachine_list_kcs(struct katcp_dispatch *d);
+#if 0
+int statemachine_greeting(struct katcp_dispatch *d);
 int statemachine_ping(struct katcp_dispatch *d);
 int statemachine_stop(struct katcp_dispatch *d);
 int statemachine_connect(struct katcp_dispatch *d);
@@ -184,7 +215,7 @@ int statemachine_powersoft(struct katcp_dispatch *d);
 //void statemachine_destroy(struct katcp_dispatch *d);
 void destroy_last_roach_ksm_kcs(struct kcs_roach *kr);
 void destroy_ksm_kcs(struct kcs_statemachine *ksm);
-
+#endif
 
 struct katcp_job * run_child_process_kcs(struct katcp_dispatch *d, struct katcp_url *url, int (*call)(struct katcl_line *, void *), void *data, struct katcp_notice *n);
 int xport_sync_connect_and_start_subprocess_kcs(struct katcl_line *l, void *data);

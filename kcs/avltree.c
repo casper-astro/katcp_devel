@@ -32,6 +32,9 @@ struct avl_node *create_node_avltree(char *key, void *data)
 {
   struct avl_node *n;
 
+  if (key == NULL)
+    return NULL;
+
   n = malloc(sizeof(struct avl_node));
   
   if (n == NULL)
@@ -52,6 +55,29 @@ struct avl_node *create_node_avltree(char *key, void *data)
   return n;
 }
 
+char *get_node_name_avltree(struct avl_node *n)
+{
+  return n->n_key;
+}
+
+void *get_node_data_avltree(struct avl_node *n)
+{
+  return n->n_data;
+}
+  
+int update_node_data_avltree(struct avl_node *n, void *data)
+{
+  if (n == NULL)
+    return -1;
+
+  if (n->n_data != NULL)
+    free(n->n_data);
+
+  n->n_data = data;
+
+  return 0;
+}
+
 void print_avltree(struct avl_node *n, int depth)
 {
 #define SPACER "  "
@@ -59,24 +85,24 @@ void print_avltree(struct avl_node *n, int depth)
   i=0;
 
   if (n == NULL){
-#if DEBUG >1
+#ifdef DEBUG
     fprintf(stderr,"%p\n", n);
 #endif
     return;
   }
 
-#if DEBUG >1
+#ifdef DEBUG
   fprintf(stderr,"in %s (%p) bal %d p(%p)\n", n->n_key, n, n->n_balance, n->n_parent);
 #endif
 
-#if DEBUG >1
+#ifdef DEBUG
   for (i=0; i<depth; i++)
     fprintf(stderr,SPACER);
   fprintf(stderr," L ");
 #endif
   print_avltree(n->n_left, depth+1);
 
-#if DEBUG >1
+#ifdef DEBUG
   for (i=0; i<depth; i++)
     fprintf(stderr, SPACER);
   fprintf(stderr," R ");
@@ -535,7 +561,9 @@ void free_node_avltree(struct avl_node *n)
   if (n->n_right != NULL) { n->n_right = NULL; }
   n->n_balance = 0;
   if (n->n_key != NULL) { free(n->n_key); n->n_key = NULL; }
+#if 0
   if (n->n_data != NULL) { free(n->n_data); n->n_data = NULL; }
+#endif
   if (n != NULL) { free(n); n = NULL; }
 }
   
@@ -845,7 +873,9 @@ void destroy_avltree(struct avl_tree *t)
         } 
 
         if (dn->n_key) { free(dn->n_key); dn->n_key = NULL; }
+#if 0
         if (dn->n_data) { free(dn->n_data); dn->n_data = NULL; }
+#endif
         dn->n_parent = NULL;
 
         free(dn);
