@@ -267,7 +267,7 @@ void destroy_basic_kcs(struct katcp_dispatch *d)
   }
 */
   if (kb->b_ds != NULL){
-    destroy_statemachine_list_kcs(d);
+    destroy_statemachine_data_kcs(d);
     destroy_avltree(kb->b_ds);
     kb->b_ds = NULL;
   }

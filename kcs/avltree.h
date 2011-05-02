@@ -25,6 +25,12 @@ struct avl_node {
   void *n_data;
 };
 
+/*this can be used as a set of nodes*/
+struct avl_node_list {
+  struct avl_node **l_n;
+  int l_count;
+};
+
 struct avl_tree *create_avltree();
 struct avl_node *create_node_avltree(char *key, void *data);
 int add_node_avltree(struct avl_tree *t, struct avl_node *n);
