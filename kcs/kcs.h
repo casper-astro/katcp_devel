@@ -180,8 +180,8 @@ struct kcs_statemachine {
 #endif
 
 struct kcs_mod_store {
-  struct avl_node_list *m_sl;
   struct avl_node_list *m_hl;
+  struct avl_node_list *m_sl;
 };
 
 struct kcs_sm_list {

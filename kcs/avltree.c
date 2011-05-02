@@ -859,7 +859,7 @@ void destroy_avltree(struct avl_tree *t)
         c = c->n_right;
       } else {
         
-#if DEBUG > 2 
+#ifdef DEBUG
         fprintf(stderr,"avl_tree: del %s (%p) ", c->n_key, c);
 #endif
         dn = c;
@@ -880,7 +880,7 @@ void destroy_avltree(struct avl_tree *t)
 
         free(dn);
 
-#if DEBUG > 2
+#ifdef DEBUG
         fprintf(stderr,"done\n");
 #endif
       

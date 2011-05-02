@@ -356,15 +356,6 @@ void destroy_statemachine_data_kcs(struct katcp_dispatch *d)
         al->l_count = 0;
         free(al);
       }
-      /*
-      for (i=0; i<al->l_count; i++){
-        n = get_node_data_avltree(al->l_n[i]);
-        //dlclose(get_node_data_avltree(n));
-        al->l_n[i] = NULL;
-      }
-      free(al->l_n);
-      al->l_count = 0;
-      */
       free(ms);
     }
   }
@@ -453,7 +444,7 @@ int statemachine_print_ls_kcs(struct katcp_dispatch *d)
     return KATCP_RESULT_FAIL;
 
   if (l->l_count == 0){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no statemachines have been declared yet\n");
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no statemachines have been declared yet");
     return KATCP_RESULT_FAIL;
   }
 
@@ -461,6 +452,47 @@ int statemachine_print_ls_kcs(struct katcp_dispatch *d)
     log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s (%p)", l->l_sm[i]->m_name, l->l_sm[i]);  
   }
 
+  return KATCP_RESULT_OK;
+}
+
+int statemachine_print_ms_kcs(struct katcp_dispatch *d)
+{
+  struct kcs_mod_store *ms;
+  struct avl_tree *t;
+  struct avl_node *n;
+  struct avl_node_list *l;
+  int i;
+
+  t = get_datastore_tree_kcs(d);
+  if (t == NULL)
+    return KATCP_RESULT_FAIL;
+
+  n = find_name_node_avltree(t, MOD_STORE);
+
+  if (n == NULL)
+    return KATCP_RESULT_FAIL;
+
+  ms = get_node_data_avltree(n);
+
+  if (ms == NULL)
+    return KATCP_RESULT_FAIL;
+
+  l = ms->m_hl;
+  
+  if (l == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no modules have been loaded yet try ?sm loadmod [filename]");
+    return KATCP_RESULT_FAIL;
+  }
+
+  for (i=0; i<l->l_count; i++){
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "module: %s handle: (%p)", get_node_name_avltree(l->l_n[i]), get_node_data_avltree(l->l_n[i]));  
+  }
+
+  l = ms->m_sl;
+  for (i=0; i<l->l_count; i++){
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "symbol: %s call: (%p)", get_node_name_avltree(l->l_n[i]), get_node_data_avltree(l->l_n[i]));  
+  }
+  
   return KATCP_RESULT_OK;
 }
 
@@ -510,7 +542,7 @@ int statemachine_loadmod_kcs(struct katcp_dispatch *d)
   }
   
   if (add_node_mod_store_kcs(ms, n, MOD_STORE_TYPE_HANDLE) < 0){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not add: %s to handle list\n", mod);
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not add: %s to handle list", mod);
 #ifdef DEBUG
     fprintf(stderr, "statemachine: could not add: %s to handle list\n", mod);
 #endif
@@ -521,7 +553,7 @@ int statemachine_loadmod_kcs(struct katcp_dispatch *d)
   dlerror();
   call = dlsym(handle, "sym_list_mod");
   if ((mod = dlerror()) != NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "error btw symlist and syms%s\n", mod);
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "error btw symlist and syms%s", mod);
 #ifdef DEBUG
     fprintf(stderr, "statemachine: error btw symlist and syms %s\n", mod);
 #endif
@@ -538,7 +570,7 @@ int statemachine_loadmod_kcs(struct katcp_dispatch *d)
     
     call = dlsym(handle, *sl);
     if ((mod = dlerror()) != NULL){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "error btw symlist and syms%s\n", mod);
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "error btw symlist and syms%s", mod);
 #ifdef DEBUG
       fprintf(stderr, "statemachine: error btw symlist and syms %s\n", mod);
 #endif
@@ -572,8 +604,33 @@ int statemachine_loadmod_kcs(struct katcp_dispatch *d)
   return KATCP_RESULT_OK;
 }
 
-int statemachine_listmod_kcs(struct katcp_dispatch *d)
+int statemachine_exec_kcs(struct katcp_dispatch *d)
 {
+  struct avl_tree *t;
+  struct avl_node *n;
+  char *mod;
+  int (*call)(int);
+  int rtn;
+
+  mod = arg_string_katcp(d, 2);
+  
+  t = get_datastore_tree_kcs(d);
+  if (t == NULL)
+    return KATCP_RESULT_FAIL;
+
+  n = find_name_node_avltree(t, mod);
+  if (n == NULL)
+    return KATCP_RESULT_FAIL;
+
+  call = get_node_data_avltree(n);
+  
+  if (call == NULL)
+    return KATCP_RESULT_FAIL;
+
+  rtn = (*call)(555);
+#ifdef DEBUG
+  fprintf(stderr, "statemachine: call returned %d\n", rtn);
+#endif
 
   return KATCP_RESULT_OK;
 }
@@ -605,8 +662,8 @@ int statemachine_cmd(struct katcp_dispatch *d, int argc)
         return statemachine_print_ds_kcs(d);
       if (strcmp(arg_string_katcp(d,1), "ls") == 0)
         return statemachine_print_ls_kcs(d);
-      if (strcmp(arg_string_katcp(d,1), "listmod") == 0)
-        return statemachine_listmod_kcs(d);
+      if (strcmp(arg_string_katcp(d,1), "ms") == 0)
+        return statemachine_print_ms_kcs(d);
       
       break;
     case 3:
@@ -614,6 +671,9 @@ int statemachine_cmd(struct katcp_dispatch *d, int argc)
         return statemachine_declare_kcs(d);
       if (strcmp(arg_string_katcp(d,1), "loadmod") == 0)
         return statemachine_loadmod_kcs(d);
+
+      if (strcmp(arg_string_katcp(d,1), "exec") == 0)
+        return statemachine_exec_kcs(d);
        
       break;
     case 4:
