@@ -3,11 +3,11 @@ KATCP ?= ../katcp
 include ../Makefile.inc
 
 INC = -I$(KATCP)
-LIB = -L$(KATCP) -lkatcp
+LIB = -L$(KATCP) -lkatcp -ldl
 
 SERVER = kcs
 SRCSHARED = shared.c
-SRC = $(SRCSHARED) udpear.c subprocess.c statemachine.c roachpool.c execpy.c parser.c kcserver.c basic.c
+SRC = $(SRCSHARED) avltree.c watchannounce.c subprocess.c statemachine.c roachpool.c execpy.c parser.c kcserver.c basic.c
 
 OBJ = $(patsubst %.c,%.o,$(SRC))
 all: $(SERVER)
@@ -17,7 +17,7 @@ $(SERVER): $(OBJ) $(KATCP)/libkatcp.a
 	$(CC) -o $@ $(OBJ) $(LIB)
 
 clean: 
-	$(RM) -f $(SERVER) *.o
+	$(RM) -f $(SERVER) *.o test-*
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@ $(INC)
@@ -40,4 +40,6 @@ test-kurl: $(SRCSHARED) kurl.c
 test-statemachine: statemachine.c 
 	$(CC) $(CFLAGS) -DSTANDALONE -o $@ $^ -I../katcp
 
+test-avltree: avltree.c 
+	$(CC) $(CFLAGS) -DSTANDALONE -o $@ $^
 

@@ -17,18 +17,18 @@
 #include "kcs.h"
 
 void destroy_roach_kcs(struct kcs_roach *kr){
-  int i;
+  //int i;
   if (kr){
     if (kr->ip)     { free(kr->ip);                 kr->ip     = NULL; }
     if (kr->mac)    { free(kr->mac);                kr->mac    = NULL; } 
     if (kr->kurl)   { destroy_kurl_katcp(kr->kurl); kr->kurl   = NULL; }
-    if (kr->ksm){ 
+/*    if (kr->ksm){ 
       for (i=0;i<kr->ksmcount;i++){
         destroy_ksm_kcs(kr->ksm[i]);
       }
       free(kr->ksm);
       kr->ksm    = NULL;
-    }
+    }*/
     //if (kr->io_ksm) { destroy_ksm_kcs(kr->io_ksm);  kr->io_ksm = NULL; }
     free(kr);
   }
@@ -80,9 +80,11 @@ struct kcs_obj *new_kcs_roach_obj(struct kcs_obj *parent, char *url, char *ip, c
   else
     kr->mac    = NULL;
   kr->kurl     = create_kurl_from_string_katcp(url);
+ /*
   kr->ksm      = NULL;
   kr->ksmcount = 0;
   kr->ksmactive= 0;
+  */
   //kr->io_ksm   = NULL;
   //kr->data     = NULL;
   

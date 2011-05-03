@@ -11,6 +11,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <dlfcn.h>
 
 #include <katcp.h>
 #include <katcl.h>
@@ -18,6 +19,677 @@
 #include <netc.h>
 
 #include "kcs.h"
+
+#define STATEMACHINE_LIST       "statemachine_list"
+#define MOD_STORE               "mod_store"
+#define MOD_STORE_TYPE_SYMBOL   0  
+#define MOD_STORE_TYPE_HANDLE   1
+
+struct avl_node *create_mod_store_kcs()
+{
+  struct avl_node *n;
+  struct kcs_mod_store *ms;
+
+  ms = malloc(sizeof(struct kcs_mod_store));
+
+  if (ms == NULL)
+    return NULL;
+
+  ms->m_sl = NULL;
+  ms->m_hl = NULL;
+
+  n = create_node_avltree(MOD_STORE, ms);
+  if (n == NULL){
+    free(ms);
+    return NULL;
+  }
+
+  return n;
+}
+
+int add_node_mod_store_kcs(struct kcs_mod_store *ms, struct avl_node *nn, int type)
+{
+  struct avl_node_list *al;
+
+  if (ms == NULL || nn == NULL)
+    return -1;
+
+  switch (type){
+    case MOD_STORE_TYPE_SYMBOL:
+      al = ms->m_sl;
+      break;
+    case MOD_STORE_TYPE_HANDLE:
+      al = ms->m_hl;
+      break;
+    default:
+      return -1;
+  }
+
+  if (al == NULL){
+    al = malloc(sizeof(struct avl_node_list));
+    if (al == NULL)
+      return -1;
+    
+    al->l_n     = NULL;
+    al->l_count = 0;
+
+    switch (type){
+      case MOD_STORE_TYPE_SYMBOL:
+        ms->m_sl = al;
+        break;
+      case MOD_STORE_TYPE_HANDLE:
+        ms->m_hl = al;
+        break;
+    }
+  }
+
+  al->l_n = realloc(al->l_n, sizeof(struct avl_node *) * (al->l_count + 1));
+
+  if (al->l_n == NULL){
+    free(al);
+    return -1;  
+  }
+
+  al->l_n[al->l_count] = nn;
+  al->l_count++;
+  
+  return 0;
+}
+
+struct avl_node *create_statemachine_list_kcs()
+{
+  struct avl_node *n;
+  struct kcs_sm_list *l;
+  
+  l = malloc(sizeof(struct kcs_sm_list));
+
+  if (l == NULL)
+    return NULL;
+
+  l->l_sm = NULL;
+  l->l_count = 0;
+
+  n = create_node_avltree(STATEMACHINE_LIST, l);
+
+  if (n == NULL){
+    free(l);
+    return NULL;
+  }
+  
+  return n;
+}
+
+int add_to_statemachine_list_kcs(struct avl_tree *t, struct kcs_sm *m)
+{
+  struct kcs_sm_list *l;
+  struct avl_node *n;
+  
+  if (t == NULL || m == NULL)
+    return -1;
+
+  n = find_name_node_avltree(t, STATEMACHINE_LIST);
+  if (n == NULL)
+    return -1;
+
+  l = get_node_data_avltree(n);
+  if (l == NULL)
+    return -1;
+
+  l->l_sm = realloc(l->l_sm, sizeof(struct kcs_sm *) * (l->l_count+1));
+
+  if (l->l_sm == NULL)
+    return -1;
+  
+  l->l_sm[l->l_count] = m;
+  l->l_count++;
+
+  return 0;
+}
+
+struct avl_tree *get_datastore_tree_kcs(struct katcp_dispatch *d)
+{
+  struct kcs_basic *kb;
+  struct avl_tree *t;
+  struct avl_node *n;
+  
+  kb = get_mode_katcp(d, KCS_MODE_BASIC);
+  if (kb == NULL)
+    return NULL;
+
+  t = kb->b_ds;
+  if (t == NULL){
+    if((t = create_avltree()) == NULL){
+#ifdef DEBUG
+      fprintf(stderr, "statemachine: cannot create datastore\n");
+#endif
+      return NULL;
+    }
+
+#ifdef DEBUG
+    fprintf(stderr, "statemachine: create tree (%p)\n", t);
+#endif
+    
+    n = create_statemachine_list_kcs();
+    
+    if (n == NULL){
+      destroy_avltree(t);
+      return NULL;
+    }
+
+    if (add_node_avltree(t, n) < 0){
+      free_node_avltree(n);
+      destroy_avltree(t);
+      return NULL;
+    }
+
+#ifdef DEBUG
+    fprintf(stderr, "statemachine: create %s node (%p)\n", STATEMACHINE_LIST, n);
+#endif
+
+    n = create_mod_store_kcs();
+
+    if (n == NULL){
+      destroy_avltree(t);
+    }
+
+    if (add_node_avltree(t, n) < 0){
+      free_node_avltree(n);
+      destroy_avltree(t);
+      return NULL;
+    }
+#ifdef DEBUG
+    fprintf(stderr, "statemachine: create %s node (%p)\n", MOD_STORE, n);
+#endif
+
+    kb->b_ds = t;
+  }
+  
+  return t;
+}
+
+struct kcs_sm *create_sm_kcs(char *name)
+{
+  struct kcs_sm *m;
+
+  if (name == NULL)
+    return NULL;
+
+  m = malloc(sizeof(struct kcs_sm));
+
+  if (m == NULL)
+    return NULL;
+
+  m->m_name  = strdup(name);
+  m->m_start = NULL;
+
+  if (m->m_name == NULL){
+    free(m);
+    return NULL;
+  }
+
+  return m;
+}
+
+void destroy_sm_state_kcs(struct kcs_sm_state *s)
+{
+#ifdef DEBUG
+  fprintf(stderr, "statemachine: destroy_sm_state_kcs %s\n", s->s_name);
+#endif
+  if (s->s_name) { free(s->s_name); s->s_name = NULL; }
+  if (s->s_edge) { s->s_edge = NULL; }
+  if (s->s_data) { s->s_data = NULL; }
+}
+void destroy_sm_edge_kcs(struct kcs_sm_edge *e)
+{
+#ifdef DEBUG
+  fprintf(stderr, "statemachine: destroy_sm_edge_kcs\n");
+#endif
+  if (e->e_next) { e->e_next = NULL; }
+  if (e->e_call) { e->e_call = NULL; }
+}
+void destroy_statemachine_kcs(struct kcs_sm *m)
+{
+  struct kcs_sm_state *s;
+  struct kcs_sm_edge *e;
+
+  if (m == NULL)
+    return;
+
+#ifdef DEBUG
+  fprintf(stderr, "statemachine: destroy_statemachine_kcs %s\n", m->m_name);
+#endif
+  
+  if (m->m_name){
+    free(m->m_name);
+    m->m_name = NULL;
+  }
+
+  if (m->m_start){
+    s = m->m_start;
+    
+    for (;;){
+      if (s){
+        e = s->s_edge;
+        destroy_sm_state_kcs(s);
+        s = NULL;
+      } else
+        break;
+
+      if (e){
+        s = e->e_next;
+        destroy_sm_edge_kcs(e);
+        e = NULL;
+      } else
+        break;
+    }
+  }
+
+  free(m);
+}
+
+void destroy_statemachine_data_kcs(struct katcp_dispatch *d)
+{
+  struct kcs_basic *kb;
+  struct kcs_sm_list *l;
+  struct avl_tree *t;
+  struct avl_node *n;
+  struct kcs_mod_store *ms;
+  struct avl_node_list *al;
+  int i;
+  void *handle;
+
+  kb = get_mode_katcp(d, KCS_MODE_BASIC);
+  if (kb == NULL)
+    return;
+
+  t = kb->b_ds;
+
+  if (t == NULL)
+    return;
+
+  n = find_name_node_avltree(t, STATEMACHINE_LIST);
+
+  if (n != NULL) {
+    l = get_node_data_avltree(n);
+    if (l != NULL){
+#ifdef DEBUG
+      fprintf(stderr, "statemachine: destroy_statemachine_data_kcs kcs_sm_list (%p)\n", l);
+#endif
+
+      for (i=0; i<l->l_count; i++){
+        destroy_statemachine_kcs(l->l_sm[i]);
+      }
+      if (l->l_sm) { free(l->l_sm); l->l_sm = NULL; }
+      free(l);
+      l = NULL;
+    }
+  }
+
+  n = find_name_node_avltree(t, MOD_STORE);
+
+  if (n != NULL){
+    ms = get_node_data_avltree(n);
+    if (ms != NULL){
+#ifdef DEBUG
+      fprintf(stderr, "statemachine: destroy_statemachine_data_kcs avl_node_list (%p)\n", ms);
+#endif
+      al = ms->m_sl;
+      if (al != NULL){
+        if (al->l_n != NULL)
+          free(al->l_n);
+        al->l_count =0;
+        free(al);
+      }
+
+      al = ms->m_hl;
+      if (al != NULL){
+        if (al->l_n != NULL){
+          for (i=0; i<al->l_count; i++){
+            handle = get_node_data_avltree(al->l_n[i]);
+#ifdef DEBUG
+            fprintf(stderr, "statemachine: close %s handle %p\n", get_node_name_avltree(al->l_n[i]), handle);
+#endif
+            dlclose(handle);
+          }
+          free(al->l_n);
+        }
+        al->l_count = 0;
+        free(al);
+      }
+      free(ms);
+    }
+  }
+}
+
+int statemachine_declare_kcs(struct katcp_dispatch *d)
+{
+  struct kcs_sm *m;
+  struct avl_tree *t;
+  struct avl_node *n;
+  char *name;
+
+  name = arg_string_katcp(d, 2);
+
+  if (name == NULL)
+    return KATCP_RESULT_FAIL;
+
+  t = get_datastore_tree_kcs(d);
+  
+  if (t == NULL){
+    return KATCP_RESULT_FAIL;
+  }
+
+  m = create_sm_kcs(name);
+  if (m == NULL)
+    return KATCP_RESULT_FAIL;
+  
+  n = create_node_avltree(name, m);
+  if (n == NULL)
+    return KATCP_RESULT_FAIL;
+
+  if (add_node_avltree(t, n) < 0){
+#ifdef DEBUG
+    fprintf(stderr, "statemachine: could not add node <%s> to tree\n",get_node_name_avltree(n));
+#endif
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not add %s to datastore", get_node_name_avltree(n));
+    free_node_avltree(n);
+    return KATCP_RESULT_FAIL;
+  }
+  
+  if (add_to_statemachine_list_kcs(t, m) < 0){
+    destroy_statemachine_kcs(m);
+    return KATCP_RESULT_FAIL;
+  }
+
+#ifdef DEBUG
+  fprintf(stderr, "created statemachine %s (%p) stored it in datastore (%p) and statemachine list\n", get_node_name_avltree(n), n, t);
+#endif
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "created statemachine %s (%p) and stored it in datastore (%p) and statemachine list", get_node_name_avltree(n), n, t);
+  
+  return KATCP_RESULT_OK;
+}
+
+int statemachine_print_ds_kcs(struct katcp_dispatch *d)
+{
+  struct avl_tree *t;
+
+  t = get_datastore_tree_kcs(d);
+  if (t == NULL)
+    return KATCP_RESULT_FAIL;
+
+  print_avltree(t->t_root, 0);
+  
+  return KATCP_RESULT_OK;
+}
+
+int statemachine_print_ls_kcs(struct katcp_dispatch *d)
+{
+  struct kcs_sm_list *l;
+  struct avl_tree *t;
+  struct avl_node *n;
+  int i;
+
+  t = get_datastore_tree_kcs(d);
+  if (t == NULL)
+    return KATCP_RESULT_FAIL;
+
+  n = find_name_node_avltree(t, STATEMACHINE_LIST);
+
+  if (n == NULL)
+    return KATCP_RESULT_FAIL;
+
+  l = get_node_data_avltree(n);
+
+  if (l == NULL)
+    return KATCP_RESULT_FAIL;
+
+  if (l->l_count == 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no statemachines have been declared yet");
+    return KATCP_RESULT_FAIL;
+  }
+
+  for (i=0; i<l->l_count; i++){
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s (%p)", l->l_sm[i]->m_name, l->l_sm[i]);  
+  }
+
+  return KATCP_RESULT_OK;
+}
+
+int statemachine_print_ms_kcs(struct katcp_dispatch *d)
+{
+  struct kcs_mod_store *ms;
+  struct avl_tree *t;
+  struct avl_node *n;
+  struct avl_node_list *l;
+  int i;
+
+  t = get_datastore_tree_kcs(d);
+  if (t == NULL)
+    return KATCP_RESULT_FAIL;
+
+  n = find_name_node_avltree(t, MOD_STORE);
+
+  if (n == NULL)
+    return KATCP_RESULT_FAIL;
+
+  ms = get_node_data_avltree(n);
+
+  if (ms == NULL)
+    return KATCP_RESULT_FAIL;
+
+  l = ms->m_hl;
+  
+  if (l == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no modules have been loaded yet try ?sm loadmod [filename]");
+    return KATCP_RESULT_FAIL;
+  }
+
+  for (i=0; i<l->l_count; i++){
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "module: %s handle: (%p)", get_node_name_avltree(l->l_n[i]), get_node_data_avltree(l->l_n[i]));  
+  }
+
+  l = ms->m_sl;
+  for (i=0; i<l->l_count; i++){
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "symbol: %s call: (%p)", get_node_name_avltree(l->l_n[i]), get_node_data_avltree(l->l_n[i]));  
+  }
+  
+  return KATCP_RESULT_OK;
+}
+
+int statemachine_loadmod_kcs(struct katcp_dispatch *d)
+{
+  struct avl_tree *t;
+  struct avl_node *n;
+  struct kcs_mod_store *ms;
+  char *mod;
+  char **sl;
+  void *handle, *call;
+
+  mod = arg_string_katcp(d, 2);
+  
+  t = get_datastore_tree_kcs(d);
+  if (t == NULL)
+    return KATCP_RESULT_FAIL;
+
+  n = find_name_node_avltree(t, MOD_STORE);
+  if (n == NULL)
+    return KATCP_RESULT_FAIL;
+  
+  ms = get_node_data_avltree(n);
+  if (ms == NULL)
+    return KATCP_RESULT_FAIL;
+  
+  handle = dlopen(mod, RTLD_LAZY);
+
+  if (handle == NULL){
+    mod = dlerror();
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "%s\n", mod);
+#ifdef DEBUG
+    fprintf(stderr, "statemachine: %s\n", mod);
+#endif
+    return KATCP_RESULT_FAIL;
+  }
+
+  n = create_node_avltree(mod, handle);
+  if(n == NULL){
+    dlclose(handle);
+    return KATCP_RESULT_FAIL;
+  }
+  if (add_node_avltree(t, n) < 0){
+    dlclose(handle);
+    free_node_avltree(n);
+    return KATCP_RESULT_FAIL;
+  }
+  
+  if (add_node_mod_store_kcs(ms, n, MOD_STORE_TYPE_HANDLE) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not add: %s to handle list", mod);
+#ifdef DEBUG
+    fprintf(stderr, "statemachine: could not add: %s to handle list\n", mod);
+#endif
+    dlclose(handle);
+    return KATCP_RESULT_FAIL;
+  }
+
+  dlerror();
+  call = dlsym(handle, "sym_list_mod");
+  if ((mod = dlerror()) != NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "error btw symlist and syms%s", mod);
+#ifdef DEBUG
+    fprintf(stderr, "statemachine: error btw symlist and syms %s\n", mod);
+#endif
+    dlclose(handle);
+    return KATCP_RESULT_FAIL;
+  } 
+
+  sl = call;
+  do {
+#ifdef DEBUG
+    fprintf(stderr, "statemachine: sym_list_mod: %s\n", *sl);
+#endif
+    dlerror();
+    
+    call = dlsym(handle, *sl);
+    if ((mod = dlerror()) != NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "error btw symlist and syms%s", mod);
+#ifdef DEBUG
+      fprintf(stderr, "statemachine: error btw symlist and syms %s\n", mod);
+#endif
+      return KATCP_RESULT_FAIL;
+    } 
+    
+    n = create_node_avltree(*sl, call);
+
+    if (add_node_avltree(t, n) < 0){
+#ifdef DEBUG
+      fprintf(stderr, "statemachine: could not add: %s to tree\n", get_node_name_avltree(n));
+#endif
+      free_node_avltree(n);
+      return KATCP_RESULT_FAIL;
+    }
+    
+    if (add_node_mod_store_kcs(ms, n, MOD_STORE_TYPE_SYMBOL) < 0){
+#ifdef DEBUG
+      fprintf(stderr, "statemachine: could not add: %s to mod store symbol list\n", get_node_name_avltree(n));
+#endif
+      return KATCP_RESULT_FAIL;
+    }
+     
+    sl++;
+  } while (*sl != NULL);
+
+#ifdef DEBUG
+  fprintf(stderr, "statemachine: loaded all symbols into tree and mod store\n");
+#endif
+
+  return KATCP_RESULT_OK;
+}
+
+int statemachine_exec_kcs(struct katcp_dispatch *d)
+{
+  struct avl_tree *t;
+  struct avl_node *n;
+  char *mod;
+  int (*call)(int);
+  int rtn;
+
+  mod = arg_string_katcp(d, 2);
+  
+  t = get_datastore_tree_kcs(d);
+  if (t == NULL)
+    return KATCP_RESULT_FAIL;
+
+  n = find_name_node_avltree(t, mod);
+  if (n == NULL)
+    return KATCP_RESULT_FAIL;
+
+  call = get_node_data_avltree(n);
+  
+  if (call == NULL)
+    return KATCP_RESULT_FAIL;
+
+  rtn = (*call)(555);
+#ifdef DEBUG
+  fprintf(stderr, "statemachine: call returned %d\n", rtn);
+#endif
+
+  return KATCP_RESULT_OK;
+}
+
+int statemachine_greeting_kcs(struct katcp_dispatch *d)
+{
+  prepend_inform_katcp(d);
+  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"loadmod [so name]");
+  prepend_inform_katcp(d);
+  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"declare [sm name]");
+  prepend_inform_katcp(d);
+  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"state [sm name] [state name]");
+  prepend_inform_katcp(d);
+  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"edge [sm name] [state name 1] [state name 2] [condition state | ok(generic)]");
+  prepend_inform_katcp(d);
+  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"run [sm name]");
+  return KATCP_RESULT_OK;
+}
+
+int statemachine_cmd(struct katcp_dispatch *d, int argc)
+{
+  switch (argc){
+    case 1:
+      return statemachine_greeting_kcs(d);
+      
+      break;
+    case 2:
+      if (strcmp(arg_string_katcp(d,1), "ds") == 0)
+        return statemachine_print_ds_kcs(d);
+      if (strcmp(arg_string_katcp(d,1), "ls") == 0)
+        return statemachine_print_ls_kcs(d);
+      if (strcmp(arg_string_katcp(d,1), "ms") == 0)
+        return statemachine_print_ms_kcs(d);
+      
+      break;
+    case 3:
+      if (strcmp(arg_string_katcp(d,1), "declare") == 0)
+        return statemachine_declare_kcs(d);
+      if (strcmp(arg_string_katcp(d,1), "loadmod") == 0)
+        return statemachine_loadmod_kcs(d);
+
+      if (strcmp(arg_string_katcp(d,1), "exec") == 0)
+        return statemachine_exec_kcs(d);
+       
+      break;
+    case 4:
+      
+      break;
+    case 6:
+      
+      break;
+  }
+  return KATCP_RESULT_FAIL;
+}
+
+
+
+
+#if 0
 
 int is_active_sm_kcs(struct kcs_roach *kr){
   if (kr->ksm == NULL)
@@ -1099,4 +1771,6 @@ int main(int argc, char **argv){
   }
   return EX_OK;
 }
+#endif
+
 #endif

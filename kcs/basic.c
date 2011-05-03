@@ -266,6 +266,11 @@ void destroy_basic_kcs(struct katcp_dispatch *d, unsigned int mode)
     kb->b_sms = NULL;
   }
 */
+  if (kb->b_ds != NULL){
+    destroy_statemachine_data_kcs(d);
+    destroy_avltree(kb->b_ds);
+    kb->b_ds = NULL;
+  }
   free(kb);
 }
 
@@ -416,10 +421,11 @@ int setup_basic_kcs(struct katcp_dispatch *d, char *scripts, char **argv, int ar
   kb->b_scripts    = NULL;
   kb->b_parser     = NULL;
   kb->b_pool_head  = NULL;
-  kb->b_sms        = NULL;
+  //kb->b_sms        = NULL;
   kb->b_argv       = argv;
   kb->b_argc       = argc;
-  
+  kb->b_ds         = NULL;
+
   kb->b_scripts = strdup(scripts);
   if(kb->b_scripts == NULL){
     free(kb);
@@ -439,7 +445,7 @@ int setup_basic_kcs(struct katcp_dispatch *d, char *scripts, char **argv, int ar
   result += register_flag_mode_katcp(d, "?parser" , "ROACH Configuration file parser (?parser [load|save|get|set|list])", &parser_cmd, 0, KCS_MODE_BASIC);
   result += register_flag_mode_katcp(d, "?roach" , "Control the pool of roaches (?roach [add|del|start|stop|start-pool|stop-pool])", &roach_cmd, 0, KCS_MODE_BASIC);
   result += register_flag_mode_katcp(d, "?sm" , "Run a statemachine on a pool of roaches (?sm [[ping|connect] pool])", &statemachine_cmd, 0, KCS_MODE_BASIC);
-  result += register_flag_mode_katcp(d, "?udpear" , "spawn the udp ear listener (?udpear port)", &udpear_cmd, 0, KCS_MODE_BASIC);
+  result += register_flag_mode_katcp(d, "?watchannounce" , "spawn the watch announce listener (?watchannounce port)", &watchannounce_cmd, 0, KCS_MODE_BASIC);
   /*result += register_flag_mode_katcp(d, "?k7-snap-shot" , "Grab a snap shot (?k7-snap-shot [antenna polarisation])", &k7_snap_shot_cmd, 0, KCS_MODE_BASIC);
   */
 
