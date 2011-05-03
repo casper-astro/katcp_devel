@@ -337,6 +337,7 @@ int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, ch
 
 #if 1
   add_kernel_version_katcp(dl);
+  add_code_version_katcp(dl, KATCP_CODEBASE_NAME);
 #endif
 
   dl->d_exit = KATCP_EXIT_ABORT; /* assume the worst */

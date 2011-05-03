@@ -19,6 +19,8 @@ struct katcp_url;
 #include <sys/types.h>
 #include <stdarg.h>
 
+#define KATCP_CODEBASE_NAME "codeplaceholder" 
+
 #define KATCP_REQUEST '?' 
 #define KATCP_REPLY   '!' 
 #define KATCP_INFORM  '#' 
@@ -414,6 +416,9 @@ int remove_version_katcp(struct katcp_dispatch *d, char *label);
 int add_version_katcp(struct katcp_dispatch *d, char *label, unsigned int mode, char *value, char *build);
 
 int add_kernel_version_katcp(struct katcp_dispatch *d);
+
+int add_code_version_katcp(struct katcp_dispatch *d, char *label);
+int check_code_version_katcp(struct katcp_dispatch *d, char *label);
 
 int print_versions_katcp(struct katcp_dispatch *d, int initial);
 int version_cmd_katcp(struct katcp_dispatch *d, int argc);

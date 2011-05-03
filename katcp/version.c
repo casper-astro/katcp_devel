@@ -288,6 +288,46 @@ int add_kernel_version_katcp(struct katcp_dispatch *d)
   return add_version_katcp(d, "kernel", 0, u.release, u.version);
 }
 
+int add_code_version_katcp(struct katcp_dispatch *d, char *label)
+{
+#ifdef VERSION
+#ifdef BUILD
+  return add_version_katcp(d, label, 0, VERSION, BUILD);
+#else
+  return add_version_katcp(d, label, 0, VERSION, NULL);
+#endif
+#else
+  return -1;
+#endif
+}
+
+int check_code_version_katcp(struct katcp_dispatch *d, char *label)
+{
+#ifndef VERSION
+  return -1;
+#else
+  int pos, result;
+  struct katcp_version *v;
+  struct katcp_shared *s;
+
+  pos = locate_version_katcp(d, label);
+  if(pos < 0){
+    return -1;
+  }
+
+  s = d->d_shared;
+  if(s == NULL){
+    return -1;
+  }
+
+  v = s->s_versions[pos];
+
+  result = strcmp(v->v_value, VERSION);
+
+  return (result == 0) ? 1 : 0;
+#endif
+}
+
 int version_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   char *op, *label, *value, *mode, *build;
