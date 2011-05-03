@@ -288,30 +288,28 @@ int add_kernel_version_katcp(struct katcp_dispatch *d)
   return add_version_katcp(d, "kernel", 0, u.release, u.version);
 }
 
-int add_code_version_katcp(struct katcp_dispatch *d, char *label)
+int add_code_version_katcp(struct katcp_dispatch *d)
 {
 #ifdef VERSION
 #ifdef BUILD
-  return add_version_katcp(d, label, 0, VERSION, BUILD);
+  return add_version_katcp(d, KATCP_CODEBASE_NAME, 0, VERSION, BUILD);
 #else
-  return add_version_katcp(d, label, 0, VERSION, NULL);
+  return add_version_katcp(d, KATCP_CODEBASE_NAME, 0, VERSION, NULL);
 #endif
 #else
   return -1;
 #endif
 }
 
-int check_code_version_katcp(struct katcp_dispatch *d, char *label)
+int has_code_version_katcp(struct katcp_dispatch *d, char *label, char *value)
 {
-#ifndef VERSION
-  return -1;
-#else
   int pos, result;
   struct katcp_version *v;
   struct katcp_shared *s;
 
   pos = locate_version_katcp(d, label);
   if(pos < 0){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "no version information for module %s registered", label);
     return -1;
   }
 
@@ -322,10 +320,15 @@ int check_code_version_katcp(struct katcp_dispatch *d, char *label)
 
   v = s->s_versions[pos];
 
-  result = strcmp(v->v_value, VERSION);
+  result = strcmp(v->v_value, value);
 
-  return (result == 0) ? 1 : 0;
-#endif
+  if(result){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "module %s does not have version %s but %s instead", label, value, v->v_value);
+  } else {
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "module %s has desired version %s", label, value);
+  }
+
+  return (result == 0) ? 0 : 1;
 }
 
 int version_cmd_katcp(struct katcp_dispatch *d, int argc)

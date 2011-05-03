@@ -416,9 +416,12 @@ int remove_version_katcp(struct katcp_dispatch *d, char *label);
 int add_version_katcp(struct katcp_dispatch *d, char *label, unsigned int mode, char *value, char *build);
 
 int add_kernel_version_katcp(struct katcp_dispatch *d);
+int add_code_version_katcp(struct katcp_dispatch *d);
 
-int add_code_version_katcp(struct katcp_dispatch *d, char *label);
-int check_code_version_katcp(struct katcp_dispatch *d, char *label);
+#ifdef VERSION
+#define check_code_version_katcp(d) has_version_katcp(d, KATCP_CODEBASE_NAME, VERSION)
+#endif
+int has_version_katcp(struct katcp_dispatch *d, char *label, char *value);
 
 int print_versions_katcp(struct katcp_dispatch *d, int initial);
 int version_cmd_katcp(struct katcp_dispatch *d, int argc);
