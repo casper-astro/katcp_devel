@@ -154,6 +154,9 @@ int read_word_wops(struct wops_state *w, char *name, uint32_t *value)
   }
 
   while((status = complete_rpc_katcl(w->w_line, 0, &(w->w_when))) == 0);
+#ifdef DEBUG
+  fprintf(stderr, "read: status is %d\n", status);
+#endif
   if(status < 0){
     if(w->w_line){
       destroy_rpc_katcl(w->w_line);
