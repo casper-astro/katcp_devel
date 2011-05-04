@@ -2,7 +2,7 @@
 #define KCS_H_
 
 #include <katcp.h>
-#include "avltree.h"
+#include <avltree.h>
 
 #define KCS_MAX_CLIENTS          32
 
@@ -179,6 +179,10 @@ struct kcs_statemachine {
 };
 #endif
 
+#define MOD_STORE               "mod_store"
+#define MOD_STORE_TYPE_SYMBOL   0  
+#define MOD_STORE_TYPE_HANDLE   1
+
 struct kcs_mod_store {
   struct avl_node_list *m_hl;
   struct avl_node_list *m_sl;
@@ -207,6 +211,8 @@ struct kcs_sm_edge {
 
 int statemachine_cmd(struct katcp_dispatch *d, int argc);
 void destroy_statemachine_data_kcs(struct katcp_dispatch *d);
+struct avl_tree *get_datastore_tree_kcs(struct katcp_dispatch *d);
+
 #if 0
 int statemachine_greeting(struct katcp_dispatch *d);
 int statemachine_ping(struct katcp_dispatch *d);
