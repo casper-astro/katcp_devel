@@ -7,6 +7,8 @@
 #include <stdint.h>
 #include <time.h>
 
+#include <arpa/inet.h>
+
 #include <sys/time.h>
 #include <sys/select.h>
 
@@ -51,6 +53,12 @@ void usage(char *app)
   printf("c:register=value  poll register until value (01X)\n");
   printf("w:register=value  write values (01FRPG) to register\n");
   printf("d:                delay until timeout\n");
+  printf("return codes:\n");
+  printf("\n");
+  printf("0                 success\n");
+  printf("1                 logic failure\n");
+  printf("2                 communications failure\n");
+  printf("3                 other permanent failures\n");
 }
 
 int extract_register_wops(struct wops_state *w, char *op)
@@ -133,6 +141,7 @@ int read_word_wops(struct wops_state *w, char *name, uint32_t *value)
   int result[4], status, i;
   int expect[4] = { 6, 0, 2, 2 };
   char *ptr;
+  uint32_t tmp;
 
   if(maintain_wops(w) < 0){
     return -1;
@@ -174,10 +183,12 @@ int read_word_wops(struct wops_state *w, char *name, uint32_t *value)
     return 1;
   }
 
-  status = arg_buffer_katcl(w->w_line, 2, value, 4);
+  status = arg_buffer_katcl(w->w_line, 2, &tmp, 4);
   if(status != 4){
     return -1;
   }
+
+  *value = ntohl(tmp);
 
   return 0;
 }
@@ -187,15 +198,18 @@ int write_word_wops(struct wops_state *w, char *name, uint32_t value)
   int result[4], status, i;
   int expect[4] = { 7, 0, 2, 5 };
   char *ptr;
+  uint32_t tmp;
 
   if(maintain_wops(w) < 0){
     return -1;
   }
 
+  tmp = htonl(value);
+
   result[0] = append_string_katcl(w->w_line,       KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "?write");
   result[1] = append_string_katcl(w->w_line,                          KATCP_FLAG_STRING, name);
   result[2] = append_unsigned_long_katcl(w->w_line,                   KATCP_FLAG_ULONG,  0);
-  result[3] = append_buffer_katcl(w->w_line,        KATCP_FLAG_LAST | KATCP_FLAG_BUFFER, &value, 4);
+  result[3] = append_buffer_katcl(w->w_line,        KATCP_FLAG_LAST | KATCP_FLAG_BUFFER, &tmp, 4);
 
   expect[1] = strlen(name) + 1;
   for(i = 0; i < 4; i++){
@@ -278,7 +292,6 @@ int perform_check_wops(struct wops_state *w, char *op)
 
   for(;;){
 
-#if 1
     result = read_word_wops(w, w->w_register, &got);
     if(result < 0){
 #ifdef DEBUG
@@ -286,7 +299,9 @@ int perform_check_wops(struct wops_state *w, char *op)
 #endif
       return WOPS_ERROR_COMMS;
     }
-#else
+
+
+#if 0
     result = send_rpc_katcl(w->w_line, 10000, 
       KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "?read", 
                          KATCP_FLAG_STRING, w->w_register, 
