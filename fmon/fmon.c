@@ -17,6 +17,9 @@
 #include <katcl.h>
 #include <katpriv.h>
 
+#define FMON_DEFAULT_INTERVAL 5000
+#define FMON_DEFAULT_TIMEOUT  5000
+
 #define FMON_INPUTS         2
 #define FMON_INPUT_SENSORS  2
 
@@ -47,7 +50,10 @@ struct fmon_state
 {
   int f_verbose;
   char *f_server;
+
+  struct timeval f_start;
   struct timeval f_when;
+  struct timeval f_done;
 
   struct katcl_line *f_line;
   struct katcl_line *f_report;
@@ -89,9 +95,10 @@ void usage(char *app)
 
 void set_timeout_fmon(struct fmon_state *f, unsigned int timeout)
 {
-  struct timeval delta, now;
+  struct timeval delta;
 
-  gettimeofday(&now, NULL);
+  gettimeofday(&(f->f_start), NULL);
+
   delta.tv_sec = timeout / 1000;
   delta.tv_usec = (timeout % 1000) * 1000;
 
@@ -99,7 +106,25 @@ void set_timeout_fmon(struct fmon_state *f, unsigned int timeout)
   fprintf(stderr, "timeout: +%ums\n", timeout);
 #endif
 
-  add_time_katcp(&(f->f_when), &now, &delta);
+  add_time_katcp(&(f->f_when), &(f->f_start), &delta);
+}
+
+void pause_fmon(struct fmon_state *f, unsigned int interval)
+{
+  struct timeval delta, target;
+
+  delta.tv_sec = interval / 1000;
+  delta.tv_usec = (interval % 1000) * 1000;
+
+  gettimeofday(&(f->f_done), NULL);
+
+  add_time_katcp(&target, &(f->f_start), &delta);
+  
+  if(cmp_time_katcp(&(f->f_done), &target) <= 0){
+    sub_time_katcp(&delta, &target, &(f->f_done));
+
+    select(0, NULL, NULL, NULL, &delta);
+  }
 }
 
 int maintain_fmon(struct fmon_state *f)
@@ -531,7 +556,7 @@ int check_all_status_fmon(struct fmon_state *f)
   }
 
   if(f->f_dirty){
-    log_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_symbolic, "clearing status bits");
+    log_message_katcl(f->f_report, KATCP_LEVEL_DEBUG, f->f_symbolic, "clearing status bits");
     clear_control_fmon(f);
   }
 
@@ -574,9 +599,9 @@ int main(int argc, char **argv)
   verbose = 1;
   i = j = 1;
   app = "fmon";
-  timeout = 10000;
+  timeout = 0;
   retry = 0;
-  interval = 1;
+  interval = 0;
   engine = (-1);
 
   server = getenv("KATCP_SERVER");
@@ -675,7 +700,11 @@ int main(int argc, char **argv)
   }
 
   if(interval <= 0){
-    interval = 1;
+    interval = FMON_DEFAULT_INTERVAL;
+  }
+
+  if(timeout <= 0){
+    timeout = FMON_DEFAULT_TIMEOUT;
   }
 
   status = 0;
@@ -692,13 +721,16 @@ int main(int argc, char **argv)
   sync_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_symbolic, "starting monitoring routines");
 
   for(run = 1; run; ){
+
+    set_timeout_fmon(f, timeout);
+
     check_all_status_fmon(f);
 
     while(flushing_katcl(f->f_report)){
       write_katcl(f->f_report);
     }
 
-    sleep(interval);
+    pause_fmon(f, interval);
   }
 
   if(f){
