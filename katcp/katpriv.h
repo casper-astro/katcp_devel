@@ -408,6 +408,9 @@ struct katcp_shared{
 
   fd_set s_read, s_write;
   int s_max;
+  
+  struct katcp_type **s_type;
+  unsigned int s_type_count;
 };
 
 struct katcp_dispatch{
@@ -444,6 +447,15 @@ struct katcp_url {
   char **u_path;
   int u_pcount;
   char *u_cmd;
+};
+
+struct katcp_type {
+  char *t_name;
+
+  struct avl_tree *t_tree;
+
+  int (*t_print)(struct katcp_dispatch *, void *);
+  void (*t_free)(void *);
 };
 
 struct katcp_dynamic_mode{
@@ -598,6 +610,11 @@ struct katcp_trap *find_map_katcp(struct katcp_map *km, char *name);
 int remove_map_katcp(struct katcp_dispatch *d, struct katcp_map *km, char *name, struct katcl_parse *p);
 int add_map_katcp(struct katcp_dispatch *d, struct katcp_map *km, char *name, struct katcp_notice *n);
 int log_map_katcp(struct katcp_dispatch *d, char *prefix, struct katcp_map *km);
+
+/*katcp_type*/
+void destroy_type_katcp(struct katcp_type *t);
+struct katcp_type *create_type_katcp();
+int binary_search_type_list_katcp(struct katcp_type **ts, int t_size, char *str);
 
 /******************************************/
 

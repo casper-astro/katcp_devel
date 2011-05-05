@@ -32,7 +32,7 @@ static void handle_child_shared(int signal)
 }
 
 #ifdef DEBUG
-static void sane_shared_katcp(struct katcp_dispatch *d)
+void sane_shared_katcp(struct katcp_dispatch *d)
 {
   struct katcp_shared *s;
 
@@ -219,6 +219,9 @@ int startup_shared_katcp(struct katcp_dispatch *d)
 #endif
 
   s->s_size = 1;
+
+  s->s_type = NULL;
+  s->s_type_count = 0;
 
 #ifdef DEBUG
   if(d->d_shared){

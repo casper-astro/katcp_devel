@@ -21,9 +21,6 @@
 #include "kcs.h"
 
 #define STATEMACHINE_LIST       "statemachine_list"
-#define MOD_STORE               "mod_store"
-#define MOD_STORE_TYPE_SYMBOL   0  
-#define MOD_STORE_TYPE_HANDLE   1
 
 struct avl_node *create_mod_store_kcs()
 {
@@ -501,9 +498,12 @@ int statemachine_loadmod_kcs(struct katcp_dispatch *d)
   struct avl_tree *t;
   struct avl_node *n;
   struct kcs_mod_store *ms;
-  char *mod;
+  char *mod, *err;
+#if 0
   char **sl;
-  void *handle, *call;
+#endif
+  void *handle;
+  int (*call)(struct katcp_dispatch *);
 
   mod = arg_string_katcp(d, 2);
   
@@ -551,6 +551,25 @@ int statemachine_loadmod_kcs(struct katcp_dispatch *d)
   }
 
   dlerror();
+  
+  call = dlsym(handle, "init_mod");
+  if ((err = dlerror()) != NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "error btw symlist and syms%s", err);
+#ifdef DEBUG
+    fprintf(stderr, "statemachine: error btw symlist and syms %s\n", err);
+#endif
+    return KATCP_RESULT_FAIL;
+  } 
+  
+  if ((*call)(d) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "error running init_mod");
+#ifdef DEBUG
+    fprintf(stderr, "statemachine: error running init_mod\n");
+#endif
+    return KATCP_RESULT_FAIL;
+  }
+
+#if 0
   call = dlsym(handle, "sym_list_mod");
   if ((mod = dlerror()) != NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "error btw symlist and syms%s", mod);
@@ -596,6 +615,7 @@ int statemachine_loadmod_kcs(struct katcp_dispatch *d)
      
     sl++;
   } while (*sl != NULL);
+#endif
 
 #ifdef DEBUG
   fprintf(stderr, "statemachine: loaded all symbols into tree and mod store\n");
