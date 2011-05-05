@@ -435,5 +435,7 @@ void destroy_type_list_katcp(struct katcp_dispatch *d);
 
 #ifdef DEBUG
 void sane_shared_katcp(struct katcp_dispatch *d);
+#else 
+#define sane_shared_katcp(d)
 #endif
 

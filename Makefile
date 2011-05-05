@@ -2,7 +2,7 @@ include Makefile.inc
 
 ###############################################################################
 
-SUB = katcp cmd kcs examples sq bulkread scripts tmon misc log
+SUB = katcp cmd kcs examples sq bulkread scripts tmon misc log fmon
 
 ###############################################################################
 

@@ -1791,7 +1791,7 @@ char *status_name_sensor_katcp(struct katcp_sensor *sn)
   return sensor_status_table[sn->s_status];
 }
 
-char *name_status_sensor_katcp(unsigned int code)
+char *name_status_sensor_katcl(unsigned int code)
 {
   if(code >= KATCP_STATA_COUNT){
     return NULL;
@@ -1800,7 +1800,7 @@ char *name_status_sensor_katcp(unsigned int code)
   return sensor_status_table[code];
 }
 
-int status_code_sensor_katcp(char *name)
+int status_code_sensor_katcl(char *name)
 {
   int i;
 
@@ -2726,7 +2726,7 @@ int match_sensor_status_katcp(struct katcp_dispatch *d, struct katcp_notice *n, 
     return -1;
   }
 
-  code = status_code_sensor_katcp(status);
+  code = status_code_sensor_katcl(status);
   if(code < 0){
     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "saw bad status %s for sensor %s", status, name);
     return 1;

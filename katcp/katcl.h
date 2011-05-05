@@ -89,6 +89,11 @@ int vextra_response_katcl(struct katcl_line *cl, int code, char *fmt, va_list ar
 int basic_inform_katcl(struct katcl_line *cl, char *name, char *arg);
 #endif
 
+/* basic sensor naming stuff, maybe add strategies too ? */
+
+char *name_status_sensor_katcl(unsigned int code);
+int status_code_sensor_katcl(char *name);
+
 /* client side rpc logic */
 
 #define KATCL_RPC_LOG_TEXT   0x1
