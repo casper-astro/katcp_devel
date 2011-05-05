@@ -6,8 +6,6 @@
 #include <katpriv.h>
 #include <avltree.h>
 
-#include "ktype.h"
-
 void destroy_type_katcp(struct katcp_type *t)
 {
   if (t != NULL){
@@ -38,22 +36,29 @@ struct katcp_type *create_type_katcp()
 
 int binary_search_type_list_katcp(struct katcp_type **ts, int t_size, char *str)
 {
-  unsigned int low, high, mid;
+  int low, high, mid;
   int cmp;
   struct katcp_type *t;
 
-  if (ts == NULL || t_size == 0){
+  if (ts == NULL || t_size == 0 || str == NULL){
 #ifdef DEBUG
-    fprintf(stderr, "katcp_type: null ts or zero size");
+    fprintf(stderr, "katcp_type: null ts or zero size\n");
 #endif
     return 0;
   }
 
+#ifdef DEBUG
+  fprintf(stderr, "katcp_type: bsearch for %s\n", str);
+#endif
+  
   low = 0;
   high = t_size - 1;
   
   while (low <= high){
-    mid = (low + high) >> 1;
+    mid = low + ((high-low) / 2);
+#ifdef DEBUG
+    fprintf(stderr, "katcp_type: set mid %d\n", mid);
+#endif
 
     t = ts[mid];
   
@@ -63,19 +68,24 @@ int binary_search_type_list_katcp(struct katcp_type **ts, int t_size, char *str)
       fprintf(stderr, "katcp_type: found <%s> @ %d\n", str, mid);
 #endif
       return mid;
-    } else if (cmp > 0){
+    } else if (cmp < 0){
       high = mid - 1;
 #ifdef DEBUG
-      fprintf(stderr, "katcp_type: set high to %d\n", high);
+      fprintf(stderr, "katcp_type: set high to %d low is %d\n", high, low);
 #endif
-    } else if (cmp < 0){ 
-      low = mid - 1;
+    } else if (cmp > 0){ 
+      low = mid + 1;
 #ifdef DEBUG
-      fprintf(stderr, "katcp_type: set low to %d\n", low);
+      fprintf(stderr, "katcp_type: set low to %d high is %d\n", low, high);
 #endif
     }
   }
-  return (-1) * (low + 1);
+
+#ifdef DEBUG
+  fprintf(stderr, "katcp_type: bsearch return %d\n", (-1)*(low));
+#endif
+
+  return (-1) * (low);
 }
 
 int register_type_katcp(struct katcp_dispatch *d, char *name, int (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *))
@@ -85,7 +95,7 @@ int register_type_katcp(struct katcp_dispatch *d, char *name, int (*fn_print)(st
   struct katcp_type *t;
   int size, pos, i;
 
-  sane_dispatch_katcp(d);
+  sane_shared_katcp(d);
 
   s = d->d_shared;
   if (s == NULL)
@@ -152,7 +162,7 @@ int deregister_type_katcp(struct katcp_dispatch *d, char *name)
   struct katcp_type **ts;
   int size, pos;
 
-  sane_dispatch_katcp(d);
+  sane_shared_katcp(d);
 
   s = d->d_shared;
   if (s == NULL)
@@ -195,7 +205,7 @@ void print_types_katcp(struct katcp_dispatch *d)
   struct katcp_type **ts, *t;
   int size, i;
 
-  sane_dispatch_katcp(d);
+  sane_shared_katcp(d);
 
   s = d->d_shared;
   if (s == NULL)
@@ -222,7 +232,7 @@ void destroy_type_list_katcp(struct katcp_dispatch *d)
   struct katcp_type **ts;
   int size, i;
 
-  sane_dispatch_katcp(d);
+  sane_shared_katcp(d);
 
   s = d->d_shared;
   if (s == NULL)
@@ -247,7 +257,6 @@ void destroy_type_list_katcp(struct katcp_dispatch *d)
 
 #ifdef STANDALONE
 
-
 int main(int argc, char *argv[])
 {
   struct katcp_dispatch *d;
@@ -262,10 +271,49 @@ int main(int argc, char *argv[])
     destroy_type_list_katcp(d);
     return 1;
   }
+  print_types_katcp(d);
+  if (register_type_katcp(d, "adam", NULL, NULL) == KATCP_RESULT_FAIL){
+    destroy_type_list_katcp(d);
+    return 1;
+  }
+  print_types_katcp(d);
+  if (register_type_katcp(d, "xray", NULL, NULL) == KATCP_RESULT_FAIL){
+    destroy_type_list_katcp(d);
+    return 1;
+  }
+  print_types_katcp(d);
+  if (register_type_katcp(d, "dogpile", NULL, NULL) == KATCP_RESULT_FAIL){
+    destroy_type_list_katcp(d);
+    return 1;
+  }
+  print_types_katcp(d);
+  if (register_type_katcp(d, "dogp1l3", NULL, NULL) == KATCP_RESULT_FAIL){
+    destroy_type_list_katcp(d);
+    return 1;
+  }
+  print_types_katcp(d);
   
+  if (register_type_katcp(d, "foobar", NULL, NULL) == KATCP_RESULT_FAIL){
+    destroy_type_list_katcp(d);
+    return 1;
+  }
+  print_types_katcp(d);
+  
+  if (deregister_type_katcp(d, "adam") == KATCP_RESULT_FAIL){
+    destroy_type_list_katcp(d);
+    return 1;
+  }
+  print_types_katcp(d);
+  
+  if (deregister_type_katcp(d, "xray") == KATCP_RESULT_FAIL){
+    destroy_type_list_katcp(d);
+    return 1;
+  }
   print_types_katcp(d);
   
   destroy_type_list_katcp(d);
+
+  shutdown_katcp(d);
   return 0;
 } 
 #endif

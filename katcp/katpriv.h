@@ -611,6 +611,11 @@ int remove_map_katcp(struct katcp_dispatch *d, struct katcp_map *km, char *name,
 int add_map_katcp(struct katcp_dispatch *d, struct katcp_map *km, char *name, struct katcp_notice *n);
 int log_map_katcp(struct katcp_dispatch *d, char *prefix, struct katcp_map *km);
 
+/*katcp_type*/
+void destroy_type_katcp(struct katcp_type *t);
+struct katcp_type *create_type_katcp();
+int binary_search_type_list_katcp(struct katcp_type **ts, int t_size, char *str);
+
 /******************************************/
 
 #define KATCL_PARSE_MAGIC 0xff7f1273
