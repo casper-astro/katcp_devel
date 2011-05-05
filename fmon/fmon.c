@@ -485,6 +485,9 @@ int check_status_fmon(struct fmon_state *f, struct fmon_input *n, char *name)
     value_quant  = 1;
     status_quant = KATCP_STATUS_UNKNOWN;
   } else {
+#ifdef DEBUG
+    fprintf(stderr, "got status 0x%08x from %s\n", word, n->n_label);
+#endif
     value_adc    = (word & FMON_FSTATUS_ADC_OVERRANGE) ? 1 : 0;
     status_adc   = value_adc ? KATCP_STATUS_ERROR : KATCP_STATUS_NOMINAL;
 
@@ -496,9 +499,6 @@ int check_status_fmon(struct fmon_state *f, struct fmon_input *n, char *name)
     }
   }
 
-#ifdef DEBUG
-  fprintf(stderr, "checked fmon status\n");
-#endif
 
   update_sensor_fmon(f, sensor_adc,   value_adc,   status_quant);
   update_sensor_fmon(f, sensor_quant, value_quant, status_quant);
