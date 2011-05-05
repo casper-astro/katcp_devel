@@ -20,6 +20,8 @@
 #define FMON_INPUTS         2
 #define FMON_INPUT_SENSORS  2
 
+#define FMON_CONTROL_CLEAR_STATUS      0x0008
+
 #define FMON_FSTATUS_QUANT_OVERRANGE   0x0001
 #define FMON_FSTATUS_ADC_OVERRANGE     0x0004
 #define FMON_FSTATUS_ADC_GROUNDED      0x0010
@@ -54,6 +56,7 @@ struct fmon_state
   char *f_symbolic;
 
   struct fmon_input f_inputs[FMON_INPUTS];
+  int f_dirty;
 };
 
 /*************************************************************************/
@@ -441,6 +444,31 @@ int update_sensor_fmon(struct fmon_state *f, struct fmon_sensor *s, int value, u
   return 0;
 }
 
+int clear_control_fmon(struct fmon_state *f)
+{
+  uint32_t word;
+
+  if(read_word_fmon(f, "control", &word) < 0){
+    return -1;
+  }
+
+  word &= ~FMON_CONTROL_CLEAR_STATUS;
+  if(write_word_fmon(f, "control", word) < 0){
+    return -1;
+  }
+
+  if(read_word_fmon(f, "control", &word) < 0){
+    return -1;
+  }
+
+  word |= FMON_CONTROL_CLEAR_STATUS;
+  if(write_word_fmon(f, "control", word) < 0){
+    return -1;
+  }
+
+  return 0;
+}
+
 int check_status_fmon(struct fmon_state *f, struct fmon_input *n, char *name)
 {
   uint32_t word;
@@ -462,6 +490,10 @@ int check_status_fmon(struct fmon_state *f, struct fmon_input *n, char *name)
 
     value_quant  = (word & FMON_FSTATUS_QUANT_OVERRANGE) ? 1 : 0;
     status_quant = value_quant ? KATCP_STATUS_ERROR : KATCP_STATUS_NOMINAL;
+
+    if(value_quant || value_adc){
+      f->f_dirty = 1;
+    }
   }
 
 #ifdef DEBUG
@@ -481,6 +513,8 @@ int check_all_status_fmon(struct fmon_state *f)
   char buffer[BUFFER];
   int result;
 
+  f->f_dirty = 0;
+
 #ifdef DEBUG
   fprintf(stderr, "checking all\n");
 #endif
@@ -494,6 +528,11 @@ int check_all_status_fmon(struct fmon_state *f)
 #endif
 
     result += check_status_fmon(f, &(f->f_inputs[i]), buffer);
+  }
+
+  if(f->f_dirty){
+    log_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_symbolic, "clearing status bits");
+    clear_control_fmon(f);
   }
 
   return result;
