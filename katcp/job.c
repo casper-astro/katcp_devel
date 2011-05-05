@@ -1691,7 +1691,7 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
         return KATCP_RESULT_FAIL;
       }
 
-      if(url->u_cmd){
+      if(url->u_cmd == NULL){
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "url %s has no executable component", cmd);
         return KATCP_RESULT_FAIL;
       }
