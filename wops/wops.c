@@ -53,6 +53,8 @@ void usage(char *app)
   printf("c:register=value  poll register until value (01X)\n");
   printf("w:register=value  write values (01FRPG) to register\n");
   printf("d:                delay until timeout\n");
+  printf("t:milliseconds    specify a new timeout\n");
+  printf("p:string          display a string\n");
   printf("return codes:\n");
   printf("\n");
   printf("0                 success\n");

@@ -1791,6 +1791,15 @@ char *status_name_sensor_katcp(struct katcp_sensor *sn)
   return sensor_status_table[sn->s_status];
 }
 
+char *name_status_sensor_katcp(unsigned int code)
+{
+  if(code >= KATCP_STATA_COUNT){
+    return NULL;
+  }
+
+  return sensor_status_table[code];
+}
+
 int status_code_sensor_katcp(char *name)
 {
   int i;
