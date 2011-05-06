@@ -20,8 +20,14 @@
 #define FMON_DEFAULT_INTERVAL 5000
 #define FMON_DEFAULT_TIMEOUT  5000
 
+#define FMON_SENSOR_LRU     0
+#define FMON_SENSOR_CLOCK   1
+
+#define FMON_BOARD_SENSORS  2
+
+#define FMON_GOOD_DSP_CLOCK 200000000
+
 #define FMON_INPUTS         2
-#define FMON_INPUT_SENSORS  3
 
 #define FMON_MAX_ENGINES                  128
 
@@ -32,11 +38,15 @@
 #define FMON_FSTATUS_ADC_OVERRANGE     0x0004
 #define FMON_FSTATUS_ADC_DISABLED      0x0010
 
+#define FMON_INPUT_SENSORS  3
+
 #define FMON_SENSOR_ADC_OVERRANGE           0
 #define FMON_SENSOR_ADC_DISABLED            1
 #define FMON_SENSOR_FFT_OVERRANGE           2
 
 static char inputs_fmon[FMON_INPUTS] = { 'x', 'y' };
+
+static char *board_sensors_fmon[FMON_BOARD_SENSORS] = { "lru", "fpga.clock" };
 static char *input_sensors_fmon[FMON_INPUT_SENSORS] = { "%s.adc.overrange", "%s.adc.grounded", "%s.fft.overrange" };
 
 struct fmon_sensor{
@@ -67,6 +77,8 @@ struct fmon_state
 
   struct fmon_input f_inputs[FMON_INPUTS];
   int f_dirty;
+
+  struct fmon_sensor f_sensors[FMON_BOARD_SENSORS];
 };
 
 /*************************************************************************/
@@ -281,7 +293,7 @@ int write_word_fmon(struct fmon_state *f, char *name, uint32_t value)
 
 /****************************************************************************/
 
-int print_boolean_list_fmon(struct fmon_state *f, char *name, char *description, char *units)
+int print_intbool_list_fmon(struct fmon_state *f, char *name, char *description, char *units)
 {
   append_string_katcl(f->f_report, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#sensor-list");
   append_string_katcl(f->f_report,                    KATCP_FLAG_STRING, name);
@@ -298,18 +310,25 @@ int list_sensors_fmon(struct fmon_state *f)
   struct fmon_input *n;
   struct fmon_sensor *s;
 
+
+  s = &(f->f_sensors[FMON_SENSOR_LRU]);
+  print_intbool_list_fmon(f, s->s_name, "line replacement unit", "none");
+
+  s = &(f->f_sensors[FMON_SENSOR_CLOCK]);
+  print_intbool_list_fmon(f, s->s_name, "signal processing clock", "Hz");
+
   for(i = 0; i < FMON_INPUTS; i++){
 
     n = &(f->f_inputs[i]);
 
     s = &(n->n_sensors[FMON_SENSOR_ADC_OVERRANGE]);
-    print_boolean_list_fmon(f, s->s_name, "adc overrange indicator", "none");
+    print_intbool_list_fmon(f, s->s_name, "adc overrange indicator", "none");
 
     s = &(n->n_sensors[FMON_SENSOR_ADC_DISABLED]);
-    print_boolean_list_fmon(f, s->s_name, "adc switched to ground", "none");
+    print_intbool_list_fmon(f, s->s_name, "adc switched to ground", "none");
 
     s = &(n->n_sensors[FMON_SENSOR_FFT_OVERRANGE]);
-    print_boolean_list_fmon(f, s->s_name, "fft overrange indicator", "none");
+    print_intbool_list_fmon(f, s->s_name, "fft overrange indicator", "none");
   }
 
   return 0;
@@ -317,7 +336,7 @@ int list_sensors_fmon(struct fmon_state *f)
 
 /****************************************************************************/
 
-int print_boolean_status_fmon(struct fmon_state *f, struct fmon_sensor *s)
+int print_intbool_status_fmon(struct fmon_state *f, struct fmon_sensor *s)
 {
   struct timeval now;
   unsigned int milli;
@@ -342,6 +361,15 @@ int clear_labels_fmon(struct fmon_state *f)
   int i, j;
   struct fmon_sensor *s;
   struct fmon_input *n;
+
+  for(i = 0; i < FMON_BOARD_SENSORS; i++){
+    s = &(f->f_sensors[i]);
+
+    if(s->s_name == NULL){
+      free(s->s_name);
+      s->s_name = NULL;
+    }
+  }
 
   for(i = 0; i < FMON_INPUTS; i++){
     n = &(f->f_inputs[i]);
@@ -384,6 +412,15 @@ int make_labels_fmon(struct fmon_state *f, unsigned int engine)
     log_message_katcl(f->f_report, KATCP_LEVEL_WARN, f->f_symbolic ? f->f_symbolic : f->f_server, "roach %s is changing personality from fengine%d to fengine%d", f->f_server, f->f_engine, engine);
     /* TODO: maybe set sensors to unknown */
     clear_labels_fmon(f);
+  }
+
+  for(i = 0; i < FMON_BOARD_SENSORS; i++){
+    s = &(f->f_sensors[i]);
+
+    s->s_name = strdup(board_sensors_fmon[i]);
+    if(s->s_name == NULL){
+      return -1;
+    }
   }
 
   f->f_engine = (-1);
@@ -499,6 +536,13 @@ struct fmon_state *create_fmon(char *server, int verbose, unsigned int timeout, 
   f->f_engine = (-1);
   f->f_symbolic = NULL;
 
+  for(i = 0; i < FMON_BOARD_SENSORS; i++){
+    s = &(f->f_sensors[i]);
+    s->s_name = NULL;
+    s->s_value = 0;
+    s->s_status = KATCP_STATUS_UNKNOWN;
+  }
+
   for(i = 0; i < FMON_INPUTS; i++){
     n = &(f->f_inputs[i]);
 
@@ -591,7 +635,7 @@ int update_sensor_fmon(struct fmon_state *f, struct fmon_sensor *s, int value, u
   }
 
   if(change){
-    print_boolean_status_fmon(f, s);
+    print_intbool_status_fmon(f, s);
   }
 
   return 0;
@@ -701,6 +745,27 @@ int check_all_status_fmon(struct fmon_state *f)
 
   return result;
 #undef BUFFER
+}
+
+int check_clock_fmon(struct fmon_state *f)
+{
+  uint32_t word;
+  struct fmon_sensor *sensor_clock;
+  int value_clock, status_clock;
+
+  sensor_clock   = &(f->f_sensors[FMON_SENSOR_CLOCK]);
+
+  if(read_word_fmon(f, "clk_frequency", &word) < 0){
+    status_clock = KATCP_STATUS_UNKNOWN;
+    value_clock = sensor_clock->s_value;
+  } else {
+    value_clock = word;
+    status_clock = (value_clock == FMON_GOOD_DSP_CLOCK) ? KATCP_STATUS_NOMINAL : KATCP_STATUS_ERROR;
+  }
+
+  update_sensor_fmon(f, sensor_clock, value_clock, status_clock);
+
+  return 0;
 }
 
 /***************************************************/
@@ -838,6 +903,7 @@ int main(int argc, char **argv)
 
     set_timeout_fmon(f, timeout);
 
+    check_clock_fmon(f);
     check_all_status_fmon(f);
 
     while(flushing_katcl(f->f_report)){
