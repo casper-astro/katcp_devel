@@ -659,7 +659,7 @@ int check_status_fmon(struct fmon_state *f, struct fmon_input *n, char *name)
     }
   }
 
-  update_sensor_fmon(f, sensor_adc,   value_adc,   status_quant);
+  update_sensor_fmon(f, sensor_adc,   value_adc,   status_adc);
   update_sensor_fmon(f, sensor_quant, value_quant, status_quant);
   update_sensor_fmon(f, sensor_fft,   value_fft,   status_fft);
 
