@@ -46,7 +46,7 @@
 
 static char inputs_fmon[FMON_INPUTS] = { 'x', 'y' };
 
-static char *board_sensors_fmon[FMON_BOARD_SENSORS] = { "lru", "fpga.clock" };
+static char *board_sensors_fmon[FMON_BOARD_SENSORS] = { "lru.available", "fpga.clock" };
 static char *input_sensors_fmon[FMON_INPUT_SENSORS] = { "%s.adc.overrange", "%s.adc.grounded", "%s.fft.overrange" };
 
 struct fmon_sensor{
@@ -80,6 +80,10 @@ struct fmon_state
 
   struct fmon_sensor f_sensors[FMON_BOARD_SENSORS];
 };
+
+/*************************************************************************/
+
+int update_sensor_fmon(struct fmon_state *f, struct fmon_sensor *s, int value, unsigned int status);
 
 /*************************************************************************/
 
@@ -143,6 +147,19 @@ void pause_fmon(struct fmon_state *f, unsigned int interval)
   }
 }
 
+void set_lru_fmon(struct fmon_state *f, int value, unsigned int status)
+{
+  struct fmon_sensor *sensor_lru;
+
+  sensor_lru = &(f->f_sensors[FMON_SENSOR_LRU]);
+
+  update_sensor_fmon(f, sensor_lru, value, status);
+
+  while(flushing_katcl(f->f_report)){
+    write_katcl(f->f_report);
+  }
+}
+
 int maintain_fmon(struct fmon_state *f)
 {
   struct timeval now, delta;
@@ -160,6 +177,7 @@ int maintain_fmon(struct fmon_state *f)
       gettimeofday(&now, NULL);
 
       if(cmp_time_katcp(&(f->f_when), &now) <= 0){
+        set_lru_fmon(f, 0, KATCP_STATUS_ERROR);
         return -1;
       }
 
@@ -172,6 +190,8 @@ int maintain_fmon(struct fmon_state *f)
       select(0, NULL, NULL, NULL, &delta);
     }
   }
+
+  set_lru_fmon(f, 1, KATCP_STATUS_NOMINAL);
 
   return 0;
 }
@@ -210,6 +230,7 @@ int read_word_fmon(struct fmon_state *f, char *name, uint32_t *value)
     if(f->f_line){
       destroy_rpc_katcl(f->f_line);
       f->f_line = NULL;
+      set_lru_fmon(f, 0, KATCP_STATUS_WARN);
     }
     return -1;
   }
@@ -266,6 +287,7 @@ int write_word_fmon(struct fmon_state *f, char *name, uint32_t value)
     if(f->f_line){
       destroy_rpc_katcl(f->f_line);
       f->f_line = NULL;
+      set_lru_fmon(f, 0, KATCP_STATUS_WARN);
     }
 #ifdef DEBUG
     fprintf(stderr, "write: complete call failed\n");
@@ -304,18 +326,24 @@ int print_intbool_list_fmon(struct fmon_state *f, char *name, char *description,
   return 0;
 }
 
-int list_sensors_fmon(struct fmon_state *f)
+int list_board_sensors_fmon(struct fmon_state *f)
 {
-  int i; 
-  struct fmon_input *n;
   struct fmon_sensor *s;
-
 
   s = &(f->f_sensors[FMON_SENSOR_LRU]);
   print_intbool_list_fmon(f, s->s_name, "line replacement unit", "none");
 
   s = &(f->f_sensors[FMON_SENSOR_CLOCK]);
   print_intbool_list_fmon(f, s->s_name, "signal processing clock", "Hz");
+
+  return 0;
+}
+
+int list_input_sensors_fmon(struct fmon_state *f)
+{
+  int i; 
+  struct fmon_input *n;
+  struct fmon_sensor *s;
 
   for(i = 0; i < FMON_INPUTS; i++){
 
@@ -362,15 +390,6 @@ int clear_labels_fmon(struct fmon_state *f)
   struct fmon_sensor *s;
   struct fmon_input *n;
 
-  for(i = 0; i < FMON_BOARD_SENSORS; i++){
-    s = &(f->f_sensors[i]);
-
-    if(s->s_name == NULL){
-      free(s->s_name);
-      s->s_name = NULL;
-    }
-  }
-
   for(i = 0; i < FMON_INPUTS; i++){
     n = &(f->f_inputs[i]);
 
@@ -414,15 +433,6 @@ int make_labels_fmon(struct fmon_state *f, unsigned int engine)
     clear_labels_fmon(f);
   }
 
-  for(i = 0; i < FMON_BOARD_SENSORS; i++){
-    s = &(f->f_sensors[i]);
-
-    s->s_name = strdup(board_sensors_fmon[i]);
-    if(s->s_name == NULL){
-      return -1;
-    }
-  }
-
   f->f_engine = (-1);
 
   i = strlen("fengine") + 8;
@@ -459,7 +469,7 @@ int make_labels_fmon(struct fmon_state *f, unsigned int engine)
 
   f->f_engine = engine;
 
-  list_sensors_fmon(f);
+  list_input_sensors_fmon(f);
 
   return 0;
 
@@ -489,8 +499,20 @@ int discover_engine_fmon(struct fmon_state *f)
 
 void destroy_fmon(struct fmon_state *f)
 {
+  int i;
+  struct fmon_sensor *s;
+
   if(f == NULL){
     return;
+  }
+
+  for(i = 0; i < FMON_BOARD_SENSORS; i++){
+    s = &(f->f_sensors[i]);
+
+    if(s->s_name == NULL){
+      free(s->s_name);
+      s->s_name = NULL;
+    }
   }
 
   if(f->f_line){
@@ -570,6 +592,18 @@ struct fmon_state *create_fmon(char *server, int verbose, unsigned int timeout, 
     destroy_fmon(f);
     return NULL;
   }
+
+  for(i = 0; i < FMON_BOARD_SENSORS; i++){
+    s = &(f->f_sensors[i]);
+
+    s->s_name = strdup(board_sensors_fmon[i]);
+    if(s->s_name == NULL){
+      destroy_fmon(f);
+      return NULL;
+    }
+  }
+
+  list_board_sensors_fmon(f);
 
   if(engine < 0){
     discover_engine_fmon(f);
