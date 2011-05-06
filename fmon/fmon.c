@@ -334,7 +334,7 @@ int list_board_sensors_fmon(struct fmon_state *f)
   print_intbool_list_fmon(f, s->s_name, "line replacement unit", "none");
 
   s = &(f->f_sensors[FMON_SENSOR_CLOCK]);
-  print_intbool_list_fmon(f, s->s_name, "signal processing clock", "Hz");
+  print_intbool_list_fmon(f, s->s_name, "signal processing clock", "none");
 
   return 0;
 }
@@ -791,10 +791,13 @@ int check_clock_fmon(struct fmon_state *f)
 
   if(read_word_fmon(f, "clk_frequency", &word) < 0){
     status_clock = KATCP_STATUS_UNKNOWN;
-    value_clock = sensor_clock->s_value;
+    value_clock = 0;
+  } else if(word != FMON_GOOD_DSP_CLOCK){
+    status_clock = KATCP_STATUS_ERROR;
+    value_clock = 0;
   } else {
-    value_clock = word;
-    status_clock = (value_clock == FMON_GOOD_DSP_CLOCK) ? KATCP_STATUS_NOMINAL : KATCP_STATUS_ERROR;
+    status_clock = KATCP_STATUS_NOMINAL;
+    value_clock = 1;
   }
 
   update_sensor_fmon(f, sensor_clock, value_clock, status_clock);
