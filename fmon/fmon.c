@@ -30,14 +30,14 @@
 #define FMON_FSTATUS_QUANT_OVERRANGE   0x0001
 #define FMON_FSTATUS_FFT_OVERRANGE     0x0002
 #define FMON_FSTATUS_ADC_OVERRANGE     0x0004
-#define FMON_FSTATUS_ADC_GROUNDED      0x0010
+#define FMON_FSTATUS_ADC_DISABLED      0x0010
 
 #define FMON_SENSOR_ADC_OVERRANGE           0
-#define FMON_SENSOR_QUANT_OVERRANGE         1
+#define FMON_SENSOR_ADC_DISABLED            1
 #define FMON_SENSOR_FFT_OVERRANGE           2
 
 static char inputs_fmon[FMON_INPUTS] = { 'x', 'y' };
-static char *input_sensors_fmon[FMON_INPUT_SENSORS] = { "%s.adc.overrange", "%s.quantiser.overrange", "%s.fft.overrange" };
+static char *input_sensors_fmon[FMON_INPUT_SENSORS] = { "%s.adc.overrange", "%s.adc.grounded", "%s.fft.overrange" };
 
 struct fmon_sensor{
   char *s_name;
@@ -305,8 +305,8 @@ int list_sensors_fmon(struct fmon_state *f)
     s = &(n->n_sensors[FMON_SENSOR_ADC_OVERRANGE]);
     print_boolean_list_fmon(f, s->s_name, "adc overrange indicator", "none");
 
-    s = &(n->n_sensors[FMON_SENSOR_QUANT_OVERRANGE]);
-    print_boolean_list_fmon(f, s->s_name, "quantiser overrange indicator", "none");
+    s = &(n->n_sensors[FMON_SENSOR_ADC_DISABLED]);
+    print_boolean_list_fmon(f, s->s_name, "adc switched to ground", "none");
 
     s = &(n->n_sensors[FMON_SENSOR_FFT_OVERRANGE]);
     print_boolean_list_fmon(f, s->s_name, "fft overrange indicator", "none");
@@ -625,43 +625,43 @@ int clear_control_fmon(struct fmon_state *f)
 int check_status_fmon(struct fmon_state *f, struct fmon_input *n, char *name)
 {
   uint32_t word;
-  struct fmon_sensor *sensor_adc, *sensor_quant, *sensor_fft;
-  int value_adc, value_quant, value_fft, status_adc, status_quant, status_fft;
+  struct fmon_sensor *sensor_adc, *sensor_disabled, *sensor_fft;
+  int value_adc, value_disabled, value_fft, status_adc, status_disabled, status_fft;
 
   sensor_adc   = &(n->n_sensors[FMON_SENSOR_ADC_OVERRANGE]);
-  sensor_quant = &(n->n_sensors[FMON_SENSOR_QUANT_OVERRANGE]);
+  sensor_disabled = &(n->n_sensors[FMON_SENSOR_ADC_DISABLED]);
   sensor_fft   = &(n->n_sensors[FMON_SENSOR_FFT_OVERRANGE]);
 
   if(read_word_fmon(f, name, &word) < 0){
-    value_adc    = 1;
-    status_adc   = KATCP_STATUS_UNKNOWN;
+    value_adc       = 1;
+    status_adc      = KATCP_STATUS_UNKNOWN;
 
-    value_quant  = 1;
-    status_quant = KATCP_STATUS_UNKNOWN;
+    value_disabled  = 1;
+    status_disabled = KATCP_STATUS_UNKNOWN;
 
-    value_fft  = 1;
-    status_fft = KATCP_STATUS_UNKNOWN;
+    value_fft       = 1;
+    status_fft      = KATCP_STATUS_UNKNOWN;
   } else {
 #ifdef DEBUG
     fprintf(stderr, "got status 0x%08x from %s\n", word, n->n_label);
 #endif
-    value_adc    = (word & FMON_FSTATUS_ADC_OVERRANGE) ? 1 : 0;
-    status_adc   = value_adc ? KATCP_STATUS_ERROR : KATCP_STATUS_NOMINAL;
+    value_adc       = (word & FMON_FSTATUS_ADC_OVERRANGE) ? 1 : 0;
+    status_adc      = value_adc ? KATCP_STATUS_ERROR : KATCP_STATUS_NOMINAL;
 
-    value_quant  = (word & FMON_FSTATUS_QUANT_OVERRANGE) ? 1 : 0;
-    status_quant = value_quant ? KATCP_STATUS_ERROR : KATCP_STATUS_NOMINAL;
+    value_disabled  = (word & FMON_FSTATUS_ADC_DISABLED) ? 1 : 0;
+    status_disabled = value_disabled ? KATCP_STATUS_ERROR : KATCP_STATUS_NOMINAL;
 
-    value_fft    = (word & FMON_FSTATUS_FFT_OVERRANGE) ? 1 : 0;
-    status_fft   = value_fft ? KATCP_STATUS_ERROR : KATCP_STATUS_NOMINAL;
+    value_fft       = (word & FMON_FSTATUS_FFT_OVERRANGE) ? 1 : 0;
+    status_fft      = value_fft ? KATCP_STATUS_ERROR : KATCP_STATUS_NOMINAL;
 
-    if(value_quant || value_adc || value_fft){
+    if(value_adc || value_disabled || value_fft){
       f->f_dirty = 1;
     }
   }
 
-  update_sensor_fmon(f, sensor_adc,   value_adc,   status_adc);
-  update_sensor_fmon(f, sensor_quant, value_quant, status_quant);
-  update_sensor_fmon(f, sensor_fft,   value_fft,   status_fft);
+  update_sensor_fmon(f, sensor_adc,      value_adc,      status_adc);
+  update_sensor_fmon(f, sensor_disabled, value_disabled, status_disabled);
+  update_sensor_fmon(f, sensor_fft,      value_fft,      status_fft);
 
   return 0;  
 }
