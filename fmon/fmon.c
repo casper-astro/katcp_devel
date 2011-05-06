@@ -23,6 +23,8 @@
 #define FMON_INPUTS         2
 #define FMON_INPUT_SENSORS  2
 
+#define FMON_MAX_ENGINES                  128
+
 #define FMON_CONTROL_CLEAR_STATUS      0x0008
 
 #define FMON_FSTATUS_QUANT_OVERRANGE   0x0001
@@ -288,6 +290,29 @@ int print_boolean_list_fmon(struct fmon_state *f, char *name, char *description,
   return 0;
 }
 
+int list_sensors_fmon(struct fmon_state *f)
+{
+  int i; 
+  struct fmon_input *n;
+  struct fmon_sensor *s;
+
+  for(i = 0; i < FMON_INPUTS; i++){
+
+    n = &(f->f_inputs[i]);
+
+    s = &(n->n_sensors[FMON_SENSOR_ADC_OVERRANGE]);
+    print_boolean_list_fmon(f, s->s_name, "adc overrange indicator", "none");
+
+    s = &(n->n_sensors[FMON_SENSOR_QUANT_OVERRANGE]);
+    print_boolean_list_fmon(f, s->s_name, "quantiser overrange indicator", "none");
+
+  }
+
+  return 0;
+}
+
+/****************************************************************************/
+
 int print_boolean_status_fmon(struct fmon_state *f, struct fmon_sensor *s)
 {
   struct timeval now;
@@ -308,30 +333,11 @@ int print_boolean_status_fmon(struct fmon_state *f, struct fmon_sensor *s)
 
 /****************************************************************************/
 
-void destroy_fmon(struct fmon_state *f)
+int clear_labels_fmon(struct fmon_state *f)
 {
   int i, j;
   struct fmon_sensor *s;
   struct fmon_input *n;
-
-  if(f == NULL){
-    return;
-  }
-
-  if(f->f_line){
-    destroy_rpc_katcl(f->f_line);
-    f->f_line = NULL;
-  }
-
-  if(f->f_report){
-    destroy_rpc_katcl(f->f_report);
-    f->f_report = NULL;
-  }
-
-  if(f->f_server){
-    free(f->f_server);
-    f->f_server = NULL;
-  }
 
   for(i = 0; i < FMON_INPUTS; i++){
     n = &(f->f_inputs[i]);
@@ -351,18 +357,129 @@ void destroy_fmon(struct fmon_state *f)
     }
   }
 
+  return 0;
+}
+
+int make_labels_fmon(struct fmon_state *f, unsigned int engine)
+{
+#define BUFFER 128
+  struct fmon_input *n;
+  struct fmon_sensor *s;
+  int i, j;
+  char buffer[BUFFER];
+
+  if(engine < 0){
+    return -1;
+  }
+
+  if(engine == f->f_engine){
+    return 0;
+  }
+
+  if(f->f_engine >= 0){
+    log_message_katcl(f->f_report, KATCP_LEVEL_WARN, f->f_symbolic ? f->f_symbolic : f->f_server, "roach %s is changing personality from fengine%d to fengine%d", f->f_server, f->f_engine, engine);
+    /* TODO: maybe set sensors to unknown */
+    clear_labels_fmon(f);
+  }
+
+  f->f_engine = (-1);
+
+  i = strlen("fengine") + 8;
+  f->f_symbolic = malloc(i);
+  if(f->f_symbolic == NULL){
+    return -1;
+  }
+  snprintf(f->f_symbolic, i - 1, "fengine%d", engine);
+  f->f_symbolic[i - 1] = '\0';
+
+  for(i = 0; i < FMON_INPUTS; i++){
+    n = &(f->f_inputs[i]);
+
+    snprintf(buffer, BUFFER - 1, "%d%c", engine, inputs_fmon[i]);
+    buffer[BUFFER - 1] = '\0';
+
+    n->n_label = strdup(buffer);
+    if(n->n_label == NULL){
+      return -1;
+    }
+
+    for(j = 0; j < FMON_INPUT_SENSORS; j++){
+      s = &(n->n_sensors[j]);
+
+      snprintf(buffer, BUFFER - 1, input_sensors_fmon[j], n->n_label);
+      buffer[BUFFER - 1] = '\0';
+
+      s->s_name = strdup(buffer);
+      if(s->s_name == NULL){
+        return -1;
+      }
+    }
+  }
+
+  f->f_engine = engine;
+
+  list_sensors_fmon(f);
+
+  return 0;
+
+#undef BUFFER
+}
+
+int discover_engine_fmon(struct fmon_state *f)
+{
+  uint32_t word;
+
+  if(read_word_fmon(f, "board_id", &word) < 0){
+    return -1;
+  }
+  
+  if(word > FMON_MAX_ENGINES){
+    log_message_katcl(f->f_report, KATCP_LEVEL_WARN, f->f_symbolic ? f->f_symbolic : f->f_server, "rather large fengine id %d reported by roach %s", word, f->f_server);
+  } else {
+    log_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_symbolic ? f->f_symbolic : f->f_server, "roach %s claims fengine%d", f->f_server, word);
+  }
+
+  make_labels_fmon(f, word);
+
+  return 0;
+}
+
+/******************************************************************************/
+
+void destroy_fmon(struct fmon_state *f)
+{
+  if(f == NULL){
+    return;
+  }
+
+  if(f->f_line){
+    destroy_rpc_katcl(f->f_line);
+    f->f_line = NULL;
+  }
+
+  if(f->f_report){
+    destroy_rpc_katcl(f->f_report);
+    f->f_report = NULL;
+  }
+
+  if(f->f_server){
+    free(f->f_server);
+    f->f_server = NULL;
+  }
+
+  clear_labels_fmon(f);
+
+  f->f_engine = (-1);
 
   free(f);
 }
 
 struct fmon_state *create_fmon(char *server, int verbose, unsigned int timeout, int engine)
 {
-#define BUFFER 128
   struct fmon_state *f;
-  struct fmon_input *n;
   struct fmon_sensor *s;
+  struct fmon_input *n;
   int i, j;
-  char buffer[BUFFER];
 
   f = malloc(sizeof(struct fmon_state));
   if(f == NULL){
@@ -375,7 +492,7 @@ struct fmon_state *create_fmon(char *server, int verbose, unsigned int timeout, 
 
   f->f_line = NULL;
   f->f_report = NULL;
-  f->f_engine = engine;
+  f->f_engine = (-1);
   f->f_symbolic = NULL;
 
   for(i = 0; i < FMON_INPUTS; i++){
@@ -406,6 +523,13 @@ struct fmon_state *create_fmon(char *server, int verbose, unsigned int timeout, 
     return NULL;
   }
 
+  if(engine < 0){
+    discover_engine_fmon(f);
+  } else {
+    make_labels_fmon(f, engine);
+  }
+
+#if 0
   i = strlen("fengine") + 8;
   f->f_symbolic = malloc(i);
   if(f->f_symbolic == NULL){
@@ -439,9 +563,9 @@ struct fmon_state *create_fmon(char *server, int verbose, unsigned int timeout, 
       }
     }
   }
+#endif
 
   return f;
-#undef BUFFER
 }
 
 /****************************************************************************/
@@ -538,6 +662,10 @@ int check_all_status_fmon(struct fmon_state *f)
   char buffer[BUFFER];
   int result;
 
+  if(f->f_engine < 0){
+    return 0;
+  }
+
   f->f_dirty = 0;
 
 #ifdef DEBUG
@@ -556,35 +684,13 @@ int check_all_status_fmon(struct fmon_state *f)
   }
 
   if(f->f_dirty){
-    log_message_katcl(f->f_report, KATCP_LEVEL_DEBUG, f->f_symbolic, "clearing status bits");
+    log_message_katcl(f->f_report, KATCP_LEVEL_DEBUG, f->f_symbolic ? f->f_symbolic : f->f_server, "clearing status bits");
     clear_control_fmon(f);
   }
 
   return result;
 #undef BUFFER
 }
-
-int list_sensors_fmon(struct fmon_state *f)
-{
-  int i; 
-  struct fmon_input *n;
-  struct fmon_sensor *s;
-
-  for(i = 0; i < FMON_INPUTS; i++){
-
-    n = &(f->f_inputs[i]);
-
-    s = &(n->n_sensors[FMON_SENSOR_ADC_OVERRANGE]);
-    print_boolean_list_fmon(f, s->s_name, "adc overrange indicator", "none");
-
-    s = &(n->n_sensors[FMON_SENSOR_QUANT_OVERRANGE]);
-    print_boolean_list_fmon(f, s->s_name, "quantiser overrange indicator", "none");
-
-  }
-
-  return 0;
-}
-
 
 /***************************************************/
 
@@ -604,9 +710,13 @@ int main(int argc, char **argv)
   interval = 0;
   engine = (-1);
 
-  server = getenv("KATCP_SERVER");
-  if(server == NULL){
-    server = "localhost";
+  if(strncmp(argv[0], "roach", 5) == 0){
+    server = argv[0];
+  } else {
+    server = getenv("KATCP_SERVER");
+    if(server == NULL){
+      server = "localhost";
+    }
   }
 
   while (i < argc) {
@@ -694,11 +804,6 @@ int main(int argc, char **argv)
     }
   }
 
-  if(engine < 0){
-    fprintf(stderr, "%s: need a valid engine number\n", app);
-    return 2;
-  }
-
   if(interval <= 0){
     interval = FMON_DEFAULT_INTERVAL;
   }
@@ -715,10 +820,8 @@ int main(int argc, char **argv)
     return 2;
   }
 
-  list_sensors_fmon(f);
-
   /* we rely on the side effect to flush out the sensor list detail too */
-  sync_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_symbolic, "starting monitoring routines");
+  sync_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_symbolic ? f->f_symbolic : f->f_server, "starting monitoring routines");
 
   for(run = 1; run; ){
 
