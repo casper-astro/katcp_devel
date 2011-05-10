@@ -496,6 +496,7 @@ void query_rcs_fmon(struct fmon_state *f, char *label, char *reg)
   }
 
   append_string_katcl(f->f_report, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#version");
+  append_string_katcl(f->f_report,                    KATCP_FLAG_STRING, label);
 
   if(value & (1 << 31)){
     append_args_katcl(f->f_report, KATCP_FLAG_LAST | KATCP_FLAG_STRING, "t-%u", value);
