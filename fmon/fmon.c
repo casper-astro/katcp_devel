@@ -68,6 +68,7 @@ struct fmon_state
   struct timeval f_start;
   struct timeval f_when;
   struct timeval f_done;
+  int f_maintaining;
 
   struct katcl_line *f_line;
   struct katcl_line *f_report;
@@ -164,6 +165,13 @@ int maintain_fmon(struct fmon_state *f)
 {
   struct timeval now, delta;
 
+  if(f->f_maintaining){
+    sync_message_katcl(f->f_report, KATCP_LEVEL_ERROR, f->f_symbolic ? f->f_symbolic : f->f_server, "calling fmon maintain logic within maintain");
+    return -1;
+  }
+
+  f->f_maintaining = 1;
+
   while(f->f_line == NULL){
 
 #ifdef DEBUG
@@ -178,6 +186,7 @@ int maintain_fmon(struct fmon_state *f)
 
       if(cmp_time_katcp(&(f->f_when), &now) <= 0){
         set_lru_fmon(f, 0, KATCP_STATUS_ERROR);
+        f->f_maintaining = 0;
         return -1;
       }
 
@@ -192,6 +201,7 @@ int maintain_fmon(struct fmon_state *f)
   }
 
   set_lru_fmon(f, 1, KATCP_STATUS_NOMINAL);
+  f->f_maintaining = 0;
 
   return 0;
 }
@@ -476,6 +486,45 @@ int make_labels_fmon(struct fmon_state *f, unsigned int engine)
 #undef BUFFER
 }
 
+void query_rcs_fmon(struct fmon_state *f, char *label, char *reg)
+{
+  uint32_t value;
+  int dirty;
+
+  if(read_word_fmon(f, reg, &value) < 0){
+    return;
+  }
+
+  append_string_katcl(f->f_report, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#version");
+
+  if(value & (1 << 31)){
+    append_args_katcl(f->f_report, KATCP_FLAG_LAST | KATCP_FLAG_STRING, "t-%u", value);
+  } else {
+
+    dirty = (value >> 29) & 1;
+
+    switch((value >> 30) & 1){
+      case 0 : /* git */
+        append_args_katcl(f->f_report, KATCP_FLAG_LAST | KATCP_FLAG_STRING, dirty ? "git-%07x-dirty" : "git-%07x", value & 0x0fffffff);
+        break;
+
+      default : 
+        /* case 1 : */ /* svn */
+        append_args_katcl(f->f_report, KATCP_FLAG_LAST | KATCP_FLAG_STRING, dirty ? "svn-%d-dirty" : "svn-%d", value & 0x0fffffff);
+        break;
+    }
+  }
+
+  /* require that we have appended a FLAG_LAST */
+  return;
+}
+
+void query_versions_fmon(struct fmon_state *f)
+{
+  query_rcs_fmon(f, "gateware-fengine", "rcs_app");
+  query_rcs_fmon(f, "gateware-infrastructure", "rcs_lib");
+}
+
 int discover_engine_fmon(struct fmon_state *f)
 {
   uint32_t word;
@@ -558,6 +607,8 @@ struct fmon_state *create_fmon(char *server, int verbose, unsigned int timeout, 
   f->f_engine = (-1);
   f->f_symbolic = NULL;
 
+  f->f_maintaining = 0;
+
   for(i = 0; i < FMON_BOARD_SENSORS; i++){
     s = &(f->f_sensors[i]);
     s->s_name = NULL;
@@ -610,6 +661,8 @@ struct fmon_state *create_fmon(char *server, int verbose, unsigned int timeout, 
   } else {
     make_labels_fmon(f, engine);
   }
+
+  query_versions_fmon(f);
 
 #if 0
   i = strlen("fengine") + 8;
