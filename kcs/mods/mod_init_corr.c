@@ -79,6 +79,8 @@ int init_mod(struct katcp_dispatch *d)
   ms = get_node_data_avltree(n);
   if (ms == NULL)
     return -1;
+  
+
 
  /* 
   n = create_node_avltree(*sl, call);

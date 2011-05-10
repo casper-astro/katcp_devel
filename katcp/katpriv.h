@@ -614,6 +614,8 @@ int log_map_katcp(struct katcp_dispatch *d, char *prefix, struct katcp_map *km);
 /*katcp_type*/
 void destroy_type_katcp(struct katcp_type *t);
 struct katcp_type *create_type_katcp();
+struct katcp_type *find_name_type_katcp(struct katcp_dispatch *d, char *str);
+struct avl_tree *get_tree_type_katcp(struct katcp_type *t);
 int binary_search_type_list_katcp(struct katcp_type **ts, int t_size, char *str);
 
 /******************************************/

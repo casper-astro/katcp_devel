@@ -99,7 +99,7 @@ int register_type_katcp(struct katcp_dispatch *d, char *name, int (*fn_print)(st
 
   s = d->d_shared;
   if (s == NULL)
-    return KATCP_RESULT_FAIL;
+    return -1;
   
   ts = s->s_type;
   size = s->s_type_count;
@@ -110,30 +110,30 @@ int register_type_katcp(struct katcp_dispatch *d, char *name, int (*fn_print)(st
     fprintf(stderr, "katcp_type: binary search of list returns a positive match\n");
     fprintf(stderr, "katcp_type: could not create type <%s>\n", name);
 #endif
-    return KATCP_RESULT_FAIL;
+    return -1;
   }
   pos *= (-1);
 
   ts = realloc(ts, sizeof(struct katcp_type *) * (size + 1));
   if (ts == NULL)
-    return KATCP_RESULT_FAIL;
+    return -1;
   
   ts[size] = NULL;
 
   t = create_type_katcp();
   if (t == NULL)
-    return KATCP_RESULT_FAIL;
+    return -1;
 
   t->t_name = strdup(name);
   if(t->t_name == NULL){
     destroy_type_katcp(t); 
-    return KATCP_RESULT_FAIL;
+    return -1;
   }
 
   t->t_tree = create_avltree();
   if (t->t_tree == NULL){
     destroy_type_katcp(t);
-    return KATCP_RESULT_FAIL;
+    return -1;
   }
   
   t->t_print = fn_print;
@@ -153,7 +153,7 @@ int register_type_katcp(struct katcp_dispatch *d, char *name, int (*fn_print)(st
   s->s_type = ts;
   s->s_type_count++;
 
-  return KATCP_RESULT_OK;
+  return pos;
 }
 
 int deregister_type_katcp(struct katcp_dispatch *d, char *name)
@@ -166,7 +166,7 @@ int deregister_type_katcp(struct katcp_dispatch *d, char *name)
 
   s = d->d_shared;
   if (s == NULL)
-    return KATCP_RESULT_FAIL;
+    return -1;
   
   ts = s->s_type;
   size = s->s_type_count;
@@ -176,7 +176,7 @@ int deregister_type_katcp(struct katcp_dispatch *d, char *name)
 #ifdef DEBUG
     fprintf(stderr, "katcp_type: could not find type <%s>\n", name);
 #endif
-    return KATCP_RESULT_FAIL;
+    return -1;
   }
   
   if (ts[pos] != NULL){
@@ -190,12 +190,46 @@ int deregister_type_katcp(struct katcp_dispatch *d, char *name)
   
   ts = realloc(ts, sizeof(struct katcp_type *) * (size - 1));
   if (ts == NULL)
-    return KATCP_RESULT_FAIL;
+    return -1;
   
   s->s_type = ts;
   s->s_type_count--;
 
-  return KATCP_RESULT_OK;
+  return 0;
+}
+
+struct katcp_type *find_name_type_katcp(struct katcp_dispatch *d, char *str)
+{
+  struct katcp_shared *s;
+  struct katcp_type **ts;
+  int pos;
+
+  sane_shared_katcp(d);
+
+  s = d->d_shared;
+  if (s == NULL)
+    return NULL;
+  
+  ts = s->s_type;
+  size = s->s_type_count;
+
+  pos = binary_search_type_list_katcp(ts, size, str);
+  if (pos < 0){
+#ifdef DEBUG
+    fprintf(stderr, "katcp_type: could not find type <%s>\n", name);
+#endif
+    return NULL;
+  }
+
+  return ts[pos];
+}
+
+struct avl_tree *get_tree_type_katcp(struct katcp_type *t)
+{
+  if (t == NULL)
+    return NULL;
+  
+  return t->t_tree;
 }
 
 void print_types_katcp(struct katcp_dispatch *d)

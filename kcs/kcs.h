@@ -23,10 +23,11 @@
 
 #endif
 
+#if 0
 #define KCS_SCHEDULER_NOTICE "<kcs_scheduler>"
 #define KCS_SCHEDULER_STOP  0
 #define KCS_SCHEDULER_TICK  1
-
+#endif
 
 char *create_str(char *s);
 
