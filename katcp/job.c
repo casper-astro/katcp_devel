@@ -569,12 +569,12 @@ int issue_request_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
   }
 
   if((j->j_state & JOB_MAY_REQUEST) == 0){
-    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "not sending request, another one already in queue\n");
+    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "not sending request, another one already in queue");
     return 0; /* still waiting for a reply */
   }
 
   if((j->j_state & JOB_MAY_WRITE) == 0){
-    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "not sending request, finished writing\n");
+    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "not sending request, finished writing");
     return 0; /* still waiting for a reply */
   }
 
@@ -1691,7 +1691,7 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
         return KATCP_RESULT_FAIL;
       }
 
-      if(url->u_cmd){
+      if(url->u_cmd == NULL){
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "url %s has no executable component", cmd);
         return KATCP_RESULT_FAIL;
       }

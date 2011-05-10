@@ -64,6 +64,14 @@ int complete_rpc_katcl(struct katcl_line *l, unsigned int flags, struct timeval 
 
   for(;;){
 
+    if(have_katcl(l) > 0){
+      if(arg_reply_katcl(l)){
+        return 1;
+      }
+
+      return 0;
+    }
+
     FD_ZERO(&fsr);
     FD_ZERO(&fsw);
 
@@ -119,13 +127,6 @@ int complete_rpc_katcl(struct katcl_line *l, unsigned int flags, struct timeval 
       }
     }
 
-    if(have_katcl(l) > 0){
-      if(arg_reply_katcl(l)){
-        return 1;
-      }
-
-      return 0;
-    }
   }
 }
 
