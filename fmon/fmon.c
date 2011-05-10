@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <time.h>
+#include <errno.h>
 
 #include <arpa/inet.h>
 
@@ -43,6 +44,8 @@
 #define FMON_SENSOR_ADC_OVERRANGE           0
 #define FMON_SENSOR_ADC_DISABLED            1
 #define FMON_SENSOR_FFT_OVERRANGE           2
+
+volatile unsigned int run;
 
 static char inputs_fmon[FMON_INPUTS] = { 'x', 'y' };
 
@@ -85,6 +88,20 @@ struct fmon_state
 /*************************************************************************/
 
 int update_sensor_fmon(struct fmon_state *f, struct fmon_sensor *s, int value, unsigned int status);
+
+/*************************************************************************/
+
+static void handle_signal(int s)
+{
+  switch(s){
+    case SIGHUP :
+      run = (-1);
+      break;
+    case SIGTERM :
+      run = 0;
+      break;
+  }
+}
 
 /*************************************************************************/
 
@@ -863,11 +880,12 @@ int check_clock_fmon(struct fmon_state *f)
 
 int main(int argc, char **argv)
 {
-  int i, j, c, status;
+  int i, j, c;
   char *app, *server;
-  int verbose, retry, run, engine, interval;
+  int verbose, retry, engine, interval;
   struct fmon_state *f;
   unsigned int timeout;
+  struct sigaction sag;
 
   verbose = 1;
   i = j = 1;
@@ -971,6 +989,10 @@ int main(int argc, char **argv)
     }
   }
 
+  sag.sa_handler = handle_signal;
+  sigemptyset(&(sag.sa_mask));
+  sag.sa_flags = SA_RESTART;
+
   if(interval <= 0){
     interval = FMON_DEFAULT_INTERVAL;
   }
@@ -978,8 +1000,6 @@ int main(int argc, char **argv)
   if(timeout <= 0){
     timeout = FMON_DEFAULT_TIMEOUT;
   }
-
-  status = 0;
 
   f = create_fmon(server, verbose, timeout, engine);
   if(f == NULL){
@@ -990,7 +1010,7 @@ int main(int argc, char **argv)
   /* we rely on the side effect to flush out the sensor list detail too */
   sync_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_symbolic ? f->f_symbolic : f->f_server, "starting monitoring routines");
 
-  for(run = 1; run; ){
+  for(run = 1; run > 0; ){
 
     set_timeout_fmon(f, timeout);
 
@@ -1004,9 +1024,18 @@ int main(int argc, char **argv)
     pause_fmon(f, interval);
   }
 
+  sync_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_symbolic ? f->f_symbolic : f->f_server, "%s sensor monitoring logic for %s", (run < 0) ? "restarting" : "stopping", f->f_server);
+
+  if(run < 0){
+    execvp(argv[0], argv);
+
+    sync_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_symbolic ? f->f_symbolic : f->f_server, "unable to restart %s: %s", argv[0], strerror(errno));
+    return 2;
+  }
+
   if(f){
     destroy_fmon(f);
   }
 
-  return status;
+  return 0;
 }
