@@ -1,6 +1,10 @@
 export CORR_CONFIG=/etc/corr/config
 export KATCP_SERVER=localhost:1235
 
+kcs_input_to_index () {
+  echo $[$(echo $1 | tr -d -c [:digit:])*2+$(echo $1 | tr -dc xy | tr xy 01)]
+}
+
 kcs_debug () {
   echo "#log debug $(date +%s)000 script $(echo $1 | sed -e 's/ /\\_/g')"
 }
