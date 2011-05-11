@@ -566,7 +566,7 @@ int list_all_sensors_fmon(struct fmon_state *f)
     print_intbool_list_fmon(f, s->s_name, "adc overrange indicator", "none");
 
     s = &(n->n_sensors[FMON_SENSOR_ADC_DISABLED]);
-    print_intbool_list_fmon(f, s->s_name, "adc switched to ground", "none");
+    print_intbool_list_fmon(f, s->s_name, "adc disabled", "none");
 
     s = &(n->n_sensors[FMON_SENSOR_FFT_OVERRANGE]);
     print_intbool_list_fmon(f, s->s_name, "fft overrange indicator", "none");
