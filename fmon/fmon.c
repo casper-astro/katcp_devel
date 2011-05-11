@@ -658,7 +658,7 @@ int make_labels_fmon(struct fmon_state *f)
   snprintf(f->f_symbolic, i - 1, "board%d", f->f_board);
   f->f_symbolic[i - 1] = '\0';
 
-  log_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_symbolic ? f->f_symbolic : f->f_server, "roach %s is now board%d", f->f_server, f->f_board);
+  log_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_server, "roach %s is now board%d", f->f_server, f->f_board);
 
   for(i = 0; i < f->f_fs; i++){
     n = &(f->f_inputs[i]);
@@ -711,7 +711,7 @@ void query_rcs_fmon(struct fmon_state *f, char *label, char *reg)
   append_string_katcl(f->f_report,                    KATCP_FLAG_STRING, label);
 
   if(value & (1 << 31)){
-    append_args_katcl(f->f_report, KATCP_FLAG_LAST | KATCP_FLAG_STRING, "t-%u", value);
+    append_args_katcl(f->f_report, KATCP_FLAG_LAST | KATCP_FLAG_STRING, "t-%u", value & 0x7fffffff);
   } else {
 
     dirty = (value >> 29) & 1;
@@ -761,9 +761,9 @@ int detect_fmon(struct fmon_state *f)
     return -1;
   }
   if(word > FMON_MAX_BOARDS){
-    log_message_katcl(f->f_report, KATCP_LEVEL_WARN, f->f_symbolic ? f->f_symbolic : f->f_server, "rather large board id %d reported by roach %s", word, f->f_server);
+    log_message_katcl(f->f_report, KATCP_LEVEL_WARN, f->f_server, "rather large board id %d reported by roach %s", word, f->f_server);
   } else {
-    log_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_symbolic ? f->f_symbolic : f->f_server, "roach %s claims board%d", f->f_server, word);
+    log_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_server, "roach %s claims board%d", f->f_server, word);
   }
   f->f_board = word;
 
@@ -789,7 +789,7 @@ int detect_fmon(struct fmon_state *f)
     }
   }
 
-  log_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_symbolic ? f->f_symbolic : f->f_server, "board contains %d fengines and %d xengines", f->f_fs, f->f_xs);
+  log_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_server, "board contains %d fengines and %d xengines", f->f_fs, f->f_xs);
   return 0;
 #undef BUFFER
 }
@@ -942,7 +942,7 @@ int check_all_inputs_fmon(struct fmon_state *f)
   }
 
   if(f->f_dirty){
-    log_message_katcl(f->f_report, KATCP_LEVEL_DEBUG, f->f_symbolic ? f->f_symbolic : f->f_server, "clearing status bits");
+    log_message_katcl(f->f_report, KATCP_LEVEL_DEBUG, f->f_server, "clearing status bits");
     clear_control_fmon(f);
   }
 
@@ -1164,12 +1164,12 @@ int main(int argc, char **argv)
     pause_fmon(f, interval);
   }
 
-  sync_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_symbolic ? f->f_symbolic : f->f_server, "%s sensor monitoring logic for %s", (run < 0) ? "restarting" : "stopping", f->f_server);
+  sync_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_server, "%s sensor monitoring logic for %s", (run < 0) ? "restarting" : "stopping", f->f_server);
 
   if(run < 0){
     execvp(argv[0], argv);
 
-    sync_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_symbolic ? f->f_symbolic : f->f_server, "unable to restart %s: %s", argv[0], strerror(errno));
+    sync_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_server, "unable to restart %s: %s", argv[0], strerror(errno));
     return 2;
   }
 
