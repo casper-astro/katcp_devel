@@ -64,8 +64,8 @@ volatile int run;
 
 static char inputs_fmon[FMON_MAX_INPUTS] = { 'x', 'y' };
 
-static char *board_sensors_fmon[FMON_BOARD_SENSORS] = { "lru.available", "fpga.clock" };
-static char *input_sensors_fmon[FMON_INPUT_SENSORS] = { "%s.adc.overrange", "%s.adc.grounded", "%s.fft.overrange" };
+static char *board_sensors_fmon[FMON_BOARD_SENSORS] = { "lru.available", "fpga.synchronised" };
+static char *input_sensors_fmon[FMON_INPUT_SENSORS] = { "%s.adc.overrange", "%s.adc.terminated", "%s.fft.overrange" };
 
 struct fmon_sensor{
   char *s_name;
