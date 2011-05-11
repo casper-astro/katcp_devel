@@ -5,7 +5,8 @@
 ?job process foobar exec://tmon
 ?forget ?halt
 ?forget ?restart
-?process ?input-label alias\_an\_input\_name\(?input-label\_input\_alias)
+?process ?enable-sensors enable\_roach\_sensors\_(?enable-sensors) wbc
+?process ?input-label alias\_an\_input\_name\_(?input-label\_input\_alias) wbc
 ?process ?halt halt\_the\_control\_server_\(?halt)
 ?process ?restart restart\_the\_system\_(?restart)
 ?process ?capture-start start\_a\_capture\_(?capture-start\_name\_[time]) wbc
@@ -19,3 +20,4 @@
 ?xport start
 ?mode ready
 ?mode wbc
+?enable-sensors
