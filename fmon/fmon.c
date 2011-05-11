@@ -771,7 +771,7 @@ int detect_fmon(struct fmon_state *f)
   while(f->f_fs < limit){
     snprintf(buffer, BUFFER - 1, "fstatus%d", f->f_fs);
     buffer[BUFFER - 1] = '\0';
-    if(read_word_fmon(f, "buffer", &word) != 0){
+    if(read_word_fmon(f, buffer, &word) < 0){
       limit = 0;
     } else {
       f->f_fs++;
@@ -782,7 +782,7 @@ int detect_fmon(struct fmon_state *f)
   while(f->f_xs < limit){
     snprintf(buffer, BUFFER - 1, "xstatus%d", f->f_xs);
     buffer[BUFFER - 1] = '\0';
-    if(read_word_fmon(f, "buffer", &word) != 0){
+    if(read_word_fmon(f, buffer, &word) < 0){
       limit = 0;
     } else {
       f->f_xs++;
