@@ -1,14 +1,45 @@
 #!/bin/bash
 
-set -e
+set -ex
 source functions.sh
 
-kcs_arg_check $# 2
+kcs_arg_check $# 1
 
-status=1
-if kcpcmd -k -r label-input $(kcs_input_to_index $1) $2 ; then
-  status=0
+index=$(kcs_input_to_index $1)
+result=1
+
+if [ -z "${index}" ] ; then
+  kcs_error "unable to parse input label ${index}"
 fi
 
-kcs_corr_log
-exit $status
+if [ ${index} -ge 16 ] ; then
+  kcs_error "input label ${index} unexpectedly large"
+fi
+
+if [ $# -gt 1 ] ; then
+  if kcpcmd -k -r label-input $(kcs_input_to_index $1) $2 ; then
+    result=0
+  fi
+  kcs_corr_log
+  synonym=${2}
+else 
+  result=0
+  if [ -s  ${CORR_MAPPING} ] ; then
+    synonym=$(cut -f${index} -d, ${CORR_MAPPING})
+    if [ -z "${synonym}" ] ; then
+      kcs_error "unable to extract item ${index} from ${CORR_MAPPING}"
+      result=1
+    fi
+  else 
+    kcs_warn "assuming no aliases as no corr state present"
+    synonym=${1}
+  fi
+fi
+
+if [ "${result}" != "0" ] ; then
+  exit 1
+fi
+
+echo "#return ok ${synonym}"
+exit 0
+

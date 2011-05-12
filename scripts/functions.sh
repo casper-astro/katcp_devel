@@ -1,5 +1,6 @@
 export CORR_CONFIG=/etc/corr/config
 export KATCP_SERVER=localhost:1235
+export CORR_MAPPING=/var/run/corr/antenna_mapping
 
 kcs_input_to_index () {
   echo $[$(echo $1 | tr -d -c [:digit:])*2+$(echo $1 | tr -dc xy | tr xy 01)]
@@ -7,6 +8,10 @@ kcs_input_to_index () {
 
 kcs_debug () {
   echo "#log debug $(date +%s)000 script $(echo $1 | sed -e 's/ /\\_/g')"
+}
+
+kcs_warn () {
+  echo "#log warn $(date +%s)000 script $(echo $1 | sed -e 's/ /\\_/g')"
 }
 
 kcs_error () {
@@ -26,7 +31,7 @@ kcs_arg_check () {
 }
 
 kcs_corr_log () {
-  kcs_debug "retriving correlator logs"
+  kcs_debug "retrieving correlator logs"
   if kcpcmd -k -r get-log ; then
     kcpcmd -k -r clr-log
   fi
