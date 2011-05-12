@@ -2,6 +2,14 @@ export CORR_CONFIG=/etc/corr/config
 export KATCP_SERVER=localhost:1235
 export CORR_MAPPING=/var/run/corr/antenna_mapping
 
+kcs_check_timeout()
+{
+  if [ $(date +%s) -gt $1 ] ; then
+    echo "#log error $(date +%s)000 script request\_to\_corr\_timed\_out"
+    return 1
+  fi
+}
+
 kcs_input_to_index () {
   echo $[$(echo $1 | tr -d -c [:digit:])*2+$(echo $1 | tr -dc xy | tr xy 01)]
 }
