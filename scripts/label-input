@@ -25,7 +25,7 @@ if [ $# -gt 1 ] ; then
 else 
   result=0
   if [ -s  ${CORR_MAPPING} ] ; then
-    synonym=$(cut -f${index} -d, ${CORR_MAPPING})
+    synonym=$(cut -f$[index + 1] -d, ${CORR_MAPPING})
     if [ -z "${synonym}" ] ; then
       kcs_error "unable to extract item ${index} from ${CORR_MAPPING}"
       result=1
