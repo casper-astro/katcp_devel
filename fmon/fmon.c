@@ -580,11 +580,11 @@ int list_board_sensors_fmon(struct fmon_state *f)
   struct fmon_sensor *s;
 
   s = &(f->f_sensors[FMON_SENSOR_LRU]);
-  print_intbool_list_fmon(f, s->s_name, "line replacement unit", "none");
+  print_intbool_list_fmon(f, s->s_name, "line replacement unit ready", "none");
 
   if(f->f_fs > 0){
     s = &(f->f_sensors[FMON_SENSOR_CLOCK]);
-    print_intbool_list_fmon(f, s->s_name, "signal processing clock", "none");
+    print_intbool_list_fmon(f, s->s_name, "signal processing clock stable", "none");
   }
 
   return 0;
