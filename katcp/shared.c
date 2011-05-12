@@ -1270,7 +1270,7 @@ struct katcp_notice *prepare_dynamic_enter_katcp(struct katcp_dispatch *d, char 
     return NULL;
   }
 
-  log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "preparing transition from mode %u to %u using command %s", from, to, dm->d_cmd);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "preparing transition from mode %u to %u using command %s", from, to, dm->d_cmd);
 
   halt = create_notice_katcp(d, NULL, 0);
   if(halt == NULL){

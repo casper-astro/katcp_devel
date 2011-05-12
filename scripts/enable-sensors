@@ -1,0 +1,12 @@
+#!/bin/bash
+
+export KATCP_SERVER=localhost:7147
+
+for name in $(grep f.*roach /etc/corr/config | cut -f2 -d= | tr , ' ') ; do
+  if [ ! -f /usr/local/lib/kcs/scripts/${name} ] ; then
+    ln -s /usr/local/bin/kcpfmon /usr/local/lib/kcs/scripts/${name}
+  fi
+  kcpcmd -k -i -r job process $name exec://${name}
+done
+
+exit 0

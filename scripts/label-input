@@ -6,7 +6,7 @@ source functions.sh
 kcs_arg_check $# 2
 
 status=1
-if kcpcmd -k -r input-label $(kcs_input_to_index $1) $2 ; then
+if kcpcmd -k -r label-input $(kcs_input_to_index $1) $2 ; then
   status=0
 fi
 
