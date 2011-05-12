@@ -1158,7 +1158,9 @@ int main(int argc, char **argv)
     check_all_inputs_fmon(f);
 
     while(flushing_katcl(f->f_report)){
-      write_katcl(f->f_report);
+      if(write_katcl(f->f_report) < 0){
+        run = 0;
+      }
     }
 
     pause_fmon(f, interval);
