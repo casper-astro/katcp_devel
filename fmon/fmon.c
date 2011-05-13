@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <time.h>
 #include <errno.h>
+#include <ctype.h>
 
 #include <arpa/inet.h>
 
@@ -698,6 +699,39 @@ int make_labels_fmon(struct fmon_state *f)
 #undef BUFFER
 }
 
+void query_user_tag_fmon(struct fmon_state *f, char *label, char *reg)
+{
+  uint32_t value;
+  char buffer[5];
+  int i;
+
+  if(read_word_fmon(f, reg, &value) < 0){
+    return;
+  }
+
+  append_string_katcl(f->f_report, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#version");
+  append_string_katcl(f->f_report,                    KATCP_FLAG_STRING, label);
+
+  if(value < 0xffff){
+    append_unsigned_long_katcl(f->f_report, KATCP_FLAG_LAST | KATCP_FLAG_ULONG, (unsigned long)value);
+  } else {
+    buffer[0] = 0xff & (value >> 24);
+    buffer[1] = 0xff & (value >> 16);
+    buffer[2] = 0xff & (value >>  8);
+    buffer[3] = 0xff & (value);
+    buffer[4] = '\0';
+
+    for(i = 0; (i < 4) && (isalnum(buffer[i])); i++);
+
+    if(i < 4){
+      append_hex_long_katcl(f->f_report, KATCP_FLAG_LAST | KATCP_FLAG_XLONG, value);
+    } else {
+      append_string_katcl(f->f_report, KATCP_FLAG_LAST | KATCP_FLAG_STRING, buffer);
+    }
+  }
+
+}
+
 void query_rcs_fmon(struct fmon_state *f, char *label, char *reg)
 {
   uint32_t value;
@@ -742,6 +776,7 @@ void query_versions_fmon(struct fmon_state *f)
     query_rcs_fmon(f, "gateware-xengine", "rcs_app");
   } 
 
+  query_user_tag_fmon(f, "gateware-tag", "rcs_user");
   query_rcs_fmon(f, "gateware-infrastructure", "rcs_lib");
 }
 
