@@ -1,4 +1,3 @@
 #!/bin/bash
 source functions.sh
 katcpcmd -t 60 check-sys
-fetchlog
