@@ -1,5 +1,18 @@
 #!/bin/bash
 
-echo "#capture-list k7 unknown unknown"
+source functions.sh
+
+rxip=$(grep ^rx_udp_ip ${CORR_CONFIG} | cut -f2 -d= | tr -d ' ' )
+rxport=$(grep ^rx_udp_port ${CORR_CONFIG} | cut -f2 -d= | tr -d ' ' )
+
+if [ -z "${rxip}" ] ; then
+  rxip=unknown
+fi
+
+if [ -z "${rxport}" ] ; then
+  rxport=unknown
+fi
+
+echo "#capture-list k7 ${rxip} ${rxport}"
 
 exit 0
