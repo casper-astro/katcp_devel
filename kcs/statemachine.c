@@ -22,6 +22,7 @@
 
 #define STATEMACHINE_LIST       "statemachine_list"
 
+#if 0
 struct avl_node *create_mod_store_kcs()
 {
   struct avl_node *n;
@@ -203,6 +204,7 @@ struct avl_tree *get_datastore_tree_kcs(struct katcp_dispatch *d)
   
   return t;
 }
+#endif
 
 struct kcs_sm *create_sm_kcs(char *name)
 {
@@ -226,7 +228,7 @@ struct kcs_sm *create_sm_kcs(char *name)
 
   return m;
 }
-
+#if 0
 void destroy_sm_state_kcs(struct kcs_sm_state *s)
 {
 #ifdef DEBUG
@@ -357,12 +359,13 @@ void destroy_statemachine_data_kcs(struct katcp_dispatch *d)
     }
   }
 }
+#endif
 
 int statemachine_declare_kcs(struct katcp_dispatch *d)
 {
   struct kcs_sm *m;
-  struct avl_tree *t;
-  struct avl_node *n;
+  /*struct avl_tree *t;
+  struct avl_node *n;*/
   char *name;
 
   name = arg_string_katcp(d, 2);
@@ -370,15 +373,18 @@ int statemachine_declare_kcs(struct katcp_dispatch *d)
   if (name == NULL)
     return KATCP_RESULT_FAIL;
 
+  m = create_sm_kcs(name);
+  if (m == NULL)
+    return KATCP_RESULT_FAIL;
+  
+  
+/*
   t = get_datastore_tree_kcs(d);
   
   if (t == NULL){
     return KATCP_RESULT_FAIL;
   }
 
-  m = create_sm_kcs(name);
-  if (m == NULL)
-    return KATCP_RESULT_FAIL;
   
   n = create_node_avltree(name, m);
   if (n == NULL)
@@ -402,7 +408,8 @@ int statemachine_declare_kcs(struct katcp_dispatch *d)
   fprintf(stderr, "created statemachine %s (%p) stored it in datastore (%p) and statemachine list\n", get_node_name_avltree(n), n, t);
 #endif
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "created statemachine %s (%p) and stored it in datastore (%p) and statemachine list", get_node_name_avltree(n), n, t);
-  
+  */
+
   return KATCP_RESULT_OK;
 }
 
@@ -657,16 +664,19 @@ int statemachine_exec_kcs(struct katcp_dispatch *d)
 
 int statemachine_greeting_kcs(struct katcp_dispatch *d)
 {
-  prepend_inform_katcp(d);
+  /*prepend_inform_katcp(d);
   append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"loadmod [so name]");
   prepend_inform_katcp(d);
+  */
   append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"declare [sm name]");
   prepend_inform_katcp(d);
-  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"state [sm name] [state name]");
+  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"[sm name] node [state name]");
   prepend_inform_katcp(d);
-  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"edge [sm name] [state name 1] [state name 2] [condition state | ok(generic)]");
+  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"[state name] edge [state name 1] [state name 2]");
   prepend_inform_katcp(d);
   append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"run [sm name]");
+  prepend_inform_katcp(d);
+  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"ls []");
   return KATCP_RESULT_OK;
 }
 

@@ -184,6 +184,9 @@ struct kcs_statemachine {
 #define MOD_STORE_TYPE_SYMBOL   0  
 #define MOD_STORE_TYPE_HANDLE   1
 
+#define KATCP_TYPE_STATEMACHINE "statemachines"
+
+/*
 struct kcs_mod_store {
   struct avl_node_list *m_hl;
   struct avl_node_list *m_sl;
@@ -193,6 +196,7 @@ struct kcs_sm_list {
   struct kcs_sm **l_sm;
   int l_count;
 };
+*/
 
 struct kcs_sm {
   char *m_name;

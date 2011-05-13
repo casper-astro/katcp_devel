@@ -429,10 +429,10 @@ int version_cmd_katcp(struct katcp_dispatch *d, int argc);
 #endif
 
 /*katcp_type functions*/
-int register_type_katcp(struct katcp_dispatch *d, char *name, int (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *));
+int store_data_type_katcp(struct katcp_dispatch *d, char *t_name, char *d_name, void *d_data, int (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *));
+int register_name_type_katcp(struct katcp_dispatch *d, char *name, int (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *));
 int deregister_type_katcp(struct katcp_dispatch *d, char *name);
 void destroy_type_list_katcp(struct katcp_dispatch *d);
-int
 
 #ifdef DEBUG
 void sane_shared_katcp(struct katcp_dispatch *d);
