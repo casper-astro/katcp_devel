@@ -260,17 +260,19 @@ void destroy_basic_kcs(struct katcp_dispatch *d, unsigned int mode)
     roachpool_destroy(d);
     kb->b_pool_head = NULL;
   }
+
 /*
   if (kb->b_sms != NULL){
     statemachine_destroy(d);
     kb->b_sms = NULL;
   }
 */
-  if (kb->b_ds != NULL){
+  /*if (kb->b_ds != NULL){
     destroy_statemachine_data_kcs(d);
     destroy_avltree(kb->b_ds);
     kb->b_ds = NULL;
-  }
+  }*/
+
   free(kb);
 }
 

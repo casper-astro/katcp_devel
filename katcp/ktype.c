@@ -14,7 +14,10 @@ void destroy_type_katcp(struct katcp_type *t)
 #endif
     if (t->t_name != NULL) { free(t->t_name); t->t_name = NULL; }
     /*TODO: pass delete function to avltree*/
-    if (t->t_tree != NULL) { destroy_avltree(t->t_tree); t->t_tree = NULL; }
+    if (t->t_tree != NULL) { 
+      destroy_avltree(t->t_tree, t->t_free); 
+      t->t_tree = NULL; 
+    }
     t->t_print = NULL;
     t->t_free = NULL;
     free(t);
@@ -292,7 +295,7 @@ int store_data_type_katcp(struct katcp_dispatch *d, char *t_name, char *d_name, 
     return -1;
 
   if (add_node_avltree(at, an) < 0){
-    free_node_avltree(an);
+    free_node_avltree(an, fn_free);
     an = NULL;
     return -1;
   }
@@ -339,9 +342,28 @@ struct avl_tree *get_tree_type_katcp(struct katcp_type *t)
   return t->t_tree;
 }
 
+void *get_key_data_type_katcp(struct katcp_dispatch *d, char *type, char *key)
+{
+  struct katcp_type *t;
+  struct avl_node *n;
+
+  if (type == NULL || key == NULL)
+    return NULL;
+
+  t = find_name_type_katcp(d, type);
+  if (t == NULL)
+    return NULL;
+
+  n = find_name_node_avltree(t->t_tree, key);
+  if (n == NULL)
+    return NULL;
+  
+  return get_node_data_avltree(n);
+}
+
 void print_types_katcp(struct katcp_dispatch *d)
 {
-#ifdef DEBUG
+#if 1
   struct katcp_shared *s;
   struct katcp_type **ts, *t;
   int size, i;

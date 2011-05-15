@@ -180,11 +180,15 @@ struct kcs_statemachine {
 };
 #endif
 
+#if 0
 #define MOD_STORE               "mod_store"
 #define MOD_STORE_TYPE_SYMBOL   0  
 #define MOD_STORE_TYPE_HANDLE   1
+#endif 
 
-#define KATCP_TYPE_STATEMACHINE "statemachines"
+#define KATCP_TYPE_STATEMACHINE         "statemachines"
+#define KATCP_TYPE_STATEMACHINE_STATE   "states"
+#define KATCP_TYPE_STATEMACHINE_EDGE    "edges"
 
 /*
 struct kcs_mod_store {
@@ -201,12 +205,14 @@ struct kcs_sm_list {
 struct kcs_sm {
   char *m_name;
   struct kcs_sm_state *m_start;
+  /*TODO:put stack and program counter here*/
 };
 
 struct kcs_sm_state {
+  struct kcs_sm *s_sm;
   char *s_name;
-  struct kcs_sm_edge *s_edge;
-  void *s_data;
+  struct kcs_sm_edge **s_edge;
+  void *s_edge_count;
 };
 
 struct kcs_sm_edge {

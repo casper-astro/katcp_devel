@@ -311,6 +311,8 @@ void shutdown_shared_katcp(struct katcp_dispatch *d)
   destroy_notices_katcp(d);
   destroy_sensors_katcp(d);
   destroy_versions_katcp(d);
+  
+  destroy_type_list_katcp(d);
 
   while(s->s_count > 0){
 #ifdef DEBUG
@@ -382,7 +384,7 @@ void shutdown_shared_katcp(struct katcp_dispatch *d)
 
   /* restore signal handlers if we messed with them */
   undo_signals_shared_katcp(s);
-
+  
   free(s);
 }
 

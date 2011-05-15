@@ -34,11 +34,11 @@ struct avl_node_list {
 struct avl_tree *create_avltree();
 struct avl_node *create_node_avltree(char *key, void *data);
 int add_node_avltree(struct avl_tree *t, struct avl_node *n);
-int del_node_avltree(struct avl_tree *t, struct avl_node *n);
+int del_node_avltree(struct avl_tree *t, struct avl_node *n, void (*d_free)(void *));
 struct avl_node *find_name_node_avltree(struct avl_tree *t, char *key);
-int del_name_node_avltree(struct avl_tree *t, char *key);
-void free_node_avltree(struct avl_node *n);
-void destroy_avltree(struct avl_tree *t);
+int del_name_node_avltree(struct avl_tree *t, char *key, void (*d_free)(void *));
+void free_node_avltree(struct avl_node *n, void (*d_free)(void *));
+void destroy_avltree(struct avl_tree *t, void (*d_free)(void *));
 
 /*node api*/
 
