@@ -31,6 +31,7 @@ int help_cmd_katcp(struct katcp_dispatch *d, int argc);
 int halt_cmd_katcp(struct katcp_dispatch *d, int argc);
 int restart_cmd_katcp(struct katcp_dispatch *d, int argc);
 int log_level_cmd_katcp(struct katcp_dispatch *d, int argc);
+int log_record_cmd_katcp(struct katcp_dispatch *d, int argc);
 int watchdog_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 /************ paranoia checks ***********************************/
@@ -129,6 +130,7 @@ struct katcp_dispatch *setup_katcp(int fd)
   register_katcp(d, "?restart", "restarts the system (?restart)", &restart_cmd_katcp);
   register_katcp(d, "?help", "displays this help (?help [command])", &help_cmd_katcp);
   register_katcp(d, "?log-level", "sets the minimum reported log priority (?log-level [priority])", &log_level_cmd_katcp);
+  register_katcp(d, "?log-record", "generate a log entry (?log-record [priority] message)", &log_record_cmd_katcp);
   register_katcp(d, "?watchdog", "pings the system (?watchdog)", &watchdog_cmd_katcp);
 
   return d;
@@ -1272,6 +1274,39 @@ int log_level_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
 
   return KATCP_RESULT_OWN;
+}
+
+int log_record_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  int code;
+  char *message, *level;
+
+  code = KATCP_LEVEL_INFO;
+
+  if(argc > 2){
+    message = arg_string_katcp(d, 2);
+    level   = arg_string_katcp(d, 1);
+    if(level){
+      code = log_to_code_katcl(level);
+      if(code < 0){
+        code = KATCP_LEVEL_INFO;
+      }
+    }
+  } else if(argc > 1){
+    message = arg_string_katcp(d, 1);
+  } else {
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "require a message to log");
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(message == NULL){
+    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "unable to acquire message");
+    return KATCP_RESULT_FAIL;
+  }
+
+  log_message_katcp(d, code, NULL, "%s", message);
+
+  return KATCP_RESULT_OK;
 }
 
 /**************************************************************/
