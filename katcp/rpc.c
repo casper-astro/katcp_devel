@@ -125,7 +125,7 @@ int complete_rpc_katcl(struct katcl_line *l, unsigned int flags, struct timeval 
     }
 
     if(FD_ISSET(fd, &fsr)){
-      if(read_katcl(l) < 0){
+      if(read_katcl(l) != 0){
 #ifdef FEEDBACK
       	fprintf(stderr, "dispatch: read failed: %s\n", strerror(error_katcl(l)));
 #endif
