@@ -583,11 +583,38 @@ int maintain_fmon(struct fmon_state *f)
 
 /* basic io routines ***************************************************************/
 
+int collect_io_fmon(struct fmon_state *f)
+{
+  int status;
+  char *ptr;
+
+  while((status = complete_rpc_katcl(f->f_line, 0, &(f->f_when))) == 0);
+#ifdef DEBUG
+  fprintf(stderr, "collect: status is %d\n", status);
+#endif
+  if(status < 0){
+    drop_connection_fmon(f);
+    return -1;
+  }
+
+  gettimeofday(&(f->f_io), NULL);
+
+  ptr = arg_string_katcl(f->f_line, 1);
+  if(ptr == NULL){
+    return -1;
+  }
+
+  if(strcmp(ptr, KATCP_OK)){
+    return 1;
+  }
+
+  return 0;
+}
+
 int read_word_fmon(struct fmon_state *f, char *name, uint32_t *value)
 {
-  int result[4], status, i;
+  int result[4], r, status, i;
   int expect[4] = { 6, 0, 2, 2 };
-  char *ptr;
   uint32_t tmp;
 
   if(maintain_fmon(f) < 0){
@@ -610,24 +637,9 @@ int read_word_fmon(struct fmon_state *f, char *name, uint32_t *value)
     }
   }
 
-  while((status = complete_rpc_katcl(f->f_line, 0, &(f->f_when))) == 0);
-#ifdef DEBUG
-  fprintf(stderr, "read: status is %d\n", status);
-#endif
-  if(status < 0){
-    drop_connection_fmon(f);
-    return -1;
-  }
-
-  gettimeofday(&(f->f_io), NULL);
-
-  ptr = arg_string_katcl(f->f_line, 1);
-  if(ptr == NULL){
-    return -1;
-  }
-
-  if(strcmp(ptr, KATCP_OK)){
-    return 1;
+  r = collect_io_fmon(f);
+  if(r != 0){
+    return r;
   }
 
   f->f_something++;
@@ -644,9 +656,8 @@ int read_word_fmon(struct fmon_state *f, char *name, uint32_t *value)
 
 int write_word_fmon(struct fmon_state *f, char *name, uint32_t value)
 {
-  int result[4], status, i;
+  int result[4], r, i;
   int expect[4] = { 7, 0, 2, 5 };
-  char *ptr;
   uint32_t tmp;
 
   if(maintain_fmon(f) < 0){
@@ -671,28 +682,9 @@ int write_word_fmon(struct fmon_state *f, char *name, uint32_t value)
     }
   }
 
-  while((status = complete_rpc_katcl(f->f_line, 0, &(f->f_when))) == 0);
-  if(status < 0){
-#ifdef DEBUG
-    fprintf(stderr, "write: complete call failed\n");
-#endif
-    drop_connection_fmon(f);
-    return -1;
-  }
-
-  ptr = arg_string_katcl(f->f_line, 1);
-  if(ptr == NULL){
-#ifdef DEBUG
-    fprintf(stderr, "write: unable to acquire first parameter\n");
-#endif
-    return -1;
-  }
-
-  if(strcmp(ptr, KATCP_OK)){
-#ifdef DEBUG
-    fprintf(stderr, "write: problematic return code %s\n", ptr);
-#endif
-    return 1;
+  r = collect_io_fmon(f);
+  if(r != 0){
+    return r;
   }
 
   f->f_something++;
@@ -1125,6 +1117,10 @@ int check_input_fmon(struct fmon_state *f, struct fmon_input *n, char *name)
 
 int check_watchdog_fmon(struct fmon_state *f)
 {
+#if 0
+  int result;
+#endif
+
   if(f->f_something){
     f->f_something = 0;
     return 0;
@@ -1139,13 +1135,7 @@ int check_watchdog_fmon(struct fmon_state *f)
     return -1;
   }
 
-#if 0
-
-  /* extract finish routines from write or read */
-
-#endif
-
-  return 0;
+  return collect_io_fmon(f);
 }
 
 int check_all_inputs_fmon(struct fmon_state *f)
@@ -1407,6 +1397,8 @@ int main(int argc, char **argv)
 
     check_adc_clock_fmon(f);
     check_all_inputs_fmon(f);
+
+    check_watchdog_fmon(f); /* only gets done if nothing else happened */
 
     while(flushing_katcl(f->f_report)){
       if(write_katcl(f->f_report) < 0){
