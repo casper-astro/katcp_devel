@@ -54,7 +54,7 @@
 
 /* time related */
 
-#define FMON_DEFAULT_INTERVAL 5000
+#define FMON_DEFAULT_INTERVAL 1000
 #define FMON_DEFAULT_TIMEOUT  5000
 
 /* misc */

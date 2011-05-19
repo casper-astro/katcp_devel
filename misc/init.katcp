@@ -2,7 +2,7 @@
 ?chdir /usr/local/lib/kcs
 ?define mode ready
 ?define mode wbc mode-wbc
-?job process foobar exec://tmon
+?job process tmon exec://tmon
 ?forget ?halt
 ?forget ?restart
 ?process ?enable-sensors enable\_roach\_sensors\_(?enable-sensors) wbc
