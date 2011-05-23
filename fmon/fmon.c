@@ -957,15 +957,15 @@ void query_rcs_fmon(struct fmon_state *f, char *label, char *reg)
 void query_versions_fmon(struct fmon_state *f)
 {
   if(f->f_fs && f->f_xs){
-    query_rcs_fmon(f, "gateware-combined", "rcs_app");
+    query_rcs_fmon(f, "gateware.combined", "rcs_app");
   } else if(f->f_fs){
-    query_rcs_fmon(f, "gateware-fengine", "rcs_app");
+    query_rcs_fmon(f, "gateware.fengine", "rcs_app");
   } else if(f->f_xs){
-    query_rcs_fmon(f, "gateware-xengine", "rcs_app");
+    query_rcs_fmon(f, "gateware.xengine", "rcs_app");
   } 
 
-  query_user_tag_fmon(f, "gateware-tag", "rcs_user");
-  query_rcs_fmon(f, "gateware-infrastructure", "rcs_lib");
+  query_user_tag_fmon(f, "gateware.tag", "rcs_user");
+  query_rcs_fmon(f, "gateware.infrastructure", "rcs_lib");
 }
 
 int detect_fmon(struct fmon_state *f)
