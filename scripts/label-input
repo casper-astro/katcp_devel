@@ -4,10 +4,10 @@ set -e
 source functions.sh
 
 if [ $# -lt 1 ] ; then
-  index=0
+  i=0
   for name in $(cat ${CORR_MAPPING} | tr ',' ' ') ; do 
-    echo "#label-input $(kcs_index_to_input ${index}) $name"
-    index=$[index+1]
+    echo "#label-input $(kcs_index_to_input ${i}) $name"
+    i=$[i+1]
   done
   exit 0
 fi
