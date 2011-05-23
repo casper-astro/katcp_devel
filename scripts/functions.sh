@@ -14,6 +14,10 @@ kcs_input_to_index () {
   echo $[$(echo $1 | tr -d -c [:digit:])*2+$(echo $1 | tr -dc xy | tr xy 01)]
 }
 
+kcs_index_to_input () {
+  echo $[i/2]$(echo $[i%2] | tr 01 xy)
+}
+
 kcs_debug () {
   echo "#log debug $(date +%s)000 script $(echo $1 | sed -e 's/ /\\_/g')"
 }
