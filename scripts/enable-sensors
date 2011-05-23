@@ -9,11 +9,13 @@ if [ ! -f ${CORR_CONFIG} ] ; then
   exit 1
 fi
 
-for name in corr $(grep ^servers.*roach ${CORR_CONFIG} | cut -f2 -d= | tr , ' ') ; do
+for name in $(grep ^servers.*roach ${CORR_CONFIG} | cut -f2 -d= | tr , ' ') ; do
   if [ ! -f /usr/local/lib/kcs/scripts/${name} ] ; then
     ln -s /usr/local/bin/kcpfmon /usr/local/lib/kcs/scripts/${name} >& /dev/null || kcs_error "unable to alias ${name}"
   fi
-  kcpcmd -q -k job process $name exec://${name} || kcs_error "unable to launch fengine monitor for ${name}"
+  kcpcmd -q -k job process $name exec://${name} || kcs_error "unable to launch lru monitor for ${name}"
 done
+
+kcpcmd -q -k job process channel-count exec://channel-count || kcs_error "unable to launch channel count detection routine" 
 
 exit 0
