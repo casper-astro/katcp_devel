@@ -16,7 +16,7 @@ for name in $(grep ^servers.*roach ${CORR_CONFIG} | cut -f2 -d= | tr , ' ') ; do
   kcpcmd -q -k job process $name exec://${name} || kcs_error "unable to launch lru monitor for ${name}"
 done
 
-kcpcmd -q -k job process channel-count exec://channel-count || kcs_error "unable to launch channel count detection routine" 
+kcpcmd -q -k job process channels exec://wbc || kcs_error "unable to launch channel count detection routine" 
 kcpcmd -q -k job process corr exec://corr || kcs_error "unable to launch corr monitoring logic" 
 
 exit 0
