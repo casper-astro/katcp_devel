@@ -5,10 +5,10 @@ source functions.sh
 
 if [ $# -lt 1 ] ; then
   antennas=($(cat ${CORR_MAPPING} | tr -s ',' ' '))
-  roaches=($(grep '^ *f_servers' ${CORR_CONFIG} | cut -f2 -d= |  tr ',' ' '))
+  roaches=($(grep '^ *servers_f' ${CORR_CONFIG} | cut -f2 -d= |  tr ',' ' '))
   i=0
-  while [ ${i} -lt 16 ] ; then
-    echo "#label-input $(kcs_index_to_input ${i}) ${antennas[i]} ${roaches[i]}"
+  while [ ${i} -lt 16 ] ; do
+    echo "#label-input $(kcs_index_to_input ${i}) ${antennas[i]} ${roaches[i/2]}"
     i=$[i+1]
   done
 
