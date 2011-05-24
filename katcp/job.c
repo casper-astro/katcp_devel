@@ -367,7 +367,7 @@ static int hold_version_job_katcp(struct katcp_dispatch *d, struct katcp_notice 
     return 1;
   }
   
-  copy = path_from_notice_katcp(n, module);
+  copy = path_from_notice_katcp(n, module, 0);
   if(copy == NULL){
     return 1;
   }

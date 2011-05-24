@@ -346,7 +346,7 @@ struct katcp_notice *find_notice_katcp(struct katcp_dispatch *d, char *name);
 struct katcp_notice *find_used_notice_katcp(struct katcp_dispatch *d, char *name);
 int has_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n, void *data), void *data);
 
-char *path_from_notice_katcp(struct katcp_notice *n, char *suffix);
+char *path_from_notice_katcp(struct katcp_notice *n, char *suffix, int flags);
 
 void release_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 void hold_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);

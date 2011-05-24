@@ -2559,7 +2559,7 @@ int match_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_notice *n, vo
     return -1;
   }
   
-  combine = path_from_notice_katcp(n, name);
+  combine = path_from_notice_katcp(n, name, 0);
   if(combine == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate combined name for upstream sensor %s", name);
     return -1;
@@ -2700,7 +2700,7 @@ int match_sensor_status_katcp(struct katcp_dispatch *d, struct katcp_notice *n, 
     return -1;
   }
 
-  combine = path_from_notice_katcp(n, name);
+  combine = path_from_notice_katcp(n, name, 0);
   if(combine == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate combined name for upstream sensor %s", name);
     return -1;
