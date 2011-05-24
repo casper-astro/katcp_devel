@@ -4,11 +4,14 @@ set -e
 source functions.sh
 
 if [ $# -lt 1 ] ; then
+  antennas=($(cat ${CORR_MAPPING} | tr -s ',' ' '))
+  roaches=($(grep '^ *f_servers' ${CORR_CONFIG} | cut -f2 -d= |  tr ',' ' '))
   i=0
-  for name in $(cat ${CORR_MAPPING} | tr ',' ' ') ; do 
-    echo "#label-input $(kcs_index_to_input ${i}) $name"
+  while [ ${i} -lt 16 ] ; then
+    echo "#label-input $(kcs_index_to_input ${i}) ${antennas[i]} ${roaches[i]}"
     i=$[i+1]
   done
+
   exit 0
 fi
 
