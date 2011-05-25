@@ -322,9 +322,9 @@ void print_sm_state_kcs(struct katcp_dispatch *d, void *data)
 #ifdef DEBUG
   fprintf(stderr, "statemachine: print_sm_state_kcs %s (%p) with sm (%p)\n", s->s_name, s, s->s_sm);
   for (i=0; i<s->s_edge_list_count; i++)
-    fprintf(stderr," -> edge %p\n", s->s_edge_list[i]);
+    fprintf(stderr,"statemachine: edge [%d] %p\n", i, s->s_edge_list[i]);
   for (i=0; i<s->s_op_list_count; i++){
-    fprintf(stderr," $$ op %p\n", s->s_op_list[i]);
+    fprintf(stderr,"statemachine: op [%d] %p\n", i, s->s_op_list[i]);
     print_sm_op_kcs(d, s->s_op_list[i]);
   }
 #endif
@@ -528,77 +528,16 @@ int statemachine_print_stack_kcs(struct katcp_dispatch *d)
   return KATCP_RESULT_OK;
 }
 
-int statemachine_print_ls_kcs(struct katcp_dispatch *d)
+int statemachine_print_oplist_kcs(struct katcp_dispatch *d)
 {
-  /*struct kcs_sm_list *l;
-  struct avl_tree *t;
-  struct avl_node *n;
-  int i;
+  struct katcp_type *t;
 
-  t = get_datastore_tree_kcs(d);
+  t = find_name_type_katcp(d, KATCP_TYPE_OPERATION);
   if (t == NULL)
     return KATCP_RESULT_FAIL;
 
-  n = find_name_node_avltree(t, STATEMACHINE_LIST);
+  print_type_katcp(d, t); 
 
-  if (n == NULL)
-    return KATCP_RESULT_FAIL;
-
-  l = get_node_data_avltree(n);
-
-  if (l == NULL)
-    return KATCP_RESULT_FAIL;
-
-  if (l->l_count == 0){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no statemachines have been declared yet");
-    return KATCP_RESULT_FAIL;
-  }
-
-  for (i=0; i<l->l_count; i++){
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s (%p)", l->l_sm[i]->m_name, l->l_sm[i]);  
-  }
-*/
-  return KATCP_RESULT_OK;
-}
-
-int statemachine_print_ms_kcs(struct katcp_dispatch *d)
-{
-  /*struct kcs_mod_store *ms;
-  struct avl_tree *t;
-  struct avl_node *n;
-  struct avl_node_list *l;
-  int i;
-
-  t = get_datastore_tree_kcs(d);
-  if (t == NULL)
-    return KATCP_RESULT_FAIL;
-
-  n = find_name_node_avltree(t, MOD_STORE);
-
-  if (n == NULL)
-    return KATCP_RESULT_FAIL;
-
-  ms = get_node_data_avltree(n);
-
-  if (ms == NULL)
-    return KATCP_RESULT_FAIL;
-
-  l = ms->m_hl;
-  
-  if (l == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no modules have been loaded yet try ?sm loadmod [filename]");
-    return KATCP_RESULT_FAIL;
-  }
-
-  for (i=0; i<l->l_count; i++){
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "module: %s handle: (%p)", get_node_name_avltree(l->l_n[i]), get_node_data_avltree(l->l_n[i]));  
-  }
-
-  l = ms->m_sl;
-  for (i=0; i<l->l_count; i++){
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "symbol: %s call: (%p)", get_node_name_avltree(l->l_n[i]), get_node_data_avltree(l->l_n[i]));  
-  }
-  */
   return KATCP_RESULT_OK;
 }
 
@@ -782,6 +721,8 @@ int statemachine_greeting_kcs(struct katcp_dispatch *d)
   append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"ds (print the entire datastore)");
   prepend_inform_katcp(d);
   append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"ps [sm name] (print statemachine stack)");
+  prepend_inform_katcp(d);
+  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"oplist (print op list)");
   return KATCP_RESULT_OK;
 }
 
@@ -795,10 +736,8 @@ int statemachine_cmd(struct katcp_dispatch *d, int argc)
     case 2:
       if (strcmp(arg_string_katcp(d,1), "ds") == 0)
         return statemachine_print_ds_kcs(d);
-      /*if (strcmp(arg_string_katcp(d,1), "ls") == 0)
-        return statemachine_print_ls_kcs(d);
-      if (strcmp(arg_string_katcp(d,1), "ms") == 0)
-        return statemachine_print_ms_kcs(d);*/
+      if (strcmp(arg_string_katcp(d,1), "oplist") == 0)
+        return statemachine_print_oplist_kcs(d);
       
       break;
     case 3:
@@ -806,9 +745,9 @@ int statemachine_cmd(struct katcp_dispatch *d, int argc)
         return statemachine_declare_kcs(d);
       if (strcmp(arg_string_katcp(d,1), "ps") == 0)
         return statemachine_print_stack_kcs(d);
-      /*if (strcmp(arg_string_katcp(d,1), "loadmod") == 0)
+      if (strcmp(arg_string_katcp(d,1), "loadmod") == 0)
         return statemachine_loadmod_kcs(d);
-
+      /*
       if (strcmp(arg_string_katcp(d,1), "exec") == 0)
         return statemachine_exec_kcs(d);
        */

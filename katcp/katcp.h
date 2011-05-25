@@ -438,6 +438,7 @@ struct katcp_type *get_id_type_katcp(struct katcp_dispatch *d, int id);
 void *get_key_data_type_katcp(struct katcp_dispatch *d, char *type, char *key);
 void destroy_type_list_katcp(struct katcp_dispatch *d);
 void print_types_katcp(struct katcp_dispatch *d);
+void print_type_katcp(struct katcp_dispatch *d, struct katcp_type *t);
 
 #ifdef DEBUG
 void sane_shared_katcp(struct katcp_dispatch *d);

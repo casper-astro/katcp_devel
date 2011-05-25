@@ -69,6 +69,13 @@ int init_mod(struct katcp_dispatch *d)
 {
   int rtn;
 
+  if (check_code_version_katcp(d) != 0){
+#ifdef DEBUG
+    fprintf(stderr, "mod: rpn_add was build against an incompatible katcp lib\n");
+#endif
+    return -1;
+  }
+
   rtn  = store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_OPERATION_RPN_ADD, &rpn_add_setup_mod, NULL, NULL, NULL, NULL, NULL);
 
 

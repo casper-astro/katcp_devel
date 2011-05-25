@@ -5,6 +5,7 @@ include ../Makefile.inc
 INC = -I$(KATCP) -I../kcs
 LIB = -L$(KATCP) -lkatcp
 CFLAGS += -fPIC
+CFLAGS += -DVERSION=\"$(GITVER)\"
 LDFLAGS += -shared
 
 MOD = mod_simple_ops.so

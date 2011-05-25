@@ -108,15 +108,17 @@ void print_avltree(struct katcp_dispatch *d, struct avl_node *n, int depth, void
 #endif
 }
 
-void print_inorder_avltree(struct avl_node *n)
+void print_inorder_avltree(struct katcp_dispatch *d, struct avl_node *n, void (*fn_print)(struct katcp_dispatch *,void *))
 {
   if (n == NULL)
     return;
-  print_inorder_avltree(n->n_left);
-#if DEBUG >0
-  fprintf(stderr,"<%s>\n", n->n_key);
+  print_inorder_avltree(d, n->n_left, fn_print);
+#if DEBUG 
+  fprintf(stderr,"avltree: <%s> with data:\n", n->n_key);
+  if (fn_print != NULL)
+    (*fn_print)(d, n->n_data);
 #endif
-  print_inorder_avltree(n->n_right);
+  print_inorder_avltree(d, n->n_right, fn_print);
 }
 
 int check_balances_avltree(struct avl_node *n, int depth)
