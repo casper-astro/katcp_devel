@@ -4,6 +4,11 @@ set -e
 source functions.sh
 
 if [ $# -lt 1 ] ; then
+
+  if [ ! -s ${CORR_MAPPING} ] ; then
+    kcs_error "no correlator mapping found"
+  fi
+
   antennas=($(cat ${CORR_MAPPING} | tr -s ',' ' '))
   roaches=($(grep '^ *servers_f' ${CORR_CONFIG} | cut -f2 -d= |  tr ',' ' '))
   i=0
