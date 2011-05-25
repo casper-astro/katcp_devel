@@ -1,0 +1,25 @@
+KATCP ?= ../katcp
+
+include ../Makefile.inc
+
+INC = -I$(KATCP) -I../kcs
+LIB = -L$(KATCP) -lkatcp
+CFLAGS += -fPIC
+LDFLAGS += -shared
+
+MOD = mod_simple_ops.so
+SRC = mod_simple_ops.c
+
+OBJ = $(patsubst %.c,%.o,$(SRC))
+
+all: $(MOD)
+
+$(MOD): $(OBJ)
+	$(CC) $(LDFLAGS) -Wl,-soname=$(MOD) -o $@ $(OBJ) $(LIB)
+
+%.o: %.c $(wildcard *.h)
+	$(CC) $(CFLAGS) -c $< $(INC)
+
+clean:
+	$(RM) $(OBJ) core $(MOD)
+

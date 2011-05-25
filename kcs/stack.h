@@ -1,22 +1,28 @@
 #ifndef _STACK_H_
 #define _STACK_H_
 
-struct stack_obj {
+#include <katpriv.h>
+
+struct katcp_stack_obj {
   void *o_data;
-  int o_type;
+  struct katcp_type *o_type;
 };
 
-struct stack {
-  struct stack_obj **s_objs;
+struct katcp_stack {
+  struct katcp_stack_obj **s_objs;
   int s_count;
 };
 
-struct stack *create_stack();
-struct stack_obj *create_obj_stack(void *data, int type);
-int push_stack(struct stack *s, void *data, int type);
-struct stack_obj *pop_stack(struct stack *s);
-struct stack_obj *peek_stack(struct stack *s);
-void destroy_stack(struct stack *s);
-void destroy_obj_stack(struct stack_obj *o);
+struct katcp_stack *create_stack_katcp();
+struct katcp_stack_obj *create_obj_stack_katcp(void *data, struct katcp_type *type);
+int push_stack_katcp(struct katcp_stack *s, void *data, struct katcp_type *type);
+int push_stack_obj_katcp(struct katcp_stack *s, struct katcp_stack_obj *o);
+struct katcp_stack_obj *pop_stack_katcp(struct katcp_stack *s);
+struct katcp_stack_obj *peek_stack_katcp(struct katcp_stack *s);
+struct katcp_stack_obj *index_stack_katcp(struct katcp_stack *s, int indx);
+void print_stack_obj_katcp(struct katcp_dispatch *d, struct katcp_stack_obj *o);
+void print_stack_katcp(struct katcp_dispatch *d, struct katcp_stack *s);
+void destroy_stack_katcp(struct katcp_stack *s);
+void destroy_obj_stack_katcp(struct katcp_stack_obj *o);
 
 #endif

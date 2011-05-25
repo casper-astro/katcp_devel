@@ -10,6 +10,8 @@
 #define AVL_LEFTLEFT    0xA
 #define AVL_RIGHTRIGHT  0X5
 
+#include "katcp.h"
+
 struct avl_tree {
   struct avl_node *t_root;
 };
@@ -47,6 +49,6 @@ void *get_node_data_avltree(struct avl_node *n);
 int update_node_data_avltree(struct avl_node *n, void *data);
 
 /*testing api*/
-void print_avltree(struct avl_node *n, int depth);
+void print_avltree(struct katcp_dispatch *d, struct avl_node *n, int depth, void (*fn_print)(struct katcp_dispatch *, void *));
 
 #endif

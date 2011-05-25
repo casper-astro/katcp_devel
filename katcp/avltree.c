@@ -13,6 +13,7 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 
+#include "katcp.h"
 #include "avltree.h"
 
 struct avl_tree *create_avltree()
@@ -78,7 +79,7 @@ int update_node_data_avltree(struct avl_node *n, void *data)
   return 0;
 }
 
-void print_avltree(struct avl_node *n, int depth)
+void print_avltree(struct katcp_dispatch *d, struct avl_node *n, int depth, void (*fn_print)(struct katcp_dispatch *, void *))
 {
 #if 1
 #define SPACER "  "
@@ -90,17 +91,19 @@ void print_avltree(struct avl_node *n, int depth)
     return;
   }
 
-  fprintf(stderr,"in %s (%p) bal %d p(%p)\n", n->n_key, n, n->n_balance, n->n_parent);
+  fprintf(stderr,"in %s (%p) bal %d p(%p) data: (%p)\n", n->n_key, n, n->n_balance, n->n_parent, n->n_data);
+  if(fn_print != NULL)
+    (*fn_print)(d, n->n_data);
 
   for (i=0; i<depth; i++)
     fprintf(stderr,SPACER);
   fprintf(stderr," L ");
-  print_avltree(n->n_left, depth+1);
+  print_avltree(d, n->n_left, depth+1, fn_print);
 
   for (i=0; i<depth; i++)
     fprintf(stderr, SPACER);
   fprintf(stderr," R ");
-  print_avltree(n->n_right, depth+1);
+  print_avltree(d, n->n_right, depth+1, fn_print);
 #undef SPACER   
 #endif
 }

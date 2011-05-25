@@ -3,6 +3,7 @@
 
 #include <katcp.h>
 #include <avltree.h>
+#include "stack.h"
 
 #define KCS_MAX_CLIENTS          32
 
@@ -189,6 +190,18 @@ struct kcs_statemachine {
 #define KATCP_TYPE_STATEMACHINE         "statemachines"
 #define KATCP_TYPE_STATEMACHINE_STATE   "states"
 #define KATCP_TYPE_STATEMACHINE_EDGE    "edges"
+#define KATCP_TYPE_OPERATION            "operations"
+#define KATCP_TYPE_COMPARISON           "comparisons"
+#define KATCP_TYPE_INTEGER              "int"
+#define KATCP_TYPE_STRING               "string"
+#define KATCP_TYPE_FLOAT                "float"
+#define KATCP_TYPE_DOUBLE               "double"
+#define KATCP_TYPE_CHAR                 "char"
+
+#define KATCP_OPERATION_STACK_PUSH      "push"
+#define KATCP_OPERATION_STACK_POP       "pop"
+#define KATCP_OPERATION_STACK_PEEK      "peek"
+#define KATCP_OPERATION_STACK_INDEX     "index"
 
 /*
 struct kcs_mod_store {
@@ -204,15 +217,24 @@ struct kcs_sm_list {
 
 struct kcs_sm {
   char *m_name;
-  struct kcs_sm_state *m_start;
-  /*TODO:put stack and program counter here*/
+  struct katcp_stack *m_stack;
+  struct kcs_sm_state *m_pc;
+};
+
+struct kcs_sm_op {
+  int (*o_call)(struct katcp_dispatch *, struct kcs_sm_state *, struct katcp_stack_obj *);
+  struct katcp_stack_obj *o_stack_obj;
 };
 
 struct kcs_sm_state {
   struct kcs_sm *s_sm;
   char *s_name;
-  struct kcs_sm_edge **s_edge;
-  void *s_edge_count;
+  
+  struct kcs_sm_edge **s_edge_list;
+  int s_edge_list_count;
+
+  struct kcs_sm_op **s_op_list;
+  int s_op_list_count;
 };
 
 struct kcs_sm_edge {
@@ -220,6 +242,7 @@ struct kcs_sm_edge {
   int (*e_call)(struct katcp_dispatch *, struct katcp_notice *, void *);
 };
 
+int statemachine_init_kcs(struct katcp_dispatch *d);
 int statemachine_cmd(struct katcp_dispatch *d, int argc);
 void destroy_statemachine_data_kcs(struct katcp_dispatch *d);
 struct avl_tree *get_datastore_tree_kcs(struct katcp_dispatch *d);

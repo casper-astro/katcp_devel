@@ -440,6 +440,12 @@ int setup_basic_kcs(struct katcp_dispatch *d, char *scripts, char **argv, int ar
     destroy_basic_kcs(d, 0);
     return -1;
   }
+  
+  if (statemachine_init_kcs(d) < 0){
+    fprintf(stderr,"setup: unable call statemachine init logic\n");
+    destroy_basic_kcs(d, 0);
+    return -1;
+  }
 
   result = 0;
 
