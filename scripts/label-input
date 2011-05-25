@@ -3,12 +3,58 @@
 set -e
 source functions.sh
 
-kcs_arg_check $# 2
+if [ $# -lt 1 ] ; then
 
-status=1
-if kcpcmd -k -r label-input $(kcs_input_to_index $1) $2 ; then
-  status=0
+  if [ ! -s ${CORR_MAPPING} ] ; then
+    kcs_error "no correlator mapping found"
+  fi
+
+  antennas=($(cat ${CORR_MAPPING} | tr -s ',' ' '))
+  roaches=($(grep '^ *servers_f' ${CORR_CONFIG} | cut -f2 -d= |  tr ',' ' '))
+  i=0
+  while [ ${i} -lt 16 ] ; do
+    echo "#label-input ${antennas[i]} $(kcs_index_to_input ${i}) ${roaches[i/2]}"
+    i=$[i+1]
+  done
+
+  exit 0
 fi
 
-kcs_corr_log
-exit $status
+index=$(kcs_input_to_index $1)
+result=1
+
+if [ -z "${index}" ] ; then
+  kcs_error "unable to parse input label ${index}"
+fi
+
+if [ ${index} -ge 16 ] ; then
+  kcs_error "input label ${index} unexpectedly large"
+fi
+
+if [ $# -gt 1 ] ; then
+  if kcpcmd -k -r label-input $(kcs_input_to_index $1) $2 ; then
+    result=0
+  fi
+  kcs_corr_log
+  synonym=${2}
+else 
+  result=0
+  if [ -s  ${CORR_MAPPING} ] ; then
+    synonym=$(cut -f$[index + 1] -d, ${CORR_MAPPING})
+    if [ -z "${synonym}" ] ; then
+      kcs_error "unable to extract item ${index} from ${CORR_MAPPING}"
+      result=1
+    fi
+  else 
+    kcs_warn "assuming no aliases as no corr state present"
+    synonym=${1}
+  fi
+fi
+
+if [ "${result}" != "0" ] ; then
+  exit 1
+fi
+
+echo "#return ok ${synonym}"
+exit 0
+

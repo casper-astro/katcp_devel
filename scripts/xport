@@ -10,12 +10,10 @@ stopcmd="\0002\0202\0002\0377\0377"
 case "$1" in
   start)
     cmd=${startcmd}
-    delay=20
     kcs_info "about to start roaches"
     ;;
   stop)
     cmd=${stopcmd}
-    delay=1
     kcs_info "about to stop roaches"
     ;;
   *)
@@ -26,8 +24,8 @@ esac
 
 
 for roach in $(grep roach.*x /etc/hosts | cut -f 1 -d \ ) ; do
-  echo -n -e "${cmd}" | netcat -w 1 ${roach} 10001 > /dev/null || true
+  echo -n -e "${cmd}" | netcat -q 2 -w 2 ${roach} 10001 > /dev/null &
+  sleep 0.003
 done
 
-sleep ${delay}
-
+sleep 3

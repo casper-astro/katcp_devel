@@ -23,9 +23,8 @@
 #define TMON_POLL_MIN               50    /* minimum (in ms) between a recv followed by another send */
 
 #define TMON_MODULE_NAME         "ntp"
-#define TMON_SENSOR_NAME         "timing.sync"
+#define TMON_SENSOR_NAME         ".ntp.synchronised"
 #define TMON_SENSOR_DESCRIPTION  "clock good"
-
 
 /************************************************************/
 

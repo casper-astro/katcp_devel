@@ -3,25 +3,26 @@
 set -e
 source functions.sh
 
-timeout=300
+now=$(date +%s)
+timeout=150
+
+limit=$[now+timeout]
+
 status=1
 kcs_debug "running connect"
 
-i=0
-while test ${i} -lt ${timeout} && ! kcpcmd -k -r -t 120 connect ; do
+while ! kcpcmd -k -r -t 120 connect ; do
+  kcs_check_timeout ${limit}
+  kcs_corr_log
   sleep 1
-  i=$[i+1]
+  kcs_info "still trying to get corr to connect"
 done
 
-if test ${i} -lt ${timeout} ; then
-  kcs_debug "running initialise"
-  if kcpcmd -k -r -t 120 initialise 2 ; then
-    status=0
-  else
-     kcs_error "corr initialise failed"
-  fi
+kcs_debug "running initialise"
+if kcpcmd -k -r -t 120 initialise 2 ; then
+  status=0
 else
-  kcs_error "corr connect failed after ${timeout} attempts"
+  kcs_error "corr initialise failed"
 fi
 
 kcs_corr_log

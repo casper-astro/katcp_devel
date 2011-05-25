@@ -2559,7 +2559,7 @@ int match_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_notice *n, vo
     return -1;
   }
   
-  combine = path_from_notice_katcp(n, name);
+  combine = path_from_notice_katcp(n, name, 0);
   if(combine == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate combined name for upstream sensor %s", name);
     return -1;
@@ -2700,7 +2700,7 @@ int match_sensor_status_katcp(struct katcp_dispatch *d, struct katcp_notice *n, 
     return -1;
   }
 
-  combine = path_from_notice_katcp(n, name);
+  combine = path_from_notice_katcp(n, name, 0);
   if(combine == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate combined name for upstream sensor %s", name);
     return -1;
@@ -2874,7 +2874,7 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
   struct katcp_integer_acquire *ia;
   struct katcl_parse *p;
   int i, j, got;
-  char *name, *type, *label, *value;
+  char *name, *type, *label, *value, *description, *units;
 
   s = d->d_shared;
 
@@ -2965,9 +2965,33 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
     log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "initialised sensor tracking for subordinate %s", jb->j_url->u_str);
     return KATCP_RESULT_OK;
 
+  } else if(!strcmp(name, "forget")){
+    label = arg_string_katcp(d, 2);
+
+    if(label == NULL){
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "need a sensor name to forget");
+      return KATCP_RESULT_FAIL;
+    }
+
+    sn = find_sensor_katcp(d, label);
+    if(sn == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no sensor of name %s", label);
+      return KATCP_RESULT_FAIL;
+    }
+
+    if(sn->s_acquire){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "refusing to terminate sensor which has acquire at %p", sn->s_acquire);
+      return KATCP_RESULT_FAIL;
+    }
+
+
+    return KATCP_RESULT_FAIL;
   } else if(!strcmp(name, "create")){
     label = arg_string_katcp(d, 2);
     type = arg_string_katcp(d, 3);
+
+    description = arg_string_katcp(d, 4);
+    units = arg_string_katcp(d, 5);
 
     if((type == NULL) || (label == NULL)){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "create needs a name and type");
@@ -2977,8 +3001,15 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
     log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "about to create sensor %s of type %s", label, type);
 
     if(!strcmp(type, "integer")){
-      if(register_integer_sensor_katcp(d, 0, label, NULL, NULL, NULL, NULL, NULL, 0, INT_MAX) < 0){
+      if(register_integer_sensor_katcp(d, 0, label, description, units, NULL, NULL, NULL, 0, INT_MAX) < 0){
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to register integer sensor %s", label);
+        return KATCP_RESULT_FAIL;
+      }
+
+      return KATCP_RESULT_OK;
+    } else if(!strcmp(type, "boolean")){
+      if(register_boolean_sensor_katcp(d, 0, label, description, units, NULL, NULL, NULL) < 0){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to register boolean sensor %s", label);
         return KATCP_RESULT_FAIL;
       }
 
@@ -3005,6 +3036,7 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
     }
 
     switch(a->a_type){
+      case KATCP_SENSOR_BOOLEAN :
       case KATCP_SENSOR_INTEGER :
         if(a->a_more == NULL){
           log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no extra integer field for sensor %s", label);
@@ -3013,6 +3045,13 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
         
         ia = a->a_more;
         ia->ia_current = atoi(value);
+
+        if(a->a_type == KATCP_SENSOR_BOOLEAN){
+          if(ia->ia_current){
+            ia->ia_current = 1;
+          }
+        }
+
         propagate_acquire_katcp(d, a);
 
         log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "updated integer sensor %s to new value %d", label, ia->ia_current);

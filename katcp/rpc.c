@@ -108,21 +108,27 @@ int complete_rpc_katcl(struct katcl_line *l, unsigned int flags, struct timeval 
         }
         break;
       case  0 :
+#ifdef FEEDBACK
         fprintf(stderr, "dispatch: no io activity within %lu.%lds\n", tv.tv_sec, tv.tv_usec);
+#endif
         return -1;
     }
 
     if(FD_ISSET(fd, &fsw)){
       result = write_katcl(l);
       if(result < 0){
+#ifdef FEEDBACK
       	fprintf(stderr, "dispatch: write failed: %s\n", strerror(error_katcl(l)));
+#endif
       	return -1;
       }
     }
 
     if(FD_ISSET(fd, &fsr)){
-      if(read_katcl(l) < 0){
+      if(read_katcl(l) != 0){
+#ifdef FEEDBACK
       	fprintf(stderr, "dispatch: read failed: %s\n", strerror(error_katcl(l)));
+#endif
       	return -1;
       }
     }

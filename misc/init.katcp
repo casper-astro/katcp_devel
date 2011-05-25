@@ -2,20 +2,20 @@
 ?chdir /usr/local/lib/kcs
 ?define mode ready
 ?define mode wbc mode-wbc
-?job process foobar exec://tmon
+?job process tmon exec://tmon
 ?forget ?halt
 ?forget ?restart
 ?process ?enable-sensors enable\_roach\_sensors\_(?enable-sensors) wbc
-?process ?label-input alias\_an\_input\_name\_(?label-input\_input\_alias) wbc
+?process ?label-input alias\_an\_input\_name\_(?label-input\_input\_alias)
 ?process ?halt halt\_the\_control\_server_\(?halt)
 ?process ?restart restart\_the\_system\_(?restart)
-?process ?capture-start start\_a\_capture\_(?capture-start\_name\_[time]) wbc
-?process ?capture-stop stop\_a\_capture\_(?capture-start\_name\_[time]) wbc
-?process ?capture-list list\_available\_data\_streams\_(?capture-list) wbc
-?process ?k7-accumulation-length sets\_the\_accumulation\_length\_(?k7-accumlation-length\_accumulation-period) wbc
-?process ?k7-delay set\_the\_delay\_and\_fringe\_correction\_(?k7-delay\_board-input\_time\_delay-value\_delay-rate\_fringe-offset\_fringe-rate) wbc
-?process ?k7-snap-shot retrieve\_an\_processing\_pipeline\_data\_block\_(?k7-snap-shot\_[adc\_board-input|quant\_[count]]) wbc
-?process ?k7-gain sets\_the\_digital\_gain\_(?k7-gain\_board-input\_values) wbc
+?process ?capture-start start\_a\_capture\_(?capture-start\_name\_[time])
+?process ?capture-stop stop\_a\_capture\_(?capture-start\_name\_[time])
+?process ?capture-list list\_available\_data\_streams\_(?capture-list)
+?process ?k7-accumulation-length sets\_the\_accumulation\_length\_(?k7-accumlation-length\_accumulation-period)
+?process ?k7-delay set\_the\_delay\_and\_fringe\_correction\_(?k7-delay\_board-input\_time\_delay-value\_delay-rate\_fringe-offset\_fringe-rate)
+?process ?k7-snap-shot retrieve\_an\_processing\_pipeline\_data\_block\_(?k7-snap-shot\_[adc\_board-input|quant\_[count]])
+?process ?k7-gain sets\_the\_digital\_gain\_(?k7-gain\_board-input\_values)
 ?process ?xport start
 ?xport start
 ?mode ready

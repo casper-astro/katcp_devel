@@ -533,7 +533,7 @@ struct katcp_notice *find_used_notice_katcp(struct katcp_dispatch *d, char *name
   return n;
 }
 
-char *path_from_notice_katcp(struct katcp_notice *n, char *suffix)
+char *path_from_notice_katcp(struct katcp_notice *n, char *suffix, int flags)
 {
   char *copy;
   int last, first, total;
@@ -545,6 +545,15 @@ char *path_from_notice_katcp(struct katcp_notice *n, char *suffix)
 
   last = strlen(suffix);
 
+  /* absolute paths */
+  if(suffix[0] == '.'){
+    copy = malloc(last);
+    if(copy == NULL){
+      return NULL;
+    }
+    strcpy(copy, suffix + 1);
+    return copy; 
+  }
 
   /* anonymous notices */
   if(n->n_name == NULL){

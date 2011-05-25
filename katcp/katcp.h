@@ -346,7 +346,7 @@ struct katcp_notice *find_notice_katcp(struct katcp_dispatch *d, char *name);
 struct katcp_notice *find_used_notice_katcp(struct katcp_dispatch *d, char *name);
 int has_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n, void *data), void *data);
 
-char *path_from_notice_katcp(struct katcp_notice *n, char *suffix);
+char *path_from_notice_katcp(struct katcp_notice *n, char *suffix, int flags);
 
 void release_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
 void hold_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
@@ -419,9 +419,9 @@ int add_kernel_version_katcp(struct katcp_dispatch *d);
 int add_code_version_katcp(struct katcp_dispatch *d);
 
 #ifdef VERSION
-#define check_code_version_katcp(d) has_version_katcp(d, KATCP_CODEBASE_NAME, VERSION)
+#define check_code_version_katcp(d) has_code_version_katcp(d, KATCP_CODEBASE_NAME, VERSION)
 #endif
-int has_version_katcp(struct katcp_dispatch *d, char *label, char *value);
+int has_code_version_katcp(struct katcp_dispatch *d, char *label, char *value);
 
 int print_versions_katcp(struct katcp_dispatch *d, int initial);
 int version_cmd_katcp(struct katcp_dispatch *d, int argc);

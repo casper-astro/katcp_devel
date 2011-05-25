@@ -367,7 +367,7 @@ static int hold_version_job_katcp(struct katcp_dispatch *d, struct katcp_notice 
     return 1;
   }
   
-  copy = path_from_notice_katcp(n, module);
+  copy = path_from_notice_katcp(n, module, 0);
   if(copy == NULL){
     return 1;
   }
@@ -1605,8 +1605,8 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
   struct katcp_notice *n;
   struct katcl_parse *p;
   char *name, *watch, *cmd, *host, *label, *buffer, *tmp;
-  char *vector[2];
-  int i, count, len, flags, special;
+  char **vector;
+  int i, k, count, len, flags, special;
   struct katcp_url *url;
 
   s = d->d_shared;
@@ -1699,14 +1699,36 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
       n = create_notice_katcp(d, watch, 0);
       if(n == NULL){
         destroy_kurl_katcp(url);
-        log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "unable to create notice called %s", watch);
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to create notice called %s", watch);
+        return KATCP_RESULT_FAIL;
+      }
+
+      if(argc < 4){
+        destroy_kurl_katcp(url);
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "%d parameters is too little", argc);
+        return KATCP_RESULT_FAIL;
+      }
+
+      vector = malloc(sizeof(char *) * argc - 2);
+      if(vector == NULL){
+        destroy_kurl_katcp(url);
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate vector of %d elements", argc - 2);
         return KATCP_RESULT_FAIL;
       }
 
       vector[0] = url->u_cmd;
-      vector[1] = NULL;
+      k = 1;
+
+      for(i = 4; i < argc; i++){
+        vector[k] = arg_string_katcp(d, i);
+        log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "parameter %d is %s", k, vector[k]);
+        k++;
+      }
+      vector[k] = NULL;
 
       j = process_relay_create_job_katcp(d, url, vector, n, NULL);
+      free(vector);
+
       if(j == NULL){
         destroy_kurl_katcp(url);
         return KATCP_RESULT_FAIL;
