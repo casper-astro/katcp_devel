@@ -19,7 +19,7 @@ struct katcp_url;
 #include <sys/types.h>
 #include <stdarg.h>
 
-#define KATCP_CODEBASE_NAME "codeplaceholder" 
+#define KATCP_CODEBASE_NAME "libkatcp" 
 
 #define KATCP_REQUEST '?' 
 #define KATCP_REPLY   '!' 
