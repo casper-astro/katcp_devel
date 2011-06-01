@@ -7,7 +7,7 @@ LIB = -L$(KATCP) -lkatcp -ldl
 
 SERVER = kcs
 SRCSHARED = shared.c
-SRC = $(SRCSHARED) stack.c watchannounce.c subprocess.c statemachine.c roachpool.c execpy.c parser.c kcserver.c basic.c
+SRC = $(SRCSHARED) watchannounce.c subprocess.c statemachine.c roachpool.c execpy.c parser.c kcserver.c basic.c
 
 OBJ = $(patsubst %.c,%.o,$(SRC))
 all: $(SERVER)
@@ -41,9 +41,6 @@ test-statemachine: statemachine.c
 	$(CC) $(CFLAGS) -DSTANDALONE -o $@ $^ -I../katcp
 
 test-avltree: avltree.c 
-	$(CC) $(CFLAGS) -DSTANDALONE -o $@ $^
-
-test-stack: stack.c 
 	$(CC) $(CFLAGS) -DSTANDALONE -o $@ $^
 
 test-type: ktype.c 

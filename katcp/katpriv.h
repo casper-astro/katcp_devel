@@ -461,6 +461,16 @@ struct katcp_type {
   void *(*t_parse)(char *);
 };
 
+struct katcp_stack_obj {
+  void *o_data;
+  struct katcp_type *o_type;
+};
+
+struct katcp_stack {
+  struct katcp_stack_obj **s_objs;
+  int s_count;
+};
+
 struct katcp_dynamic_mode{
   int d_magic;
   char *d_cmd;

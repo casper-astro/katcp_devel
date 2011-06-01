@@ -446,3 +446,16 @@ void sane_shared_katcp(struct katcp_dispatch *d);
 #define sane_shared_katcp(d)
 #endif
 
+/*katcp_stack functions*/
+
+struct katcp_stack *create_stack_katcp();
+struct katcp_stack_obj *create_obj_stack_katcp(void *data, struct katcp_type *type);
+int push_stack_katcp(struct katcp_stack *s, void *data, struct katcp_type *type);
+int push_stack_obj_katcp(struct katcp_stack *s, struct katcp_stack_obj *o);
+struct katcp_stack_obj *pop_stack_katcp(struct katcp_stack *s);
+struct katcp_stack_obj *peek_stack_katcp(struct katcp_stack *s);
+struct katcp_stack_obj *index_stack_katcp(struct katcp_stack *s, int indx);
+void print_stack_obj_katcp(struct katcp_dispatch *d, struct katcp_stack_obj *o);
+void print_stack_katcp(struct katcp_dispatch *d, struct katcp_stack *s);
+void destroy_stack_katcp(struct katcp_stack *s);
+void destroy_obj_stack_katcp(struct katcp_stack_obj *o);

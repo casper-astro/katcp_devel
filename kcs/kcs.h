@@ -3,7 +3,6 @@
 
 #include <katcp.h>
 #include <avltree.h>
-#include "stack.h"
 
 #define KCS_MAX_CLIENTS          32
 
@@ -189,9 +188,8 @@ struct kcs_statemachine {
 
 #define KATCP_TYPE_STATEMACHINE         "statemachines"
 #define KATCP_TYPE_STATEMACHINE_STATE   "states"
-#define KATCP_TYPE_STATEMACHINE_EDGE    "edges"
+#define KATCP_TYPE_EDGE                 "edges"
 #define KATCP_TYPE_OPERATION            "operations"
-#define KATCP_TYPE_COMPARISON           "comparisons"
 #define KATCP_TYPE_INTEGER              "int"
 #define KATCP_TYPE_STRING               "string"
 #define KATCP_TYPE_FLOAT                "float"
@@ -246,6 +244,8 @@ int statemachine_init_kcs(struct katcp_dispatch *d);
 int statemachine_cmd(struct katcp_dispatch *d, int argc);
 void destroy_statemachine_data_kcs(struct katcp_dispatch *d);
 struct avl_tree *get_datastore_tree_kcs(struct katcp_dispatch *d);
+struct kcs_sm_op *create_sm_op_kcs(int (*call)(struct katcp_dispatch *, struct kcs_sm_state *, struct katcp_stack_obj *), struct katcp_stack_obj *o);
+struct kcs_sm_edge *create_sm_edge_kcs(struct kcs_sm_state *s_next, int (*call)(struct katcp_dispatch *, struct katcp_notice *, void *));
 
 #if 0
 int statemachine_greeting(struct katcp_dispatch *d);

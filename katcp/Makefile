@@ -14,12 +14,12 @@ CFLAGS += -DVERSION=\"$(VERSION)\"
 CFLAGS += -DBUILD=\"$(BUILD)\"
 
 SUB = examples utils
-SRC = line.c netc.c dispatch.c loop.c log.c time.c shared.c misc.c server.c client.c ts.c nonsense.c notice.c job.c parse.c rpc.c queue.c map.c kurl.c version.c fork-parent.c avltree.c ktype.c
+SRC = line.c netc.c dispatch.c loop.c log.c time.c shared.c misc.c server.c client.c ts.c nonsense.c notice.c job.c parse.c rpc.c queue.c map.c kurl.c version.c fork-parent.c avltree.c ktype.c stack.c
 HDR = katcp.h katcl.h katpriv.h fork-parent.h avltree.h
 
 OBJ = $(patsubst %.c,%.o,$(SRC))
 
-all: $(LIB) 
+all: $(LIB) $(SHARED) 
 
 $(LIB): $(OBJ)
 	$(AR) rcs $(LIB) $(OBJ)
