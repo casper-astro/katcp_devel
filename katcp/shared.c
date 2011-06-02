@@ -925,12 +925,12 @@ int store_clear_mode_katcp(struct katcp_dispatch *d, unsigned int mode, void *st
   return store_full_mode_katcp(d, mode, NULL, NULL, NULL, state, clear);
 }
 
-int store_full_mode_katcp(struct katcp_dispatch *d, unsigned int mode, char *name, int (*enter)(struct katcp_dispatch *d, char *flags, unsigned int from), void (*leave)(struct katcp_dispatch *d, unsigned int to), void *state, void (*clear)(struct katcp_dispatch *d, unsigned int mode))
+int store_full_mode_katcp(struct katcp_dispatch *d, unsigned int mode, char *name, int (*enter)(struct katcp_dispatch *d, struct katcp_notice *n, char *flags, unsigned int from), void (*leave)(struct katcp_dispatch *d, unsigned int to), void *state, void (*clear)(struct katcp_dispatch *d, unsigned int mode))
 {
   return store_prepared_mode_katcp(d, mode, name, NULL, enter, leave, state, clear);
 }
 
-int store_prepared_mode_katcp(struct katcp_dispatch *d, unsigned int mode, char *name, struct katcp_notice *(*prepare)(struct katcp_dispatch *d, char *flags, unsigned int from, unsigned int to), int (*enter)(struct katcp_dispatch *d, char *flags, unsigned int from), void (*leave)(struct katcp_dispatch *d, unsigned int to), void *state, void (*clear)(struct katcp_dispatch *d, unsigned int mode))
+int store_prepared_mode_katcp(struct katcp_dispatch *d, unsigned int mode, char *name, struct katcp_notice *(*prepare)(struct katcp_dispatch *d, char *flags, unsigned int from, unsigned int to), int (*enter)(struct katcp_dispatch *d, struct katcp_notice *n, char *flags, unsigned int from), void (*leave)(struct katcp_dispatch *d, unsigned int to), void *state, void (*clear)(struct katcp_dispatch *d, unsigned int mode))
 {
   struct katcp_shared *s;
   char *copy;
@@ -1076,7 +1076,7 @@ int enter_name_mode_katcp(struct katcp_dispatch *d, char *name, char *flags)
 int complete_mode_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 {
   struct katcp_shared *s;
-  unsigned int old;
+  int result;
   char *flags;
 
   sane_shared_katcp(d);
@@ -1088,23 +1088,31 @@ int complete_mode_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *
     (*(s->s_vector[s->s_mode].e_leave))(d, s->s_new);
   }
 
-  old = s->s_mode;
-  s->s_mode = s->s_new;
-  s->s_transition = NULL;
-
   if(s->s_vector[s->s_mode].e_enter){
-    s->s_mode = (*(s->s_vector[s->s_mode].e_enter))(d, flags, old);
+    result = (*(s->s_vector[s->s_mode].e_enter))(d, n, flags, s->s_mode);
+    if(result == 0){
+      s->s_mode = s->s_new;
+    } else {
+      s->s_new = s->s_mode; /* remain in old mode */
+    }
+  } else {
+    s->s_mode = s->s_new;
+    result = 0;
   }
 
-  if(s->s_vector[s->s_mode].e_name){ /* broadcast mode change */
-    broadcast_inform_katcp(d, "#mode", s->s_vector[s->s_mode].e_name);
-  }
+  s->s_transition = NULL;
 
   if(flags){
     free(flags);
   }
 
-  return (s->s_mode == s->s_new) ? 0 : (-1);
+  if(result == 0){
+    if(s->s_vector[s->s_mode].e_name){ /* broadcast mode change */
+      broadcast_inform_katcp(d, "#mode", s->s_vector[s->s_mode].e_name);
+    }
+  }
+
+  return result;
 }
 
 int enter_mode_katcp(struct katcp_dispatch *d, unsigned int mode, char *flags)

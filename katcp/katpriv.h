@@ -230,7 +230,7 @@ struct katcp_entry{
   char *e_name;
   struct katcp_notice *(*e_prep)(struct katcp_dispatch *d, char *flags, unsigned int from, unsigned int to);
 
-  int (*e_enter)(struct katcp_dispatch *d, char *flags, unsigned int to);
+  int (*e_enter)(struct katcp_dispatch *d, struct katcp_notice *n, char *flags, unsigned int to);
   void (*e_leave)(struct katcp_dispatch *d, unsigned int from);
 
   void *e_state;

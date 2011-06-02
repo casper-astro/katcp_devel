@@ -18,7 +18,7 @@ while ! kcpcmd -k -r -t 120 connect ; do
   kcs_info "still trying to get corr to connect"
 done
 
-kcs_debug "running initialise"
+kcs_info "running initialise"
 if kcpcmd -k -r -t 120 initialise 2 ; then
   status=0
 else
