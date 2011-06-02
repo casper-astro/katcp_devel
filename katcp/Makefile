@@ -1,5 +1,7 @@
 include ../Makefile.inc
 
+#.SUFFIXES:
+
 VERSION = 0.1
 
 BUILD = $(shell date +%Y-%m-%dT%H:%M:%S)
@@ -27,7 +29,7 @@ $(LIB): $(OBJ)
 $(SHARED): $(OBJ)
 	$(CC) $(CFLAGS) -shared -Wl,-x,-soname=$(SHARED) -o $(SHARED) $(OBJ)
 
-%.o: %.c *.h 
+%.o: %.c $(wildcard *.h)
 	$(CC) $(CFLAGS) -c $< -o $@ $(INC)
 
 clean:
@@ -37,3 +39,7 @@ install: all
 	$(INSTALL) -d $(PREFIX)/include $(prefix)/lib
 	$(INSTALL) $(LIB) $(PREFIX)/lib
 	$(INSTALL) $(HDR) $(PREFIX)/include
+
+# FORCE:
+# dispatch.o: FORCE
+

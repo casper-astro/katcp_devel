@@ -340,22 +340,119 @@ void set_timeout_fmon(struct fmon_state *f, unsigned int timeout)
   add_time_katcp(&(f->f_when), &(f->f_start), &delta);
 }
 
-void pause_fmon(struct fmon_state *f, unsigned int interval)
+struct fmon_sensor *find_sensor_fmon(struct fmon_state *f, char *name)
+{
+  int i, j;
+  struct fmon_sensor *s;
+  struct fmon_input *n;
+
+  if(name == NULL){
+    return NULL;
+  }
+
+  for(i = 0; i < FMON_BOARD_SENSORS; i++){
+    s = &(f->f_sensors[i]);
+    if(s->s_name){
+      if(!strcmp(s->s_name, name)){
+        return s;
+      }
+    }
+  }
+
+  for(i = 0; FMON_MAX_INPUTS; i++){
+    n = &(f->f_inputs[i]);
+    for(j = 0; j < FMON_INPUT_SENSORS; j++){
+      s = &(n->n_sensors[j]);
+      if(s->s_name){
+        if(!strcmp(s->s_name, name)){
+          return s;
+        }
+      }
+    }
+  }
+
+  return NULL;
+}
+
+int catchup_fmon(struct fmon_state *f, unsigned int interval)
 {
   struct timeval delta, target;
+  fd_set fsr, fsw;
+  int fd, result;
+  char *request, *label, *strategy;
 
   delta.tv_sec = interval / 1000;
   delta.tv_usec = (interval % 1000) * 1000;
 
+  add_time_katcp(&target, &(f->f_start), &delta);
+  fd = fileno_katcl(f->f_report);
+  if(fd < 0){
+    return -1;
+  }
+  
   gettimeofday(&(f->f_done), NULL);
 
-  add_time_katcp(&target, &(f->f_start), &delta);
-  
-  if(cmp_time_katcp(&(f->f_done), &target) <= 0){
+  while(cmp_time_katcp(&(f->f_done), &target) <= 0){
+
+    FD_ZERO(&fsr);
+    FD_ZERO(&fsw);
+
+    FD_SET(fd, &fsr);
+    if(flushing_katcl(f->f_report)){
+      FD_SET(fd, &fsw);
+    }
+
     sub_time_katcp(&delta, &target, &(f->f_done));
 
-    select(0, NULL, NULL, NULL, &delta);
+    if(select(fd + 1, &fsr, &fsw, NULL, &delta) < 0){
+      switch(errno){
+        case EAGAIN : 
+        case EINTR  :
+          break;
+        default : 
+          return -1;
+      }
+    }
+
+    if(FD_ISSET(fd, &fsr)){
+      result = read_katcl(f->f_report);
+      if(result){
+        return -1;
+      }
+
+      while(have_katcl(f->f_report) > 0){
+        if(arg_request_katcl(f->f_report)){
+          request = arg_string_katcl(f->f_report, 0);
+          if(request){
+            log_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_server, "got %s request", request);
+            if(!strcmp(request, "?sensor-sampling")){
+              result = 0;
+              label = arg_string_katcl(f->f_report, 1);
+              strategy = arg_string_katcl(f->f_report, 2);
+              if(label && strategy){
+                if(!strcmp(strategy, "event") && (find_sensor_fmon(f, label) != NULL)){
+                  result = 1;
+                }
+              }
+              append_string_katcl(f->f_report, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "!sensor-sampling");
+              append_string_katcl(f->f_report, KATCP_FLAG_LAST  | KATCP_FLAG_STRING, result ? KATCP_OK : KATCP_FAIL);
+            }
+          }
+        }
+      }
+
+    }
+
+    if(FD_ISSET(fd, &fsw)){
+      if(write_katcl(f->f_report) < 0){
+        return -1;
+      }
+    }
+
+    gettimeofday(&(f->f_done), NULL);
   }
+
+  return 0;
 }
 
 void drop_connection_fmon(struct fmon_state *f)
@@ -1436,13 +1533,9 @@ int main(int argc, char **argv)
 
     check_watchdog_fmon(f); /* only gets done if nothing else happened */
 
-    while(flushing_katcl(f->f_report)){
-      if(write_katcl(f->f_report) < 0){
-        run = 0;
-      }
+    if(catchup_fmon(f, interval) < 0){
+      run = 0;
     }
-
-    pause_fmon(f, interval);
   }
 
   sync_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_server, "%s sensor monitoring logic for %s", (run < 0) ? "restarting" : "stopping", f->f_server);
