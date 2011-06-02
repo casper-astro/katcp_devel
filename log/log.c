@@ -242,6 +242,8 @@ int main(int argc, char **argv)
     fclose(stderr);
   }
 
+  sync_message_katcl(lo, KATCP_LEVEL_INFO, NAME, "monitor start for %s", server);
+
   for(run = 1; run > 0;){
 
     if(log_reload > 0){
