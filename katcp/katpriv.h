@@ -362,6 +362,7 @@ struct katcp_shared{
   unsigned int s_mode;
 
   unsigned int s_new;
+  char *s_options;
   struct katcp_notice *s_transition;
 
   struct katcp_dispatch *s_template;
