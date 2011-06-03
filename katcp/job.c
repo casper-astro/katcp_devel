@@ -569,12 +569,12 @@ int issue_request_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
   }
 
   if((j->j_state & JOB_MAY_REQUEST) == 0){
-    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "not sending request, another one already in queue");
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "not sending request, another one already in queue");
     return 0; /* still waiting for a reply */
   }
 
   if((j->j_state & JOB_MAY_WRITE) == 0){
-    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "not sending request, finished writing");
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "not sending request, finished writing");
     return 0; /* still waiting for a reply */
   }
 

@@ -252,6 +252,8 @@ int main()
     return 1;
   }
 
+  printf("[arf]word  add, remove or find word\n");
+
   while(fgets(cmd, BUFFER - 1, stdin)){
     cmd[BUFFER - 1] = '\0';
     switch(cmd[0]){

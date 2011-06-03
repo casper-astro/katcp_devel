@@ -1028,6 +1028,7 @@ void dump_katcl(struct katcl_line *l, FILE *fp)
 #define MAX_ARG_LEN     5120 /* for real test this should be bigger  */
 #define TEST_RUNS        100 /* as should this */
 #define INIT_BUFFER     1024
+#define DEBUG
 
 int fill_random_test(struct katcl_parse *p)
 {
@@ -1186,7 +1187,7 @@ int main()
     fprintf(stderr, "line test: iteration %d\n", i);
 #endif
 
-    p = create_parse_katcl();
+    p = create_referenced_parse_katcl();
     if(p == NULL){
       fprintf(stderr, "unable to create parse instance %d\n", i);
       return 1;
