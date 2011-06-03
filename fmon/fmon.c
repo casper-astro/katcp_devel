@@ -412,7 +412,9 @@ int catchup_fmon(struct fmon_state *f, unsigned int interval)
 
     sub_time_katcp(&delta, &target, &(f->f_done));
 
-    if(select(fd + 1, &fsr, &fsw, NULL, &delta) < 0){
+    result = select(fd + 1, &fsr, &fsw, NULL, &delta);
+
+    if(result < 0){
       switch(errno){
         case EAGAIN : 
         case EINTR  :
