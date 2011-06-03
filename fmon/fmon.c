@@ -9,9 +9,11 @@
 #include <time.h>
 #include <errno.h>
 #include <ctype.h>
+#include <fcntl.h>
 
 #include <arpa/inet.h>
 
+#include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/select.h>
 
@@ -233,6 +235,7 @@ struct fmon_state *create_fmon(char *server, int verbose, unsigned int timeout, 
   struct fmon_sensor *s;
   struct fmon_input *n;
   int i, j;
+  int flags;
 
   f = malloc(sizeof(struct fmon_state));
   if(f == NULL){
@@ -304,6 +307,11 @@ struct fmon_state *create_fmon(char *server, int verbose, unsigned int timeout, 
       destroy_fmon(f);
       return NULL;
     }
+  }
+
+  flags = fcntl(STDOUT_FILENO, F_GETFL, NULL);
+  if(flags >= 0){
+    flags = fcntl(STDOUT_FILENO, F_SETFL, flags | O_NONBLOCK);
   }
 
   f->f_report = create_katcl(STDOUT_FILENO);
@@ -414,38 +422,40 @@ int catchup_fmon(struct fmon_state *f, unsigned int interval)
       }
     }
 
-    if(FD_ISSET(fd, &fsr)){
-      result = read_katcl(f->f_report);
-      if(result){
-        return -1;
-      }
+    if(result > 0){
+      if(FD_ISSET(fd, &fsr)){
+        result = read_katcl(f->f_report);
+        if(result){
+          return -1;
+        }
 
-      while(have_katcl(f->f_report) > 0){
-        if(arg_request_katcl(f->f_report)){
-          request = arg_string_katcl(f->f_report, 0);
-          if(request){
-            log_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_server, "got %s request", request);
-            if(!strcmp(request, "?sensor-sampling")){
-              result = 0;
-              label = arg_string_katcl(f->f_report, 1);
-              strategy = arg_string_katcl(f->f_report, 2);
-              if(label && strategy){
-                if(!strcmp(strategy, "event") && (find_sensor_fmon(f, label) != NULL)){
-                  result = 1;
+        while(have_katcl(f->f_report) > 0){
+          if(arg_request_katcl(f->f_report)){
+            request = arg_string_katcl(f->f_report, 0);
+            if(request){
+              log_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_server, "got %s request", request);
+              if(!strcmp(request, "?sensor-sampling")){
+                result = 0;
+                label = arg_string_katcl(f->f_report, 1);
+                strategy = arg_string_katcl(f->f_report, 2);
+                if(label && strategy){
+                  if(!strcmp(strategy, "event") && (find_sensor_fmon(f, label) != NULL)){
+                    result = 1;
+                  }
                 }
+                append_string_katcl(f->f_report, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "!sensor-sampling");
+                append_string_katcl(f->f_report, KATCP_FLAG_LAST  | KATCP_FLAG_STRING, result ? KATCP_OK : KATCP_FAIL);
               }
-              append_string_katcl(f->f_report, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "!sensor-sampling");
-              append_string_katcl(f->f_report, KATCP_FLAG_LAST  | KATCP_FLAG_STRING, result ? KATCP_OK : KATCP_FAIL);
             }
           }
         }
+
       }
 
-    }
-
-    if(FD_ISSET(fd, &fsw)){
-      if(write_katcl(f->f_report) < 0){
-        return -1;
+      if(FD_ISSET(fd, &fsw)){
+        if(write_katcl(f->f_report) < 0){
+          return -1;
+        }
       }
     }
 
