@@ -450,6 +450,7 @@ void sane_shared_katcp(struct katcp_dispatch *d);
 
 struct katcp_stack *create_stack_katcp();
 struct katcp_stack_obj *create_obj_stack_katcp(void *data, struct katcp_type *type);
+struct katcp_stack_obj *copy_obj_stack_katcp(struct katcp_stack_obj *o);
 int push_stack_katcp(struct katcp_stack *s, void *data, struct katcp_type *type);
 int push_stack_obj_katcp(struct katcp_stack *s, struct katcp_stack_obj *o);
 struct katcp_stack_obj *pop_stack_katcp(struct katcp_stack *s);

@@ -346,6 +346,7 @@ struct katcp_type *find_name_type_katcp(struct katcp_dispatch *d, char *str)
 #ifdef DEBUG
     fprintf(stderr, "katcp_type: could not find type <%s>\n", str);
 #endif
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "requested type not defined");
     return NULL;
   }
   

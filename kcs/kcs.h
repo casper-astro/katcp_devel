@@ -186,6 +186,7 @@ struct kcs_statemachine {
 #define MOD_STORE_TYPE_HANDLE   1
 #endif 
 
+#define KATCP_TYPE_MODULES              "modules"
 #define KATCP_TYPE_STATEMACHINE         "statemachines"
 #define KATCP_TYPE_STATEMACHINE_STATE   "states"
 #define KATCP_TYPE_EDGE                 "edges"

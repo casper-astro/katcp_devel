@@ -26,7 +26,7 @@ struct katcp_stack_obj *create_obj_stack_katcp(void *data, struct katcp_type *ty
 {
   struct katcp_stack_obj *o;
 
-  if (data == NULL)
+  if (data == NULL && type == NULL)
     return NULL;
   
   o =  malloc(sizeof(struct katcp_stack_obj));
@@ -37,6 +37,13 @@ struct katcp_stack_obj *create_obj_stack_katcp(void *data, struct katcp_type *ty
   o->o_type = type;
 
   return o;
+}
+
+struct katcp_stack_obj *copy_obj_stack_katcp(struct katcp_stack_obj *o)
+{
+  if (o == NULL)
+    return NULL;
+  return create_obj_stack_katcp(o->o_data, o->o_type);
 }
 
 void destroy_obj_stack_katcp(struct katcp_stack_obj *o)

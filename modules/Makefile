@@ -7,16 +7,17 @@ LIB = -L$(KATCP) -lkatcp
 CFLAGS += -fPIC
 CFLAGS += -DVERSION=\"$(GITVER)\"
 LDFLAGS += -shared 
+vpath %.c ../kcs
 
 MOD = mod_simple_ops.so
-SRC = mod_simple_ops.c ../kcs/statemachine.c
+SRC = mod_simple_ops.c statemachine.c
 
 OBJ = $(patsubst %.c,%.o,$(SRC))
 
 all: $(MOD)
 
 $(MOD): $(OBJ)
-	$(CC) $(LDFLAGS) -Wl,-soname=$(MOD) -o $@ $(STATEMACHINE) $(OBJ) $(LIB)
+	$(CC) $(LDFLAGS) -Wl,-soname=$(MOD) -o $@ $(OBJ) $(LIB)
 
 %.o: %.c $(wildcard *.h)
 	$(CC) $(CFLAGS) -c $< $(INC) -o $@ 
