@@ -201,7 +201,6 @@ int compare_generic_mod(struct katcp_dispatch *d, struct katcp_notice *n, void *
     return -2;
   }
  
- 
   rtn = (*(a->o_type->t_compare))(a->o_data, b->o_data);
 
 #ifdef DEBUG
@@ -225,6 +224,8 @@ struct kcs_sm_edge *compare_generic_setup_mod(struct katcp_dispatch *d, struct k
 
   return e;
 }
+
+
 
 int init_mod(struct katcp_dispatch *d)
 {
