@@ -1359,7 +1359,7 @@ int check_fengine_power(struct fmon_state *f, struct fmon_input *n, char *name)
   uint32_t word;
   double result;
   struct fmon_sensor *sensor;
-  int value;
+  unsigned int value;
 
   sensor = &(n->n_sensors[FMON_SENSOR_ADC_RAW_POWER]);
 
@@ -1372,7 +1372,11 @@ int check_fengine_power(struct fmon_state *f, struct fmon_input *n, char *name)
 
   result = sqrt((double)value / ((double)f->f_power_acc_len));
 
-  update_sensor_fmon(f, sensor, word, KATCP_STATUS_NOMINAL);
+#ifdef DEBUG
+  fprintf(stderr, "raw value 0x%x -> %f\n", value, result);
+#endif
+
+  update_sensor_fmon(f, sensor, result, KATCP_STATUS_NOMINAL);
 
   return 0;  
 }
