@@ -731,6 +731,8 @@ int statemachine_run_kcs(struct katcp_dispatch *d)
         }
       }
     }
+    if (i+1 == s->s_edge_list_count)
+      run = 0;
 
   } while (run);
   
