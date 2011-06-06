@@ -1368,9 +1368,10 @@ int check_fengine_power(struct fmon_state *f, struct fmon_input *n, char *name)
     return 0;
   }
 
+  value = word;
+
   result = sqrt((double)value / ((double)f->f_power_acc_len));
 
-  value = word;
   update_sensor_fmon(f, sensor, word, KATCP_STATUS_NOMINAL);
 
   return 0;  
