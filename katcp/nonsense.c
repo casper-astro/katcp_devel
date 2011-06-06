@@ -6,6 +6,10 @@
 #include <string.h>
 #include <limits.h>
 
+#ifdef KATCP_USE_FLOATS
+#include <math.h>
+#endif
+
 #include "katcp.h"
 #include "katpriv.h"
 #include "netc.h"
@@ -174,6 +178,346 @@ int status_check_katcp(struct katcp_nonsense *ns)
   ns->n_status = sn->s_status;
   return 1;
 }
+
+/* double routines *******************************************************/
+
+#ifdef KATCP_USE_FLOATS
+int extract_double_katcp(struct katcp_dispatch *d, struct katcp_sensor *sn)
+{
+  struct katcp_acquire *a;
+  struct katcp_double_acquire *da;
+  struct katcp_double_sensor *ds;
+
+  a = sn->s_acquire;
+
+  if(sn->s_type != KATCP_SENSOR_FLOAT){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "logic problem - sensor operation applied to type %d", sn->s_type);
+    return -1;
+  }
+
+  ds = sn->s_more;
+  da = a->a_more;
+
+  if((da->da_current < ds->ds_min) || (da->da_current > ds->ds_max)){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "bad extracted float (%f) for sensor %s", da->da_current, sn->s_name);
+    return -1;
+  }
+
+  ds->ds_current = da->da_current;
+  return 0;
+}
+
+int create_acquire_double_katcp(struct katcp_dispatch *d, struct katcp_acquire *a, int type)
+{
+  struct katcp_double_acquire *da;
+
+  switch(type){
+    case KATCP_SENSOR_FLOAT :
+      break;
+    default :
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "function incapable of creating type %d", type);
+      return -1;
+  }
+
+  if((a == NULL) || (a->a_type >= 0)){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "acquire structure empty or type already set");
+    return -1;
+  }
+
+  da = malloc(sizeof(struct katcp_double_acquire));
+  if(da == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate %d bytes for acquire structure", sizeof(struct katcp_double_acquire));
+    return -1;
+  }
+
+  da->da_current = 0;
+  da->da_get = NULL;
+
+  a->a_more = da;
+  a->a_type = type;
+
+  return 0;
+}
+
+int set_value_double_katcp(struct katcp_acquire *a, double value)
+{
+  struct katcp_double_acquire *da;
+
+  da = a->a_more;
+
+  if(da == NULL){
+    return -1;
+  }
+
+  da->da_current = value;
+
+  return 0;
+}
+
+int scan_value_double_katcp(struct katcp_acquire *a, char *value)
+{
+  struct katcp_double_acquire *da;
+  char *end;
+  double got;
+
+  da = a->a_more;
+
+  if(da == NULL){
+    return -1;
+  }
+
+  if(value == NULL){
+    return -1;
+  }
+
+  got = strtod(value, &end);
+  switch(end[0]){
+    case ' '  :
+    case '\0' :
+    case '\r' :
+    case '\n' :
+      break;
+    default  :
+      return -1;
+  }
+
+  da->da_current = got;
+
+  return 0;
+}
+
+int has_poll_double_katcp(struct katcp_acquire *a)
+{
+  struct katcp_double_acquire *da;
+
+  da = a->a_more;
+
+  if(da && da->da_get){
+    return 1;
+  }
+
+  return 0;
+}
+
+int create_sensor_double_katcp(struct katcp_dispatch *d, struct katcp_sensor *sn, double min, double max)
+{
+  struct katcp_double_sensor *ds;
+
+  if((sn == NULL) || (sn->s_type != KATCP_SENSOR_FLOAT)){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to layer double sensor over %p", sn);
+    return -1;
+  }
+
+  ds = malloc(sizeof(struct katcp_double_sensor));
+  if(ds == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate %d bytes for double sensor structure", sizeof(struct katcp_double_sensor));
+    return -1;
+  }
+
+  ds->ds_current = 0;
+  ds->ds_min = min;
+  ds->ds_max = max;
+
+  sn->s_more = ds;
+
+  return 0;
+}
+
+int create_nonsense_double_katcp(struct katcp_dispatch *d, struct katcp_nonsense *ns)
+{
+  struct katcp_double_nonsense *dn;
+  struct katcp_double_sensor *ds;
+  struct katcp_sensor *sn;
+
+  sn = ns->n_sensor;
+
+  if(sn == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "null sensor given to double create function");
+    return -1;
+  }
+
+  switch(sn->s_type){
+    case KATCP_SENSOR_FLOAT :
+      break;
+    default :
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "incapable of creating sensor client of type %d", sn->s_type);
+      return -1;
+  }
+
+  ds = sn->s_more;
+  dn = malloc(sizeof(struct katcp_double_nonsense));
+  if(dn == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate %d bytes for double sensor structure", sizeof(struct katcp_double_nonsense));
+    return -1;
+  }
+
+  /* changed as per request from simon to always report initial value for event */
+  dn->dn_previous = ds->ds_max + 1; 
+  dn->dn_delta = 1; /* guessing at a reasonable default */
+
+  ns->n_more = dn;
+
+  return 0;
+}
+
+int append_type_double_katcp(struct katcp_dispatch *d, int flags, struct katcp_sensor *sn)
+{
+  struct katcp_double_sensor *ds;
+
+  if(sn == NULL){
+    return -1;
+  }
+
+  ds = sn->s_more;
+
+  if(append_double_katcp(d, KATCP_FLAG_DOUBLE | (flags & KATCP_FLAG_FIRST), (unsigned long)(ds->ds_min)) < 0){
+    return -1;
+  }
+
+  return append_double_katcp(d, KATCP_FLAG_DOUBLE | (flags & KATCP_FLAG_LAST), (unsigned long)(ds->ds_max));
+}
+
+int append_value_double_katcp(struct katcp_dispatch *d, int flags, struct katcp_sensor *sn)
+{
+  struct katcp_double_sensor *ds;
+
+  if(sn == NULL){
+    return -1;
+  }
+
+  ds = sn->s_more;
+
+  return append_double_katcp(d, KATCP_FLAG_DOUBLE | (flags & (KATCP_FLAG_FIRST | KATCP_FLAG_LAST)), ds->ds_current);
+}
+
+int append_diff_double_katcp(struct katcp_dispatch *d, int flags, struct katcp_nonsense *ns)
+{
+  struct katcp_double_nonsense *dn;
+
+  if(ns == NULL){
+    return -1;
+  }
+
+  dn = ns->n_more;
+
+  return append_double_katcp(d, KATCP_FLAG_DOUBLE | (flags & (KATCP_FLAG_FIRST | KATCP_FLAG_LAST)), dn->dn_delta);
+}
+
+int scan_diff_double_katcp(struct katcp_nonsense *ns, char *extra)
+{
+  struct katcp_double_nonsense *dn;
+  char *end;
+  double value;
+
+  if(ns == NULL){
+    return -1;
+  }
+
+  if(extra == NULL){
+    return -1;
+  }
+
+  dn = ns->n_more;
+
+  value = strtod(extra, &end);
+  switch(end[0]){
+    case ' '  :
+    case '\0' :
+    case '\r' :
+    case '\n' :
+      break;
+    default  :
+      return -1;
+  }
+
+  dn->dn_delta = value;
+
+  return 0;
+}
+
+int event_check_double_katcp(struct katcp_nonsense *ns)
+{
+  struct katcp_sensor *sn;
+  struct katcp_double_sensor *ds;
+  struct katcp_double_nonsense *dn;
+  struct katcp_dispatch *dx;
+  int result;
+
+  sn = ns->n_sensor;
+  if(sn == NULL){
+    fprintf(stderr, "major logic problem: null sensor for client while checking for event\n");
+    abort();
+  }
+
+  dx = ns->n_client;
+
+  switch(sn->s_type){
+    case KATCP_SENSOR_FLOAT :
+      break;
+    default :
+      log_message_katcp(dx, KATCP_LEVEL_FATAL, NULL, "called double comparison on type %d", sn->s_type);
+      return 0;
+  }
+
+  ds = sn->s_more;
+  dn = ns->n_more;
+
+  log_message_katcp(dx, KATCP_LEVEL_TRACE, NULL, "double event check had %f now %f", dn->dn_previous, ds->ds_current);
+
+  result = status_check_katcp(ns); /* WARNING: status_check has the side effect of updating status */
+  
+  if(dn->dn_previous == ds->ds_current){
+    return result;
+  }
+
+  dn->dn_previous = ds->ds_current;
+
+  return 1;
+}
+
+int diff_check_double_katcp(struct katcp_nonsense *ns)
+{
+  struct katcp_sensor *sn;
+  struct katcp_double_sensor *ds;
+  struct katcp_double_nonsense *dn;
+  double delta;
+
+  sn = ns->n_sensor;
+
+#ifdef DEBUG
+  if((sn == NULL) || (sn->s_type != KATCP_SENSOR_FLOAT)){
+    fprintf(stderr, "major logic problem: diff double check not run on double\n");
+    abort();
+  }
+#endif
+
+  ds = sn->s_more;
+  dn = ns->n_more;
+
+  delta = fabs(ds->ds_current - dn->dn_previous);
+
+  if(delta < dn->dn_delta){
+    /* still within range */
+    return 0;
+  }
+  
+  dn->dn_previous = ds->ds_current;
+
+  return 1;
+}
+
+int set_double_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a, double value)
+{
+  int result;
+
+  result = set_value_double_katcp(a, value);
+
+  propagate_acquire_katcp(d, a);
+
+  return result;
+}
+
+#endif
 
 /* integer routines, intbool common to integer and boolean code *******************************/
 
@@ -519,7 +863,7 @@ int diff_check_integer_katcp(struct katcp_nonsense *ns)
   is = sn->s_more;
   in = ns->n_more;
 
-  delta = (is->is_current - in->in_previous);
+  delta = abs(is->is_current - in->in_previous);
 
   if(delta < in->in_delta){
     /* still within range */
@@ -688,6 +1032,28 @@ static struct katcp_check_table type_lookup_table[] = {
         &force_check_katcp
       }
     }
+#ifdef KATCP_USE_FLOATS
+    ,
+  [KATCP_SENSOR_FLOAT] = 
+    {  "float",
+      &extract_double_katcp,
+      &create_acquire_double_katcp,
+      &create_nonsense_double_katcp,
+      &append_type_double_katcp,
+      &append_value_double_katcp,
+      &append_diff_double_katcp,
+      &scan_diff_double_katcp,
+      &scan_value_double_katcp,
+      &has_poll_double_katcp,
+      { 
+         NULL, /* never used, strategy none causes the deletion of the matching nonsense structure */
+        &period_check_katcp,
+        &event_check_double_katcp,
+        &diff_check_double_katcp,
+        &force_check_katcp
+      }
+    }
+#endif 
 };
 
 /* acquire routines: the stuff that actually gets the sensor data ********/
@@ -852,6 +1218,29 @@ struct katcp_acquire *setup_boolean_acquire_katcp(struct katcp_dispatch *d, int 
 {
   return setup_intbool_acquire_katcp(d, get, local, release, KATCP_SENSOR_BOOLEAN);
 }
+
+struct katcp_acquire *setup_double_acquire_katcp(struct katcp_dispatch *d, double (*get)(struct katcp_dispatch *d, struct katcp_acquire *a), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a))
+{
+  struct katcp_acquire *a;
+  struct katcp_double_acquire *da;
+
+  a = extended_create_acquire_katcp(d, KATCP_SENSOR_FLOAT, local, release, NULL, NULL);
+  if(a == NULL){
+    return NULL;
+  }
+
+  da = a->a_more;
+
+  da->da_current = 0;
+  da->da_get = get;
+
+#ifdef DEBUG
+  fprintf(stderr, "double: acquire %p populated with get %p\n", ia, ia->ia_get);
+#endif
+
+  return a;
+}
+
 
 /* link acquire to sensor, have acquire adopt type of sensor if emtpy */
 
