@@ -11,6 +11,7 @@
 #include <ctype.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <math.h>
 
 #include <arpa/inet.h>
 
@@ -143,6 +144,8 @@ struct fmon_state
   int f_dirty;
 
   struct fmon_sensor f_sensors[FMON_BOARD_SENSORS];
+
+  unsigned int f_power_acc_len;
 };
 
 /*************************************************************************/
@@ -337,6 +340,8 @@ struct fmon_state *create_fmon(char *server, int verbose, unsigned int timeout, 
 
   f->f_reprobe = reprobe;
   f->f_cycle = 0;
+
+  f->f_power_acc_len = 0x10000;
 
   f->f_fs = 0;
   f->f_xs = 0;
@@ -1352,6 +1357,7 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, char *name)
 int check_fengine_power(struct fmon_state *f, struct fmon_input *n, char *name)
 {
   uint32_t word;
+  double result;
   struct fmon_sensor *sensor;
   int value;
 
@@ -1361,6 +1367,8 @@ int check_fengine_power(struct fmon_state *f, struct fmon_input *n, char *name)
     update_sensor_status_fmon(f, sensor, KATCP_STATUS_UNKNOWN);
     return 0;
   }
+
+  result = sqrt((double)value / ((double)f->f_power_acc_len));
 
   value = word;
   update_sensor_fmon(f, sensor, word, KATCP_STATUS_NOMINAL);
