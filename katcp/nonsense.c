@@ -191,7 +191,7 @@ int extract_double_katcp(struct katcp_dispatch *d, struct katcp_sensor *sn)
   a = sn->s_acquire;
 
   if(sn->s_type != KATCP_SENSOR_FLOAT){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "logic problem - sensor operation applied to type %d", sn->s_type);
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "logic problem - double operation applied to type %d", sn->s_type);
     return -1;
   }
 
@@ -199,7 +199,7 @@ int extract_double_katcp(struct katcp_dispatch *d, struct katcp_sensor *sn)
   da = a->a_more;
 
   if((da->da_current < ds->ds_min) || (da->da_current > ds->ds_max)){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "bad extracted float (%f) for sensor %s", da->da_current, sn->s_name);
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "extracted float (%f) for sensor %s not in advertised range", da->da_current, sn->s_name);
     return -1;
   }
 
@@ -215,7 +215,7 @@ int create_acquire_double_katcp(struct katcp_dispatch *d, struct katcp_acquire *
     case KATCP_SENSOR_FLOAT :
       break;
     default :
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "function incapable of creating type %d", type);
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "double function incapable of creating type %d", type);
       return -1;
   }
 
@@ -1106,6 +1106,7 @@ void destroy_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a)
   int i;
   struct katcp_sensor *s;
   struct katcp_integer_acquire *ia;
+  struct katcp_double_acquire *da;
 
   if(a->a_release){
     (*(a->a_release))(d, a);
@@ -1135,11 +1136,20 @@ void destroy_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a)
     switch(a->a_type){
       case KATCP_SENSOR_INTEGER :
       case KATCP_SENSOR_BOOLEAN :
-        log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "destroing acquire %p type %d", a, a->a_type);
+        log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "destroying acquire %p type %d", a, a->a_type);
 
         ia = a->a_more;
         ia->ia_get = NULL;
         break;
+
+#ifdef KATCP_USE_FLOATS
+      case KATCP_SENSOR_FLOAT :
+        log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "destroying acquire %p type %d", a, a->a_type);
+
+        da = a->a_more;
+        da->da_get = NULL;
+        break;
+#endif
 
       default : 
         log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "destroying unsupported sensor type %d", a->a_type);
@@ -1395,6 +1405,7 @@ int run_timer_acquire_katcp(struct katcp_dispatch *d, void *data)
 static int run_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a, int forced)
 {
   struct katcp_integer_acquire *ia;
+  struct katcp_double_acquire *da;
   struct timeval now, legal;
   struct katcp_shared *s;
 
@@ -1418,7 +1429,15 @@ static int run_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a, 
       case KATCP_SENSOR_BOOLEAN :
         ia = a->a_more;
         if(ia->ia_get){
+          ia->ia_current = (*(ia->ia_get))(d, a);
           log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "acquired integer result %d for %p", ia->ia_current, a);
+        }
+        break;
+      case KATCP_SENSOR_FLOAT :
+        da = a->a_more;
+        if(da->da_get){
+          da->da_current = (*(da->da_get))(d, a);
+          log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "acquired floating point result %e for %p", da->da_current, a);
         }
         break;
       default :
@@ -2864,6 +2883,7 @@ int sensor_dump_cmd_katcp(struct katcp_dispatch *d, int argc)
   struct katcp_nonsense *ns;
   struct katcp_acquire *a;
   struct katcp_integer_acquire *ia;
+  struct katcp_double_acquire *da;
   int i, j, got;
 
   s = d->d_shared;
@@ -2896,6 +2916,11 @@ int sensor_dump_cmd_katcp(struct katcp_dispatch *d, int argc)
         ia = a->a_more;
         log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "acquire current value %d, get %p and local state %p", ia->ia_current, ia->ia_get, a->a_local);
         break;
+      case KATCP_SENSOR_FLOAT  :
+        da = a->a_more;
+        log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "acquire current value %e, get %p and local state %p", da->da_current, da->da_get, a->a_local);
+        break;
+
     }
     if(got == 0){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "logic problem - acquire does not know about this sensor");

@@ -153,7 +153,7 @@ struct fmon_state
 
   struct fmon_sensor f_sensors[FMON_BOARD_SENSORS];
 
-  unsigned int f_power_acc_len;
+  unsigned int f_amplitude_acc_len;
   double f_adc_scale_factor;
 };
 
@@ -353,7 +353,7 @@ struct fmon_state *create_fmon(char *server, int verbose, unsigned int timeout, 
   f->f_reprobe = reprobe;
   f->f_cycle = 0;
 
-  f->f_power_acc_len = 0x10000;
+  f->f_amplitude_acc_len = 0x10000;
   f->f_adc_scale_factor = FMON_KATADC_SCALE;
 
   f->f_fs = 0;
@@ -1425,7 +1425,7 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, char *name)
   return 0;  
 }
 
-int check_fengine_power(struct fmon_state *f, struct fmon_input *n, char *name)
+int check_fengine_amplitude(struct fmon_state *f, struct fmon_input *n, char *name)
 {
   uint32_t word;
   double result;
@@ -1441,7 +1441,7 @@ int check_fengine_power(struct fmon_state *f, struct fmon_input *n, char *name)
 
   value = word;
 
-  result = sqrt((double)value / ((double)f->f_power_acc_len)) * f->f_adc_scale_factor;
+  result = sqrt((double)value / ((double)f->f_amplitude_acc_len)) * f->f_adc_scale_factor;
 
 #ifdef DEBUG
   fprintf(stderr, "raw value 0x%x -> %f\n", value, result);
@@ -1507,7 +1507,7 @@ int check_all_inputs_fmon(struct fmon_state *f)
     fprintf(stderr, "checking status %s\n", buffer);
 #endif
 
-    result += check_fengine_power(f, &(f->f_inputs[i]), buffer);
+    result += check_fengine_amplitude(f, &(f->f_inputs[i]), buffer);
   }
 
   if(f->f_dirty){
