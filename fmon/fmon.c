@@ -66,6 +66,9 @@
 
 #define FMON_GOOD_DSP_CLOCK 200000000
 
+#define FMON_KATADC_SCALE   1.0/184.3
+#define FMON_IADC_SCALE     1.0/368.0
+
 volatile int run;
 
 static char inputs_fmon[FMON_MAX_INPUTS] = { 'x', 'y' };
@@ -151,6 +154,7 @@ struct fmon_state
   struct fmon_sensor f_sensors[FMON_BOARD_SENSORS];
 
   unsigned int f_power_acc_len;
+  double f_adc_scale_factor;
 };
 
 /*************************************************************************/
@@ -350,6 +354,7 @@ struct fmon_state *create_fmon(char *server, int verbose, unsigned int timeout, 
   f->f_cycle = 0;
 
   f->f_power_acc_len = 0x10000;
+  f->f_adc_scale_factor = FMON_KATADC_SCALE;
 
   f->f_fs = 0;
   f->f_xs = 0;
@@ -1436,7 +1441,7 @@ int check_fengine_power(struct fmon_state *f, struct fmon_input *n, char *name)
 
   value = word;
 
-  result = sqrt((double)value / ((double)f->f_power_acc_len));
+  result = sqrt((double)value / ((double)f->f_power_acc_len)) * f->f_adc_scale_factor;
 
 #ifdef DEBUG
   fprintf(stderr, "raw value 0x%x -> %f\n", value, result);
