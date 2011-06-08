@@ -113,12 +113,12 @@ void print_inorder_avltree(struct katcp_dispatch *d, struct avl_node *n, void (*
   if (n == NULL)
     return;
   print_inorder_avltree(d, n->n_left, fn_print);
-#if DEBUG 
+#if 0 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "avlnode: %s",n->n_key);
   fprintf(stderr,"avltree: <%s>\n", n->n_key);
+#endif
   if (fn_print != NULL)
     (*fn_print)(d, n->n_data);
-#endif
   print_inorder_avltree(d, n->n_right, fn_print);
 }
 

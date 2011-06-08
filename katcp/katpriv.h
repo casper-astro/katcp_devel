@@ -458,7 +458,7 @@ struct katcp_type {
   void (*t_free)(void *);
   int  (*t_copy)(void *src, void *dest, int);
   int  (*t_compare)(void *, void *);
-  void *(*t_parse)(char *);
+  void *(*t_parse)(char **);
 };
 
 struct katcp_stack_obj {

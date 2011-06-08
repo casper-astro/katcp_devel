@@ -225,8 +225,6 @@ struct kcs_sm_edge *compare_generic_setup_mod(struct katcp_dispatch *d, struct k
   return e;
 }
 
-
-
 int init_mod(struct katcp_dispatch *d)
 {
   int rtn;
@@ -242,5 +240,12 @@ int init_mod(struct katcp_dispatch *d)
   rtn  = store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_OPERATION_ADD, &rpn_add_setup_mod, NULL, NULL, NULL, NULL, NULL);
   rtn  = store_data_type_katcp(d, KATCP_TYPE_EDGE, KATCP_EDGE_COMPARE_EQUAL, &compare_generic_setup_mod, NULL, NULL, NULL, NULL, NULL);
 
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "successfully loaded mod_simple_ops");
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "added operations:");
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", KATCP_OPERATION_ADD);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "added edge test:");
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", KATCP_EDGE_COMPARE_EQUAL);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "to see the full operation list: ?sm oplist");
+  
   return rtn;
 }

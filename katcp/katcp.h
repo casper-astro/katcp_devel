@@ -429,8 +429,8 @@ int version_cmd_katcp(struct katcp_dispatch *d, int argc);
 #endif
 
 /*katcp_type functions*/
-int store_data_type_katcp(struct katcp_dispatch *d, char *t_name, char *d_name, void *d_data, void (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(void *, void *), void *(*fn_parse)(char *));
-int register_name_type_katcp(struct katcp_dispatch *d, char *name, void (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(void *, void *), void *(*fn_parse)(char *));
+int store_data_type_katcp(struct katcp_dispatch *d, char *t_name, char *d_name, void *d_data, void (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(void *, void *), void *(*fn_parse)(char **));
+int register_name_type_katcp(struct katcp_dispatch *d, char *name, void (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(void *, void *), void *(*fn_parse)(char **));
 int deregister_type_katcp(struct katcp_dispatch *d, char *name);
 int find_name_id_type_katcp(struct katcp_dispatch *d, char *type);
 struct katcp_type *find_name_type_katcp(struct katcp_dispatch *d, char *str);

@@ -155,12 +155,10 @@ void print_stack_obj_katcp(struct katcp_dispatch *d, struct katcp_stack_obj *o)
   t = o->o_type;
 #ifdef DEBUG
   fprintf(stderr, "stack: type: %p data (%p)\n", o->o_type, o->o_data);
-#ifdef DEBUG
   fprintf(stderr, "stack obj: %s %p %p\n",t->t_name, t, t->t_print);
 #endif
   if ((t != NULL) && (t->t_print != NULL))
     (*t->t_print)(d, o->o_data);
-#endif
 }
 
 void print_stack_katcp(struct katcp_dispatch *d, struct katcp_stack *s)

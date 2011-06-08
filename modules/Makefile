@@ -9,15 +9,17 @@ CFLAGS += -DVERSION=\"$(GITVER)\"
 LDFLAGS += -shared 
 vpath %.c ../kcs
 
-MOD = mod_simple_ops.so
-SRC = mod_simple_ops.c statemachine.c
+STATEMACHINE = statemachine.c
+#MOD = mod_simple_ops.so
+SRC = mod_conf_parser.c mod_simple_ops.c
 
-OBJ = $(patsubst %.c,%.o,$(SRC))
+OBJ = $(patsubst %.c,%.o,$(SRC)) $(patsubst %.c,%.o,$(STATEMACHINE))
+MOD = $(patsubst %.c,%.so,$(SRC))
 
 all: $(MOD)
 
-$(MOD): $(OBJ)
-	$(CC) $(LDFLAGS) -Wl,-soname=$(MOD) -o $@ $(OBJ) $(LIB)
+%.so: %.o statemachine.o
+	$(CC) $(LDFLAGS) -Wl,-soname=$@ $^ -o $@ $(LIB)
 
 %.o: %.c $(wildcard *.h)
 	$(CC) $(CFLAGS) -c $< $(INC) -o $@ 
