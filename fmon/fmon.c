@@ -85,6 +85,8 @@ struct fmon_sensor_template{
   int t_type;
   int t_min;
   int t_max;
+  double t_fmin;
+  double t_fmax;
 };
 
 struct fmon_sensor_template board_template[FMON_BOARD_SENSORS] = {
@@ -93,10 +95,10 @@ struct fmon_sensor_template board_template[FMON_BOARD_SENSORS] = {
 };
 
 struct fmon_sensor_template input_template[FMON_INPUT_SENSORS] = {
-  { "%s.adc.overrange",  "adc overrange indicator", KATCP_SENSOR_BOOLEAN, 0, 1 },
-  { "%s.adc.terminated", "adc disabled",            KATCP_SENSOR_BOOLEAN, 0, 1 },
-  { "%s.fft.overrange",  "fft overrange indicator", KATCP_SENSOR_BOOLEAN, 0, 1 },
-  { "%s.adc.power.raw",  "raw power",               KATCP_SENSOR_INTEGER, 0, INT_MAX }
+  { "%s.adc.overrange",  "adc overrange indicator", KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0 },
+  { "%s.adc.terminated", "adc disabled",            KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0 },
+  { "%s.fft.overrange",  "fft overrange indicator", KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0 },
+  { "%s.adc.power.raw",  "raw power",               KATCP_SENSOR_FLOAT,   0, 0, 0.0, 65000.0}
 };
 
 struct fmon_sensor{
@@ -104,10 +106,13 @@ struct fmon_sensor{
   char *s_name;
   char *s_description;
   int s_value;
+  double s_fvalue;
   int s_status;
   int s_new;
   int s_min;
   int s_max;
+  double s_fmin;
+  double s_fmax;
 };
 
 struct fmon_input{
@@ -306,6 +311,9 @@ int populate_sensor_fmon(struct fmon_sensor *s, struct fmon_sensor_template *t, 
   s->s_min = t->t_min;
   s->s_max = t->t_max;
 
+  s->s_fmin = t->t_fmin;
+  s->s_fmax = t->t_fmax;
+
   return 0;
 }
 
@@ -351,6 +359,7 @@ struct fmon_state *create_fmon(char *server, int verbose, unsigned int timeout, 
     s->s_type = (-1);
     s->s_name = NULL;
     s->s_value = 0;
+    s->s_fvalue = 0.0;
     s->s_status = KATCP_STATUS_UNKNOWN;
     s->s_new = 1;
   }
@@ -364,6 +373,7 @@ struct fmon_state *create_fmon(char *server, int verbose, unsigned int timeout, 
       s->s_type = (-1);
       s->s_name = NULL;
       s->s_value = 0;
+      s->s_fvalue = 0.0;
       s->s_status = KATCP_STATUS_UNKNOWN;
       s->s_new = 1;
     }
@@ -966,7 +976,7 @@ int list_input_sensors_fmon(struct fmon_state *f)
 
 /****************************************************************************/
 
-int print_intbool_list_fmon(struct fmon_state *f, struct fmon_sensor *s)
+int print_sensor_list_fmon(struct fmon_state *f, struct fmon_sensor *s)
 {
   append_string_katcl(f->f_report, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#sensor-list");
   append_string_katcl(f->f_report,                    KATCP_FLAG_STRING, s->s_name);
@@ -974,11 +984,17 @@ int print_intbool_list_fmon(struct fmon_state *f, struct fmon_sensor *s)
   append_string_katcl(f->f_report,                    KATCP_FLAG_STRING, "none");
 
   switch(s->s_type){
+    case KATCP_SENSOR_FLOAT : 
+      append_string_katcl(f->f_report,         KATCP_FLAG_STRING, "float");
+
+      append_double_katcl(f->f_report,         KATCP_FLAG_DOUBLE, s->s_fmin);
+      append_double_katcl(f->f_report,    KATCP_FLAG_DOUBLE | KATCP_FLAG_LAST, s->s_fmax);
+      break;
     case KATCP_SENSOR_INTEGER : 
       append_string_katcl(f->f_report,         KATCP_FLAG_STRING, "integer");
 
-      append_unsigned_long_katcl(f->f_report,  KATCP_FLAG_ULONG, 0);
-      append_unsigned_long_katcl(f->f_report,  KATCP_FLAG_ULONG | KATCP_FLAG_LAST, INT_MAX);
+      append_unsigned_long_katcl(f->f_report,  KATCP_FLAG_ULONG, s->s_max);
+      append_unsigned_long_katcl(f->f_report,  KATCP_FLAG_ULONG | KATCP_FLAG_LAST, s->s_max);
       break;
     case KATCP_SENSOR_BOOLEAN : 
       append_string_katcl(f->f_report,  KATCP_FLAG_LAST | KATCP_FLAG_STRING, "boolean");
@@ -988,7 +1004,7 @@ int print_intbool_list_fmon(struct fmon_state *f, struct fmon_sensor *s)
   return 0;
 }
 
-int print_intbool_status_fmon(struct fmon_state *f, struct fmon_sensor *s)
+int print_sensor_status_fmon(struct fmon_state *f, struct fmon_sensor *s)
 {
   struct timeval now;
   unsigned int milli;
@@ -1001,7 +1017,16 @@ int print_intbool_status_fmon(struct fmon_state *f, struct fmon_sensor *s)
   append_string_katcl(f->f_report, KATCP_FLAG_STRING, "1");
   append_string_katcl(f->f_report, KATCP_FLAG_STRING, s->s_name);
   append_string_katcl(f->f_report, KATCP_FLAG_STRING, name_status_sensor_katcl(s->s_status));
-  append_unsigned_long_katcl(f->f_report, KATCP_FLAG_LAST | KATCP_FLAG_ULONG, s->s_value);
+
+  switch(s->s_type){
+    case KATCP_SENSOR_INTEGER : 
+    case KATCP_SENSOR_BOOLEAN : 
+      append_unsigned_long_katcl(f->f_report, KATCP_FLAG_LAST | KATCP_FLAG_ULONG, s->s_value);
+      break;
+    case KATCP_SENSOR_FLOAT : 
+      append_double_katcl(f->f_report, KATCP_FLAG_LAST | KATCP_FLAG_DOUBLE, s->s_fvalue);
+      break;
+  }
 
   return 0;
 }
@@ -1235,9 +1260,9 @@ int update_sensor_status_fmon(struct fmon_state *f, struct fmon_sensor *s, unsig
     s->s_status = status;
     if(s->s_new){
       s->s_new = 0;
-      print_intbool_list_fmon(f, s);
+      print_sensor_list_fmon(f, s);
     }
-    print_intbool_status_fmon(f, s);
+    print_sensor_status_fmon(f, s);
   }
 
   return 0;
@@ -1248,6 +1273,15 @@ int update_sensor_fmon(struct fmon_state *f, struct fmon_sensor *s, int value, u
   int change;
 
   change = 0;
+
+  switch(s->s_type){
+    case KATCP_SENSOR_BOOLEAN :
+    case KATCP_SENSOR_INTEGER :
+      break;
+    default :
+      log_message_katcl(f->f_report, KATCP_LEVEL_WARN, f->f_server, "logic problem, updating integer for sensor type %d", s->s_type);
+      return -1;
+  }
 
   if(value != s->s_value){
     s->s_value = value;
@@ -1262,9 +1296,41 @@ int update_sensor_fmon(struct fmon_state *f, struct fmon_sensor *s, int value, u
   if(change){
     if(s->s_new){
       s->s_new = 0;
-      print_intbool_list_fmon(f, s);
+      print_sensor_list_fmon(f, s);
     }
-    print_intbool_status_fmon(f, s);
+    print_sensor_status_fmon(f, s);
+  }
+
+  return 0;
+}
+
+int update_sensor_double_fmon(struct fmon_state *f, struct fmon_sensor *s, double value, unsigned int status)
+{
+  int change;
+
+  change = 0;
+
+  if(s->s_type != KATCP_SENSOR_FLOAT){
+    log_message_katcl(f->f_report, KATCP_LEVEL_WARN, f->f_server, "logic problem, updating float for sensor type %d", s->s_type);
+    return -1;
+  }
+
+  if(value != s->s_fvalue){
+    s->s_fvalue = value;
+    change++;
+  }
+
+  if(status != s->s_status){
+    s->s_status = status;
+    change++;
+  }
+
+  if(change){
+    if(s->s_new){
+      s->s_new = 0;
+      print_sensor_list_fmon(f, s);
+    }
+    print_sensor_status_fmon(f, s);
   }
 
   return 0;
@@ -1376,7 +1442,7 @@ int check_fengine_power(struct fmon_state *f, struct fmon_input *n, char *name)
   fprintf(stderr, "raw value 0x%x -> %f\n", value, result);
 #endif
 
-  update_sensor_fmon(f, sensor, result, KATCP_STATUS_NOMINAL);
+  update_sensor_double_fmon(f, sensor, result, KATCP_STATUS_NOMINAL);
 
   return 0;  
 }

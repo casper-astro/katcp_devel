@@ -14,6 +14,8 @@ Utilities for particular tasks
 
   bulkread    - a utlity to perform a ?bulkread request
 
-  kcs         - a control server using katcp
+  fmon        - fengine monitoring utility to poll gateware status registers (used by kcs)
   tmon        - monitor a local ntp server via katcp (used by kcs)
-  scripts     - supporting logic to interface kcs to corr 
+
+  scripts     - supporting logic to interface kcs to corr (used by kcs, temporary hack)
+  kcs         - a control server using katcp (incomplete)

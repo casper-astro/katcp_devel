@@ -154,6 +154,10 @@ static int pipe_from_file_katcp(struct katcp_dispatch *dl, char *file)
 
   /* now in child */
 
+#if 0 /* risky, might clobber stuff we still need */
+  shutdown_katcp(dl);
+#endif
+
   close(fds[1]);
 
   fd = open(file, O_RDONLY);
