@@ -182,7 +182,10 @@ int pushstack_statemachine_kcs(struct katcp_dispatch *d, struct kcs_sm_state *s,
   fprintf(stderr, "statemachine: pushstack call in sm [%s] node <%s> with o:(%p)\n",m->m_name, s->s_name, o);
 #endif
 
+  return push_stack_obj_katcp(stack, o);
+#if 0
   return push_stack_obj_katcp(stack, copy_obj_stack_katcp(o));
+#endif
 }
 
 struct kcs_sm_op *pushstack_setup_statemachine_kcs(struct katcp_dispatch *d, struct kcs_sm_state *s)
@@ -644,7 +647,7 @@ int statemachine_print_stack_kcs(struct katcp_dispatch *d)
   struct kcs_sm *m;
   char *m_name;
 
-  m_name = arg_string_katcp(d, 2);
+  m_name = arg_string_katcp(d, 1);
 
   if (m_name == NULL)
     return KATCP_RESULT_FAIL;
@@ -667,7 +670,7 @@ int statemachine_print_oplist_kcs(struct katcp_dispatch *d)
     return KATCP_RESULT_FAIL;
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "listing avaliable statemachine operations");
-  print_type_katcp(d, t); 
+  print_type_katcp(d, t, 1); 
 
   return KATCP_RESULT_OK;
 }
@@ -826,7 +829,7 @@ int statemachine_greeting_kcs(struct katcp_dispatch *d)
   prepend_inform_katcp(d);
   append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"ds (print the entire datastore)");
   prepend_inform_katcp(d);
-  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"ps [sm name] (print statemachine stack)");
+  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"[sm name] ps (print statemachine stack)");
   prepend_inform_katcp(d);
   append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"oplist (print op list)");
   return KATCP_RESULT_OK;
@@ -849,7 +852,7 @@ int statemachine_cmd(struct katcp_dispatch *d, int argc)
     case 3:
       if (strcmp(arg_string_katcp(d, 1), "declare") == 0)
         return statemachine_declare_kcs(d);
-      if (strcmp(arg_string_katcp(d, 1), "ps") == 0)
+      if (strcmp(arg_string_katcp(d, 2), "ps") == 0)
         return statemachine_print_stack_kcs(d);
       if (strcmp(arg_string_katcp(d, 1), "loadmod") == 0)
         return statemachine_loadmod_kcs(d);

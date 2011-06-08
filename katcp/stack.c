@@ -6,7 +6,8 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <katpriv.h>
+#include "katpriv.h"
+#include "katcp.h"
 
 struct katcp_stack *create_stack_katcp()
 {
@@ -39,6 +40,20 @@ struct katcp_stack_obj *create_obj_stack_katcp(void *data, struct katcp_type *ty
   return o;
 }
 
+struct katcp_stack_obj *create_named_type_obj_stack_katcp(struct katcp_dispatch *d, void *data, char *str)
+{
+  struct katcp_type *t;
+  
+  if (str == NULL || data == NULL)
+    return NULL;
+
+  t = find_name_type_katcp(d, str);
+  if (t == NULL)
+    return NULL;
+
+  return create_obj_stack_katcp(data, t);
+}
+
 struct katcp_stack_obj *copy_obj_stack_katcp(struct katcp_stack_obj *o)
 {
   if (o == NULL)
@@ -54,8 +69,10 @@ void destroy_obj_stack_katcp(struct katcp_stack_obj *o)
 #ifdef DEBUG
     fprintf(stderr, "stack obj: %s %p %p\n",t->t_name, t, t->t_free);
 #endif
+#if 0
     if ((t != NULL) && (t->t_free != NULL))
       (*t->t_free)(o->o_data);
+#endif
     o->o_data = NULL;
     o->o_type = NULL;
     free(o);
@@ -101,6 +118,20 @@ int push_stack_katcp(struct katcp_stack *s, void *data, struct katcp_type *type)
     return -1;
 
   o = create_obj_stack_katcp(data, type);
+  if (o == NULL)
+    return -1;
+  
+  return push_stack_obj_katcp(s, o);
+}
+
+int push_named_stack_katcp(struct katcp_dispatch *d, struct katcp_stack *s, void *data, char *str)
+{
+  struct katcp_stack_obj *o;
+
+  if (s == NULL || str == NULL)
+    return -1;
+
+  o = create_named_type_obj_stack_katcp(d, data, str);
   if (o == NULL)
     return -1;
   

@@ -438,7 +438,7 @@ struct katcp_type *get_id_type_katcp(struct katcp_dispatch *d, int id);
 void *get_key_data_type_katcp(struct katcp_dispatch *d, char *type, char *key);
 void destroy_type_list_katcp(struct katcp_dispatch *d);
 void print_types_katcp(struct katcp_dispatch *d);
-void print_type_katcp(struct katcp_dispatch *d, struct katcp_type *t);
+void print_type_katcp(struct katcp_dispatch *d, struct katcp_type *t, int flags);
 
 #ifdef DEBUG
 void sane_shared_katcp(struct katcp_dispatch *d);
@@ -450,9 +450,11 @@ void sane_shared_katcp(struct katcp_dispatch *d);
 
 struct katcp_stack *create_stack_katcp();
 struct katcp_stack_obj *create_obj_stack_katcp(void *data, struct katcp_type *type);
+struct katcp_stack_obj *create_named_type_obj_stack_katcp(struct katcp_dispatch *d, void *data, char *str);
 struct katcp_stack_obj *copy_obj_stack_katcp(struct katcp_stack_obj *o);
 int push_stack_katcp(struct katcp_stack *s, void *data, struct katcp_type *type);
 int push_stack_obj_katcp(struct katcp_stack *s, struct katcp_stack_obj *o);
+int push_named_stack_katcp(struct katcp_dispatch *d, struct katcp_stack *s, void *data, char *str);
 struct katcp_stack_obj *pop_stack_katcp(struct katcp_stack *s);
 struct katcp_stack_obj *peek_stack_katcp(struct katcp_stack *s);
 struct katcp_stack_obj *index_stack_katcp(struct katcp_stack *s, int indx);

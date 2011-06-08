@@ -13,6 +13,7 @@
 #include <kcs.h>
 
 #define KATCP_OPERATION_CONF_PARSE  "confparser"
+#define KATCP_OPERATION_CONF_SEARCH "confsearch"
 #define KATCP_TYPE_CONFIG_SETTING   "configsetting"
 
 #define OLABEL        '['
@@ -83,7 +84,7 @@ void *parse_config_setting_type_mod(char **str)
   }
 
 #ifdef DEBUG
-  fprintf(stderr, "config_parse_setup_mod: created new token: %s %s\n", s->s_name, s->s_value);
+  fprintf(stderr, "config_parse_setup_mod: created new configsetting: %s %s\n", s->s_name, s->s_value);
 #endif
 
   return s;
@@ -331,7 +332,7 @@ int config_parser_mod(struct katcp_dispatch *d, struct kcs_sm_state *s, struct k
  
   if (a->o_type != stringtype){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "config parser expects file path to be string type");
-    destroy_obj_stack_katcp(a);
+    //destroy_obj_stack_katcp(a);
     return -1;
   }
  
@@ -343,7 +344,7 @@ int config_parser_mod(struct katcp_dispatch *d, struct kcs_sm_state *s, struct k
   
   rtn = start_config_parser_mod(d, a->o_data);
   
-  destroy_obj_stack_katcp(a);
+  //destroy_obj_stack_katcp(a);
   
   return rtn;
 }
@@ -357,12 +358,89 @@ struct kcs_sm_op *config_parser_setup_mod(struct katcp_dispatch *d, struct kcs_s
     return NULL;
 
 #ifdef DEBUG
-  fprintf(stderr, "mod_config_parser: created op (%p)\n", op);
+  fprintf(stderr, "mod_config_parser: created op %s (%p)\n", KATCP_OPERATION_CONF_PARSE, op);
 #endif
 
   return op;
 }
 
+struct config_setting *search_config_settings_mod(struct katcp_dispatch *d, void *data)
+{
+  char *str;
+  str = data;
+  return get_key_data_type_katcp(d, KATCP_TYPE_CONFIG_SETTING, str);
+}
+
+int config_search_mod(struct katcp_dispatch *d, struct kcs_sm_state *s, struct katcp_stack_obj *o)
+{
+  struct kcs_sm *m;
+  struct katcp_stack *stack;
+  struct katcp_stack_obj *a;
+  struct katcp_type *stringtype;
+  struct config_setting *cs;
+  
+  if (o != NULL)
+    return -1;
+  
+  m = s->s_sm;
+  if (m == NULL)
+    return -1;
+
+  stack = m->m_stack;
+  if (stack == NULL)
+    return -1;
+
+  stringtype = find_name_type_katcp(d, KATCP_TYPE_STRING);
+  if (stringtype == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "config search needs string type support");
+    return -1;
+  }
+
+  a = pop_stack_katcp(stack);
+  if (a == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "config search expects search string on the stack");
+    return -1;
+  }
+ 
+  if (a->o_type != stringtype){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "config search expects search string to be string type");
+    //destroy_obj_stack_katcp(a);
+    return -1;
+  }
+  
+  cs = search_config_settings_mod(d, a->o_data);
+  
+  //destroy_obj_stack_katcp(a);
+
+  if (cs == NULL){
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "config search not found!");
+    return -1;
+  }
+
+  print_config_setting_type_mod(d, cs);
+  
+  if (push_named_stack_katcp(d, stack, cs, KATCP_TYPE_CONFIG_SETTING) < 0){
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "config search could not push return to stack!");
+    return -1;
+  }
+
+  return 0;
+}
+
+struct kcs_sm_op *config_search_setup_mod(struct katcp_dispatch *d, struct kcs_sm_state *s)
+{
+  struct kcs_sm_op *op;
+  
+  op = create_sm_op_kcs(&config_search_mod, NULL);
+  if (op == NULL)
+    return NULL;
+
+#ifdef DEBUG
+  fprintf(stderr, "mod_config_parser: created op %s (%p)\n", KATCP_OPERATION_CONF_SEARCH, op);
+#endif
+
+  return op;
+}
 
 int init_mod(struct katcp_dispatch *d)
 {
@@ -384,10 +462,12 @@ int init_mod(struct katcp_dispatch *d)
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", KATCP_TYPE_CONFIG_SETTING);
 #endif  
 
-  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_OPERATION_CONF_PARSE, &config_parser_setup_mod, NULL, NULL, NULL, NULL, NULL);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "added operations:");
+  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_OPERATION_CONF_PARSE, &config_parser_setup_mod, NULL, NULL, NULL, NULL, NULL);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", KATCP_OPERATION_CONF_PARSE);
-  
+  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_OPERATION_CONF_SEARCH, &config_search_setup_mod, NULL, NULL, NULL, NULL, NULL);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", KATCP_OPERATION_CONF_SEARCH);
+
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "to see the full operation list: ?sm oplist");
   
   return rtn;

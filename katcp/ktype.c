@@ -411,19 +411,18 @@ void *get_key_data_type_katcp(struct katcp_dispatch *d, char *type, char *key)
   return get_node_data_avltree(n);
 }
 
-void print_type_katcp(struct katcp_dispatch *d, struct katcp_type *t)
+void print_type_katcp(struct katcp_dispatch *d, struct katcp_type *t, int flags)
 {
   if (t != NULL){
     fprintf(stderr, "katcp_type: type <%s> (%p) with tree (%p) print:(%p) free:(%p) copy:(%p) compare:(%p) parse:(%p)\n", t->t_name, t, t->t_tree, t->t_print, t->t_free, t->t_copy, t->t_compare, t->t_parse);
     if (t->t_tree != NULL)
     //print_avltree(d, t->t_tree->t_root, 0, t->t_print);
-      print_inorder_avltree(d, t->t_tree->t_root, t->t_print);
+      print_inorder_avltree(d, t->t_tree->t_root, t->t_print, flags);
   }
 }
 
 void print_types_katcp(struct katcp_dispatch *d)
 {
-#if 1
   struct katcp_shared *s;
   struct katcp_type **ts, *t;
   int size, i;
@@ -445,9 +444,8 @@ void print_types_katcp(struct katcp_dispatch *d)
 #ifdef DEBUG
     fprintf(stderr, "katcp_type: [%d] ",i);
 #endif
-    print_type_katcp(d, t);
+    print_type_katcp(d, t, 0);
   }
-#endif
 }
 
 void destroy_type_list_katcp(struct katcp_dispatch *d)

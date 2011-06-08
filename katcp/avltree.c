@@ -108,18 +108,24 @@ void print_avltree(struct katcp_dispatch *d, struct avl_node *n, int depth, void
 #endif
 }
 
-void print_inorder_avltree(struct katcp_dispatch *d, struct avl_node *n, void (*fn_print)(struct katcp_dispatch *,void *))
+void print_inorder_avltree(struct katcp_dispatch *d, struct avl_node *n, void (*fn_print)(struct katcp_dispatch *,void *), int flags)
 {
   if (n == NULL)
     return;
-  print_inorder_avltree(d, n->n_left, fn_print);
+  
+  print_inorder_avltree(d, n->n_left, fn_print, flags);
 #if 0 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "avlnode: %s",n->n_key);
   fprintf(stderr,"avltree: <%s>\n", n->n_key);
 #endif
+  
+  if (flags)
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", n->n_key);
+
   if (fn_print != NULL)
     (*fn_print)(d, n->n_data);
-  print_inorder_avltree(d, n->n_right, fn_print);
+  
+  print_inorder_avltree(d, n->n_right, fn_print, flags);
 }
 
 int check_balances_avltree(struct avl_node *n, int depth)
@@ -480,8 +486,8 @@ int add_node_avltree(struct avl_tree *t, struct avl_node *n)
       }
       c = c->n_left;
     } else if (cmp == 0){
-#if DEBUG > 3
-      fprintf(stderr,"avl_tree: error none seems to match an existing node\n");
+#ifdef DEBUG
+      fprintf(stderr,"avl_tree: error node seems to match an existing node\n");
 #endif
       run = 0;
       return -1;
