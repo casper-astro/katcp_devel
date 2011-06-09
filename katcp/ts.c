@@ -119,6 +119,26 @@ static int append_ts_katcp(struct katcp_dispatch *d, struct katcp_time *ts)
   return 0;
 }
 
+static struct katcp_time *find_make_append_ts_katcp(struct katcp_dispatch *d, int (*call)(struct katcp_dispatch *d, void *data), void *data)
+{
+  struct katcp_time *ts;
+
+  ts = find_ts_katcp(d, data);
+  if(ts == NULL){
+    ts = create_ts_katcp(call, data);
+    if(ts == NULL){
+      return NULL;
+    }
+
+    if(append_ts_katcp(d, ts) < 0){
+      destroy_ts_katcp(d, ts);
+      return NULL;
+    }
+  }
+
+  return ts;
+}
+
 /* functions to schedule things at particular times *******************************/
 
 int register_every_ms_katcp(struct katcp_dispatch *d, unsigned int milli, int (*call)(struct katcp_dispatch *d, void *data), void *data)
@@ -146,17 +166,9 @@ int register_every_tv_katcp(struct katcp_dispatch *d, struct timeval *tv, int (*
   }
 #endif
 
-  ts = find_ts_katcp(d, data);
+  ts = find_make_append_ts_katcp(d, call, data);
   if(ts == NULL){
-    ts = create_ts_katcp(call, data);
-    if(ts == NULL){
-      return -1;
-    }
-
-    if(append_ts_katcp(d, ts) < 0){
-      destroy_ts_katcp(d, ts);
-      return -1;
-    }
+    return -1;
   }
 
   gettimeofday(&now, NULL);
@@ -188,17 +200,9 @@ int register_at_tv_katcp(struct katcp_dispatch *d, struct timeval *tv, int (*cal
   }
 #endif
 
-  ts = find_ts_katcp(d, data);
+  ts = find_make_append_ts_katcp(d, call, data);
   if(ts == NULL){
-    ts = create_ts_katcp(call, data);
-    if(ts == NULL){
-      return -1;
-    }
-
-    if(append_ts_katcp(d, ts) < 0){
-      destroy_ts_katcp(d, ts);
-      return -1;
-    }
+    return -1;
   }
 
   ts->t_interval.tv_sec = 0;
@@ -210,6 +214,105 @@ int register_at_tv_katcp(struct katcp_dispatch *d, struct timeval *tv, int (*cal
   ts->t_armed = 1;
 
   return 0;
+}
+
+int register_in_tv_katcp(struct katcp_dispatch *d, struct timeval *tv, int (*call)(struct katcp_dispatch *d, void *data), void *data)
+{
+  struct katcp_shared *s;
+  struct katcp_time *ts;
+  struct timeval now;
+
+  s = d->d_shared;
+  if(s == NULL){
+    return -1;
+  }
+
+#ifdef DEBUG
+  if(tv->tv_usec >= 1000000){
+    fprintf(stderr, "at tv: major logic problem: usec too large at %luus\n", tv->tv_usec);
+    abort();
+  }
+#endif
+
+  ts = find_make_append_ts_katcp(d, call, data);
+  if(ts == NULL){
+    return -1;
+  }
+
+  ts->t_interval.tv_sec = 0;
+  ts->t_interval.tv_usec = 0;
+
+  gettimeofday(&now, NULL);
+
+  add_time_katcp(&(ts->t_when), &now, tv);
+
+  ts->t_armed = 1;
+
+  return 0;
+}
+
+/* involve notices *******************************************************************/
+
+static int trigger_time_katcp(struct katcp_dispatch *d, void *data, int periodic)
+{
+  struct katcp_notice *n;
+  struct katcl_parse *p;
+
+  n = data;
+
+  /* TODO: check somehow that we really have received a notice */
+
+  p = create_parse_katcl();
+  if(p == NULL){
+    return -1; /* TODO: figure out what a return code really does to the timer */
+  }
+
+  add_plain_parse_katcl(p, KATCP_FLAG_STRING | KATCP_FLAG_FIRST | KATCP_FLAG_LAST, KATCP_WAKE_TIMEOUT);
+
+  set_parse_notice_katcp(d, n, p);
+  trigger_notice_katcp(d, n);
+
+  /* for timers which are not periodic, or periodic timers which have no subscribers */
+  if((periodic == 0) || (n->n_count == 0)){
+    release_notice_katcp(d, n);
+    return -1;
+  } 
+
+  return 0;
+}
+
+static int trigger_every_time_katcp(struct katcp_dispatch *d, void *data)
+{
+  return trigger_time_katcp(d, data, 1);
+}
+
+static int trigger_at_time_katcp(struct katcp_dispatch *d, void *data)
+{
+  return trigger_time_katcp(d, data, 0);
+}
+
+int wake_notice_at_tv_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct timeval *tv)
+{
+  /* TODO: could check if notice is sane */
+  hold_notice_katcp(d, n);
+
+  return register_at_tv_katcp(d, tv, &trigger_at_time_katcp, n);
+}
+
+int wake_notice_in_tv_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct timeval *tv)
+{
+  /* TODO: could check if notice is sane */
+  hold_notice_katcp(d, n);
+
+  return register_in_tv_katcp(d, tv, &trigger_at_time_katcp, n);
+}
+
+int wake_notice_every_tv_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct timeval *tv)
+{
+  /* TODO: could check if notice is sane */
+  hold_notice_katcp(d, n);
+
+  return register_every_tv_katcp(d, tv, &trigger_every_time_katcp, n);
 }
 
 /* deal with time warp ***************************************************************/

@@ -684,6 +684,7 @@ void hold_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
 
 void release_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
 {
+ log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "releasing %p %s with use %d", n, n->n_name ? n->n_name : "<anonymous>", n->n_use);
   if(n->n_use > 0){
     n->n_use--;
   } else {
@@ -1095,7 +1096,7 @@ int resume_notice(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
   struct katcl_parse *p;
   char *ptr;
 
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "resuming after waiting for notice");
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "resuming after waiting for notice %s", n->n_name ? n->n_name : "<anonymous>");
 
 #if 0
   append_string_katcp(d, KATCP_FLAG_FIRST, "!notice");
@@ -1120,7 +1121,8 @@ int notice_cmd_katcp(struct katcp_dispatch *d, int argc)
   struct katcp_shared *s;
   struct katcp_notice *n;
   char *name, *value;
-  int i, k;
+  int i, k, when;
+  struct timeval tv;
 
   s = d->d_shared;
 
@@ -1168,8 +1170,14 @@ int notice_cmd_katcp(struct katcp_dispatch *d, int argc)
 
       n = find_notice_katcp(d, value);
       if(n == NULL){
-        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "notice %s not found", value);
-        return KATCP_RESULT_FAIL;
+
+        log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "notice %s not found so creating it", value);
+
+        n = create_notice_katcp(d, value, 0);
+        if(n == NULL){
+          log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to create notice %s", value);
+          return KATCP_RESULT_FAIL;
+        }
       }
 
       if(add_notice_katcp(d, n, &resume_notice, NULL)){
@@ -1193,7 +1201,18 @@ int notice_cmd_katcp(struct katcp_dispatch *d, int argc)
         return KATCP_RESULT_FAIL;
       }
 
-      wake_notice_katcp(d, n, NULL);
+      if(argc > 3){
+        when = arg_unsigned_long_katcp(d, 3);
+
+        log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "waking notice %s in %dms", value, when);
+
+        tv.tv_sec = when / 1000;
+        tv.tv_usec = (when % 1000) * 1000;
+        wake_notice_in_tv_katcp(d, n, &tv);
+
+      } else {
+        wake_notice_katcp(d, n, NULL);
+      }
 
       return KATCP_RESULT_OK;
     } else {
