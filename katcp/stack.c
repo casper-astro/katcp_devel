@@ -36,6 +36,7 @@ struct katcp_stack_obj *create_obj_stack_katcp(void *data, struct katcp_type *ty
 
   o->o_data = data;
   o->o_type = type;
+  o->o_ref  = 0;
 
   return o;
 }
@@ -53,29 +54,42 @@ struct katcp_stack_obj *create_named_type_obj_stack_katcp(struct katcp_dispatch 
 
   return create_obj_stack_katcp(data, t);
 }
-
+#if 0
 struct katcp_stack_obj *copy_obj_stack_katcp(struct katcp_stack_obj *o)
 {
   if (o == NULL)
     return NULL;
   return create_obj_stack_katcp(o->o_data, o->o_type);
 }
+#endif
+
+void inc_ref_obj_stack_katcp(struct katcp_stack_obj *o)
+{
+  if (o == NULL)
+    return;
+
+  o->o_ref++;
+}
 
 void destroy_obj_stack_katcp(struct katcp_stack_obj *o)
 {
   struct katcp_type *t;
   if (o != NULL){
-    t = o->o_type;
+    if (o->o_ref < 2){
+      t = o->o_type;
 #ifdef DEBUG
-    fprintf(stderr, "stack obj: %s %p %p\n",t->t_name, t, t->t_free);
+      fprintf(stderr, "stack obj: %s %p %p\n",t->t_name, t, t->t_free);
 #endif
-#if 0
-    if ((t != NULL) && (t->t_free != NULL))
-      (*t->t_free)(o->o_data);
+#if 1 
+      if ((t != NULL) && (t->t_free != NULL))
+        (*t->t_free)(o->o_data);
 #endif
-    o->o_data = NULL;
-    o->o_type = NULL;
-    free(o);
+      o->o_data = NULL;
+      o->o_type = NULL;
+      free(o);
+    } else {
+      o->o_ref--;
+    }
   }
 }
 
@@ -106,7 +120,9 @@ int push_stack_obj_katcp(struct katcp_stack *s, struct katcp_stack_obj *o)
   
   s->s_objs[s->s_count] = o;
   s->s_count++;
-  
+ 
+  inc_ref_obj_stack_katcp(o);
+
   return 0;
 }
 
@@ -153,6 +169,9 @@ struct katcp_stack_obj *pop_stack_katcp(struct katcp_stack *s)
   s->s_objs = realloc(s->s_objs, sizeof(struct katcp_stack_obj *) * (s->s_count - 1));
   s->s_count--;
 
+  if (o != NULL)
+    o->o_ref--;
+  
   return o;  
 }
 
@@ -185,8 +204,8 @@ void print_stack_obj_katcp(struct katcp_dispatch *d, struct katcp_stack_obj *o)
   }
   t = o->o_type;
 #ifdef DEBUG
-  fprintf(stderr, "stack: type: %p data (%p)\n", o->o_type, o->o_data);
-  fprintf(stderr, "stack obj: %s %p %p\n",t->t_name, t, t->t_print);
+  fprintf(stderr, "stack: type: %p data (%p) refs: %d\n", o->o_type, o->o_data, o->o_ref);
+  //fprintf(stderr, "stack obj: %s %p %p\n",t->t_name, t, t->t_print);
 #endif
   if ((t != NULL) && (t->t_print != NULL))
     (*t->t_print)(d, o->o_data);

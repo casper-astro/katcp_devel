@@ -142,9 +142,9 @@ int check_balances_avltree(struct avl_node *n, int depth)
     l_bal = check_balances_avltree(n->n_left, depth+1);
     r_bal = check_balances_avltree(n->n_right, depth+1);
     
-#if DEBUG >0
+#ifdef DEBUG 
     if ((r_bal-l_bal) != n->n_balance)
-      fprintf(stderr,"%s\tn_bal: %d\t %d-%d=%d %s\n", n->n_key, n->n_balance, r_bal, l_bal, r_bal-l_bal, ((r_bal-l_bal)!=n->n_balance)?"ERROR":"OKAY");
+      fprintf(stderr,"avltree: ERROR %s\tn_bal: %d\t %d-%d=%d %s\n", n->n_key, n->n_balance, r_bal, l_bal, r_bal-l_bal, ((r_bal-l_bal)!=n->n_balance)?"ERROR":"OKAY");
 #endif
     
     bal = (r_bal > l_bal) ? r_bal : l_bal;

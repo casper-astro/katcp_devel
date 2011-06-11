@@ -661,6 +661,30 @@ int statemachine_print_stack_kcs(struct katcp_dispatch *d)
   return KATCP_RESULT_OK;
 }
 
+int statemachine_print_pc_kcs(struct katcp_dispatch *d)
+{
+  struct kcs_sm *m;
+  struct kcs_sm_state *s;
+  char *m_name;
+
+  m_name = arg_string_katcp(d, 1);
+
+  if (m_name == NULL)
+    return KATCP_RESULT_FAIL;
+
+  m = get_key_data_type_katcp(d, KATCP_TYPE_STATEMACHINE, m_name);
+  if (m == NULL)
+    return KATCP_RESULT_FAIL;
+  
+  s = m->m_pc;
+  if (s == NULL)
+    return KATCP_RESULT_FAIL;
+
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s program counter is %s", m_name, s->s_name);
+
+  return KATCP_RESULT_OK;
+}
+
 int statemachine_print_oplist_kcs(struct katcp_dispatch *d)
 {
   struct katcp_type *t;
@@ -774,6 +798,11 @@ int statemachine_run_kcs(struct katcp_dispatch *d)
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "about to run statemachine %s with startnode %s", m->m_name, s->s_name);
 #endif
 
+#ifdef DEBUG
+  fprintf(stderr,"-----------------------\n");
+  fprintf(stderr, "statemachine RUN: PC is %p\n", m->m_pc);
+#endif
+
   do {
     s = m->m_pc;
 
@@ -791,8 +820,14 @@ int statemachine_run_kcs(struct katcp_dispatch *d)
       }
     }
     
-    if (s->s_edge_list_count == 0)
+#if 0 
+    if (s->s_edge_list_count == 0){
+#ifdef DEBUG
+      fprintf(stderr, "statemachine RUN: NO EDGES ENDING\n");
+#endif
       run = 0;
+    }
+#endif
 
     for (i=0; i<s->s_edge_list_count; i++){
       e = s->s_edge_list[i];
@@ -800,14 +835,29 @@ int statemachine_run_kcs(struct katcp_dispatch *d)
         rtn = (*(e->e_call))(d, NULL, s);
         if (rtn == 0){
           m->m_pc = e->e_next;
+#ifdef DEBUG
+          fprintf(stderr, "statemachine RUN: EDGE RETURNS SUCCESS\n");
+#endif
           break;
-        }
+        } 
+#ifdef DEBUG
+        fprintf(stderr, "statemachine RUN: PC is %p\n", m->m_pc);
+#endif
       }
     }
-    if (i+1 == s->s_edge_list_count)
+
+    if ((s == m->m_pc) && (i == s->s_edge_list_count)){
+#ifdef DEBUG
+      fprintf(stderr, "statemachine RUN: ALL EDGES FAILED ENDING\n");
+#endif
       run = 0;
+    }
 
   } while (run);
+
+#ifdef DEBUG
+  fprintf(stderr,"-----------------------\n");
+#endif
   
   return KATCP_RESULT_OK;
 }
@@ -823,13 +873,15 @@ int statemachine_greeting_kcs(struct katcp_dispatch *d)
   prepend_inform_katcp(d);
   append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"[state name] op [operation] ([type] [value])");
   prepend_inform_katcp(d);
-  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"[state name] edge [state name 1] [state name 2] ([condition])");
+  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"[from state name] edge [to state name] ([condition])");
   prepend_inform_katcp(d);
   append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"[sm name] run [start state]");
   prepend_inform_katcp(d);
   append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"ds (print the entire datastore)");
   prepend_inform_katcp(d);
   append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"[sm name] ps (print statemachine stack)");
+  prepend_inform_katcp(d);
+  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"[sm name] pc (print statemachine program counter)");
   prepend_inform_katcp(d);
   append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST,"oplist (print op list)");
   return KATCP_RESULT_OK;
@@ -854,6 +906,8 @@ int statemachine_cmd(struct katcp_dispatch *d, int argc)
         return statemachine_declare_kcs(d);
       if (strcmp(arg_string_katcp(d, 2), "ps") == 0)
         return statemachine_print_stack_kcs(d);
+      if (strcmp(arg_string_katcp(d, 2), "pc") == 0)
+        return statemachine_print_pc_kcs(d);
       if (strcmp(arg_string_katcp(d, 1), "loadmod") == 0)
         return statemachine_loadmod_kcs(d);
 

@@ -53,4 +53,6 @@ void print_avltree(struct katcp_dispatch *d, struct avl_node *n, int depth, void
 
 void print_inorder_avltree(struct katcp_dispatch *d, struct avl_node *n, void (*fn_print)(struct katcp_dispatch *,void *), int flags);
 
+int check_balances_avltree(struct avl_node *n, int depth);
+
 #endif

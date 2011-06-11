@@ -415,9 +415,11 @@ void print_type_katcp(struct katcp_dispatch *d, struct katcp_type *t, int flags)
 {
   if (t != NULL){
     fprintf(stderr, "katcp_type: type <%s> (%p) with tree (%p) print:(%p) free:(%p) copy:(%p) compare:(%p) parse:(%p)\n", t->t_name, t, t->t_tree, t->t_print, t->t_free, t->t_copy, t->t_compare, t->t_parse);
-    if (t->t_tree != NULL)
-    //print_avltree(d, t->t_tree->t_root, 0, t->t_print);
+    if (t->t_tree != NULL){
+      //print_avltree(d, t->t_tree->t_root, 0, NULL);
+      //check_balances_avltree(t->t_tree->t_root, 0);
       print_inorder_avltree(d, t->t_tree->t_root, t->t_print, flags);
+    }
   }
 }
 

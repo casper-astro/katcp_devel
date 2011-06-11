@@ -79,8 +79,8 @@ int rpn_add_mod(struct katcp_dispatch *d, struct kcs_sm_state *s, struct katcp_s
   b = pop_stack_katcp(stack);
 
   if (a == NULL || b == NULL){
-    destroy_obj_stack_katcp(a);
-    destroy_obj_stack_katcp(b);
+    //destroy_obj_stack_katcp(a);
+    //destroy_obj_stack_katcp(b);
     return -1;
   }
   
@@ -88,8 +88,8 @@ int rpn_add_mod(struct katcp_dispatch *d, struct kcs_sm_state *s, struct katcp_s
 #ifdef DEBUG
     fprintf(stderr, "rpn_add_mod: runtime error o: (%p) a: (%p) b: (%p)\n", o->o_type, a->o_type, b->o_type);
 #endif
-    destroy_obj_stack_katcp(a);
-    destroy_obj_stack_katcp(b);
+    //destroy_obj_stack_katcp(a);
+    //destroy_obj_stack_katcp(b);
     log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "rpn_add runtime type mismatch");
     return -1;
   }
@@ -107,8 +107,8 @@ int rpn_add_mod(struct katcp_dispatch *d, struct kcs_sm_state *s, struct katcp_s
 #endif
           free(temp);
         }
-        destroy_obj_stack_katcp(a);
-        destroy_obj_stack_katcp(b);
+        //destroy_obj_stack_katcp(a);
+        //destroy_obj_stack_katcp(b);
         return -1;
       }
       log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "rpn_add to print ans");
@@ -118,8 +118,8 @@ int rpn_add_mod(struct katcp_dispatch *d, struct kcs_sm_state *s, struct katcp_s
     } 
   }
   
-  destroy_obj_stack_katcp(a);
-  destroy_obj_stack_katcp(b);
+  //destroy_obj_stack_katcp(a);
+  //destroy_obj_stack_katcp(b);
 
   return 0;
 #undef TYPE_COUNT
@@ -149,7 +149,7 @@ struct kcs_sm_op *rpn_add_setup_mod(struct katcp_dispatch *d, struct kcs_sm_stat
 
   op = create_sm_op_kcs(&rpn_add_mod, o);
   if (op == NULL){
-    destroy_obj_stack_katcp(o);
+    //destroy_obj_stack_katcp(o);
     return NULL;
   }
 
@@ -184,20 +184,20 @@ int compare_generic_mod(struct katcp_dispatch *d, struct katcp_notice *n, void *
   b = pop_stack_katcp(stack);
 
   if (a == NULL || b == NULL){
-    destroy_obj_stack_katcp(a);
-    destroy_obj_stack_katcp(b);
+    //destroy_obj_stack_katcp(a);
+    //destroy_obj_stack_katcp(b);
     return -2;
   }
   
   if (a->o_type == NULL){
-    destroy_obj_stack_katcp(a);
-    destroy_obj_stack_katcp(b);
+    //destroy_obj_stack_katcp(a);
+    //destroy_obj_stack_katcp(b);
     return -2;
   }
   
   if (a->o_type->t_compare == NULL){
-    destroy_obj_stack_katcp(a);
-    destroy_obj_stack_katcp(b);
+    //destroy_obj_stack_katcp(a);
+    //destroy_obj_stack_katcp(b);
     return -2;
   }
  
@@ -208,8 +208,8 @@ int compare_generic_mod(struct katcp_dispatch *d, struct katcp_notice *n, void *
 #endif
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "compare_generic t_compare rtn: %d", rtn);
 
-  destroy_obj_stack_katcp(a);
-  destroy_obj_stack_katcp(b);
+  //destroy_obj_stack_katcp(a);
+  //destroy_obj_stack_katcp(b);
 
   return rtn;
 }
