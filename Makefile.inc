@@ -23,3 +23,6 @@ INSTALL = install
 RM = rm -f
 AR = ar
 ECHO = echo
+
+.PHONY: all clean install
+

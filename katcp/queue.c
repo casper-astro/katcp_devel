@@ -296,7 +296,7 @@ unsigned int size_queue_katcl(struct katcl_queue *q)
 
 /**************************************************************************************/
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(UNIT_TEST_QUEUE)
 void dump_queue_parse_katcp(struct katcl_queue *q, FILE *fp)
 {
   unsigned int i, k;

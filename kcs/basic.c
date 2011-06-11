@@ -229,11 +229,11 @@ int script_wildcard_cmd(struct katcp_dispatch *d, int argc)
   return KATCP_RESULT_PAUSE;
 }
 
-int enter_basic_kcs(struct katcp_dispatch *d, char *flags, unsigned int from)
+int enter_basic_kcs(struct katcp_dispatch *d, struct katcp_notice *n, char *flags, unsigned int from)
 {
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "operating in basic mode");
 
-  return KCS_MODE_BASIC;
+  return 0;
 }
 
 void destroy_basic_kcs(struct katcp_dispatch *d, unsigned int mode)

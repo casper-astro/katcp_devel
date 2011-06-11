@@ -117,6 +117,13 @@ struct katcp_sensor;
 struct katcp_nonsense;
 struct katcp_acquire;
 
+#ifdef KATCP_USE_FLOATS
+struct katcp_double_acquire{
+  double da_current;
+  double (*da_get)(struct katcp_dispatch *d, struct katcp_acquire *a);
+};
+#endif
+
 struct katcp_integer_acquire{
   int ia_current;
   int (*ia_get)(struct katcp_dispatch *d, struct katcp_acquire *a);
@@ -166,6 +173,14 @@ struct katcp_sensor{
   void *s_more;
 };
 
+#ifdef KATCP_USE_FLOATS
+struct katcp_double_sensor{
+  double ds_current;
+  double ds_min;
+  double ds_max;
+};
+#endif
+
 struct katcp_integer_sensor{
   int is_current;
   int is_min;
@@ -184,6 +199,13 @@ struct katcp_nonsense{
 
   void *n_more;
 };
+
+#ifdef KATCP_USE_FLOATS
+struct katcp_double_nonsense{
+  double dn_previous;
+  double dn_delta;
+};
+#endif
 
 struct katcp_integer_nonsense{
   int in_previous;
@@ -230,7 +252,7 @@ struct katcp_entry{
   char *e_name;
   struct katcp_notice *(*e_prep)(struct katcp_dispatch *d, char *flags, unsigned int from, unsigned int to);
 
-  int (*e_enter)(struct katcp_dispatch *d, char *flags, unsigned int to);
+  int (*e_enter)(struct katcp_dispatch *d, struct katcp_notice *n, char *flags, unsigned int to);
   void (*e_leave)(struct katcp_dispatch *d, unsigned int from);
 
   void *e_state;
@@ -362,6 +384,7 @@ struct katcp_shared{
   unsigned int s_mode;
 
   unsigned int s_new;
+  char *s_options;
   struct katcp_notice *s_transition;
 
   struct katcp_dispatch *s_template;

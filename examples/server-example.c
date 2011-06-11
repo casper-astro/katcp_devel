@@ -18,13 +18,6 @@
 
 #include <katcp.h>
 
-/* build string **************************************************************/
-/* when compiled with gcc BUILD can be set at compile time with -DBUILD=...  */
-
-#ifndef BUILD
-#define BUILD "unknown-0.0"
-#endif
-
 /* simple sensor functions ***************************************************/
 /* these functions return the value immediately. This approach is acceptable */
 /* when it is cheap to query a sensor value                                  */
@@ -63,16 +56,11 @@ int fail_check_cmd(struct katcp_dispatch *d, int argc)
   return KATCP_RESULT_FAIL; /* have the system send a status message for us */
 }
 
-int yield_check_cmd(struct katcp_dispatch *d, int argc)
-{
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "ran again check");
-
-  return (rand() % 2) ? KATCP_RESULT_YIELD : KATCP_RESULT_OK;
-}
-
 int pause_check_cmd(struct katcp_dispatch *d, int argc)
 {
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "ran pause check, will not return");
+
+  /* not useful on its own, but can use resume() to restart */
 
   return KATCP_RESULT_PAUSE;
 }
@@ -145,11 +133,9 @@ int main(int argc, char **argv)
   }
 
   /* load up build and version information */
-  version_katcp(d, "exampleserver", 0, 1);
-  build_katcp(d, BUILD);
+  add_version_katcp(d, "mylabel", 0, "myversion", "mybuildtime");
 
   /* example sensor */
-
   if(register_integer_sensor_katcp(d, 0, "check.integer.simple", "unix time in decaseconds", "Ds", &simple_integer_check_sensor, NULL, NULL, 0, INT_MAX)){
     fprintf(stderr, "server: unable to register sensors\n");
     return 1;
@@ -162,7 +148,6 @@ int main(int argc, char **argv)
   result += register_katcp(d, "?check-own",   "return self generated code", &own_check_cmd);
   result += register_katcp(d, "?check-ok",    "return ok", &ok_check_cmd);
   result += register_katcp(d, "?check-fail",  "return fail", &fail_check_cmd);
-  result += register_katcp(d, "?check-yield", "return function multiple times", &yield_check_cmd);
   result += register_katcp(d, "?check-pause", "pauses", &pause_check_cmd);
   result += register_katcp(d, "?check-subprocess", "runs sleep 10 as a subprocess and waits for completion", &subprocess_check_cmd);
 

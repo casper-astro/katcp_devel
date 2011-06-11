@@ -3,7 +3,7 @@ KATCP ?= ../katcp
 include ../Makefile.inc
 
 INC = -I$(KATCP)
-LIB = -L$(KATCP) -lkatcp
+LIB = -L$(KATCP) -lkatcp -lm
 
 EXE = kcpfmon
 SRC = fmon.c

@@ -19,7 +19,7 @@ struct katcp_url;
 #include <sys/types.h>
 #include <stdarg.h>
 
-#define KATCP_CODEBASE_NAME "codeplaceholder" 
+#define KATCP_CODEBASE_NAME "libkatcp" 
 
 #define KATCP_REQUEST '?' 
 #define KATCP_REPLY   '!' 
@@ -76,6 +76,7 @@ struct katcp_url;
 #define KATCP_CMD_WILDCARD  0x2
 
 #define KATCP_RETURN_JOB    "#return"
+#define KATCP_WAKE_TIMEOUT  "#timout"
 
 /******************* core api ********************/
 
@@ -265,8 +266,9 @@ int register_integer_sensor_katcp(struct katcp_dispatch *d, int mode, char *name
 int register_multi_integer_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, int min, int max, struct katcp_acquire *a, int (*extract)(struct katcp_dispatch *d, struct katcp_sensor *sn));
 
 struct katcp_acquire *setup_integer_acquire_katcp(struct katcp_dispatch *d, int (*get)(struct katcp_dispatch *d, struct katcp_acquire *), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a));
-
 int set_integer_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a, int value);
+
+int set_double_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a, double value);
 
 int register_boolean_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, int (*get)(struct katcp_dispatch *d, struct katcp_acquire *a), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a));
 
@@ -295,8 +297,8 @@ int job_suspend_sensor_katcp(struct katcp_dispatch *d, struct katcp_notice *n, v
 
 struct katcp_dispatch *template_shared_katcp(struct katcp_dispatch *d);
 
-int store_prepared_mode_katcp(struct katcp_dispatch *d, unsigned int mode, char *name, struct katcp_notice *(*prepare)(struct katcp_dispatch *d, char *flags, unsigned int from, unsigned int to), int (*enter)(struct katcp_dispatch *d, char *flags, unsigned int from), void (*leave)(struct katcp_dispatch *d, unsigned int to), void *state, void (*clear)(struct katcp_dispatch *d, unsigned int mode));
-int store_full_mode_katcp(struct katcp_dispatch *d, unsigned int mode, char *name, int (*enter)(struct katcp_dispatch *d, char *flags, unsigned int from), void (*leave)(struct katcp_dispatch *d, unsigned int to), void *state, void (*clear)(struct katcp_dispatch *d, unsigned int mode));
+int store_prepared_mode_katcp(struct katcp_dispatch *d, unsigned int mode, char *name, struct katcp_notice *(*prepare)(struct katcp_dispatch *d, char *flags, unsigned int from, unsigned int to), int (*enter)(struct katcp_dispatch *d, struct katcp_notice *n, char *flags, unsigned int to), void (*leave)(struct katcp_dispatch *d, unsigned int to), void *state, void (*clear)(struct katcp_dispatch *d, unsigned int mode));
+int store_full_mode_katcp(struct katcp_dispatch *d, unsigned int mode, char *name, int (*enter)(struct katcp_dispatch *d, struct katcp_notice *n, char *flags, unsigned int to), void (*leave)(struct katcp_dispatch *d, unsigned int to), void *state, void (*clear)(struct katcp_dispatch *d, unsigned int mode));
 int store_mode_katcp(struct katcp_dispatch *d, unsigned int mode, void *state);
 int store_clear_mode_katcp(struct katcp_dispatch *d, unsigned int mode, void *state, void (*clear)(struct katcp_dispatch *d, unsigned int mode));
 
@@ -317,6 +319,11 @@ int unwarp_timers_katcp(struct katcp_dispatch *d);
 int register_every_ms_katcp(struct katcp_dispatch *d, unsigned int milli, int (*call)(struct katcp_dispatch *d, void *data), void *data);
 int register_every_tv_katcp(struct katcp_dispatch *d, struct timeval *tv, int (*call)(struct katcp_dispatch *d, void *data), void *data);
 int register_at_tv_katcp(struct katcp_dispatch *d, struct timeval *tv, int (*call)(struct katcp_dispatch *d, void *data), void *data);
+int register_in_tv_katcp(struct katcp_dispatch *d, struct timeval *tv, int (*call)(struct katcp_dispatch *d, void *data), void *data);
+
+int wake_notice_at_tv_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct timeval *tv);
+int wake_notice_in_tv_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct timeval *tv);
+int wake_notice_every_tv_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct timeval *tv);
 
 int watch_shared_katcp(struct katcp_dispatch *d, char *name, pid_t pid, void (*call)(struct katcp_dispatch *d, int status));
 int watch_type_shared_katcp(struct katcp_dispatch *d, char *name, pid_t pid, int type, void (*call)(struct katcp_dispatch *d, int status));
