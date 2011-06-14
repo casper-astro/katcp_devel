@@ -312,6 +312,16 @@ void perforate_client_server_katcp(struct katcp_dispatch *dl)
   }
 }
 
+int uptime_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  struct tm *when;
+
+  when = localtime(&(s->s_start));
+  if(when == NULL){
+    return KATCP_RESULT_FAIL;
+  }
+}
+
 int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, char *host, int port)
 {
 #define LABEL_BUFFER 32
@@ -362,6 +372,8 @@ int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, ch
 #endif
     return terminate_katcp(dl, KATCP_EXIT_ABORT);
   }
+
+  time(&(s->s_start));
 
 #if 0
   register_flag_mode_katcp(dl, "?notice",  "notice operations (?notice [list|create|watch|wake])", &notice_cmd_katcp, KATCP_CMD_HIDDEN, 0);

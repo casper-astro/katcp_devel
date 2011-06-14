@@ -19,5 +19,5 @@
 ?process ?xport start
 ?xport start
 ?mode ready
-?mode wbc
 ?enable-sensors
+?mode wbc
