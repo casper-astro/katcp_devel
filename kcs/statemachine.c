@@ -29,7 +29,10 @@ void print_integer_type_kcs(struct katcp_dispatch *d, void *data)
 #ifdef DEBUG
   fprintf(stderr, "statemachine: print_integer_type %d\n",*o);
 #endif
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "integer type: %d", *o);
+  //log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "integer type: %d", *o);
+  prepend_inform_katcp(d);
+  append_string_katcp(d, KATCP_FLAG_STRING, "integer type:");
+  append_signed_long_katcp(d, KATCP_FLAG_SLONG | KATCP_FLAG_LAST, *o);
 }
 void destroy_integer_type_kcs(void *data)
 {
@@ -80,7 +83,10 @@ void print_string_type_kcs(struct katcp_dispatch *d, void *data)
 #ifdef DEBUG
   fprintf(stderr, "statemachine: print_string_type %s\n",o);
 #endif
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "string type: %s", o);
+  //log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "string type: %s", o);
+  prepend_inform_katcp(d);
+  append_string_katcp(d, KATCP_FLAG_STRING, "string type:");
+  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, o);
 }
 void destroy_string_type_kcs(void *data)
 {
@@ -268,9 +274,12 @@ int statemachine_init_kcs(struct katcp_dispatch *d)
   /*register basic types*/
   rtn  = register_name_type_katcp(d, KATCP_TYPE_INTEGER, &print_integer_type_kcs, &destroy_integer_type_kcs, NULL, &compare_integer_type_kcs, &parse_integer_type_kcs);
   rtn += register_name_type_katcp(d, KATCP_TYPE_STRING, &print_string_type_kcs, &destroy_string_type_kcs, NULL, NULL, &parse_string_type_kcs);
+
+#if 0
   rtn += register_name_type_katcp(d, KATCP_TYPE_FLOAT, NULL, NULL, NULL, NULL, NULL);
   rtn += register_name_type_katcp(d, KATCP_TYPE_DOUBLE, NULL, NULL, NULL, NULL, NULL);
   rtn += register_name_type_katcp(d, KATCP_TYPE_CHAR, NULL, NULL, NULL, NULL, NULL);
+#endif
 
   rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_OPERATION_STACK_PUSH, &pushstack_setup_statemachine_kcs, NULL, NULL, NULL, NULL, NULL);
   
@@ -363,7 +372,10 @@ void print_sm_kcs(struct katcp_dispatch *d, void *data)
   fprintf(stderr, "statemachine: print_sm_kcs %s (%p) with pc (%p) and stack follows\n", m->m_name, m, m->m_pc);
   print_stack_katcp(d, m->m_stack);
 #endif
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "statemachine: %s", m->m_name);
+  //log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "statemachine: %s", m->m_name);
+  prepend_inform_katcp(d);
+  append_string_katcp(d, KATCP_FLAG_STRING, "statemachine:");
+  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, m->m_name);
 }
 
 struct kcs_sm_edge *create_sm_edge_kcs(struct kcs_sm_state *s_next, int (*call)(struct katcp_dispatch *, struct katcp_notice *, void *))
@@ -466,7 +478,10 @@ void print_sm_state_kcs(struct katcp_dispatch *d, void *data)
   fprintf(stderr, "statemachine: print_sm_state_kcs %s (%p) with sm (%p)\n", s->s_name, s, s->s_sm);
 #endif
 
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "state node: %s", s->s_name);
+  //log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "state node: %s", s->s_name);
+  prepend_inform_katcp(d);
+  append_string_katcp(d, KATCP_FLAG_STRING, "state node:");
+  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, s->s_name);
 
   for (i=0; i<s->s_edge_list_count; i++){
     if (s->s_edge_list[i]->e_next != NULL)
@@ -767,14 +782,18 @@ int statemachine_loadmod_kcs(struct katcp_dispatch *d)
   return KATCP_RESULT_OK;
 }
 
+
+
 int statemachine_run_kcs(struct katcp_dispatch *d)
 {
+  struct katcp_notice *n;
+  
   struct kcs_sm *m;
   struct kcs_sm_state *s;
   struct kcs_sm_edge *e;
   struct kcs_sm_op *op;
 
-  char *machine, *startnode;
+  char *machine, *startnode, *nid;
   int run, i, rtn;
 
   machine = arg_string_katcp(d, 1);
@@ -791,10 +810,19 @@ int statemachine_run_kcs(struct katcp_dispatch *d)
   if (s == NULL)
     return KATCP_RESULT_FAIL;
 
+  nid = gen_id_avltree();
+  if (nid == NULL)
+    return KATCP_RESULT_FAIL;
+
+  n = create_notice_katcp(d, nid, 0);
+  if (n == NULL)
+    return KATCP_RESULT_FAIL;
+  
   m->m_pc = s;
   run = 1;
 
-#ifdef DEBUG
+#if 0
+def DEBUG
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "about to run statemachine %s with startnode %s", m->m_name, s->s_name);
 #endif
 

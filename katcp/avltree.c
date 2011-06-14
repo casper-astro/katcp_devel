@@ -9,6 +9,7 @@
 #include <string.h>
 
 #include <sys/types.h>
+#include <sys/time.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <fcntl.h>
@@ -119,8 +120,11 @@ void print_inorder_avltree(struct katcp_dispatch *d, struct avl_node *n, void (*
   fprintf(stderr,"avltree: <%s>\n", n->n_key);
 #endif
   
-  if (flags)
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", n->n_key);
+  if (flags){
+    //log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", n->n_key);
+    prepend_inform_katcp(d);
+    append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, n->n_key);
+  }
 
   if (fn_print != NULL)
     (*fn_print)(d, n->n_data);
@@ -907,6 +911,36 @@ void destroy_avltree(struct avl_tree *t, void (*d_free)(void *))
   
 }
 
+char *gen_id_avltree()
+{
+  struct timeval now;
+  char *id;
+  int len;
+  
+  id  = NULL;
+  len = 0;
+
+  gettimeofday(&now, NULL);
+
+  while (id == NULL){
+    if (id == NULL && len > 0){
+      id = malloc(sizeof(char)*len);
+#ifdef DEBUG
+      fprintf(stderr, "gen_id_avltree: done malloc %p for len: %d\n", id, len);
+#endif
+    }
+    len = snprintf(id, len,"%lu.%06lu", now.tv_sec, now.tv_usec);
+#ifdef DEBUG
+    fprintf(stderr, "gen_id_avltree: len: %d\n", len);
+#endif
+  }
+
+#ifdef DEBUG
+  fprintf(stderr, "gen_id_avltree: %s\n", id);
+#endif
+  
+  return id;
+}
 
 #ifdef STANDALONE
 

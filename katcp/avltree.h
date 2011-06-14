@@ -50,9 +50,12 @@ int update_node_data_avltree(struct avl_node *n, void *data);
 
 /*testing api*/
 void print_avltree(struct katcp_dispatch *d, struct avl_node *n, int depth, void (*fn_print)(struct katcp_dispatch *, void *));
-
 void print_inorder_avltree(struct katcp_dispatch *d, struct avl_node *n, void (*fn_print)(struct katcp_dispatch *,void *), int flags);
 
 int check_balances_avltree(struct avl_node *n, int depth);
+
+/*extra*/
+
+char *gen_id_avltree();
 
 #endif
