@@ -5,7 +5,7 @@
 ?job process tmon exec://tmon
 ?forget ?halt
 ?forget ?restart
-?process ?enable-sensors enable\_roach\_sensors\_(?enable-sensors) wbc
+?process ?enable-sensors enable\_roach\_sensors\_(?enable-sensors)
 ?process ?label-input alias\_an\_input\_name\_(?label-input\_input\_alias)
 ?process ?halt halt\_the\_control\_server_\(?halt)
 ?process ?restart restart\_the\_system\_(?restart)
