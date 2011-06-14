@@ -314,12 +314,35 @@ void perforate_client_server_katcp(struct katcp_dispatch *dl)
 
 int uptime_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
+#define BUFFER 64
+  char buffer[BUFFER];
   struct tm *when;
+  time_t now, delta;
+  struct katcp_shared *s;
+  unsigned long hours;
+  unsigned int minutes, seconds;
+
+  s = d->d_shared;
 
   when = localtime(&(s->s_start));
   if(when == NULL){
     return KATCP_RESULT_FAIL;
   }
+
+  time(&now);
+
+  delta = now - s->s_start;
+
+  hours   = (delta / 3600);
+  minutes = (delta / 60)     - (hours * 60);
+  seconds = (delta)          - (minutes * 60);
+
+  strftime(buffer, BUFFER - 1, "%Y-%m-%dT%H:%M:%S", when);
+
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "server started at %s localtime which is T%lu:%02u:%02u ago", buffer, hours, minutes, seconds);
+
+  return KATCP_RESULT_OK;
+#undef BUFFER
 }
 
 int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, char *host, int port)
@@ -379,6 +402,8 @@ int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, ch
   register_flag_mode_katcp(dl, "?notice",  "notice operations (?notice [list|create|watch|wake])", &notice_cmd_katcp, KATCP_CMD_HIDDEN, 0);
   register_flag_mode_katcp(dl, "?job",     "job operations (?job [list|process notice-name executable-file])", &job_cmd_katcp, KATCP_CMD_HIDDEN, 0);
 #endif
+
+  register_flag_mode_katcp(dl, "?uptime", "report system uptime (?uptime)", &uptime_cmd_katcp, 0, 0);
 
   register_flag_mode_katcp(dl, "?dispatch","dispatch operations (?dispatch [list])", &dispatch_cmd_katcp, 0, 0);
   register_flag_mode_katcp(dl, "?notice",  "notice operations (?notice [list|watch|wake])", &notice_cmd_katcp, 0, 0);
