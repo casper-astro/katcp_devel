@@ -468,8 +468,8 @@ int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, ch
   register_flag_mode_katcp(dl, "?version", "version operations (?sensor [add module version [mode]|remove module])", &version_cmd_katcp, 0, 0);
 
   register_katcp(dl, "?sensor-list",       "lists available sensors (?sensor-list [sensor])", &sensor_list_cmd_katcp);
-  register_katcp(dl, "?sensor-sampling", "configure sensor (?sensor-sampling sensor [strategy [parameter]])", &sensor_sampling_cmd_katcp);
-  register_katcp(dl, "?sensor-value",    "query a sensor (?sensor-value sensor)", &sensor_value_cmd_katcp);
+  register_katcp(dl, "?sensor-sampling",   "configure sensor (?sensor-sampling sensor [strategy [parameter]])", &sensor_sampling_cmd_katcp);
+  register_katcp(dl, "?sensor-value",      "query a sensor (?sensor-value sensor)", &sensor_value_cmd_katcp);
 
 #if 0
   if(s->s_tally > 0){
