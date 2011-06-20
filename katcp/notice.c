@@ -948,6 +948,10 @@ int run_notices_katcp(struct katcp_dispatch *d)
 
       test = (n->n_trigger == KATCP_NOTICE_TRIGGER_ALL) ? 0 : 1;
 
+#ifdef DEBUG
+      fprintf(stderr, "notice: trigger[%d] (%s) with code %d\n", i, n->n_name ? n->n_name : "<anonymous>", test);
+#endif
+
       n->n_trigger = KATCP_NOTICE_TRIGGER_OFF;
 
       if(n->n_changes == 0){
