@@ -474,6 +474,8 @@ struct katcp_url {
 
 struct katcp_type {
   char *t_name;
+  
+  int t_dep;
 
   struct avl_tree *t_tree;
 

@@ -27,14 +27,17 @@ void print_kat_url_type_mod(struct katcp_dispatch *d, void *data)
   fprintf(stderr, "mod_roach_comms: print_kat_url_type %s\n", ku->u_str);
 #endif
   //log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "kat url: %s", ku->u_str);
-  prepend_inform_katcp(d);
-  append_string_katcp(d, KATCP_FLAG_STRING, "kat url:");
-  append_string_katcp(d, KATCP_FLAG_STRING, ku->u_str);
+ // prepend_inform_katcp(d);
+  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, "#kat url:");
+  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, ku->u_str);
 }
 void destroy_kat_url_type_mod(void *data)
 {
   struct katcp_url *ku;
   ku = data;
+#ifdef DEBUG
+  fprintf(stderr, "mod_roach_comms: del katurl: %s\n", ku->u_str);
+#endif
   destroy_kurl_katcp(ku);
 }
 void *parse_kat_url_type_mod(char **str)
@@ -65,8 +68,20 @@ int roach_connect_mod(struct katcp_dispatch *d, struct kcs_sm_state *s, struct k
     return -1;
   }
   
-  /*TODO: do stuff*/
+  /*TODO: do stuff 
+    get fd from net_connect (use NETC_TCP_KEEP_ALIVE)
+    create a notice,
+    create a job,
+    create a job with fd and notice,
+    add callback to notice (add_notice_katcp),
+    sensor info for roach,
+
+  */
   
+
+  
+  destroy_obj_stack_katcp(a);
+
   return 0;
 }
 
@@ -99,12 +114,12 @@ int init_mod(struct katcp_dispatch *d)
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "successfully loaded mod_config_parser");
   
-  rtn  = register_name_type_katcp(d, KATCP_TYPE_KAT_URL, &print_kat_url_type_mod, &destroy_kat_url_type_mod, NULL, NULL, &parse_kat_url_type_mod);
+  rtn  = register_name_type_katcp(d, KATCP_TYPE_KAT_URL, KATCP_DEP_BASE, &print_kat_url_type_mod, &destroy_kat_url_type_mod, NULL, NULL, &parse_kat_url_type_mod);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "added type:");
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", KATCP_TYPE_KAT_URL);
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "added operations:");
-  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_OPERATION_ROACH_CONNECT, &roach_connect_setup_mod, NULL, NULL, NULL, NULL, NULL);
+  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_ROACH_CONNECT, &roach_connect_setup_mod, NULL, NULL, NULL, NULL, NULL);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", KATCP_OPERATION_ROACH_CONNECT);
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "to see the full operation list: ?sm oplist");

@@ -30,8 +30,8 @@ void print_integer_type_kcs(struct katcp_dispatch *d, void *data)
   fprintf(stderr, "statemachine: print_integer_type %d\n",*o);
 #endif
   //log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "integer type: %d", *o);
-  prepend_inform_katcp(d);
-  append_string_katcp(d, KATCP_FLAG_STRING, "integer type:");
+  //prepend_inform_katcp(d);
+  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, "#integer type:");
   append_signed_long_katcp(d, KATCP_FLAG_SLONG | KATCP_FLAG_LAST, *o);
 }
 void destroy_integer_type_kcs(void *data)
@@ -84,8 +84,8 @@ void print_string_type_kcs(struct katcp_dispatch *d, void *data)
   fprintf(stderr, "statemachine: print_string_type %s\n",o);
 #endif
   //log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "string type: %s", o);
-  prepend_inform_katcp(d);
-  append_string_katcp(d, KATCP_FLAG_STRING, "string type:");
+  //prepend_inform_katcp(d);
+  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, "#string type:");
   append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, o);
 }
 void destroy_string_type_kcs(void *data)
@@ -160,7 +160,9 @@ void destroy_sm_op_kcs(struct kcs_sm_op *op)
 void print_sm_op_kcs(struct katcp_dispatch *d, struct kcs_sm_op *op)
 {
   if (op != NULL){
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "node operation: call:(%p) stackable data:(%p)", op->o_call, op->o_stack_obj);
+    //log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "node operation: call:(%p) stackable data:(%p)", op->o_call, op->o_stack_obj);
+    //prepend_inform_katcp(d);
+    append_args_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_LAST, "#node op: call:(%p) stackable data:(%p)", op->o_call, op->o_stack_obj);
 #ifdef DEBUG
     fprintf(stderr,"statemachine: print_sm_op call: (%p)\n", op->o_call);
 #endif
@@ -188,7 +190,7 @@ int pushstack_statemachine_kcs(struct katcp_dispatch *d, struct kcs_sm_state *s,
   fprintf(stderr, "statemachine: pushstack call in sm [%s] node <%s> with o:(%p)\n",m->m_name, s->s_name, o);
 #endif
 
-  return push_stack_obj_katcp(stack, o);
+  return push_stack_ref_obj_katcp(stack, o);
 #if 0
   return push_stack_obj_katcp(stack, copy_obj_stack_katcp(o));
 #endif
@@ -225,7 +227,7 @@ struct kcs_sm_op *pushstack_setup_statemachine_kcs(struct katcp_dispatch *d, str
   for (i=0; i<num; i++){
     data[i] = arg_string_katcp(d, ARG_BASE + i);
 #ifdef DEBUG
-    fprintf(stderr, "statemachine: pushsetup data[%d of %d]: %s\n", i, num, data[i]);
+    fprintf(stderr, "statemachine: pushsetup data[%d of %d]: %s\n", i+1, num, data[i]);
 #endif
   }
   data[num] = NULL; 
@@ -235,11 +237,13 @@ struct kcs_sm_op *pushstack_setup_statemachine_kcs(struct katcp_dispatch *d, str
 #endif
   temp = (*t->t_parse)(data);
   
-  if (temp != NULL){
+  free(data);
+
+  if (temp == NULL){
 #ifdef DEBUG
-    fprintf(stderr, "statemachine: free temp parse data\n");
+    fprintf(stderr, "statemachine: type parse fn failed\n");
 #endif
-    free(data);
+    return NULL;  
   }
 
   o = create_obj_stack_katcp(temp, t);
@@ -272,8 +276,8 @@ int statemachine_init_kcs(struct katcp_dispatch *d)
   int rtn;
   
   /*register basic types*/
-  rtn  = register_name_type_katcp(d, KATCP_TYPE_INTEGER, &print_integer_type_kcs, &destroy_integer_type_kcs, NULL, &compare_integer_type_kcs, &parse_integer_type_kcs);
-  rtn += register_name_type_katcp(d, KATCP_TYPE_STRING, &print_string_type_kcs, &destroy_string_type_kcs, NULL, NULL, &parse_string_type_kcs);
+  rtn  = register_name_type_katcp(d, KATCP_TYPE_INTEGER, KATCP_DEP_BASE, &print_integer_type_kcs, &destroy_integer_type_kcs, NULL, &compare_integer_type_kcs, &parse_integer_type_kcs);
+  rtn += register_name_type_katcp(d, KATCP_TYPE_STRING, KATCP_DEP_BASE, &print_string_type_kcs, &destroy_string_type_kcs, NULL, NULL, &parse_string_type_kcs);
 
 #if 0
   rtn += register_name_type_katcp(d, KATCP_TYPE_FLOAT, NULL, NULL, NULL, NULL, NULL);
@@ -281,7 +285,7 @@ int statemachine_init_kcs(struct katcp_dispatch *d)
   rtn += register_name_type_katcp(d, KATCP_TYPE_CHAR, NULL, NULL, NULL, NULL, NULL);
 #endif
 
-  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_OPERATION_STACK_PUSH, &pushstack_setup_statemachine_kcs, NULL, NULL, NULL, NULL, NULL);
+  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_STACK_PUSH, &pushstack_setup_statemachine_kcs, NULL, NULL, NULL, NULL, NULL);
   
  /* 
   if (store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_OPERATION_STACK_PUSH, &pushstack_setup_statemachine_kcs, NULL, NULL, NULL, NULL, NULL) < 0){
@@ -373,8 +377,8 @@ void print_sm_kcs(struct katcp_dispatch *d, void *data)
   print_stack_katcp(d, m->m_stack);
 #endif
   //log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "statemachine: %s", m->m_name);
-  prepend_inform_katcp(d);
-  append_string_katcp(d, KATCP_FLAG_STRING, "statemachine:");
+  //prepend_inform_katcp(d);
+  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, "#statemachine:");
   append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, m->m_name);
 }
 
@@ -479,13 +483,16 @@ void print_sm_state_kcs(struct katcp_dispatch *d, void *data)
 #endif
 
   //log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "state node: %s", s->s_name);
-  prepend_inform_katcp(d);
-  append_string_katcp(d, KATCP_FLAG_STRING, "state node:");
+  //prepend_inform_katcp(d);
+  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, "#state node:");
   append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, s->s_name);
 
   for (i=0; i<s->s_edge_list_count; i++){
-    if (s->s_edge_list[i]->e_next != NULL)
-      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "node edge [%d]: to %s", i, s->s_edge_list[i]->e_next->s_name);
+    if (s->s_edge_list[i]->e_next != NULL){
+      //log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "node edge [%d]: to %s", i, s->s_edge_list[i]->e_next->s_name);
+      append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, "#node edge:");
+      append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, s->s_edge_list[i]->e_next->s_name);
+    }
 #ifdef DEBUG
     fprintf(stderr,"statemachine: edge [%d] %p\n", i, s->s_edge_list[i]);
 #endif
@@ -514,7 +521,7 @@ int statemachine_declare_kcs(struct katcp_dispatch *d)
   if (m == NULL)
     return KATCP_RESULT_FAIL;
  
-  if (store_data_type_katcp(d, KATCP_TYPE_STATEMACHINE, name, m, &print_sm_kcs, &destroy_sm_kcs, NULL, NULL, NULL) < 0){
+  if (store_data_type_katcp(d, KATCP_TYPE_STATEMACHINE, KATCP_DEP_BASE, name, m, &print_sm_kcs, &destroy_sm_kcs, NULL, NULL, NULL) < 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not store datatype %s %s", KATCP_TYPE_STATEMACHINE, name);
 #ifdef DEBUG
     fprintf(stderr, "statemachine: could not store datatype %s %s\n", KATCP_TYPE_STATEMACHINE, name);
@@ -556,7 +563,7 @@ int statemachine_node_kcs(struct katcp_dispatch *d)
   if (s == NULL)
     return KATCP_RESULT_FAIL;
    
-  if (store_data_type_katcp(d, KATCP_TYPE_STATEMACHINE_STATE, s_name, s, &print_sm_state_kcs, &destroy_sm_state_kcs, NULL, NULL, NULL) < 0){
+  if (store_data_type_katcp(d, KATCP_TYPE_STATEMACHINE_STATE, KATCP_DEP_BASE, s_name, s, &print_sm_state_kcs, &destroy_sm_state_kcs, NULL, NULL, NULL) < 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not store datatype %s %s", KATCP_TYPE_STATEMACHINE_STATE, s_name);
 #ifdef DEBUG
     fprintf(stderr, "statemachine: could not store datatype %s %s\n", KATCP_TYPE_STATEMACHINE_STATE, s_name);
@@ -708,7 +715,7 @@ int statemachine_print_oplist_kcs(struct katcp_dispatch *d)
   if (t == NULL)
     return KATCP_RESULT_FAIL;
 
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "listing avaliable statemachine operations");
+  //log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "listing avaliable statemachine operations");
   print_type_katcp(d, t, 1); 
 
   return KATCP_RESULT_OK;
@@ -716,7 +723,10 @@ int statemachine_print_oplist_kcs(struct katcp_dispatch *d)
 
 void print_sm_mod_kcs(struct katcp_dispatch *d, void *data)
 {
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "module: handle (%p)", data);
+  //log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "module: handle (%p)", data);
+  prepend_inform_katcp(d);
+  append_args_katcp(d, KATCP_FLAG_STRING, "module handle:");
+  append_args_katcp(d, KATCP_FLAG_LAST, "%p", data);
 }
 void destroy_sm_mod_kcs(void *data)
 {
@@ -738,7 +748,9 @@ int statemachine_loadmod_kcs(struct katcp_dispatch *d)
 #if 0
   handle = dlopen(mod, RTLD_NOW | RTLD_NODELETE);
 #endif
+#if 1
   handle = dlopen(mod, RTLD_NOW);
+#endif
 
   if (handle == NULL){
     err = dlerror();
@@ -770,7 +782,7 @@ int statemachine_loadmod_kcs(struct katcp_dispatch *d)
   dlclose(handle);
 #endif
   
-  if (store_data_type_katcp(d, KATCP_TYPE_MODULES, mod, handle, &print_sm_mod_kcs, &destroy_sm_mod_kcs, NULL, NULL, NULL) < 0){
+  if (store_data_type_katcp(d, KATCP_TYPE_MODULES, KATCP_DEP_ELAV,  mod, handle, &print_sm_mod_kcs, &destroy_sm_mod_kcs, NULL, NULL, NULL) < 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not store datatype %s %s", KATCP_TYPE_MODULES, mod);
 #ifdef DEBUG
     fprintf(stderr, "statemachine: could not store datatype %s %s\n", KATCP_TYPE_MODULES, mod);
@@ -782,33 +794,190 @@ int statemachine_loadmod_kcs(struct katcp_dispatch *d)
   return KATCP_RESULT_OK;
 }
 
+int statemachine_run_ops_kcs(struct katcp_dispatch *d, struct katcp_notice *n, struct kcs_sched_task *t)
+{
+  struct kcs_sm *m;
+  struct kcs_sm_state *s;
+  struct kcs_sm_op *op;
+  int i, rtn;
 
+  m = t->t_machine;
+  if (m == NULL)
+    return -1;
+
+  s = m->m_pc;
+  if (s == NULL)
+    return -1;
+
+  for (i=0; i<s->s_op_list_count; i++){
+    op = s->s_op_list[i];
+    if (op != NULL){
+      rtn = (*(op->o_call))(d, s, op->o_stack_obj);
+#ifdef DEBUG
+      fprintf(stderr,"statemachine RUN: op %p call returned %d\n", op, rtn);
+#endif  
+      if (rtn < 0)
+        return rtn;
+    }
+  }
+  
+  wake_notice_katcp(d, n, NULL);
+  
+  return TASK_STATE_FOLLOW_EDGES;
+}
+
+int statemachine_follow_edges_kcs(struct katcp_dispatch *d, struct katcp_notice *n, struct kcs_sched_task *t)
+{
+  struct kcs_sm *m;
+  struct kcs_sm_state *s;
+  struct kcs_sm_edge *e;
+  int rtn;
+  
+  m = t->t_machine;
+  if (m == NULL)
+    return -1;
+
+  s = m->m_pc;
+  if (s == NULL)
+    return -1;
+
+#ifdef DEBUG
+  fprintf(stderr, "statemachine: follow edges [%d]\n",t->t_edge_i);
+#endif
+  
+  e = s->s_edge_list[t->t_edge_i];
+  if (e != NULL){
+    rtn = (*(e->e_call))(d, n, s);
+    if (rtn == 0){
+      m->m_pc = e->e_next;
+      t->t_edge_i = 0;      
+#ifdef DEBUG
+      fprintf(stderr, "statemachine: follow edges EDGE RETURNS SUCCESS\n");
+#endif
+      return TASK_STATE_RUN_OPS;
+    }
+  }
+
+  if ((t->t_edge_i+1) < s->s_edge_list_count){
+    t->t_edge_i++;
+#ifdef DEBUG
+    fprintf(stderr, "statemachine: follow edges STILL TRYING\n");
+#endif
+
+    wake_notice_katcp(d, n, NULL);
+
+    return TASK_STATE_FOLLOW_EDGES;
+  }
+
+#ifdef DEBUG
+  fprintf(stderr, "statemachine: follow edges FAIL cleanup state\n");
+#endif
+
+  wake_notice_katcp(d, n, NULL);
+
+  return TASK_STATE_CLEAN_UP;
+}
+
+int statemachine_process_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
+{
+  struct kcs_sched_task *t;
+  int rtn;
+  
+  t = data;
+  if (t == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "cannot run sched with null task");
+    return 0;
+  }
+
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "running sched notice with data (%p)", data);
+ 
+  
+  switch (t->t_state){
+    case TASK_STATE_RUN_OPS:
+#ifdef DEBUG
+      fprintf(stderr, "statemachine: process about to run ops\n");
+#endif
+      rtn = statemachine_run_ops_kcs(d, n, t);
+      break;
+    case TASK_STATE_FOLLOW_EDGES:
+#ifdef DEBUG
+      fprintf(stderr, "statemachine: process about to follow edges\n");
+#endif
+      rtn = statemachine_follow_edges_kcs(d, n, t);
+      break;
+    case TASK_STATE_CLEAN_UP:
+#ifdef DEBUG
+      fprintf(stderr, "statemachine: process about to cleanup\n");
+#endif
+      free(t);
+      return 0;
+  }
+
+  if (rtn < 0){
+#ifdef DEBUG
+    fprintf(stderr, "statemachine: process error setting task state to CLEAN UP\n");
+#endif
+    rtn = TASK_STATE_CLEAN_UP;
+  }
+
+  return (t->t_state = rtn);
+}
 
 int statemachine_run_kcs(struct katcp_dispatch *d)
 {
   struct katcp_notice *n;
-  
+  struct kcs_sched_task *t;
   struct kcs_sm *m;
   struct kcs_sm_state *s;
-  struct kcs_sm_edge *e;
-  struct kcs_sm_op *op;
 
-  char *machine, *startnode, *nid;
-  int run, i, rtn;
+  char *machine, *startnode;
 
   machine = arg_string_katcp(d, 1);
   startnode = arg_string_katcp(d, 3);
 
   if (machine == NULL || startnode == NULL)
     return KATCP_RESULT_FAIL;
-
+  
   m = get_key_data_type_katcp(d, KATCP_TYPE_STATEMACHINE, machine);
-  if (m == NULL)
-    return KATCP_RESULT_FAIL;
-
   s = get_key_data_type_katcp(d, KATCP_TYPE_STATEMACHINE_STATE, startnode);
-  if (s == NULL)
+  
+  if (m == NULL || s == NULL)
     return KATCP_RESULT_FAIL;
+  
+  m->m_pc = s;
+#if 0
+  n = find_notice_katcp(d, STATEMACHINE_SCHEDULER_NOTICE);
+  if (n == NULL){
+    n = create_notice_katcp(d, STATEMAHCINE_SCHEDULER_NOTICE);
+    if (n == NULL){
+#ifdef DEBUG
+      fprintf(stderr, "statemachine: cannot create notice %s\n", STATEMACHINE_SCHEDULER_NOTICE);
+#endif
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "cannot create notice %s", STATEMACHINE_SCHEDULER_NOTICE);
+      return KATCP_RESULT_FAIL;
+    }
+  }
+#endif
+  
+  t = malloc(sizeof(struct kcs_sched_task));
+  if (t == NULL)
+    return KATCP_RESULT_FAIL;
+  
+  t->t_machine = m;
+  t->t_state   = TASK_STATE_RUN_OPS; 
+  t->t_edge_i  = 0;
+
+#if 0
+  n = register_notice_katcp(d, STATEMACHINE_SCHEDULER_NOTICE, 0, &statemachine_process_kcs, t);
+#endif
+  n = register_notice_katcp(d, NULL, 0, &statemachine_process_kcs, t);
+  if (n == NULL){
+    free(t);
+    return KATCP_RESULT_FAIL;
+  }
+  
+  wake_notice_katcp(d, n, NULL);
+#if 0
 
   nid = gen_id_avltree();
   if (nid == NULL)
@@ -818,13 +987,9 @@ int statemachine_run_kcs(struct katcp_dispatch *d)
   if (n == NULL)
     return KATCP_RESULT_FAIL;
   
-  m->m_pc = s;
-  run = 1;
+  free(nid);
 
-#if 0
-def DEBUG
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "about to run statemachine %s with startnode %s", m->m_name, s->s_name);
-#endif
+  run = 1;
 
 #ifdef DEBUG
   fprintf(stderr,"-----------------------\n");
@@ -848,15 +1013,6 @@ def DEBUG
       }
     }
     
-#if 0 
-    if (s->s_edge_list_count == 0){
-#ifdef DEBUG
-      fprintf(stderr, "statemachine RUN: NO EDGES ENDING\n");
-#endif
-      run = 0;
-    }
-#endif
-
     for (i=0; i<s->s_edge_list_count; i++){
       e = s->s_edge_list[i];
       if (e != NULL){
@@ -887,6 +1043,8 @@ def DEBUG
   fprintf(stderr,"-----------------------\n");
 #endif
   
+#endif
+
   return KATCP_RESULT_OK;
 }
 

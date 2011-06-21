@@ -899,7 +899,7 @@ void destroy_avltree(struct avl_tree *t, void (*d_free)(void *))
         free(dn);
 
 #ifdef DEBUG
-        fprintf(stderr,"done\n");
+        fprintf(stderr,"avl_tree: done\n");
 #endif
       
       }

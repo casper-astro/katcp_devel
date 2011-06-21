@@ -436,8 +436,8 @@ int version_cmd_katcp(struct katcp_dispatch *d, int argc);
 #endif
 
 /*katcp_type functions*/
-int store_data_type_katcp(struct katcp_dispatch *d, char *t_name, char *d_name, void *d_data, void (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(void *, void *), void *(*fn_parse)(char **));
-int register_name_type_katcp(struct katcp_dispatch *d, char *name, void (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(void *, void *), void *(*fn_parse)(char **));
+int store_data_type_katcp(struct katcp_dispatch *d, char *t_name, int dep, char *d_name, void *d_data, void (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(void *, void *), void *(*fn_parse)(char **));
+int register_name_type_katcp(struct katcp_dispatch *d, char *name, int dep, void (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(void *, void *), void *(*fn_parse)(char **));
 int deregister_type_katcp(struct katcp_dispatch *d, char *name);
 int find_name_id_type_katcp(struct katcp_dispatch *d, char *type);
 struct katcp_type *find_name_type_katcp(struct katcp_dispatch *d, char *str);
@@ -460,6 +460,7 @@ struct katcp_stack_obj *create_obj_stack_katcp(void *data, struct katcp_type *ty
 struct katcp_stack_obj *create_named_type_obj_stack_katcp(struct katcp_dispatch *d, void *data, char *str);
 void inc_ref_obj_stack_katcp(struct katcp_stack_obj *o);
 int push_stack_katcp(struct katcp_stack *s, void *data, struct katcp_type *type);
+int push_stack_ref_obj_katcp(struct katcp_stack *s, struct katcp_stack_obj *o);
 int push_stack_obj_katcp(struct katcp_stack *s, struct katcp_stack_obj *o);
 int push_named_stack_katcp(struct katcp_dispatch *d, struct katcp_stack *s, void *data, char *str);
 struct katcp_stack_obj *pop_stack_katcp(struct katcp_stack *s);

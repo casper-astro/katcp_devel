@@ -13,7 +13,7 @@ void destroy_type_katcp(struct katcp_type *t)
     fprintf(stderr, "katcp_type: destroy type <%s>\n", t->t_name);
 #endif
     if (t->t_name != NULL) { free(t->t_name); t->t_name = NULL; }
-    /*TODO: pass delete function to avltree*/
+    t->t_dep = 0;
     if (t->t_tree != NULL) { 
       destroy_avltree(t->t_tree, t->t_free); 
       t->t_tree = NULL; 
@@ -36,6 +36,7 @@ struct katcp_type *create_type_katcp()
     return NULL;
 
   t->t_name    = NULL;
+  t->t_dep     = 0;
   t->t_tree    = NULL;
   t->t_print   = NULL;
   t->t_free    = NULL;
@@ -100,7 +101,7 @@ int binary_search_type_list_katcp(struct katcp_type **ts, int t_size, char *str)
   return (-1) * (low+1) ;
 }
 
-int register_at_id_type_katcp(struct katcp_dispatch *d, int tid, char *tname, void (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(void *, void *), void *(*fn_parse)(char **))
+int register_at_id_type_katcp(struct katcp_dispatch *d, int tid, char *tname, int dep, void (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(void *, void *), void *(*fn_parse)(char **))
 {
   struct katcp_shared *s;
   struct katcp_type **ts;
@@ -132,6 +133,8 @@ int register_at_id_type_katcp(struct katcp_dispatch *d, int tid, char *tname, vo
     return -1;
   }
 
+  t->t_dep = dep;
+
   t->t_tree = create_avltree();
   if (t->t_tree == NULL){
     destroy_type_katcp(t);
@@ -161,7 +164,7 @@ int register_at_id_type_katcp(struct katcp_dispatch *d, int tid, char *tname, vo
   return i; 
 }
 
-int register_name_type_katcp(struct katcp_dispatch *d, char *name, void (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(void *, void *), void *(*fn_parse)(char **))
+int register_name_type_katcp(struct katcp_dispatch *d, char *name, int dep, void (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(void *, void *), void *(*fn_parse)(char **))
 {
   struct katcp_shared *s;
   struct katcp_type **ts;
@@ -187,7 +190,7 @@ int register_name_type_katcp(struct katcp_dispatch *d, char *name, void (*fn_pri
 
   pos = (pos+1)* (-1);
 
-  return register_at_id_type_katcp(d, pos, name, fn_print, fn_free, fn_copy, fn_compare, fn_parse);
+  return register_at_id_type_katcp(d, pos, name, dep, fn_print, fn_free, fn_copy, fn_compare, fn_parse);
 }
 
 int deregister_type_katcp(struct katcp_dispatch *d, char *name)
@@ -232,7 +235,7 @@ int deregister_type_katcp(struct katcp_dispatch *d, char *name)
   return 0;
 }
 
-int store_data_type_katcp(struct katcp_dispatch *d, char *t_name, char *d_name, void *d_data, void (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(void *, void *), void *(*fn_parse)(char **))
+int store_data_type_katcp(struct katcp_dispatch *d, char *t_name, int dep, char *d_name, void *d_data, void (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(void *, void *), void *(*fn_parse)(char **))
 {
   struct katcp_shared *s;
   
@@ -261,7 +264,7 @@ int store_data_type_katcp(struct katcp_dispatch *d, char *t_name, char *d_name, 
 #endif
     /*pos returned from bsearch is pos to insert new type of searched name 
       but it needs to be decremented and flipped positive*/
-    pos = register_at_id_type_katcp(d, (pos+1)*(-1), t_name, fn_print, fn_free, fn_copy, fn_compare, fn_parse);
+    pos = register_at_id_type_katcp(d, (pos+1)*(-1), t_name, dep, fn_print, fn_free, fn_copy, fn_compare, fn_parse);
     if (pos < 0){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not create new type %s\n", t_name);
 #ifdef DEBUG
@@ -477,7 +480,15 @@ void destroy_type_list_katcp(struct katcp_dispatch *d)
   
   for (i=0; i<size; i++){
     t = ts[i];
-    if (t != NULL){
+    if (t != NULL && t->t_dep == 0){
+      destroy_avltree(t->t_tree, t->t_free); 
+      t->t_tree = NULL;
+    }
+  }
+
+  for (i=0; i<size; i++){
+    t = ts[i];
+    if (t != NULL && t->t_dep > 0){
       destroy_avltree(t->t_tree, t->t_free); 
       t->t_tree = NULL;
     }

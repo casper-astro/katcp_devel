@@ -187,7 +187,9 @@ static int pipe_from_file_katcp(struct katcp_dispatch *dl, char *file)
         rsvp = relay_katcl(fl, pl);
 
         if(rsvp < 0){
+#ifdef DEBUG
           fprintf(stderr,"init: relay_katcl: Unable to relay\n");
+#endif
           exit(EX_UNAVAILABLE);
         }
         else if(!write_katcl(pl)){
@@ -195,14 +197,8 @@ static int pipe_from_file_katcp(struct katcp_dispatch *dl, char *file)
         }
         
         for (state = S_READ; state != S_DONE; ){
-#ifdef DEBUG
-          //fprintf(stderr,"STATE: %d\n",state);
-#endif
           switch (state){
             case S_READ:
-#ifdef DEBUG
-                //ifprintf(stderr,"ABOUT TO READ pl\n");
-#endif
                 rsvp = read_katcl(pl);
                 if (rsvp == 0)
                   state = S_PARSE;
@@ -211,7 +207,9 @@ static int pipe_from_file_katcp(struct katcp_dispatch *dl, char *file)
                 
                 if (have_katcl(pl)){
                   if(arg_reply_katcl(pl)){
+#ifdef DEBUG
                     fprintf(stderr,"Found REPLY: %s\n",arg_string_katcl(pl,0));
+#endif
                     state = S_DONE;
                   }
                   else if (arg_inform_katcl(pl)){
@@ -268,6 +266,9 @@ static int pipe_from_file_katcp(struct katcp_dispatch *dl, char *file)
 
   exit(EX_OK);
   return -1;
+#undef S_READ
+#undef S_PARSE
+#undef S_DONE
 }
 
 void add_client_server_katcp(struct katcp_dispatch *dl, int fd, char *label)

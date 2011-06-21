@@ -23,12 +23,6 @@
 
 #endif
 
-#if 0
-#define KCS_SCHEDULER_NOTICE "<kcs_scheduler>"
-#define KCS_SCHEDULER_STOP  0
-#define KCS_SCHEDULER_TICK  1
-#endif
-
 char *create_str(char *s);
 
 int setup_basic_kcs(struct katcp_dispatch *d, char *scripts, char **argv, int argc);
@@ -186,6 +180,11 @@ struct kcs_statemachine {
 #define MOD_STORE_TYPE_HANDLE   1
 #endif 
 
+#define STATEMACHINE_SCHEDULER_NOTICE   "<kcs_scheduler>"
+
+#define KATCP_DEP_BASE                  0
+#define KATCP_DEP_ELAV                  1
+
 #define KATCP_TYPE_MODULES              "modules"
 #define KATCP_TYPE_STATEMACHINE         "statemachines"
 #define KATCP_TYPE_STATEMACHINE_STATE   "states"
@@ -202,6 +201,10 @@ struct kcs_statemachine {
 #define KATCP_OPERATION_STACK_PEEK      "peek"
 #define KATCP_OPERATION_STACK_INDEX     "index"
 
+#define TASK_STATE_RUN_OPS              3
+#define TASK_STATE_FOLLOW_EDGES         2
+#define TASK_STATE_CLEAN_UP             1
+
 /*
 struct kcs_mod_store {
   struct avl_node_list *m_hl;
@@ -213,6 +216,12 @@ struct kcs_sm_list {
   int l_count;
 };
 */
+
+struct kcs_sched_task {
+  struct kcs_sm *t_machine;
+  int t_state;
+  int t_edge_i;
+};
 
 struct kcs_sm {
   char *m_name;

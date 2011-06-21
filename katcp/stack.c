@@ -75,10 +75,13 @@ void destroy_obj_stack_katcp(struct katcp_stack_obj *o)
 {
   struct katcp_type *t;
   if (o != NULL){
-    if (o->o_ref < 2){
+#ifdef DEBUG
+    fprintf(stderr, "stack obj: refs: %d\n", o->o_ref);
+#endif
+    if (o->o_ref < 1){
       t = o->o_type;
 #ifdef DEBUG
-      fprintf(stderr, "stack obj: %s %p %p\n",t->t_name, t, t->t_free);
+      fprintf(stderr, "stack obj del: %s %p %p\n",t->t_name, t, t->t_free);
 #endif
 #if 1 
       if ((t != NULL) && (t->t_free != NULL))
@@ -89,6 +92,9 @@ void destroy_obj_stack_katcp(struct katcp_stack_obj *o)
       free(o);
     } else {
       o->o_ref--;
+#ifdef DEBUG
+      fprintf(stderr, "stack obj --refs %d\n", o->o_ref);
+#endif
     }
   }
 }
@@ -121,9 +127,15 @@ int push_stack_obj_katcp(struct katcp_stack *s, struct katcp_stack_obj *o)
   s->s_objs[s->s_count] = o;
   s->s_count++;
  
-  inc_ref_obj_stack_katcp(o);
+  //inc_ref_obj_stack_katcp(o);
 
   return 0;
+}
+
+int push_stack_ref_obj_katcp(struct katcp_stack *s, struct katcp_stack_obj *o)
+{
+  inc_ref_obj_stack_katcp(o);
+  return push_stack_obj_katcp(s, o);
 }
 
 int push_stack_katcp(struct katcp_stack *s, void *data, struct katcp_type *type)
@@ -169,9 +181,11 @@ struct katcp_stack_obj *pop_stack_katcp(struct katcp_stack *s)
   s->s_objs = realloc(s->s_objs, sizeof(struct katcp_stack_obj *) * (s->s_count - 1));
   s->s_count--;
 
+#if 0
   if (o != NULL)
     o->o_ref--;
-  
+#endif
+
   return o;  
 }
 
