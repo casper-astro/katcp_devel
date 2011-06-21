@@ -11,11 +11,9 @@ fi
 case "$1" in
   adc)
     kcpcmd -k get-adc-snapshot ${2} | sed -e 's/^!get-adc-snapshot/#return/'
-    kcs_corr_log
     ;;
   quant)
     kcpcmd -k get-quant-snapshot ${2} | sed -e 's/^!get-quant-snapshot/#return/'
-    kcs_corr_log
     ;;
   *)
     kcs_error "unknown snap shot ${1}"
