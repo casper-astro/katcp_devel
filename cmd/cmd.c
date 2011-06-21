@@ -42,6 +42,7 @@ void usage(char *app)
   printf("-p position        only print a particular argument number\n");
   printf("-r                 toggle printing of reply messages\n");
   printf("-i                 toggle printing of inform messages\n");
+  printf("-m                 munge replies into log messages (requires -k)\n");
 
   printf("return codes:\n");
   printf("0     command completed successfully\n");
