@@ -125,9 +125,10 @@ int complete_rpc_katcl(struct katcl_line *l, unsigned int flags, struct timeval 
     }
 
     if(FD_ISSET(fd, &fsr)){
-      if(read_katcl(l) != 0){
+      result = read_katcl(l);
+      if(result){
 #ifdef FEEDBACK
-      	fprintf(stderr, "dispatch: read failed: %s\n", strerror(error_katcl(l)));
+      	fprintf(stderr, "dispatch: read failed: %s\n", (result < 0) ? strerror(error_katcl(l)) : "connection terminated");
 #endif
       	return -1;
       }

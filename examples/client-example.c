@@ -92,8 +92,9 @@ static int dispatch_client(struct katcl_line *l, char *msgname, int verbose, uns
     }
 
     if(FD_ISSET(fd, &fsr)){
-      if(read_katcl(l) < 0){
-      	fprintf(stderr, "dispatch: read failed: %s\n", strerror(error_katcl(l)));
+      result = read_katcl(l);
+      if(result){
+      	fprintf(stderr, "dispatch: read failed: %s\n", (result < 0) ? strerror(error_katcl(l)) : "connection terminated");
       	return -1;
       }
     }

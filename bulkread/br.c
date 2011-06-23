@@ -254,8 +254,9 @@ int main(int argc, char **argv)
     }
 
     if(FD_ISSET(fd, &fsr)){
-      if(read_katcl(l) < 0){
-      	fprintf(stderr, "%s: error: read failed: %s\n", app, strerror(error_katcl(l)));
+      result = read_katcl(l);
+      if(result){
+      	fprintf(stderr, "%s: error: read failed: %s\n", app, (result < 0) ? strerror(error_katcl(l)) : "connection terminated");
       	return 2;
       }
     }
