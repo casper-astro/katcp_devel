@@ -1105,7 +1105,9 @@ void destroy_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a)
   int i;
   struct katcp_sensor *s;
   struct katcp_integer_acquire *ia;
+#ifdef KATCP_USE_FLOATS
   struct katcp_double_acquire *da;
+#endif
 
   if(a->a_release){
     (*(a->a_release))(d, a);
@@ -1269,6 +1271,7 @@ struct katcp_acquire *setup_boolean_acquire_katcp(struct katcp_dispatch *d, int 
   return setup_intbool_acquire_katcp(d, get, local, release, KATCP_SENSOR_BOOLEAN);
 }
 
+#ifdef KATCP_USE_FLOATS
 struct katcp_acquire *setup_double_acquire_katcp(struct katcp_dispatch *d, double (*get)(struct katcp_dispatch *d, struct katcp_acquire *a), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a))
 {
   struct katcp_acquire *a;
@@ -1290,7 +1293,7 @@ struct katcp_acquire *setup_double_acquire_katcp(struct katcp_dispatch *d, doubl
 
   return a;
 }
-
+#endif
 
 /* link acquire to sensor, have acquire adopt type of sensor if emtpy */
 
@@ -1404,7 +1407,9 @@ int run_timer_acquire_katcp(struct katcp_dispatch *d, void *data)
 static int run_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a, int forced)
 {
   struct katcp_integer_acquire *ia;
+#ifdef KATCP_USE_FLOATS
   struct katcp_double_acquire *da;
+#endif
   struct timeval now, legal;
   struct katcp_shared *s;
 
@@ -1432,6 +1437,7 @@ static int run_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a, 
           log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "acquired integer result %d for %p", ia->ia_current, a);
         }
         break;
+#ifdef KATCP_USE_FLOATS
       case KATCP_SENSOR_FLOAT :
         da = a->a_more;
         if(da->da_get){
@@ -1439,6 +1445,7 @@ static int run_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a, 
           log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "acquired floating point result %e for %p", da->da_current, a);
         }
         break;
+#endif
       default :
         log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unsupported sensor type %d", a->a_type);
         break;
@@ -2916,7 +2923,9 @@ int sensor_dump_cmd_katcp(struct katcp_dispatch *d, int argc)
   struct katcp_nonsense *ns;
   struct katcp_acquire *a;
   struct katcp_integer_acquire *ia;
+#ifdef KATCP_USE_FLOATS
   struct katcp_double_acquire *da;
+#endif
   int i, j, got;
 
   s = d->d_shared;
@@ -2949,11 +2958,12 @@ int sensor_dump_cmd_katcp(struct katcp_dispatch *d, int argc)
         ia = a->a_more;
         log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "acquire current value %d, get %p and local state %p", ia->ia_current, ia->ia_get, a->a_local);
         break;
+#ifdef KATCP_USE_FLOATS
       case KATCP_SENSOR_FLOAT  :
         da = a->a_more;
         log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "acquire current value %e, get %p and local state %p", da->da_current, da->da_get, a->a_local);
         break;
-
+#endif
     }
     if(got == 0){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "logic problem - acquire does not know about this sensor");
@@ -3396,7 +3406,9 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
   struct katcp_job *jb;
   struct katcp_acquire *a;
   struct katcp_integer_acquire *ia;
+#ifdef KATCP_USE_FLOATS
   struct katcp_double_acquire *da;
+#endif
   struct katcl_parse *p;
   int i, j, got, code;
   char *name, *type, *label, *value, *description, *units;
@@ -3438,10 +3450,12 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
           ia = a->a_more;
           log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "integer/boolean acquire current value %d, get %p and local state %p", ia->ia_current, ia->ia_get, a->a_local);
           break;
+#ifdef KATCP_USE_FLOATS
         case KATCP_SENSOR_FLOAT :
           da = a->a_more;
           log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "double acquire current value %e, get %p and local state %p", da->da_current, da->da_get, a->a_local);
           break;
+#endif
       }
       if(got == 0){
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "logic problem - acquire does not know about this sensor");
