@@ -1,0 +1,42 @@
+Notes
+-----
+
+This package provides the katcp library, utilities and a 
+control server for the KAT 7 correlator, kcs. For the time
+being kcs invokes the corr package (not included) to control
+the correlator.
+
+Configuration
+-------------
+
+There is no configure script. If you really want to change
+some compiler flag (eg amount of debug information, floating point
+support) edit Makefile.inc
+
+Build
+-----
+
+Type 
+
+  make 
+
+at the top level directory. It is also possible
+to run make in individual subdirectories. In that case
+build the content of the katcp/ subdirectory first, as 
+most other modules depend on it
+
+Installation
+------------
+
+If you are only interested in the library (and maybe kcpcmd
+or kcplog), enter the respective subdirectories and run make
+install from there, eg 
+
+  make -C katcp install
+  make -C cmd install
+
+Only if you want to run the full KAT7 correlator run 
+make install at the top level, eg
+
+  make install 
+
