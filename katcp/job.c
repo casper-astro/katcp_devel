@@ -1317,7 +1317,7 @@ struct katcp_job *network_connect_job_katcp(struct katcp_dispatch *d, struct kat
   struct katcp_job *j;
   int fd;
 
-  fd = net_connect(url->u_host, url->u_port, NETC_ASYNC);
+  fd = net_connect(url->u_host, url->u_port, NETC_ASYNC | NETC_TCP_KEEP_ALIVE);
 
   if (fd < 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to connect to %s:%d: %s", url->u_host, url->u_port, strerror(errno));

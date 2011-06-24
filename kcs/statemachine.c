@@ -724,8 +724,8 @@ int statemachine_print_oplist_kcs(struct katcp_dispatch *d)
 void print_sm_mod_kcs(struct katcp_dispatch *d, void *data)
 {
   //log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "module: handle (%p)", data);
-  prepend_inform_katcp(d);
-  append_args_katcp(d, KATCP_FLAG_STRING, "module handle:");
+  //prepend_inform_katcp(d);
+  append_args_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, "#module handle:");
   append_args_katcp(d, KATCP_FLAG_LAST, "%p", data);
 }
 void destroy_sm_mod_kcs(void *data)
@@ -808,6 +808,8 @@ int statemachine_run_ops_kcs(struct katcp_dispatch *d, struct katcp_notice *n, s
   s = m->m_pc;
   if (s == NULL)
     return -1;
+  
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "running ops in %s state %s", m->m_name, s->s_name);
 
   for (i=0; i<s->s_op_list_count; i++){
     op = s->s_op_list[i];
@@ -844,6 +846,13 @@ int statemachine_follow_edges_kcs(struct katcp_dispatch *d, struct katcp_notice 
 #ifdef DEBUG
   fprintf(stderr, "statemachine: follow edges [%d]\n",t->t_edge_i);
 #endif
+
+  if (s->s_edge_list_count <= 0){
+    wake_notice_katcp(d, n, NULL);
+    return TASK_STATE_CLEAN_UP;
+  }
+  
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "testing edges in %s state %s", m->m_name, s->s_name);
   
   e = s->s_edge_list[t->t_edge_i];
   if (e != NULL){
@@ -889,8 +898,7 @@ int statemachine_process_kcs(struct katcp_dispatch *d, struct katcp_notice *n, v
     return 0;
   }
 
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "running sched notice with data (%p)", data);
- 
+  //log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "running sched notice with data (%p)", data);
   
   switch (t->t_state){
     case TASK_STATE_RUN_OPS:
@@ -899,12 +907,14 @@ int statemachine_process_kcs(struct katcp_dispatch *d, struct katcp_notice *n, v
 #endif
       rtn = statemachine_run_ops_kcs(d, n, t);
       break;
+
     case TASK_STATE_FOLLOW_EDGES:
 #ifdef DEBUG
       fprintf(stderr, "statemachine: process about to follow edges\n");
 #endif
       rtn = statemachine_follow_edges_kcs(d, n, t);
       break;
+
     case TASK_STATE_CLEAN_UP:
 #ifdef DEBUG
       fprintf(stderr, "statemachine: process about to cleanup\n");
@@ -920,7 +930,11 @@ int statemachine_process_kcs(struct katcp_dispatch *d, struct katcp_notice *n, v
     rtn = TASK_STATE_CLEAN_UP;
   }
 
-  return (t->t_state = rtn);
+  t->t_state = rtn;
+  
+  //log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "process abt to rtn %d", t->t_state);
+
+  return t->t_state;
 }
 
 int statemachine_run_kcs(struct katcp_dispatch *d)
@@ -945,19 +959,6 @@ int statemachine_run_kcs(struct katcp_dispatch *d)
     return KATCP_RESULT_FAIL;
   
   m->m_pc = s;
-#if 0
-  n = find_notice_katcp(d, STATEMACHINE_SCHEDULER_NOTICE);
-  if (n == NULL){
-    n = create_notice_katcp(d, STATEMAHCINE_SCHEDULER_NOTICE);
-    if (n == NULL){
-#ifdef DEBUG
-      fprintf(stderr, "statemachine: cannot create notice %s\n", STATEMACHINE_SCHEDULER_NOTICE);
-#endif
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "cannot create notice %s", STATEMACHINE_SCHEDULER_NOTICE);
-      return KATCP_RESULT_FAIL;
-    }
-  }
-#endif
   
   t = malloc(sizeof(struct kcs_sched_task));
   if (t == NULL)

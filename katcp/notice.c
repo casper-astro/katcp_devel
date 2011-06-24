@@ -476,6 +476,19 @@ struct katcp_notice *register_notice_katcp(struct katcp_dispatch *d, char *name,
   return n;
 }
 
+struct katcp_notice *register_parse_notice_katcp(struct katcp_dispatch *d, char *name, struct katcl_parse *p, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n, void *data), void *data)
+{
+  struct katcp_notice *n;
+
+  n = create_parse_notice_katcp(d, name, 0, p);
+  if (n == NULL)
+    return NULL;
+
+  if (add_notice_katcp(d, n, call, data) < 0)
+    return NULL;
+
+  return n;
+}
 /*******************************************************************************/
 
 #if 0

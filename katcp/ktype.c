@@ -235,6 +235,7 @@ int deregister_type_katcp(struct katcp_dispatch *d, char *name)
   return 0;
 }
 
+
 int store_data_type_katcp(struct katcp_dispatch *d, char *t_name, int dep, char *d_name, void *d_data, void (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(void *, void *), void *(*fn_parse)(char **))
 {
   struct katcp_shared *s;
@@ -414,12 +415,31 @@ void *get_key_data_type_katcp(struct katcp_dispatch *d, char *type, char *key)
   return get_node_data_avltree(n);
 }
 
+int del_data_type_katcp(struct katcp_dispatch *d, char *type, char *key)
+{
+  struct katcp_type *t;
+  struct avl_node *n;
+
+  if (type == NULL || key == NULL)
+    return -1;
+
+  t = find_name_type_katcp(d, type);
+  if (t == NULL)
+    return -1;
+
+  n = find_name_node_avltree(t->t_tree, key);
+  if (n == NULL)
+    return -1;
+
+  return del_node_avltree(t->t_tree, n, t->t_free);
+}
+
 void print_type_katcp(struct katcp_dispatch *d, struct katcp_type *t, int flags)
 {
   if (t != NULL){
     //log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "katcp type: %s", t->t_name);
-    prepend_inform_katcp(d);
-    append_string_katcp(d, KATCP_FLAG_STRING,"katcp type:");
+    //prepend_inform_katcp(d);
+    append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, "#katcp type:");
     append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, t->t_name);
 #ifdef DEBUG
     fprintf(stderr, "katcp_type: type <%s> (%p) with tree (%p) print:(%p) free:(%p) copy:(%p) compare:(%p) parse:(%p)\n", t->t_name, t, t->t_tree, t->t_print, t->t_free, t->t_copy, t->t_compare, t->t_parse);
@@ -429,6 +449,7 @@ void print_type_katcp(struct katcp_dispatch *d, struct katcp_type *t, int flags)
       //check_balances_avltree(t->t_tree->t_root, 0);
       print_inorder_avltree(d, t->t_tree->t_root, t->t_print, (t->t_print)?flags:1);
     }
+    append_string_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING | KATCP_FLAG_LAST, "#"); 
   }
 }
 

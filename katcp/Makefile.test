@@ -2,7 +2,7 @@ include ../Makefile.inc
 
 INC = -I.
 
-TESTS = test-parse test-map test-line test-rpc test-job test-queue test-kurl test-ktype
+TESTS = test-parse test-map test-line test-rpc test-job test-queue test-kurl test-ktype test-avl
 
 all: $(TESTS)
 
@@ -14,6 +14,9 @@ test-map: misc.c parse.c line.c time.c netc.c dispatch.c shared.c ts.c log.c not
 
 test-kurl: kurl.c
 	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_KURL -o $@ $^
+
+test-avl: avltree.c
+	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_AVL -o $@ $^
 
 test-ktype: misc.c parse.c line.c time.c netc.c dispatch.c shared.c ts.c log.c notice.c nonsense.c job.c queue.c map.c kurl.c version.c avltree.c ktype.c
 	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_KTYPE -o $@ $^

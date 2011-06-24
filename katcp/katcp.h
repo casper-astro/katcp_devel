@@ -342,6 +342,7 @@ static void destroy_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *
 
 int add_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n, void *data), void *data);
 struct katcp_notice *register_notice_katcp(struct katcp_dispatch *d, char *name, unsigned int tag, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n, void *data), void *data);
+struct katcp_notice *register_parse_notice_katcp(struct katcp_dispatch *d, char *name, struct katcl_parse *p, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n, void *data), void *data);
 
 #if 0
 int code_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n);
@@ -443,6 +444,7 @@ int find_name_id_type_katcp(struct katcp_dispatch *d, char *type);
 struct katcp_type *find_name_type_katcp(struct katcp_dispatch *d, char *str);
 struct katcp_type *get_id_type_katcp(struct katcp_dispatch *d, int id);
 void *get_key_data_type_katcp(struct katcp_dispatch *d, char *type, char *key);
+int del_data_type_katcp(struct katcp_dispatch *d, char *type, char *key);
 void destroy_type_list_katcp(struct katcp_dispatch *d);
 void print_types_katcp(struct katcp_dispatch *d);
 void print_type_katcp(struct katcp_dispatch *d, struct katcp_type *t, int flags);

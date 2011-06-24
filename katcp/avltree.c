@@ -108,7 +108,7 @@ void print_avltree(struct katcp_dispatch *d, struct avl_node *n, int depth, void
 #undef SPACER   
 #endif
 }
-
+#if 0
 void print_inorder_avltree(struct katcp_dispatch *d, struct avl_node *n, void (*fn_print)(struct katcp_dispatch *,void *), int flags)
 {
   if (n == NULL)
@@ -122,14 +122,67 @@ void print_inorder_avltree(struct katcp_dispatch *d, struct avl_node *n, void (*
   
   if (flags){
     //log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", n->n_key);
-    prepend_inform_katcp(d);
-    append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, n->n_key);
+    //prepend_inform_katcp(d);
+    append_args_katcp(d, KATCP_FLAG_FIRST, "#%s", n->n_key);
+    append_args_katcp(d, KATCP_FLAG_LAST, "with data %p", n->n_data);
   }
 
   if (fn_print != NULL)
     (*fn_print)(d, n->n_data);
   
   print_inorder_avltree(d, n->n_right, fn_print, flags);
+}
+#endif
+
+
+void print_inorder_avltree(struct katcp_dispatch *d, struct avl_node *n, void (*fn_print)(struct katcp_dispatch *d, void *data), int flags)
+{
+  struct avl_node *c, *dn;
+  int run, dir;
+  
+  if (n == NULL)
+    return;
+  
+  c = n;
+  dir = AVL_LEFT;
+
+  run = 1;
+  while (run) {
+    
+    if (c == NULL){
+      run = 0;
+    } else {
+      
+      if (c->n_left != NULL) {
+        c = c->n_left;
+      } else if (c->n_right != NULL) {
+        c = c->n_right;
+      } else {
+        
+#ifdef DEBUG
+        fprintf(stderr,"avl_tree: in %s (%p) ", c->n_key, c);
+#endif
+        dn = c;
+
+        c = c->n_parent;
+        if (c != NULL) { 
+          if (c->n_left == dn)
+            c->n_left = NULL;
+          else if (c->n_right == dn)
+            c->n_right = NULL;
+        } 
+
+
+#ifdef DEBUG
+        fprintf(stderr,"avl_tree: done\n");
+#endif
+      
+      }
+    }
+
+
+  }
+
 }
 
 int check_balances_avltree(struct avl_node *n, int depth)
@@ -860,6 +913,10 @@ void destroy_avltree(struct avl_tree *t, void (*d_free)(void *))
 
   c = t->t_root;
   
+#ifdef DEBUG
+  fprintf(stderr,"avl_tree: destroy @ <%s>", c->n_key);
+#endif
+
   run = 1;
   while (run){
     
@@ -942,7 +999,7 @@ char *gen_id_avltree()
   return id;
 }
 
-#ifdef STANDALONE
+#ifdef UNIT_TEST_AVL 
 
 int add_file_words_to_avltree(struct avl_tree *t, char *buffer, int bsize)
 {
@@ -1126,23 +1183,24 @@ int main(int argc, char *argv[])
     fprintf(stderr,"avl_tree: couldn't delete\n");
   */
 
-  print_avltree(tree->t_root, 0);
+  print_avltree(NULL, tree->t_root, 0, NULL);
   check_balances_avltree(tree->t_root, 0);
   
   
-  while (1){
-    if (del_node_avltree(tree, tree->t_root) < 0)
+  while (0){
+    if (del_node_avltree(tree, tree->t_root, NULL) < 0)
       break;
     else {
-      print_avltree(tree->t_root, 0);
+      print_avltree(NULL, tree->t_root, 0, NULL);
       check_balances_avltree(tree->t_root, 0);
     }
   }
 
-#if 0 
-  print_inorder_avltree(tree->t_root);
+#if 1 
+  print_inorder_avltree(NULL, tree->t_root, NULL, 0);
 
 #endif
+
 #if 0 
 
   if (del_name_node_avltree(tree, "test") < 0)
