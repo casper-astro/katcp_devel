@@ -49,8 +49,8 @@ void print_config_setting_type_mod(struct katcp_dispatch *d, void *data)
   fprintf(stderr, "mod_config_parser: print_config_setting_type %s = %s\n", s->s_name, s->s_value);
 #endif
   //log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "configsetting: %s = %s", s->s_name, s->s_value);
-  prepend_inform_katcp(d);
-  append_string_katcp(d, KATCP_FLAG_STRING, "configsetting:");
+  //prepend_inform_katcp(d);
+  append_string_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#configsetting:");
   append_string_katcp(d, KATCP_FLAG_STRING, s->s_name);
   append_string_katcp(d, KATCP_FLAG_STRING, "=");
   append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, s->s_value);

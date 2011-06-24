@@ -137,51 +137,73 @@ void print_inorder_avltree(struct katcp_dispatch *d, struct avl_node *n, void (*
 
 void print_inorder_avltree(struct katcp_dispatch *d, struct avl_node *n, void (*fn_print)(struct katcp_dispatch *d, void *data), int flags)
 {
-  struct avl_node *c, *dn;
-  int run, dir;
-  
+  struct avl_node *c;
+  struct katcp_stack *s;
+  int run;
+
   if (n == NULL)
     return;
   
+  s = create_stack_katcp();
+  if (s == NULL)
+    return;
+
   c = n;
-  dir = AVL_LEFT;
 
   run = 1;
-  while (run) {
-    
-    if (c == NULL){
-      run = 0;
-    } else {
-      
-      if (c->n_left != NULL) {
-        c = c->n_left;
-      } else if (c->n_right != NULL) {
-        c = c->n_right;
-      } else {
-        
-#ifdef DEBUG
-        fprintf(stderr,"avl_tree: in %s (%p) ", c->n_key, c);
+  while (c != NULL) {
+    if (push_stack_katcp(s, c, NULL) < 0){
+#if DEBUG>2
+      fprintf(stderr, "avl_tree: stack push error <%s>\n", c->n_key);
 #endif
-        dn = c;
-
-        c = c->n_parent;
-        if (c != NULL) { 
-          if (c->n_left == dn)
-            c->n_left = NULL;
-          else if (c->n_right == dn)
-            c->n_right = NULL;
-        } 
-
-
-#ifdef DEBUG
-        fprintf(stderr,"avl_tree: done\n");
-#endif
-      
-      }
+      destroy_stack_katcp(s);
+      return;
     }
-
-
+#if DEBUG>2
+    fprintf(stderr, "avl_tree: stack 1 push  <%s>\n", c->n_key);
+#endif
+    c = c->n_left;
   }
+  
+#if DEBUG>2
+  fprintf(stderr, "avl_tree: stack state: %d\n", is_empty_stack_katcp(s));
+#endif
+
+  while (!is_empty_stack_katcp(s)){
+    c = pop_data_stack_katcp(s);
+    if (c != NULL){
+
+#ifdef DEBUG
+      fprintf(stderr, "avl_tree: <%s>\n", c->n_key);
+#endif
+      if (flags){
+        append_args_katcp(d, KATCP_FLAG_FIRST, "#%s", c->n_key);
+        append_args_katcp(d, KATCP_FLAG_LAST, "with data %p", c->n_data);
+      }
+
+      if (fn_print != NULL)
+        (*fn_print)(d, c->n_data);
+
+      c = c->n_right;
+
+      while(c != NULL){
+        if (push_stack_katcp(s, c, NULL) < 0){
+#if DEBUG>2
+          fprintf(stderr, "avl_tree: stack push error <%s>\n", c->n_key);
+#endif
+          destroy_stack_katcp(s);
+          return;
+        }
+#if DEBUG>2
+        fprintf(stderr, "avl_tree: stack 2 push  <%s>\n", c->n_key);
+#endif
+        c = c->n_left;
+      }
+      
+    }
+  }
+  
+  destroy_stack_katcp(s);
 
 }
 
@@ -913,20 +935,25 @@ void destroy_avltree(struct avl_tree *t, void (*d_free)(void *))
 
   c = t->t_root;
   
-#ifdef DEBUG
-  fprintf(stderr,"avl_tree: destroy @ <%s>", c->n_key);
-#endif
-
   run = 1;
   while (run){
     
     if (c == NULL){
+#if DEBUG >2
+      fprintf(stderr, "avl_tree: destroy c is NULL\n");
+#endif
       run = 0;
     } else {
       
       if (c->n_left != NULL) {
+#if DEBUG >2
+        fprintf(stderr, "avl_tree: destroy c going left\n");
+#endif
         c = c->n_left;
       } else if (c->n_right != NULL) {
+#if DEBUG >2
+        fprintf(stderr, "avl_tree: destroy c going right\n");
+#endif
         c = c->n_right;
       } else {
         
@@ -1184,7 +1211,7 @@ int main(int argc, char *argv[])
   */
 
   print_avltree(NULL, tree->t_root, 0, NULL);
-  check_balances_avltree(tree->t_root, 0);
+  //check_balances_avltree(tree->t_root, 0);
   
   
   while (0){

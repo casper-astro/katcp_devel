@@ -71,21 +71,31 @@ void inc_ref_obj_stack_katcp(struct katcp_stack_obj *o)
   o->o_ref++;
 }
 
+int is_empty_stack_katcp(struct katcp_stack *s)
+{
+  if (s == NULL)
+    return 1;
+  return (s->s_count == 0) ? 1 : 0;
+}
+
 void destroy_obj_stack_katcp(struct katcp_stack_obj *o)
 {
   struct katcp_type *t;
   if (o != NULL){
-#ifdef DEBUG
-    fprintf(stderr, "stack obj: refs: %d\n", o->o_ref);
+#if 0 
+    def DEBUG
+    fprintf(stderr, "stack destroy obj: refs: %d\n", o->o_ref);
 #endif
     if (o->o_ref < 1){
       t = o->o_type;
-#ifdef DEBUG
-      fprintf(stderr, "stack obj del: %s %p %p\n",t->t_name, t, t->t_free);
-#endif
+
 #if 1 
-      if ((t != NULL) && (t->t_free != NULL))
+      if ((t != NULL) && (t->t_free != NULL)){
+#ifdef DEBUG
+        fprintf(stderr, "stack obj del: %s %p %p\n",t->t_name, t, t->t_free);
+#endif
         (*t->t_free)(o->o_data);
+      }
 #endif
       o->o_data = NULL;
       o->o_type = NULL;
@@ -187,6 +197,22 @@ struct katcp_stack_obj *pop_stack_katcp(struct katcp_stack *s)
 #endif
 
   return o;  
+}
+
+void *pop_data_stack_katcp(struct katcp_stack *s)
+{
+  struct katcp_stack_obj *o;
+  void *data;
+
+  o = pop_stack_katcp(s);
+  if (o == NULL)
+    return NULL;
+    
+  data = o->o_data;
+
+  destroy_obj_stack_katcp(o);
+
+  return data;
 }
 
 struct katcp_stack_obj *peek_stack_katcp(struct katcp_stack *s)
