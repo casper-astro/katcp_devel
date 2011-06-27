@@ -215,6 +215,25 @@ void *pop_data_stack_katcp(struct katcp_stack *s)
   return data;
 }
 
+void *pop_data_expecting_stack_katcp(struct katcp_dispatch *d, struct katcp_stack *s, char *type)
+{
+  struct katcp_type *t;
+  struct katcp_stack_obj *o;
+  
+  t = find_name_type_katcp(d, type);
+  if (t == NULL)
+    return NULL;
+
+  o = peek_stack_katcp(s);
+  if (o == NULL)
+    return NULL;
+
+  if (o->o_type == t)
+    return pop_data_stack_katcp(s);
+
+  return NULL;
+}
+
 struct katcp_stack_obj *peek_stack_katcp(struct katcp_stack *s)
 {
   if (s == NULL)

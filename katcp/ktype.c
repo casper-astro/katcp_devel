@@ -449,7 +449,6 @@ void print_type_katcp(struct katcp_dispatch *d, struct katcp_type *t, int flags)
       //check_balances_avltree(t->t_tree->t_root, 0);
       print_inorder_avltree(d, t->t_tree->t_root, t->t_print, (t->t_print)?flags:1);
     }
-    append_string_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING | KATCP_FLAG_LAST, "#"); 
   }
 }
 
@@ -474,9 +473,11 @@ void print_types_katcp(struct katcp_dispatch *d)
   for (i=0; i<size; i++){
     t = ts[i];
 #ifdef DEBUG
-    fprintf(stderr, "katcp_type: [%d] ",i);
+    fprintf(stderr, "katcp_type: [%d]\n",i);
 #endif
     print_type_katcp(d, t, 0);
+    if (i+1 < size)
+      append_string_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING | KATCP_FLAG_LAST, "#"); 
   }
 }
 

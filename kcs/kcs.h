@@ -195,6 +195,7 @@ struct kcs_statemachine {
 #define KATCP_TYPE_FLOAT                "float"
 #define KATCP_TYPE_DOUBLE               "double"
 #define KATCP_TYPE_CHAR                 "char"
+#define KATCP_TYPE_ACTOR                "actor"
 
 #define KATCP_OPERATION_STACK_PUSH      "push"
 #define KATCP_OPERATION_STACK_POP       "pop"
@@ -216,6 +217,26 @@ struct kcs_sm_list {
   int l_count;
 };
 */
+
+struct katcp_actor {
+  char *a_key;
+
+  struct katcp_job *a_job;
+  struct katcp_notice *a_sm_notice;
+
+#if 0
+  struct katcp_type **a_tag;
+  int a_tag_count;
+#endif
+
+  void *a_data;
+  struct katcp_type *a_data_type;
+};
+
+struct katcp_module {
+  char *m_name;
+  void *m_handle;
+};
 
 struct kcs_sched_task {
   struct kcs_sm *t_machine;
@@ -256,6 +277,15 @@ void destroy_statemachine_data_kcs(struct katcp_dispatch *d);
 struct avl_tree *get_datastore_tree_kcs(struct katcp_dispatch *d);
 struct kcs_sm_op *create_sm_op_kcs(int (*call)(struct katcp_dispatch *, struct kcs_sm_state *, struct katcp_stack_obj *), struct katcp_stack_obj *o);
 struct kcs_sm_edge *create_sm_edge_kcs(struct kcs_sm_state *s_next, int (*call)(struct katcp_dispatch *, struct katcp_notice *, void *));
+
+struct katcp_stack *get_sm_stack_kcs(struct kcs_sm_state *s);
+
+struct katcp_actor *create_actor_type_katcp(struct katcp_dispatch *d, char *str, struct katcp_job *j, struct katcp_notice *n, void *data, char *datatype);
+void print_actor_type_katcp(struct katcp_dispatch *d, void *data);
+void destroy_actor_type_katcp(void *data);
+int copy_actor_type_katcp(void *src, void *dest, int n);
+int compare_actor_type_katcp(void *a, void *b);
+void *parse_actor_type_katcp(char **str);
 
 #if 0
 int statemachine_greeting(struct katcp_dispatch *d);

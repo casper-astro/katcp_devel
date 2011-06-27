@@ -10,7 +10,6 @@ LDFLAGS += -shared
 vpath %.c ../kcs
 
 STATEMACHINE = statemachine.c
-#MOD = mod_simple_ops.so
 SRC = mod_conf_parser.c mod_simple_ops.c mod_roach_comms.c
 
 OBJ = $(patsubst %.c,%.o,$(SRC)) $(patsubst %.c,%.o,$(STATEMACHINE))

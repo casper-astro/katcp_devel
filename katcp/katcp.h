@@ -474,3 +474,4 @@ void destroy_stack_katcp(struct katcp_stack *s);
 void destroy_obj_stack_katcp(struct katcp_stack_obj *o);
 int is_empty_stack_katcp(struct katcp_stack *s);
 void *pop_data_stack_katcp(struct katcp_stack *s);
+void *pop_data_expecting_stack_katcp(struct katcp_dispatch *d, struct katcp_stack *s, char *type);

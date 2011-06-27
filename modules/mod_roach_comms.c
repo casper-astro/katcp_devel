@@ -16,12 +16,44 @@
 #define KATCP_OPERATION_ROACH_CONNECT "roachconnect"
 #define KATCP_EDGE_ROACH_PING         "ping"
 #define KATCP_TYPE_ROACH              "roach"
+#define KATCP_TYPE_URL                "url"
 
+void print_katcp_url_type_mod(struct katcp_dispatch *d, void *data)
+{
+  struct katcp_url *ku;
+  ku = data;
+  if (ku == NULL)
+    return;
+
+  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, "#katcp url:");
+  append_string_katcp(d, KATCP_FLAG_STRING, ku->u_str);
+  append_string_katcp(d, KATCP_FLAG_STRING, "use count:");
+  append_unsigned_long_katcp(d, KATCP_FLAG_ULONG | KATCP_FLAG_LAST, ku->u_use);
+}
+void destroy_katcp_url_type_mod(void *data)
+{
+  struct katcp_url *ku;
+  ku = data;
+  destroy_kurl_katcp(ku);
+}
+void *parse_katcp_url_type_mod(char **str)
+{
+  struct katcp_url *ku;
+  ku = create_kurl_from_string_katcp(str[0]);
+  if (ku == NULL)
+    return NULL;
+  ku->u_use++;
+  return ku;
+}
+
+#if 0
 struct katcp_roach {
   struct katcp_url *r_url;
   struct katcp_job *r_job;
   struct katcp_notice *r_statemachine_notice;
   struct katcp_type **r_tags;
+  struct timeval r_seen;
+  int r_refs;
 };
 
 void print_roach_type_mod(struct katcp_dispatch *d, void *data)
@@ -95,9 +127,11 @@ void *parse_roach_type_mod(char **str)
 
   return r;
 }
+#endif
 
 int roach_disconnect_mod(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 {
+#if 0
   struct katcp_roach *r;
   struct katcp_url *u;
   
@@ -113,88 +147,45 @@ int roach_disconnect_mod(struct katcp_dispatch *d, struct katcp_notice *n, void 
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "roach comms: notice disconnect %s", u->u_str);
   
+#endif
   return 0;
 }
 
 int roach_connect_mod(struct katcp_dispatch *d, struct kcs_sm_state *s, struct katcp_stack_obj *o)
 {
-  struct kcs_sm *m;
-  
   struct katcp_stack *stack;
-  struct katcp_stack_obj *a;
-
-  struct katcp_type *roachtype;
   struct katcp_url *u;
-  struct katcp_roach *r;
-
   struct katcp_notice *n;
   struct katcp_job *j;
-  
-  if (o != NULL)
-    return -1;
-  
-  m = s->s_sm;
-  if (m == NULL)
-    return -1;
+  struct katcp_actor *a;
 
-  stack = m->m_stack;
-  if (stack == NULL)
-    return -1;
-  
-  roachtype = find_name_type_katcp(d, KATCP_TYPE_ROACH);
-  if (roachtype == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "roach connect needs roach type support");
-    return -1;
-  }
-  
-  a = pop_stack_katcp(stack);
-  if (a == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "roach connect expects roach on the stack");
-    return -1;
-  }
-  
-  if (a->o_type != roachtype){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "roach connect expects stack object to be roach type");
-    //destroy_obj_stack_katcp(a);
-    return -1;
-  }
-  
-  r = a->o_data;
-  if (r == NULL){
-    //destroy_obj_stack_katcp(a);
-    return -1;
-  }
+  stack = get_sm_stack_kcs(s);
 
-  u = r->r_url;
-  if (u == NULL){
-    //destroy_obj_stack_katcp(a);
+  u = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_URL);
+  if (u == NULL)
     return -1;
-  }
-
-  n = register_notice_katcp(d, NULL, 0, &roach_disconnect_mod, r);
+  
+  n = register_notice_katcp(d, NULL, 0, &roach_disconnect_mod, NULL);
   if (n == NULL){
-    //destroy_obj_stack_katcp(a);
     return -1;
   }
   
   j = network_connect_job_katcp(d, u, n);
   if (j == NULL){
-    //destroy_obj_stack_katcp(a);
-    return -1;
-  }
-
-  r->r_job = j;
- 
-  if (store_data_type_katcp(d, KATCP_TYPE_ROACH, KATCP_DEP_BASE, u->u_str, r, &print_roach_type_mod, &destroy_roach_type_mod, NULL, NULL, &parse_roach_type_mod) < 0){
-    zap_job_katcp(d, j);
-    //destroy_obj_stack_katcp(a);
     return -1;
   }
   
-  u->u_use++;
-
-  //destroy_obj_stack_katcp(a);
-  push_stack_obj_katcp(stack, a);
+  a = create_actor_type_katcp(d, u->u_str, j, NULL, NULL, NULL);
+  if (a == NULL){
+    zap_job_katcp(d, j);
+    return -1;
+  }
+ 
+  if (store_data_type_katcp(d, KATCP_TYPE_ACTOR, KATCP_DEP_BASE, u->u_str, a, &print_actor_type_katcp, &destroy_actor_type_katcp, &copy_actor_type_katcp, &compare_actor_type_katcp, &parse_actor_type_katcp) < 0){
+    zap_job_katcp(d, j);
+    destroy_actor_type_katcp(a);
+    return -1;
+  }
     
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "roach connected %s with job %p", u->u_str, j);
 
@@ -218,15 +209,19 @@ struct kcs_sm_op *roach_connect_setup_mod(struct katcp_dispatch *d, struct kcs_s
 
 int roach_ping_returns_mod(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 {
+#if 0
   struct katcp_roach *r;
   struct katcl_parse *p;
   int i, max;
   char *ptr;
-  
+  struct timeval now, delta;
+ 
   r = data;
   if (r == NULL)
     return 0;
-  
+ 
+  gettimeofday(&now, NULL);
+
   p = get_parse_notice_katcp(d, n);
   if (p){
     max = get_count_parse_katcl(p);
@@ -234,15 +229,18 @@ int roach_ping_returns_mod(struct katcp_dispatch *d, struct katcp_notice *n, voi
       ptr = get_string_parse_katcl(p, i);
       log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", ptr);
     }
+    sub_time_katcp(&delta, &now, &r->r_seen);
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s reply in %4.3fms", r->r_url->u_str, (float)(delta.tv_sec*1000)+((float)delta.tv_usec/1000));
   }
 
   wake_notice_katcp(d, r->r_statemachine_notice, NULL);
-
+#endif
   return 0;
 }
 
 int roach_ping_mod(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 {
+#if 0
   struct kcs_sm *m;
   struct kcs_sm_state *s;
   struct katcp_stack *stack;
@@ -316,7 +314,9 @@ int roach_ping_mod(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "sent ping to %s", r->r_url->u_str);
 
   destroy_obj_stack_katcp(a);
-
+  
+  gettimeofday(&r->r_seen, NULL);
+#endif
   return 0;
 }
 
@@ -344,10 +344,17 @@ int init_mod(struct katcp_dispatch *d)
   }
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "successfully loaded mod_config_parser");
-  
+ 
+#if 0
   rtn  = register_name_type_katcp(d, KATCP_TYPE_ROACH, KATCP_DEP_BASE, &print_roach_type_mod, &destroy_roach_type_mod, NULL, NULL, &parse_roach_type_mod);
+#endif
+  rtn  = register_name_type_katcp(d, KATCP_TYPE_URL, KATCP_DEP_BASE, &print_katcp_url_type_mod, &destroy_katcp_url_type_mod, NULL, NULL, &parse_katcp_url_type_mod);
+  
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "added type:");
+#if 0
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", KATCP_TYPE_ROACH);
+#endif
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", KATCP_TYPE_URL);
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "added operations:");
 
