@@ -45,8 +45,9 @@
 #define FMON_SENSOR_ADC_DISABLED            1
 #define FMON_SENSOR_FFT_OVERRANGE           2
 #define FMON_SENSOR_ADC_RAW_POWER           3
+#define FMON_SENSOR_ADC_DBM_POWER           4
 
-#define FMON_INPUT_SENSORS                  4
+#define FMON_INPUT_SENSORS                  5
 
 /* registers fields */
 
@@ -101,7 +102,8 @@ struct fmon_sensor_template input_template[FMON_INPUT_SENSORS] = {
   { "%s.adc.overrange",  "adc overrange indicator", KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0 },
   { "%s.adc.terminated", "adc disabled",            KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0 },
   { "%s.fft.overrange",  "fft overrange indicator", KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0 },
-  { "%s.adc.amplitude",  "approximate input signal strength",  KATCP_SENSOR_FLOAT,   0, 0, 0.0, 65000.0}
+  { "%s.adc.amplitude",  "approximate input signal strength",  KATCP_SENSOR_FLOAT,   0, 0, 0.0, 65000.0},
+  { "%s.adc.power",      "approximate input signal strength",  KATCP_SENSOR_FLOAT,   0, 0, -100.0, 0.0}
 };
 
 struct fmon_sensor{
@@ -1429,13 +1431,14 @@ int check_fengine_amplitude(struct fmon_state *f, struct fmon_input *n, char *na
 {
   uint32_t word;
   double result, dbm;
-  struct fmon_sensor *sensor;
+  struct fmon_sensor *raw, *pow;
   unsigned int value;
 
-  sensor = &(n->n_sensors[FMON_SENSOR_ADC_RAW_POWER]);
+  raw = &(n->n_sensors[FMON_SENSOR_ADC_RAW_POWER]);
+  pow = &(n->n_sensors[FMON_SENSOR_ADC_DBM_POWER]);
 
   if(read_word_fmon(f, name, &word)){
-    update_sensor_status_fmon(f, sensor, KATCP_STATUS_UNKNOWN);
+    update_sensor_status_fmon(f, raw, KATCP_STATUS_UNKNOWN);
     return 0;
   }
 
@@ -1449,7 +1452,8 @@ int check_fengine_amplitude(struct fmon_state *f, struct fmon_input *n, char *na
   fprintf(stderr, "raw value 0x%x -> %f (%f)\n", value, result, dbm);
 #endif
 
-  update_sensor_double_fmon(f, sensor, result, KATCP_STATUS_NOMINAL);
+  update_sensor_double_fmon(f, raw, result, KATCP_STATUS_NOMINAL);
+  update_sensor_double_fmon(f, pow, dbm, KATCP_STATUS_NOMINAL);
 
   return 0;  
 }
