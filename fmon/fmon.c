@@ -103,7 +103,7 @@ struct fmon_sensor_template input_template[FMON_INPUT_SENSORS] = {
   { "%s.adc.terminated", "adc disabled",            KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0 },
   { "%s.fft.overrange",  "fft overrange indicator", KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0 },
   { "%s.adc.amplitude",  "approximate input signal strength",  KATCP_SENSOR_FLOAT,   0, 0, 0.0, 65000.0},
-  { "%s.adc.power",      "approximate input signal strength",  KATCP_SENSOR_FLOAT,   0, 0, -100.0, 0.0}
+  { "%s.adc.power",      "approximate input signal strength",  KATCP_SENSOR_FLOAT,   0, 0, -32.0, 0.0}
 };
 
 struct fmon_sensor{
@@ -1449,7 +1449,7 @@ int check_fengine_amplitude(struct fmon_state *f, struct fmon_input *n, char *na
   dbm = 10.0 * log10(result * result / 50.0 * 1000.0);
 
 #ifdef DEBUG
-  fprintf(stderr, "raw value 0x%x -> %f (%f)\n", value, result, dbm);
+  fprintf(stderr, "raw value 0x%x (%f, %d) -> %f (%f)\n", value, f->f_adc_scale_factor, f->f_amplitude_acc_len, result, dbm);
 #endif
 
   update_sensor_double_fmon(f, raw, result, KATCP_STATUS_NOMINAL);
