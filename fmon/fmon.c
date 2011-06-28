@@ -1428,7 +1428,7 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, char *name)
 int check_fengine_amplitude(struct fmon_state *f, struct fmon_input *n, char *name)
 {
   uint32_t word;
-  double result;
+  double result, dbm;
   struct fmon_sensor *sensor;
   unsigned int value;
 
@@ -1443,8 +1443,10 @@ int check_fengine_amplitude(struct fmon_state *f, struct fmon_input *n, char *na
 
   result = sqrt((double)value / ((double)f->f_amplitude_acc_len)) * f->f_adc_scale_factor;
 
+  dbm = 10.0 * log10(result * result / 50.0 * 1000.0);
+
 #ifdef DEBUG
-  fprintf(stderr, "raw value 0x%x -> %f\n", value, result);
+  fprintf(stderr, "raw value 0x%x -> %f (%f)\n", value, result, dbm);
 #endif
 
   update_sensor_double_fmon(f, sensor, result, KATCP_STATUS_NOMINAL);
