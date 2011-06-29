@@ -1731,9 +1731,11 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
 
 #if 0
       nr = register_notice_katcp(d, NULL, 0, &relay_cmd_job_katcp, NULL);
+      j = process_relay_create_job_katcp(d, url, vector, n, nr);
+#else
+      j = process_relay_create_job_katcp(d, url, vector, n, NULL);
 #endif
 
-      j = process_relay_create_job_katcp(d, url, vector, n, nr);
       free(vector);
 
       if(j == NULL){
