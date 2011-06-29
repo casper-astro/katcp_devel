@@ -13,7 +13,8 @@ case "$1" in
     kcpcmd -k get-adc-snapshot ${2} | sed -e 's/^!get-adc-snapshot/#return/'
     ;;
   quant)
-    kcpcmd -k get-quant-snapshot ${2} | sed -e 's/^!get-quant-snapshot/#return/'
+    #kcpcmd -k get-quant-snapshot ${2} | sed -e 's/^!get-quant-snapshot/#return/'
+    kcpcmd -r -k get-quant-snapshot ${2} | sed -e 's/^#get-quant-snapshot/#return ok'
     ;;
   *)
     kcs_error "unknown snap shot ${1}"
