@@ -1453,7 +1453,8 @@ int check_fengine_amplitude(struct fmon_state *f, struct fmon_input *n, char *na
 #endif
 
   update_sensor_double_fmon(f, raw, result, KATCP_STATUS_NOMINAL);
-  update_sensor_double_fmon(f, pow, dbm, KATCP_STATUS_NOMINAL);
+
+  update_sensor_double_fmon(f, pow, dbm, (dbm < -32.0) ? KATCP_STATUS_WARN : KATCP_STATUS_NOMINAL);
 
   return 0;  
 }
