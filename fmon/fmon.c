@@ -103,7 +103,7 @@ struct fmon_sensor_template input_template[FMON_INPUT_SENSORS] = {
   { "%s.adc.terminated", "adc disabled",            KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0 },
   { "%s.fft.overrange",  "fft overrange indicator", KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0 },
   { "%s.adc.amplitude",  "approximate input signal strength",  KATCP_SENSOR_FLOAT,   0, 0, 0.0, 65000.0},
-  { "%s.adc.power",      "approximate input signal strength",  KATCP_SENSOR_FLOAT,   0, 0, -32.0, 0.0}
+  { "%s.adc.power",      "approximate input signal strength",  KATCP_SENSOR_FLOAT,   0, 0, -54.0, 0.0}
 };
 
 struct fmon_sensor{
