@@ -723,7 +723,7 @@ int maintain_fmon(struct fmon_state *f)
           state = STATE_CONNECT; /* try again */
           break;
         } /* fall */
-        state = STATE_DONE; /* superflous, but symmetrical */
+        state = STATE_DONE; /* superfluous, but symmetrical */
       case STATE_DONE :
         set_lru_fmon(f, 1, KATCP_STATUS_NOMINAL);
         f->f_maintaining = 0;
