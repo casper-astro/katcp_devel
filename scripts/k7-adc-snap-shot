@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#set -e
+set -e
 
 source functions.sh
 
@@ -34,4 +34,4 @@ fi
 
 shift 2
 
-kcpcmd -k get-adc-snapshots ${pps} ${level} $* | sed -e 's/^!get-adc-snapshots/#return/;s/^\#get-adc-snapshots/#k7-adc-snap-shot/'
+kcpcmd -r -k get-adc-snapshots ${pps} ${level} $* | sed -e 's/^\#get-adc-snapshots/#k7-adc-snap-shot/'
