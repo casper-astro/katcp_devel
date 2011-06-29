@@ -47,5 +47,6 @@ kcs_corr_log () {
   if kcpcmd -k -m get-log ; then
     kcpcmd -k -r clr-log
   fi
+  kcs_debug "finished getting correlator logs"
   return 0
 }
