@@ -456,15 +456,17 @@ void sane_shared_katcp(struct katcp_dispatch *d);
 #endif
 
 /*katcp_stack functions*/
-
 struct katcp_stack *create_stack_katcp();
-struct katcp_stack_obj *create_obj_stack_katcp(void *data, struct katcp_type *type);
-struct katcp_stack_obj *create_named_type_obj_stack_katcp(struct katcp_dispatch *d, void *data, char *str);
+struct katcp_stack_obj *create_obj_stack_katcp(void *data, struct katcp_type *type, int flagman);
+struct katcp_stack_obj *create_named_type_obj_stack_katcp(struct katcp_dispatch *d, void *data, char *type, int flagman);
+struct katcp_stack_obj *copy_obj_stack_katcp(struct katcp_stack_obj *o);
+#if 0
 void inc_ref_obj_stack_katcp(struct katcp_stack_obj *o);
-int push_stack_katcp(struct katcp_stack *s, void *data, struct katcp_type *type);
 int push_stack_ref_obj_katcp(struct katcp_stack *s, struct katcp_stack_obj *o);
+#endif
+int push_stack_katcp(struct katcp_stack *s, void *data, struct katcp_type *type);
 int push_stack_obj_katcp(struct katcp_stack *s, struct katcp_stack_obj *o);
-int push_named_stack_katcp(struct katcp_dispatch *d, struct katcp_stack *s, void *data, char *str);
+int push_named_stack_katcp(struct katcp_dispatch *d, struct katcp_stack *s, void *data, char *type);
 struct katcp_stack_obj *pop_stack_katcp(struct katcp_stack *s);
 struct katcp_stack_obj *peek_stack_katcp(struct katcp_stack *s);
 struct katcp_stack_obj *index_stack_katcp(struct katcp_stack *s, int indx);

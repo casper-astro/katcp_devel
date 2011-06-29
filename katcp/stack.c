@@ -23,7 +23,7 @@ struct katcp_stack *create_stack_katcp()
   return s;
 } 
 
-struct katcp_stack_obj *create_obj_stack_katcp(void *data, struct katcp_type *type)
+struct katcp_stack_obj *create_obj_stack_katcp(void *data, struct katcp_type *type, int flagman)
 {
   struct katcp_stack_obj *o;
 
@@ -36,33 +36,33 @@ struct katcp_stack_obj *create_obj_stack_katcp(void *data, struct katcp_type *ty
 
   o->o_data = data;
   o->o_type = type;
-  o->o_ref  = 0;
+  o->o_man  = flagman;
 
   return o;
 }
 
-struct katcp_stack_obj *create_named_type_obj_stack_katcp(struct katcp_dispatch *d, void *data, char *str)
+struct katcp_stack_obj *create_named_type_obj_stack_katcp(struct katcp_dispatch *d, void *data, char *type, int flagman)
 {
   struct katcp_type *t;
   
-  if (str == NULL || data == NULL)
+  if (type == NULL || data == NULL)
     return NULL;
 
-  t = find_name_type_katcp(d, str);
+  t = find_name_type_katcp(d, type);
   if (t == NULL)
     return NULL;
 
-  return create_obj_stack_katcp(data, t);
+  return create_obj_stack_katcp(data, t, flagman);
 }
-#if 0
+#if 1
 struct katcp_stack_obj *copy_obj_stack_katcp(struct katcp_stack_obj *o)
 {
   if (o == NULL)
     return NULL;
-  return create_obj_stack_katcp(o->o_data, o->o_type);
+  return create_obj_stack_katcp(o->o_data, o->o_type, 0);
 }
 #endif
-
+#if 0
 void inc_ref_obj_stack_katcp(struct katcp_stack_obj *o)
 {
   if (o == NULL)
@@ -70,7 +70,7 @@ void inc_ref_obj_stack_katcp(struct katcp_stack_obj *o)
 
   o->o_ref++;
 }
-
+#endif
 int is_empty_stack_katcp(struct katcp_stack *s)
 {
   if (s == NULL)
@@ -82,10 +82,24 @@ void destroy_obj_stack_katcp(struct katcp_stack_obj *o)
 {
   struct katcp_type *t;
   if (o != NULL){
+
+    if (o->o_man){
+      t = o->o_type;
+      if ((t != NULL) && (t->t_free != NULL)){
+#ifdef DEBUG
+        fprintf(stderr, "stack obj managed flag set del: %s %p %p\n",t->t_name, t, t->t_free);
+#endif
+        (*t->t_free)(o->o_data);
+      }
+    }
+
+    o->o_data = NULL;
+    o->o_type = NULL;
+    free(o);
+
 #if 0 
     def DEBUG
     fprintf(stderr, "stack destroy obj: refs: %d\n", o->o_ref);
-#endif
     if (o->o_ref < 1){
       t = o->o_type;
 
@@ -106,6 +120,7 @@ void destroy_obj_stack_katcp(struct katcp_stack_obj *o)
       fprintf(stderr, "stack obj --refs %d\n", o->o_ref);
 #endif
     }
+#endif
   }
 }
 
@@ -141,12 +156,13 @@ int push_stack_obj_katcp(struct katcp_stack *s, struct katcp_stack_obj *o)
 
   return 0;
 }
-
+#if 0
 int push_stack_ref_obj_katcp(struct katcp_stack *s, struct katcp_stack_obj *o)
 {
   inc_ref_obj_stack_katcp(o);
   return push_stack_obj_katcp(s, o);
 }
+#endif
 
 int push_stack_katcp(struct katcp_stack *s, void *data, struct katcp_type *type)
 {
@@ -155,24 +171,26 @@ int push_stack_katcp(struct katcp_stack *s, void *data, struct katcp_type *type)
   if (s == NULL)
     return -1;
 
-  o = create_obj_stack_katcp(data, type);
+  o = create_obj_stack_katcp(data, type, 0);
   if (o == NULL)
     return -1;
   
   return push_stack_obj_katcp(s, o);
 }
 
-int push_named_stack_katcp(struct katcp_dispatch *d, struct katcp_stack *s, void *data, char *str)
+int push_named_stack_katcp(struct katcp_dispatch *d, struct katcp_stack *s, void *data, char *type)
 {
   struct katcp_stack_obj *o;
 
-  if (s == NULL || str == NULL)
+  if (s == NULL || type == NULL)
     return -1;
 
-  o = create_named_type_obj_stack_katcp(d, data, str);
+  o = create_named_type_obj_stack_katcp(d, data, type, 0);
   if (o == NULL)
     return -1;
-  
+#if 0 
+  return (refd > 0) ? push_stack_ref_obj_katcp(s, o) : push_stack_obj_katcp(s, o);
+#endif
   return push_stack_obj_katcp(s, o);
 }
 
@@ -236,7 +254,7 @@ void *pop_data_expecting_stack_katcp(struct katcp_dispatch *d, struct katcp_stac
 
 struct katcp_stack_obj *peek_stack_katcp(struct katcp_stack *s)
 {
-  if (s == NULL)
+  if (s == NULL || is_empty_stack_katcp(s))
     return NULL;
   return s->s_objs[s->s_count - 1];
 }
@@ -263,7 +281,7 @@ void print_stack_obj_katcp(struct katcp_dispatch *d, struct katcp_stack_obj *o)
   }
   t = o->o_type;
 #ifdef DEBUG
-  fprintf(stderr, "stack: type: %p data (%p) refs: %d\n", o->o_type, o->o_data, o->o_ref);
+  fprintf(stderr, "stack: type: %p data (%p) managed flag: %d\n", o->o_type, o->o_data, o->o_man);
   //fprintf(stderr, "stack obj: %s %p %p\n",t->t_name, t, t->t_print);
 #endif
   if ((t != NULL) && (t->t_print != NULL))

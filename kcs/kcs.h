@@ -239,24 +239,34 @@ struct katcp_module {
 };
 
 struct kcs_sched_task {
+#if 0
   struct kcs_sm *t_machine;
+#endif
+  
   int t_state;
   int t_edge_i;
+
+  struct katcp_stack *t_stack;
+  struct kcs_sm_state *t_pc;
 };
 
 struct kcs_sm {
   char *m_name;
+#if 0
   struct katcp_stack *m_stack;
   struct kcs_sm_state *m_pc;
+#endif
 };
 
 struct kcs_sm_op {
-  int (*o_call)(struct katcp_dispatch *, struct kcs_sm_state *, struct katcp_stack_obj *);
+  int (*o_call)(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_stack_obj *o);
   struct katcp_stack_obj *o_stack_obj;
 };
 
 struct kcs_sm_state {
+#if 0
   struct kcs_sm *s_sm;
+#endif
   char *s_name;
   
   struct kcs_sm_edge **s_edge_list;
@@ -275,10 +285,8 @@ int statemachine_init_kcs(struct katcp_dispatch *d);
 int statemachine_cmd(struct katcp_dispatch *d, int argc);
 void destroy_statemachine_data_kcs(struct katcp_dispatch *d);
 struct avl_tree *get_datastore_tree_kcs(struct katcp_dispatch *d);
-struct kcs_sm_op *create_sm_op_kcs(int (*call)(struct katcp_dispatch *, struct kcs_sm_state *, struct katcp_stack_obj *), struct katcp_stack_obj *o);
+struct kcs_sm_op *create_sm_op_kcs(int (*call)(struct katcp_dispatch *, struct katcp_stack *, struct katcp_stack_obj *), struct katcp_stack_obj *o);
 struct kcs_sm_edge *create_sm_edge_kcs(struct kcs_sm_state *s_next, int (*call)(struct katcp_dispatch *, struct katcp_notice *, void *));
-
-struct katcp_stack *get_sm_stack_kcs(struct kcs_sm_state *s);
 
 struct katcp_actor *create_actor_type_katcp(struct katcp_dispatch *d, char *str, struct katcp_job *j, struct katcp_notice *n, void *data, char *datatype);
 void print_actor_type_katcp(struct katcp_dispatch *d, void *data);

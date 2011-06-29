@@ -489,7 +489,7 @@ struct katcp_type {
 struct katcp_stack_obj {
   void *o_data;
   struct katcp_type *o_type;
-  int o_ref;
+  int o_man;
 };
 
 struct katcp_stack {

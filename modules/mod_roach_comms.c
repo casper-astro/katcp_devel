@@ -13,10 +13,11 @@
 #include <katpriv.h>
 #include <kcs.h>
 
-#define KATCP_OPERATION_ROACH_CONNECT "roachconnect"
-#define KATCP_EDGE_ROACH_PING         "ping"
-#define KATCP_TYPE_ROACH              "roach"
-#define KATCP_TYPE_URL                "url"
+#define KATCP_OPERATION_ROACH_CONNECT         "roachconnect"
+#define KATCP_OPERATION_ROACH_CONNECT_MULTI   "roachconnectmulti"
+#define KATCP_EDGE_ROACH_PING                 "ping"
+#define KATCP_TYPE_ROACH                      "roach"
+#define KATCP_TYPE_URL                        "url"
 
 void print_katcp_url_type_mod(struct katcp_dispatch *d, void *data)
 {
@@ -131,41 +132,33 @@ void *parse_roach_type_mod(char **str)
 
 int roach_disconnect_mod(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 {
-#if 0
-  struct katcp_roach *r;
-  struct katcp_url *u;
-  
-  r = data;
-  if (r == NULL)
+  struct katcp_actor *a;
+
+  a = data;
+  if (a == NULL)
     return 0;
 
-  u = r->r_url;
-  if (u == NULL)
-    return 0;
-
-  //del_data_type_katcp(d, KATCP_TYPE_ROACH, u->u_str);
-
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "roach comms: notice disconnect %s", u->u_str);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "roach comms: notice disconnect %s", a->a_key);
   
-#endif
+  del_data_type_katcp(d, KATCP_TYPE_ACTOR, a->a_key);
+  
   return 0;
 }
 
-int roach_connect_mod(struct katcp_dispatch *d, struct kcs_sm_state *s, struct katcp_stack_obj *o)
+int roach_connect_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_stack_obj *o)
 {
-  struct katcp_stack *stack;
   struct katcp_url *u;
   struct katcp_notice *n;
   struct katcp_job *j;
   struct katcp_actor *a;
 
-  stack = get_sm_stack_kcs(s);
-
   u = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_URL);
   if (u == NULL)
     return -1;
-  
+#if 0 
   n = register_notice_katcp(d, NULL, 0, &roach_disconnect_mod, NULL);
+#endif
+  n = create_notice_katcp(d, NULL, 0);
   if (n == NULL){
     return -1;
   }
@@ -181,12 +174,20 @@ int roach_connect_mod(struct katcp_dispatch *d, struct kcs_sm_state *s, struct k
     return -1;
   }
  
+  if (add_notice_katcp(d, n, &roach_disconnect_mod, a) < 0){
+    zap_job_katcp(d, j);
+    destroy_actor_type_katcp(a);
+    return -1;
+  }
+
   if (store_data_type_katcp(d, KATCP_TYPE_ACTOR, KATCP_DEP_BASE, u->u_str, a, &print_actor_type_katcp, &destroy_actor_type_katcp, &copy_actor_type_katcp, &compare_actor_type_katcp, &parse_actor_type_katcp) < 0){
     zap_job_katcp(d, j);
     destroy_actor_type_katcp(a);
     return -1;
   }
     
+  //push_named_stack_katcp(d, stack, a, KATCP_TYPE_ACTOR);
+
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "roach connected %s with job %p", u->u_str, j);
 
   return 0;
@@ -207,13 +208,62 @@ struct kcs_sm_op *roach_connect_setup_mod(struct katcp_dispatch *d, struct kcs_s
   return op;
 }
 
+int roach_connect_multi_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_stack_obj *o)
+{
+  int rtn;
+
+  do {
+    rtn = roach_connect_mod(d, stack, o);
+  } while (rtn == 0);
+
+  return 0;
+}
+
+struct kcs_sm_op *roach_connect_multi_setup_mod(struct katcp_dispatch *d, struct kcs_sm_state *s)
+{
+  struct kcs_sm_op *op;
+
+  op = create_sm_op_kcs(&roach_connect_multi_mod, NULL);
+  if (op == NULL)
+    return NULL;
+
+#ifdef DEBUG
+  fprintf(stderr, "mod_roach_comms: created op %s (%p)\n", KATCP_OPERATION_ROACH_CONNECT, op);
+#endif
+
+  return op;
+}
+
 int roach_ping_returns_mod(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 {
-#if 0
-  struct katcp_roach *r;
+  struct katcp_actor *a;
   struct katcl_parse *p;
-  int i, max;
   char *ptr;
+  int max;
+
+  a = data;
+  if (a == NULL){
+    return 0;
+  }
+
+  p = get_parse_notice_katcp(d, n);
+  if (p){
+    max = get_count_parse_katcl(p);
+    if (max >= 2){
+      ptr = get_string_parse_katcl(p, 1);
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s watchdog %s", a->a_key, ptr);
+    }
+#if 0
+    for (i=0; i<max; i++){
+      ptr = get_string_parse_katcl(p, i);
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", ptr);
+    }
+#endif
+  }
+
+  wake_notice_katcp(d, a->a_sm_notice, NULL);
+
+#if 0
   struct timeval now, delta;
  
   r = data;
@@ -221,102 +271,57 @@ int roach_ping_returns_mod(struct katcp_dispatch *d, struct katcp_notice *n, voi
     return 0;
  
   gettimeofday(&now, NULL);
-
-  p = get_parse_notice_katcp(d, n);
-  if (p){
-    max = get_count_parse_katcl(p);
-    for (i=0; i<max; i++){
-      ptr = get_string_parse_katcl(p, i);
-      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", ptr);
-    }
     sub_time_katcp(&delta, &now, &r->r_seen);
     log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s reply in %4.3fms", r->r_url->u_str, (float)(delta.tv_sec*1000)+((float)delta.tv_usec/1000));
-  }
 
-  wake_notice_katcp(d, r->r_statemachine_notice, NULL);
 #endif
   return 0;
 }
 
 int roach_ping_mod(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 {
-#if 0
-  struct kcs_sm *m;
-  struct kcs_sm_state *s;
   struct katcp_stack *stack;
-  struct katcp_stack_obj *a;
-  struct katcp_type *type;
-  struct katcp_roach *r;
-
+  struct katcp_actor *a;
   struct katcp_notice *pn;
   struct katcl_parse *p;
-  struct katcp_job *j;
-  
-  s = data;
-  if (s == NULL)
-    return -1;
 
-  m = s->s_sm;
-  if (m == NULL)
-    return -1;
+  stack = data;
 
-  stack = m->m_stack;
-  if (stack == NULL)
-    return -1;
-
-  a = pop_stack_katcp(stack);
+  a = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_ACTOR);
   if (a == NULL){
-    destroy_obj_stack_katcp(a);
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "got no actor from the stack");
     return -1;
   }
 
-  type = find_name_type_katcp(d, KATCP_TYPE_ROACH);
-  if (a->o_type == NULL || type == NULL || a->o_type != type){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "roach ping mod: type mismatch");
-    push_stack_obj_katcp(stack, a);
-    return -1;
-  }
-  
-  r = a->o_data;
-  if (r == NULL){
-    push_stack_obj_katcp(stack, a);
-    return -1;
-  }
-
-  j = r->r_job; 
-  r->r_statemachine_notice = n;
+  a->a_sm_notice = n;
 
   p = create_parse_katcl();
   if (p == NULL){
-    push_stack_obj_katcp(stack, a);
     return -1;
   }
 
   if (add_string_parse_katcl(p, KATCP_FLAG_FIRST | KATCP_FLAG_LAST | KATCP_FLAG_STRING, "?watchdog") < 0){
-    push_stack_obj_katcp(stack, a);
     destroy_parse_katcl(p);
     return -1;
   }
 
-  pn = register_parse_notice_katcp(d, NULL, p, &roach_ping_returns_mod, r);
+  pn = register_parse_notice_katcp(d, NULL, p, &roach_ping_returns_mod, a);
   if (pn == NULL){
-    push_stack_obj_katcp(stack, a);
     destroy_parse_katcl(p);
     return -1;
   }
   
-  if (notice_to_job_katcp(d, j, pn) < 0){
-    push_stack_obj_katcp(stack, a);
+  if (notice_to_job_katcp(d, a->a_job, pn) < 0){
     destroy_parse_katcl(p);
     return -1;
   }
   
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "sent ping to %s", r->r_url->u_str);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "sent ping to %s", a->a_key);
 
-  destroy_obj_stack_katcp(a);
-  
+#if 0
   gettimeofday(&r->r_seen, NULL);
 #endif
+
   return 0;
 }
 
@@ -356,10 +361,15 @@ int init_mod(struct katcp_dispatch *d)
 #endif
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", KATCP_TYPE_URL);
 
+  
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "added operations:");
 
   rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_ROACH_CONNECT, &roach_connect_setup_mod, NULL, NULL, NULL, NULL, NULL);
+  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_ROACH_CONNECT_MULTI, &roach_connect_multi_setup_mod, NULL, NULL, NULL, NULL, NULL);
+
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", KATCP_OPERATION_ROACH_CONNECT);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", KATCP_OPERATION_ROACH_CONNECT_MULTI);
+
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "added edges:");
 

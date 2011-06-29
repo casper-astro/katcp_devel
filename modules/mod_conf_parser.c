@@ -304,14 +304,20 @@ int start_config_parser_mod(struct katcp_dispatch *d, char *file)
   return 0;
 }
 
-int config_parser_mod(struct katcp_dispatch *d, struct kcs_sm_state *s, struct katcp_stack_obj *o)
+int config_parser_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_stack_obj *o)
 {
+#if 0
   struct kcs_sm *m;
   struct katcp_stack *stack;
   struct katcp_stack_obj *a;
   struct katcp_type *stringtype;
+#endif
+  char *string;
   int rtn; 
   
+  string = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_STRING);
+
+#if 0
   if (o != NULL)
     return -1;
   
@@ -340,6 +346,7 @@ int config_parser_mod(struct katcp_dispatch *d, struct kcs_sm_state *s, struct k
     destroy_obj_stack_katcp(a);
     return -1;
   }
+#endif
  
 #if 0
   log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "config parser filename: %s", a->o_data);
@@ -347,9 +354,9 @@ int config_parser_mod(struct katcp_dispatch *d, struct kcs_sm_state *s, struct k
     (*stringtype->t_print)(d, a->o_data);
 #endif
   
-  rtn = start_config_parser_mod(d, a->o_data);
-  
-  destroy_obj_stack_katcp(a);
+  rtn = start_config_parser_mod(d, string);
+ 
+  //destroy_obj_stack_katcp(a);
   
   return rtn;
 }
@@ -376,14 +383,19 @@ struct config_setting *search_config_settings_mod(struct katcp_dispatch *d, void
   return get_key_data_type_katcp(d, KATCP_TYPE_CONFIG_SETTING, str);
 }
 
-int config_search_mod(struct katcp_dispatch *d, struct kcs_sm_state *s, struct katcp_stack_obj *o)
+int config_search_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_stack_obj *o)
 {
+#if 0
   struct kcs_sm *m;
   struct katcp_stack *stack;
   struct katcp_stack_obj *a;
   struct katcp_type *stringtype;
+#endif
+  char *string;
   struct config_setting *cs;
-  
+ 
+  string = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_STRING);
+#if 0
   if (o != NULL)
     return -1;
   
@@ -412,10 +424,11 @@ int config_search_mod(struct katcp_dispatch *d, struct kcs_sm_state *s, struct k
     destroy_obj_stack_katcp(a);
     return -1;
   }
+#endif
+
+  cs = search_config_settings_mod(d, string);
   
-  cs = search_config_settings_mod(d, a->o_data);
-  
-  destroy_obj_stack_katcp(a);
+  //destroy_obj_stack_katcp(a);
 
   if (cs == NULL){
     log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "config search not found!");

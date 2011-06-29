@@ -55,7 +55,7 @@ int binary_search_type_list_katcp(struct katcp_type **ts, int t_size, char *str)
 
   if (ts == NULL || t_size == 0 || str == NULL){
 #ifdef DEBUG
-    fprintf(stderr, "katcp_type: null ts or zero size rtn -1\n");
+    fprintf(stderr, "katcp_type: null ts or zero size rtn -1 ts:(%p) t_size:%d str:%s\n", ts, t_size, str);
 #endif
     return -1;
   }

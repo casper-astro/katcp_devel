@@ -32,12 +32,15 @@ void *add_float_mod(void *a, void *b)
 }
 #endif
 
-int rpn_add_mod(struct katcp_dispatch *d, struct kcs_sm_state *s, struct katcp_stack_obj *o)
+int rpn_add_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_stack_obj *o)
 {
 #define TYPE_COUNT  1
+#if 0
   struct kcs_sm *m;
   struct katcp_stack *stack;
   struct katcp_stack_obj *a, *b;
+#endif
+  int *a, *b;
   int i;
   void *temp;
 
@@ -60,7 +63,11 @@ int rpn_add_mod(struct katcp_dispatch *d, struct kcs_sm_state *s, struct katcp_s
   t_set[1].f_tid = find_name_id_type(d, KATCP_TYPE_FLOAT);
   t_set[1].f_call = &add_float_mod;
 #endif
+  
+  a = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_INTEGER);
+  b = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_INTEGER);
 
+#if 0
   if (s == NULL || o == NULL)
     return -1;
   
@@ -93,7 +100,9 @@ int rpn_add_mod(struct katcp_dispatch *d, struct kcs_sm_state *s, struct katcp_s
     log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "rpn_add runtime type mismatch");
     return -1;
   }
+#endif
 
+#if 0
   for (i=0;i<TYPE_COUNT;i++){
     if (o->o_type == t_set[i].f_type){
       temp = (*(t_set[i].f_call))(a->o_data, b->o_data);
@@ -120,6 +129,7 @@ int rpn_add_mod(struct katcp_dispatch *d, struct kcs_sm_state *s, struct katcp_s
   
   destroy_obj_stack_katcp(a);
   destroy_obj_stack_katcp(b);
+#endif
 
   return 0;
 #undef TYPE_COUNT
@@ -143,7 +153,7 @@ struct kcs_sm_op *rpn_add_setup_mod(struct katcp_dispatch *d, struct kcs_sm_stat
   if (t == NULL)
     return NULL;
 
-  o = create_obj_stack_katcp(NULL, t);
+  o = create_obj_stack_katcp(NULL, t, 1);
   if (o == NULL)
     return NULL;
 
@@ -162,11 +172,13 @@ struct kcs_sm_op *rpn_add_setup_mod(struct katcp_dispatch *d, struct kcs_sm_stat
 
 int compare_generic_mod(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 {
+  int rtn;
+  rtn = 0;
+#if 0
   struct kcs_sm *m;
   struct kcs_sm_state *s;
   struct katcp_stack *stack;
   struct katcp_stack_obj *a, *b;
-  int rtn;
 
   s = data;
   if (s == NULL)
@@ -210,7 +222,8 @@ int compare_generic_mod(struct katcp_dispatch *d, struct katcp_notice *n, void *
 
   destroy_obj_stack_katcp(a);
   destroy_obj_stack_katcp(b);
-  
+#endif
+
   wake_notice_katcp(d, n, NULL);
   return rtn;
 }

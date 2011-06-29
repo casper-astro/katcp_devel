@@ -285,10 +285,11 @@ struct katcp_url *create_kurl_from_string_katcp(char *url){
           case COL:
             spos = i+1;
             break;
+          case WAK:
+            state = S_PATH;
           case '\0':
           case '\n':
           case '\r':
-          case WAK:
             epos = i+1;
             len = epos-spos;
             temp = malloc(sizeof(char)*len);
@@ -296,7 +297,7 @@ struct katcp_url *create_kurl_from_string_katcp(char *url){
             temp[len-1] = '\0';
             ku->u_port = atoi(temp);
             //fprintf(stderr,"port: %s %d %d\n",temp,ku->port,epos);
-            state = S_PATH;
+            state = (state == S_PATH) ? state : S_END;
             free(temp);
             temp = NULL;
             spos = i+1;

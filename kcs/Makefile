@@ -4,6 +4,7 @@ include ../Makefile.inc
 
 INC = -I$(KATCP)
 LIB = -L$(KATCP) -lkatcp -ldl
+CFLAGS += -fPIC
 
 SERVER = kcs
 SRCSHARED = shared.c
