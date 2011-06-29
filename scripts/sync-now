@@ -1,0 +1,17 @@
+#!/bin/bash
+
+set -e 
+source functions.sh
+
+kcs_debug "about to run resync"
+
+status=1
+
+if kcpcmd -k -r resync ; then
+  status=0
+else 
+  kcs_error "corr resync failed"
+fi
+
+kcs_corr_log
+exit $status

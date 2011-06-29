@@ -313,6 +313,88 @@ void perforate_client_server_katcp(struct katcp_dispatch *dl)
   }
 }
 
+int system_info_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+#define BUFFER 64
+  char buffer[BUFFER];
+  struct tm *when;
+  time_t now, delta;
+  struct katcp_shared *s;
+  unsigned long hours;
+  unsigned int minutes, seconds;
+
+  s = d->d_shared;
+
+  when = localtime(&(s->s_start));
+  if(when == NULL){
+    return KATCP_RESULT_FAIL;
+  }
+
+  time(&now);
+
+  delta = now - s->s_start;
+
+  hours   = (delta / 3600);
+  minutes = (delta / 60)     - (hours * 60);
+  seconds = (delta)          - (minutes * 60);
+
+  strftime(buffer, BUFFER - 1, "%Y-%m-%dT%H:%M:%S", when);
+
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "server started at %s localtime which is T%lu:%02u:%02u ago", buffer, hours, minutes, seconds);
+
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%d active client %s", s->s_used, (s->s_used == 1) ? "connection" : "connections");
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%d subordinate %s", s->s_number, (s->s_number == 1) ? "job" : "jobs");
+
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%d %s", s->s_tally, (s->s_tally == 1) ? "sensor" : "sensors");
+
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%d %s", s->s_size, (s->s_size == 1) ? "mode" : "modes");
+  if(s->s_size > 1){
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%d (%s) is current mode", s->s_mode,  s->s_vector[s->s_mode].e_name ? s->s_vector[s->s_mode].e_name : "UNKNOWN");
+  }
+
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%d %s", s->s_pending, (s->s_pending == 1) ? "notice" : "notices");
+
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%d %s scheduled", s->s_length, (s->s_length == 1) ? "timer" : "timers");
+
+  return KATCP_RESULT_OK;
+#undef BUFFER
+}
+
+#if 0
+int uptime_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+#define BUFFER 64
+  char buffer[BUFFER];
+  struct tm *when;
+  time_t now, delta;
+  struct katcp_shared *s;
+  unsigned long hours;
+  unsigned int minutes, seconds;
+
+  s = d->d_shared;
+
+  when = localtime(&(s->s_start));
+  if(when == NULL){
+    return KATCP_RESULT_FAIL;
+  }
+
+  time(&now);
+
+  delta = now - s->s_start;
+
+  hours   = (delta / 3600);
+  minutes = (delta / 60)     - (hours * 60);
+  seconds = (delta)          - (minutes * 60);
+
+  strftime(buffer, BUFFER - 1, "%Y-%m-%dT%H:%M:%S", when);
+
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "server started at %s localtime which is T%lu:%02u:%02u ago", buffer, hours, minutes, seconds);
+
+  return KATCP_RESULT_OK;
+#undef BUFFER
+}
+#endif
+
 int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, char *host, int port)
 {
 #define LABEL_BUFFER 32
@@ -364,9 +446,17 @@ int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, ch
     return terminate_katcp(dl, KATCP_EXIT_ABORT);
   }
 
+  time(&(s->s_start));
+
 #if 0
   register_flag_mode_katcp(dl, "?notice",  "notice operations (?notice [list|create|watch|wake])", &notice_cmd_katcp, KATCP_CMD_HIDDEN, 0);
   register_flag_mode_katcp(dl, "?job",     "job operations (?job [list|process notice-name executable-file])", &job_cmd_katcp, KATCP_CMD_HIDDEN, 0);
+#endif
+
+  register_flag_mode_katcp(dl, "?system-info",  "report server information (?system-info)", &system_info_cmd_katcp, 0, 0);
+
+#if 0
+  register_flag_mode_katcp(dl, "?uptime", "report system uptime (?uptime)", &uptime_cmd_katcp, 0, 0);
 #endif
 
   register_flag_mode_katcp(dl, "?dispatch","dispatch operations (?dispatch [list])", &dispatch_cmd_katcp, 0, 0);
@@ -379,8 +469,8 @@ int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, ch
   register_flag_mode_katcp(dl, "?version", "version operations (?sensor [add module version [mode]|remove module])", &version_cmd_katcp, 0, 0);
 
   register_katcp(dl, "?sensor-list",       "lists available sensors (?sensor-list [sensor])", &sensor_list_cmd_katcp);
-  register_katcp(dl, "?sensor-sampling", "configure sensor (?sensor-sampling sensor [strategy [parameter]])", &sensor_sampling_cmd_katcp);
-  register_katcp(dl, "?sensor-value",    "query a sensor (?sensor-value sensor)", &sensor_value_cmd_katcp);
+  register_katcp(dl, "?sensor-sampling",   "configure sensor (?sensor-sampling sensor [strategy [parameter]])", &sensor_sampling_cmd_katcp);
+  register_katcp(dl, "?sensor-value",      "query a sensor (?sensor-value sensor)", &sensor_value_cmd_katcp);
 
 #if 0
   if(s->s_tally > 0){

@@ -89,7 +89,7 @@ static void deallocate_notice_katcp(struct katcp_dispatch *d, struct katcp_notic
 
 static void reap_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
 {
-  int i, check;
+  int i, k, check;
   struct katcp_shared *s;
 
   if(n == NULL){
@@ -122,9 +122,15 @@ static void reap_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
       s->s_pending--;
       check++;
 
+      for(k = i; k < s->s_pending; k++){
+        s->s_notices[k] = s->s_notices[k + 1];
+      }
+
+#if 0
       if(i < s->s_pending){
         s->s_notices[i] = s->s_notices[s->s_pending];
       }
+#endif
       
     } else {
       i++;
@@ -961,6 +967,10 @@ int run_notices_katcp(struct katcp_dispatch *d)
 
       test = (n->n_trigger == KATCP_NOTICE_TRIGGER_ALL) ? 0 : 1;
 
+#ifdef DEBUG
+      fprintf(stderr, "notice: trigger[%d] (%s) with code %d\n", i, n->n_name ? n->n_name : "<anonymous>", test);
+#endif
+
       n->n_trigger = KATCP_NOTICE_TRIGGER_OFF;
 
       if(n->n_changes == 0){
@@ -1037,9 +1047,15 @@ int run_notices_katcp(struct katcp_dispatch *d)
       deallocate_notice_katcp(d, n);
 
       s->s_pending--;
+
+      for(k = i; k < s->s_pending; k++){
+        s->s_notices[k] = s->s_notices[k + 1];
+      }
+#if 0
       if(i < s->s_pending){
         s->s_notices[i] = s->s_notices[s->s_pending];
       }
+#endif
     } else {
       i++;
     }

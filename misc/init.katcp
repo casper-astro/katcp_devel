@@ -5,10 +5,11 @@
 ?job process tmon exec://tmon
 ?forget ?halt
 ?forget ?restart
-?process ?enable-sensors enable\_roach\_sensors\_(?enable-sensors) wbc
+?process ?enable-sensors enable\_roach\_sensors\_(?enable-sensors)
 ?process ?label-input alias\_an\_input\_name\_(?label-input\_input\_alias)
 ?process ?halt halt\_the\_control\_server_\(?halt)
 ?process ?restart restart\_the\_system\_(?restart)
+?process ?sync-now resynchronises\_the\_correlator\_(?sync-now)
 ?process ?capture-start start\_a\_capture\_(?capture-start\_name\_[time])
 ?process ?capture-stop stop\_a\_capture\_(?capture-start\_name\_[time])
 ?process ?capture-list list\_available\_data\_streams\_(?capture-list)
@@ -19,5 +20,5 @@
 ?process ?xport start
 ?xport start
 ?mode ready
-?mode wbc
 ?enable-sensors
+?mode wbc

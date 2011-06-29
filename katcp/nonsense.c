@@ -1,4 +1,3 @@
-/* (c) 2010,2011 SKA SA */
 /* Released under the GNU GPLv3 - see COPYING */
 
 #include <stdio.h>
@@ -2123,7 +2122,7 @@ int register_multi_integer_sensor_katcp(struct katcp_dispatch *d, int mode, char
   return 0;
 }
 
-/* plain vanillia boolean registration ***********************************/
+/* plain vanilla boolean registration ************************************/
 
 int register_boolean_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, int (*get)(struct katcp_dispatch *d, struct katcp_acquire *a), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a))
 {
@@ -2188,6 +2187,40 @@ int register_invert_multi_boolean_sensor_katcp(struct katcp_dispatch *d, int mod
 {
   return register_multi_boolean_sensor_katcp(d, mode, name, description, units, a, &extract_invert_boolean_katcp);
 }
+
+/* float/double registration *********************************************/
+
+#ifdef KATCP_USE_FLOATS
+int register_double_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, double (*get)(struct katcp_dispatch *d, struct katcp_acquire *a), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a), double min, double max)
+{
+  struct katcp_sensor *sn;
+  struct katcp_acquire *a;
+
+  sn = create_sensor_katcp(d, name, description, units, KATCP_STRATEGY_EVENT, KATCP_SENSOR_FLOAT, mode);
+  if(sn == NULL){
+    return -1;
+  }
+
+  if(create_sensor_double_katcp(d, sn, min, max) < 0){
+    destroy_sensor_katcp(d, sn);
+    return -1;
+  }
+
+  a = setup_double_acquire_katcp(d, get, local, release);
+  if(a == NULL){
+    destroy_sensor_katcp(d, sn);
+    return -1;
+  }
+
+  if(link_acquire_katcp(d, a, sn, NULL)){
+    destroy_sensor_katcp(d, sn);
+    destroy_acquire_katcp(d, a);
+    return -1;
+  }
+
+  return 0;
+}
+#endif
 
 /* type information *************************************************/
 
@@ -3363,8 +3396,9 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
   struct katcp_job *jb;
   struct katcp_acquire *a;
   struct katcp_integer_acquire *ia;
+  struct katcp_double_acquire *da;
   struct katcl_parse *p;
-  int i, j, got;
+  int i, j, got, code;
   char *name, *type, *label, *value, *description, *units;
 
   s = d->d_shared;
@@ -3402,7 +3436,11 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
         case KATCP_SENSOR_INTEGER :
         case KATCP_SENSOR_BOOLEAN :
           ia = a->a_more;
-          log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "acquire current value %d, get %p and local state %p", ia->ia_current, ia->ia_get, a->a_local);
+          log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "integer/boolean acquire current value %d, get %p and local state %p", ia->ia_current, ia->ia_get, a->a_local);
+          break;
+        case KATCP_SENSOR_FLOAT :
+          da = a->a_more;
+          log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "double acquire current value %e, get %p and local state %p", da->da_current, da->da_get, a->a_local);
           break;
       }
       if(got == 0){
@@ -3491,26 +3529,40 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
 
     log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "about to create sensor %s of type %s", label, type);
 
-    if(!strcmp(type, "integer")){
-      if(register_integer_sensor_katcp(d, 0, label, description, units, NULL, NULL, NULL, 0, INT_MAX) < 0){
-        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to register integer sensor %s", label);
-        return KATCP_RESULT_FAIL;
-      }
+    code = type_code_sensor_katcp(type);
+    switch(code){
 
-      return KATCP_RESULT_OK;
-    } else if(!strcmp(type, "boolean")){
-      if(register_boolean_sensor_katcp(d, 0, label, description, units, NULL, NULL, NULL) < 0){
-        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to register boolean sensor %s", label);
-        return KATCP_RESULT_FAIL;
-      }
+      case KATCP_SENSOR_INTEGER : 
+        if(register_integer_sensor_katcp(d, 0, label, description, units, NULL, NULL, NULL, 0, INT_MAX) < 0){
+          log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to register integer sensor %s", label);
+          return KATCP_RESULT_FAIL;
+        }
+        return KATCP_RESULT_OK;
 
-      return KATCP_RESULT_OK;
-    } else {
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no logic to handle type %s yet", type);
-      return KATCP_RESULT_FAIL;
+      case KATCP_SENSOR_BOOLEAN : 
+        if(register_boolean_sensor_katcp(d, 0, label, description, units, NULL, NULL, NULL) < 0){
+          log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to register boolean sensor %s", label);
+          return KATCP_RESULT_FAIL;
+        }
+        return KATCP_RESULT_OK;
+
+#ifdef KATCP_USE_FLOATS
+      case KATCP_SENSOR_FLOAT : 
+        if(register_double_sensor_katcp(d, 0, label, description, units, NULL, NULL, NULL, -10e18, 10e18) < 0){
+          log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to register integer sensor %s", label);
+          return KATCP_RESULT_FAIL;
+        }
+        return KATCP_RESULT_OK;
+#endif
+
+      default :
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no logic to handle type %s (code %d) yet", type, code);
+        return KATCP_RESULT_FAIL;
     }
 
-  } else if(!strcmp(name, "update")){
+    return KATCP_RESULT_FAIL;
+
+  } else if(!strcmp(name, "set")){
 
     label = arg_string_katcp(d, 2);
     value = arg_string_katcp(d, 3);
@@ -3547,6 +3599,22 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
 
         log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "updated integer sensor %s to new value %d", label, ia->ia_current);
         return KATCP_RESULT_OK;
+
+#ifdef KATCP_USE_FLOATS
+      case KATCP_SENSOR_FLOAT :
+        if(a->a_more == NULL){
+          log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no extra field for double sensor %s", label);
+          return KATCP_RESULT_FAIL;
+        }
+        
+        da = a->a_more;
+        da->da_current = atof(value);
+
+        propagate_acquire_katcp(d, a);
+
+        log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "updated double sensor %s to new value %e", label, da->da_current);
+        return KATCP_RESULT_OK;
+#endif
 
       default :
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to update sensor %s of unsupported type %d\n", label, a->a_type);

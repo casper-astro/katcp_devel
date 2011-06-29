@@ -42,6 +42,7 @@ void usage(char *app)
   printf("-p position        only print a particular argument number\n");
   printf("-r                 toggle printing of reply messages\n");
   printf("-i                 toggle printing of inform messages\n");
+  printf("-m                 munge replies into log messages (requires -k)\n");
 
   printf("return codes:\n");
   printf("0     command completed successfully\n");
@@ -240,9 +241,9 @@ int load_arg(struct katcl_line *l, char *arg, int fmt, int flags)
 
 int main(int argc, char **argv)
 {
-  char *app, *server, *match, *ptr, *tmp;
+  char *app, *server, *match, *parm, *tmp, *cmd, *extra;
   int i, j, c, fd;
-  int verbose, result, status, base, run, info, reply, display, max, prefix, timeout, fmt, pos, flags;
+  int verbose, result, status, base, run, info, reply, display, max, prefix, timeout, fmt, pos, flags, munge;
   struct katcl_line *l, *k;
   fd_set fsr, fsw;
   struct timeval tv;
@@ -262,6 +263,7 @@ int main(int argc, char **argv)
   fmt = FMT_TEXT;
   pos = (-1);
   k = NULL;
+  munge = 0;
 
   while (i < argc) {
     if (argv[i][0] == '-') {
@@ -308,6 +310,10 @@ int main(int argc, char **argv)
           break;
         case 'b' :
           fmt = FMT_BIN;
+          j++;
+          break;
+        case 'm' :
+          munge = 1;
           j++;
           break;
 
@@ -359,6 +365,12 @@ int main(int argc, char **argv)
     } else {
       base = i;
       i = argc;
+    }
+  }
+
+  if(munge){
+    if(k){
+      reply = 1;
     }
   }
 
@@ -504,24 +516,24 @@ int main(int argc, char **argv)
     }
 
     while(have_katcl(l) > 0){
-      ptr = arg_string_katcl(l, 0);
-      if(ptr){
+      cmd = arg_string_katcl(l, 0);
+      if(cmd){
         display = 0;
-      	switch(ptr[0]){
+      	switch(cmd[0]){
           case KATCP_INFORM : 
             display = info;
             break;
           case KATCP_REPLY : 
             display = reply;
+            parm = arg_string_katcl(l, 1);
             if(match){
-              if(strncmp(match, ptr + 1, prefix) || ((ptr[prefix + 1] != '\0') && (ptr[prefix + 1] != ' '))){
+              if(strncmp(match, cmd + 1, prefix) || ((cmd[prefix + 1] != '\0') && (cmd[prefix + 1] != ' '))){
                 if(k){
-                  sync_message_katcl(k, KATCP_LEVEL_WARN, KCPCMD_NAME, "encountered unexpected reply %s", ptr);
+                  sync_message_katcl(k, KATCP_LEVEL_WARN, KCPCMD_NAME, "encountered unexpected reply %s", cmd);
                 } 
-                fprintf(stderr, "%s: warning: encountered unexpected reply <%s>\n", app, ptr);
+                fprintf(stderr, "%s: warning: encountered unexpected reply <%s>\n", app, cmd);
               } else {
-              	ptr = arg_string_katcl(l, 1);
-              	if(ptr && !strcmp(ptr, KATCP_OK)){
+              	if(parm && !strcmp(parm, KATCP_OK)){
               	  status = 0;
                 }
               	run = 0;
@@ -530,15 +542,15 @@ int main(int argc, char **argv)
             break;
           case KATCP_REQUEST : 
             if(k){
-              sync_message_katcl(k, KATCP_LEVEL_WARN, KCPCMD_NAME, "encountered unanswerable request %s", ptr);
+              sync_message_katcl(k, KATCP_LEVEL_WARN, KCPCMD_NAME, "encountered unanswerable request %s", cmd);
             } 
-            fprintf(stderr, "%s: warning: encountered an unanswerable request <%s>\n", app, ptr);
+            fprintf(stderr, "%s: warning: encountered an unanswerable request <%s>\n", app, cmd);
             break;
           default :
             if(k){
-              sync_message_katcl(k, KATCP_LEVEL_WARN, KCPCMD_NAME, "read malformed message %s", ptr);
+              sync_message_katcl(k, KATCP_LEVEL_WARN, KCPCMD_NAME, "read malformed message %s", cmd);
             } 
-            fprintf(stderr, "%s: read malformed message <%s>\n", app, ptr);
+            fprintf(stderr, "%s: read malformed message <%s>\n", app, cmd);
             break;
         }
         if(display){
@@ -546,7 +558,16 @@ int main(int argc, char **argv)
           fprintf(stderr, "need to display\n");
 #endif
           if(k){
-            relay_katcl(l, k);
+            if(munge && parm && (cmd[0] == KATCP_REPLY)){
+              if(!strcmp(parm, KATCP_OK)){
+                sync_message_katcl(k, KATCP_LEVEL_DEBUG, cmd + 1, KATCP_OK);
+              } else {
+                extra = arg_string_katcl(l, 2);
+                sync_message_katcl(k, KATCP_LEVEL_WARN, cmd + 1, "%s (%s)", parm, extra ? extra : "no extra information");
+              } 
+            } else {
+              relay_katcl(l, k);
+            }
           } else {
             max = arg_count_katcl(l);
             if(pos < 0){

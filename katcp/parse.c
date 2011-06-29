@@ -482,7 +482,7 @@ int add_double_parse_katcl(struct katcl_parse *p, int flags, double v)
     return -1;
   }
 
-  result = snprintf(ptr, TMP_BUFFER, "%e", v);
+  result = snprintf(ptr, TMP_BUFFER, "%g", v);
   if((result <= 0) || (result >= TMP_BUFFER)){
     return -1;
   }

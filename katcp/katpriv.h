@@ -434,6 +434,8 @@ struct katcp_shared{
   
   struct katcp_type **s_type;
   unsigned int s_type_count;
+
+  time_t s_start;
 };
 
 struct katcp_dispatch{
