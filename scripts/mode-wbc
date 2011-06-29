@@ -8,7 +8,6 @@ timeout=150
 
 limit=$[now+timeout]
 
-status=1
 kcs_debug "running connect"
 
 while ! kcpcmd -k -m -t 120 connect ; do
@@ -20,10 +19,11 @@ done
 
 kcs_info "running initialise"
 if kcpcmd -k -m -t 120 initialise 2 ; then
-  status=0
-else
-  kcs_error "corr initialise failed"
+  kcs_corr_log
+  exit 0
 fi
 
 kcs_corr_log
-exit $status
+kcs_error "corr initialise failed"
+
+exit 1
