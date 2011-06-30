@@ -73,8 +73,8 @@
 #define FMON_KATADC_ERR_HIGH      0.0
 #define FMON_KATADC_ERR_LOW     -32.0
 
-#define FMON_KATADC_WARN_HIGH    -22.0
-#define FMON_KATADC_WARN_LOW     -29.0
+#define FMON_KATADC_WARN_HIGH    -15.0
+#define FMON_KATADC_WARN_LOW     -30.0
 
 volatile int run;
 
