@@ -70,8 +70,8 @@
 #define FMON_KATADC_SCALE   1.0/184.3
 #define FMON_IADC_SCALE     1.0/368.0
 
-#define FMON_KATADC_ERR_HIGH      0.0
-#define FMON_KATADC_ERR_LOW     -32.0
+#define FMON_KATADC_ERR_HIGH       0.0
+#define FMON_KATADC_ERR_LOW      -32.0
 
 #define FMON_KATADC_WARN_HIGH    -15.0
 #define FMON_KATADC_WARN_LOW     -30.0
