@@ -1243,9 +1243,6 @@ int detect_fmon(struct fmon_state *f)
   }
 
   f->f_board = word;
-  if(f->f_board > 0){
-    f->f_prior = f->f_board;
-  }
 
   if(f->f_reprobe == 0){
     f->f_reprobe = 1;
@@ -1288,10 +1285,11 @@ int detect_fmon(struct fmon_state *f)
   log_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_server, "board contains %d fengines and %d xengines", f->f_fs, f->f_xs);
 
   if(f->f_board > 0){
+    f->f_prior = f->f_board;
     return 0;
-  }
-
-  /* if board_id == 0, then do some more checking that we are actually set up */
+  } 
+  
+  /* else if board_id == 0, then do some more checking that we are actually set up */
 
   if(f->f_fs > 0){
     result = read_word_fmon(f, "control", &word);
@@ -1314,6 +1312,8 @@ int detect_fmon(struct fmon_state *f)
       return 0;
     }
   }
+
+  log_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_server, "ignoring board id 0 as roach not initalised");
 
   f->f_board = (-1); /* board id is just 0 because it is unset */
 
