@@ -1014,6 +1014,19 @@ void reset_katcp(struct katcp_dispatch *d, int fd)
   }
 }
 
+struct katcl_parse *ready_katcp(struct katcp_dispatch *d)
+{
+  struct katcl_line *l;
+  
+  sane_katcp(d);
+
+  l = line_katcp(d);
+  if (l == NULL)
+    return NULL;
+
+  return ready_katcl(l);
+}
+
 /**************************************************************/
 
 int forget_cmd_katcp(struct katcp_dispatch *d, int argc)

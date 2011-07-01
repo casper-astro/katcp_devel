@@ -450,7 +450,8 @@ int setup_basic_kcs(struct katcp_dispatch *d, char *scripts, char **argv, int ar
   result = 0;
 
   result += register_flag_mode_katcp(d, NULL, "python script handler", &script_wildcard_cmd, KATCP_CMD_HIDDEN | KATCP_CMD_WILDCARD, KCS_MODE_BASIC);
-  result += register_flag_mode_katcp(d, "?parser" , "ROACH Configuration file parser (?parser [load|save|get|set|list])", &parser_cmd, 0, KCS_MODE_BASIC);
+  /*result += register_flag_mode_katcp(d, "?parser" , "ROACH Configuration file parser (?parser [load|save|get|set|list])", &parser_cmd, 0, KCS_MODE_BASIC);
+  */
   result += register_flag_mode_katcp(d, "?roach" , "Control the pool of roaches (?roach [add|del|start|stop|start-pool|stop-pool])", &roach_cmd, 0, KCS_MODE_BASIC);
   result += register_flag_mode_katcp(d, "?sm" , "Run a statemachine on a pool of roaches (?sm [[ping|connect] pool])", &statemachine_cmd, 0, KCS_MODE_BASIC);
   result += register_flag_mode_katcp(d, "?watchannounce" , "spawn the watch announce listener (?watchannounce port)", &watchannounce_cmd, 0, KCS_MODE_BASIC);

@@ -198,9 +198,6 @@ struct kcs_statemachine {
 #define KATCP_TYPE_ACTOR                "actor"
 
 #define KATCP_OPERATION_STACK_PUSH      "push"
-#define KATCP_OPERATION_STACK_POP       "pop"
-#define KATCP_OPERATION_STACK_PEEK      "peek"
-#define KATCP_OPERATION_STACK_INDEX     "index"
 
 #define TASK_STATE_RUN_OPS              3
 #define TASK_STATE_FOLLOW_EDGES         2

@@ -615,6 +615,7 @@ unsigned int get_buffer_parse_katcl(struct katcl_parse *p, unsigned int index, v
 /* parse: parsing from line */
 int parse_katcl(struct katcl_line *l);
 struct katcl_parse *ready_katcl(struct katcl_line *l);
+struct katcl_parse *ready_katcp(struct katcp_dispatch *d);
 
 #include <stdarg.h>
 
