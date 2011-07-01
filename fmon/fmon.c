@@ -51,7 +51,10 @@
 
 /* registers fields */
 
-#define FMON_CONTROL_CLEAR_STATUS      0x0008
+#define FMON_FCONTROL_CLEAR_STATUS    0x0008
+#define FMON_FCONTROL_FLASHER_EN      0x1000
+
+#define FMON_XCONTROL_FLASHER_EN      0x1000
 
 #define FMON_FSTATUS_QUANT_OVERRANGE   0x0001
 #define FMON_FSTATUS_FFT_OVERRANGE     0x0002
@@ -150,6 +153,7 @@ struct fmon_state
   char *f_symbolic;
 
   int f_board;
+  int f_prior;
 
   int f_reprobe;
   int f_cycle;
@@ -213,6 +217,7 @@ void destroy_fmon(struct fmon_state *f)
   }
 
   f->f_board = (-1);
+  f->f_prior = (-1);
   f->f_reprobe = 0;
   f->f_fs = 0;
   f->f_xs = 0;
@@ -359,6 +364,7 @@ struct fmon_state *create_fmon(char *server, int verbose, unsigned int timeout, 
   f->f_symbolic = NULL;
 
   f->f_board = (-1);
+  f->f_prior = (-1);
 
   f->f_reprobe = reprobe;
   f->f_cycle = 0;
@@ -1237,6 +1243,9 @@ int detect_fmon(struct fmon_state *f)
   }
 
   f->f_board = word;
+  if(f->f_board > 0){
+    f->f_prior = f->f_board;
+  }
 
   if(f->f_reprobe == 0){
     f->f_reprobe = 1;
@@ -1277,7 +1286,38 @@ int detect_fmon(struct fmon_state *f)
   }
 
   log_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_server, "board contains %d fengines and %d xengines", f->f_fs, f->f_xs);
-  return 0;
+
+  if(f->f_board > 0){
+    return 0;
+  }
+
+  /* if board_id == 0, then do some more checking that we are actually set up */
+
+  if(f->f_fs > 0){
+    result = read_word_fmon(f, "control", &word);
+    if(result != 0){
+      return result;
+    }
+    if(word & FMON_FCONTROL_FLASHER_EN){
+      f->f_prior = 0;
+      return 0;
+    }
+  }
+
+  if(f->f_xs > 0){
+    result = read_word_fmon(f, "ctrl", &word);
+    if(result != 0){
+      return result;
+    }
+    if(word & FMON_XCONTROL_FLASHER_EN){
+      f->f_prior = 0;
+      return 0;
+    }
+  }
+
+  f->f_board = (-1); /* board id is just 0 because it is unset */
+
+  return -1;
 #undef BUFFER
 }
 
@@ -1388,7 +1428,7 @@ int clear_control_fmon(struct fmon_state *f)
     return -1;
   }
 
-  word &= ~FMON_CONTROL_CLEAR_STATUS;
+  word &= ~FMON_FCONTROL_CLEAR_STATUS;
   if(write_word_fmon(f, "control", word)){
     return -1;
   }
@@ -1397,7 +1437,7 @@ int clear_control_fmon(struct fmon_state *f)
     return -1;
   }
 
-  word |= FMON_CONTROL_CLEAR_STATUS;
+  word |= FMON_FCONTROL_CLEAR_STATUS;
   if(write_word_fmon(f, "control", word)){
     return -1;
   }
