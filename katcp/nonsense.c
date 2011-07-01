@@ -1624,6 +1624,8 @@ static struct katcp_sensor *create_sensor_katcp(struct katcp_dispatch *d, char *
     }
   }
 
+  broadcast_inform_katcp(d, "#device-changed", name);
+
   return sn;
 }
 
