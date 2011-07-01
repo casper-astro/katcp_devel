@@ -505,9 +505,11 @@ int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, ch
     suspend = run_timers_katcp(dl, &delta);
 
     if(run > 0){ /* only bother with new connections if not stopping */
-      FD_SET(s->s_lfd, &(s->s_read));
-      if(s->s_lfd > s->s_max){
-        s->s_max = s->s_lfd;
+      if(s->s_lfd >= 0){
+        FD_SET(s->s_lfd, &(s->s_read));
+        if(s->s_lfd > s->s_max){
+          s->s_max = s->s_lfd;
+        }
       }
     }
 
