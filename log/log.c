@@ -6,8 +6,10 @@
 #include <sysexits.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <time.h>
 
 #include <sys/types.h>
+#include <sys/time.h>
 #include <sys/stat.h>
 
 #include <netc.h>
@@ -56,11 +58,15 @@ static void handle_signal(int signal)
 
 int main(int argc, char **argv)
 {
+#define BUFFER 64
+  char buffer[BUFFER];
   char *level, *app, *server, *output;
   int run, fd, i, j, c, verbose, attempts, detach, result, truncate, flags;
   struct katcl_parse *p;
   struct katcl_line *ls, *lo;
   struct sigaction sa;
+  time_t now;
+  struct tm *local;
 
   i = j = 1;
   app = argv[0];
@@ -242,7 +248,11 @@ int main(int argc, char **argv)
     fclose(stderr);
   }
 
-  sync_message_katcl(lo, KATCP_LEVEL_INFO, NAME, "monitor start for %s", server);
+  time(&now);
+  local = localtime(&now);
+  strftime(buffer, BUFFER - 1, "%Y-%m-%dT%H:%M:%S", local);
+
+  sync_message_katcl(lo, KATCP_LEVEL_INFO, NAME, "monitor start for %s at %s", server, buffer);
 
   for(run = 1; run > 0;){
 
@@ -305,5 +315,6 @@ int main(int argc, char **argv)
   }
 
   return EX_OK;
+#undef BUFFER
 }
 
