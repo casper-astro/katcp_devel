@@ -387,6 +387,8 @@ int create_search_statemachine_mod(struct katcp_dispatch *d)
 {
   int rtn;
   
+  rtn = 0;
+#if 0
   rtn  = create_named_node_kcs(d, "search");
 
   rtn += create_named_op_kcs(d, "search", KATCP_OPERATION_STACK_PUSH, p);
@@ -397,10 +399,10 @@ int create_search_statemachine_mod(struct katcp_dispatch *d)
 
   rtn += create_named_edge_kcs(d, "search", "found", KATCP_EDGE_CONF_SEARCH);
   rtn += create_named_edge_kcs(d, "search", "notfound", NULL);
-
+#endif
   
   
-
+  return rtn;
 }
 
 

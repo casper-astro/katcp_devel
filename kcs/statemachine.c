@@ -724,16 +724,16 @@ int statemachine_op_kcs(struct katcp_dispatch *d)
   state = arg_string_katcp(d, 1);
   op    = arg_string_katcp(d, 3);
 
+#if 0
   p = ready_katcp(d);
   max = get_count_parse_katcl(p);
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "parse count: %d", max);
 
+#endif
 
-#if 0
   if (create_named_op_kcs(d, state, op) < 0)
     return KATCP_RESULT_FAIL;
-#endif
 
   return KATCP_RESULT_OK;
 }

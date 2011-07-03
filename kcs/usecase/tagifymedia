@@ -1,0 +1,8 @@
+#!/bin/bash
+
+PWD=$(pwd)
+AWKPROG=$PWD/awkprogam
+GREPEXCLUDE='mp3\|avi\|mkv\&!sample'
+
+find $1 -type f | grep -i $GREPEXCLUDE | awk -F\/ -f $AWKPROG
+#find $1 -type f | awk -F\/ -f $AWKPROG
