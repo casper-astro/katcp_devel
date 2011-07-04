@@ -718,8 +718,8 @@ int statemachine_edge_kcs(struct katcp_dispatch *d)
 int statemachine_op_kcs(struct katcp_dispatch *d)
 {
   char *state, *op;
-  struct katcl_parse *p;
-  int max;
+  //struct katcl_parse *p;
+  //int max;
   
   state = arg_string_katcp(d, 1);
   op    = arg_string_katcp(d, 3);
@@ -823,7 +823,7 @@ void destroy_sm_mod_kcs(void *data)
     fprintf(stderr, "statemachine: destroy module %s\n", m->m_name); 
 #endif
     if (m->m_name) free(m->m_name);
-    dlclose(m->m_handle);
+    if (m->m_handle) dlclose(m->m_handle);
     free(m);
   }
 }
@@ -953,8 +953,8 @@ int statemachine_run_ops_kcs(struct katcp_dispatch *d, struct katcp_notice *n, s
   s = get_task_pc_kcs(t);
   stack = get_task_stack_kcs(t);
 
-#if 0 
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "running ops in %s state %s", m->m_name, s->s_name);
+#if 1 
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "running ops in state %s", s->s_name);
 #endif
 
   for (i=0; i<s->s_op_list_count; i++){
@@ -992,8 +992,8 @@ int statemachine_follow_edges_kcs(struct katcp_dispatch *d, struct katcp_notice 
     wake_notice_katcp(d, n, NULL);
     return TASK_STATE_CLEAN_UP;
   }
-#if 0  
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "testing edges in %s state %s", m->m_name, s->s_name);
+#if 1  
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "testing edges in state %s", s->s_name);
 #endif
   e = s->s_edge_list[t->t_edge_i];
   if (e != NULL){
@@ -1067,6 +1067,7 @@ int statemachine_process_kcs(struct katcp_dispatch *d, struct katcp_notice *n, v
 #ifdef DEBUG
       fprintf(stderr, "statemachine: process about to cleanup\n");
 #endif
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "printing task stack and cleaning up");
       print_task_stack_kcs(d, t);
       destroy_sched_task_kcs(t);
       return 0;

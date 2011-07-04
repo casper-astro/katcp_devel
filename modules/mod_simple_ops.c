@@ -41,8 +41,8 @@ int rpn_add_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct katc
   struct katcp_stack_obj *a, *b;
 #endif
   int *a, *b;
-  int i;
-  void *temp;
+  //int i;
+  //void *temp;
 
   struct type_funcs {
     struct katcp_type * f_type;

@@ -1,8 +1,11 @@
 #!/bin/bash
 
-PWD=$(pwd)
-AWKPROG=$PWD/awkprogam
-GREPEXCLUDE='mp3\|avi\|mkv\&!sample'
+PWD=/home/adam/work/katcp-git/kcs
+AWKPROG=$PWD/usecase/awkprogam
+#GREPEXCLUDE='mp3\|avi\|mkv\&!sample'
+GREPINCLUDE='mkv\|avi'
+GREPEXCLUDE='sample'
 
-find $1 -type f | grep -i $GREPEXCLUDE | awk -F\/ -f $AWKPROG
+find $1 -type f | grep -i $GREPINCLUDE | grep -iv $GREPEXCLUDE | awk -F\/ -f $AWKPROG
 #find $1 -type f | awk -F\/ -f $AWKPROG
+#find $1 -type f | grep -i $GREPINCLUDE | awk -F\/ -f $AWKPROG

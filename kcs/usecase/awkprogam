@@ -3,9 +3,9 @@
   #print "FILE: " $NF; 
   #print "TAGS: "; 
   #system("file -bi \""$0"\"");
-  printf sprintf("%s,%s,",$0,$NF);
+  printf sprintf("#media_item PATH %s NAME %s TAGS ",$0,$NF);
   for(i=2; i<=NF; i++) {
-    system("echo \""$i"\" | awk -F '[. -%()]' '{ for (x=1;x<=NF;x++) printf sprintf(\"%s,\",tolower($x)) }'");
+    system("echo \""$i"\" | awk -F '[. -%()]' '{ for (x=1;x<=NF;x++) printf sprintf(\"%s \",tolower($x)) }'");
   }
-  print ""
+  printf "\n"
 }

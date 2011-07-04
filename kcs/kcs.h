@@ -313,4 +313,7 @@ int xport_sync_connect_and_stop_subprocess_kcs(struct katcl_line *l, void *data)
 int xport_sync_connect_and_soft_restart_subprocess_kcs(struct katcl_line *l, void *data);
 
 int watchannounce_cmd(struct katcp_dispatch *d, int argc);
+
+struct katcp_job *wrapper_process_create_job_katcp(struct katcp_dispatch *d, struct katcp_url *file, char **argv, struct katcp_notice *halt);
+
 #endif
