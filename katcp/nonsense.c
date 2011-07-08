@@ -130,8 +130,9 @@ struct katcp_check_table{
   int (*c_append_value)(struct katcp_dispatch *d, int flags, struct katcp_sensor *sn);
   int (*c_append_diff)(struct katcp_dispatch *d, int flags, struct katcp_nonsense *ns);
   int (*c_scan_diff)(struct katcp_nonsense *ns, char *extra);
-  int (*c_scan_value)(struct katcp_acquire *a, char *value);
+  int (*c_scan_value)(struct katcp_sensor *sn, char *value);
   int (*c_has_poll)(struct katcp_acquire *a);
+  void (*c_destroy_sensor)(struct katcp_dispatch *d, struct katcp_sensor *sn);
   int (*c_checks[KATCP_STRATEGIES_COUNT])(struct katcp_nonsense *ns);
 };
 
@@ -253,14 +254,21 @@ int set_value_double_katcp(struct katcp_acquire *a, double value)
   return 0;
 }
 
-int scan_value_double_katcp(struct katcp_acquire *a, char *value)
+int scan_value_double_katcp(struct katcp_sensor *sn, char *value)
 {
   struct katcp_double_acquire *da;
+  struct katcp_acquire *a;
   char *end;
   double got;
 
-  da = a->a_more;
+  a = sn->s_acquire;
+  if(a == NULL){
+    return -1;
+  }
 
+  sane_acquire(a);
+  
+  da = a->a_more;
   if(da == NULL){
     return -1;
   }
@@ -521,6 +529,331 @@ int set_double_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a, 
 
 #endif
 
+/* discrete type routines ************************************************/
+
+int extract_discrete_katcp(struct katcp_dispatch *d, struct katcp_sensor *sn)
+{
+  struct katcp_acquire *a;
+  struct katcp_discrete_acquire *da;
+  struct katcp_discrete_sensor *ds;
+
+  a = sn->s_acquire;
+
+  if(sn->s_type != KATCP_SENSOR_DISCRETE){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "logic problem - discrete operation applied to type %d", sn->s_type);
+    return -1;
+  }
+
+  ds = sn->s_more;
+  da = a->a_more;
+
+  if(da->da_current > ds->ds_size){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "extracted float (%f) for sensor %s not in advertised range", da->da_current, sn->s_name);
+    return -1;
+  }
+
+  ds->ds_current = da->da_current;
+
+  return 0;
+}
+
+int create_acquire_discrete_katcp(struct katcp_dispatch *d, struct katcp_acquire *a, int type)
+{
+  struct katcp_discrete_acquire *da;
+
+  switch(type){
+    case KATCP_SENSOR_DISCRETE :
+      break;
+    default :
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "discrete function incapable of creating type %d", type);
+      return -1;
+  }
+
+  if((a == NULL) || (a->a_type >= 0)){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "acquire structure empty or type already set");
+    return -1;
+  }
+
+  da = malloc(sizeof(struct katcp_discrete_acquire));
+  if(da == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate %d bytes for acquire structure", sizeof(struct katcp_discrete_acquire));
+    return -1;
+  }
+
+  da->da_current = 0;
+  da->da_get = NULL;
+
+  a->a_more = da;
+  a->a_type = type;
+
+  return 0;
+}
+
+int create_nonsense_discrete_katcp(struct katcp_dispatch *d, struct katcp_nonsense *ns)
+{
+  struct katcp_discrete_nonsense *dn;
+  struct katcp_discrete_sensor *ds;
+  struct katcp_sensor *sn;
+
+  sn = ns->n_sensor;
+
+  if(sn == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "null sensor given to discrete create function");
+    return -1;
+  }
+
+  switch(sn->s_type){
+    case KATCP_SENSOR_DISCRETE :
+      break;
+    default :
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "incapable of creating sensor client of type %d", sn->s_type);
+      return -1;
+  }
+
+  ds = sn->s_more;
+  dn = malloc(sizeof(struct katcp_discrete_nonsense));
+  if(dn == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate %d bytes for discrete sensor structure", sizeof(struct katcp_discrete_nonsense));
+    return -1;
+  }
+
+  dn->dn_previous = ds->ds_size;
+  ns->n_more = dn;
+
+  return 0;
+}
+
+int append_type_discrete_katcp(struct katcp_dispatch *d, int flags, struct katcp_sensor *sn)
+{
+  struct katcp_discrete_sensor *ds;
+  unsigned int i;
+
+  if(sn == NULL){
+    return -1;
+  }
+
+  ds = sn->s_more;
+
+  if(ds->ds_size <= 0){
+    return -1;
+  }
+
+  for(i = 0; i < (ds->ds_size - 1); i++){
+    if(append_string_katcp(d, KATCP_FLAG_STRING | (flags & KATCP_FLAG_FIRST), ds->ds_vector[i]) < 0){
+      return -1;
+    }
+  }
+
+  return append_string_katcp(d, KATCP_FLAG_STRING | ((i == 0) ? (flags & KATCP_FLAG_FIRST) : 0) | (flags & KATCP_FLAG_LAST), ds->ds_vector[i]);
+}
+
+int append_value_discrete_katcp(struct katcp_dispatch *d, int flags, struct katcp_sensor *sn)
+{
+  struct katcp_discrete_sensor *ds;
+
+  if(sn == NULL){
+    return -1;
+  }
+
+  ds = sn->s_more;
+
+#ifdef DEBUG
+  if(ds->ds_current >= ds->ds_size){
+    fprintf(stderr, "append discrete value: major logic problem: current %u is larger than size %u\n", ds->ds_current, ds->ds_size);
+    abort();
+  }
+#endif
+
+  return append_string_katcp(d, KATCP_FLAG_STRING | (flags & (KATCP_FLAG_FIRST | KATCP_FLAG_LAST)), ds->ds_vector[ds->ds_current]);
+}
+
+int set_value_discrete_katcp(struct katcp_acquire *a, unsigned int value)
+{
+  struct katcp_discrete_acquire *da;
+
+  da = a->a_more;
+
+  if(da == NULL){
+    return -1;
+  }
+
+  da->da_current = value;
+
+  return 0;
+}
+
+int scan_value_discrete_katcp(struct katcp_sensor *sn, char *value)
+{
+  struct katcp_discrete_acquire *da;
+  struct katcp_acquire *a;
+  struct katcp_discrete_sensor *ds;
+  unsigned int i;
+
+  if(value == NULL){
+    return -1;
+  }
+
+  a = sn->s_acquire;
+  if(a == NULL){
+    return -1;
+  }
+
+  sane_acquire(a);
+
+  ds = sn->s_more;
+  if(ds == NULL){
+    return -1;
+  }
+
+  da = a->a_more;
+  if(da == NULL){
+    return -1;
+  }
+
+  for(i = 0; (i < ds->ds_size) && strcmp(ds->ds_vector[i], value); i++);
+
+  if(i >= ds->ds_size){
+#ifdef DEBUG
+    fprintf(stderr, "no match for %s in vector of %d\n", value, ds->ds_size);
+#endif
+    return -1;
+  }
+
+  da->da_current = i;
+
+  return 0;
+}
+
+int has_poll_discrete_katcp(struct katcp_acquire *a)
+{
+  struct katcp_discrete_acquire *da;
+
+  da = a->a_more;
+
+  if(da && da->da_get){
+    return 1;
+  }
+
+  return 0;
+}
+
+void destroy_sensor_discrete_katcp(struct katcp_dispatch *d, struct katcp_sensor *sn)
+{
+  struct katcp_discrete_sensor *ds;
+
+  if(sn->s_type != KATCP_SENSOR_DISCRETE){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "logic problem - discrete destroy applied to type %d", sn->s_type);
+    return;
+  }
+
+  ds = sn->s_more;
+
+  if(ds == NULL){
+    return;
+  }
+
+  if(ds->ds_vector){
+    free(ds->ds_vector);
+    ds->ds_vector = NULL;
+  }
+
+  ds->ds_size = 0;
+
+  free(ds);
+
+  sn->s_more = NULL;
+}
+
+int create_sensor_vector_discrete_katcp(struct katcp_dispatch *d, struct katcp_sensor *sn, char **vector, unsigned int size)
+{
+  struct katcp_discrete_sensor *ds;
+
+  if((sn == NULL) || (sn->s_type != KATCP_SENSOR_DISCRETE)){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to layer discrete sensor over %p", sn);
+    return -1;
+  }
+
+  if(size <= 0){
+    /* otherwise append_type will not be able to add a LAST field */
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need at least one field for discrete sensor");
+    return -1;
+  }
+
+  ds = malloc(sizeof(struct katcp_discrete_sensor));
+  if(ds == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate %d bytes for discrete sensor structure", sizeof(struct katcp_discrete_sensor));
+    return -1;
+  }
+
+  ds->ds_vector = copy_vector_katcm(vector, size);
+  if(ds->ds_vector == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate %d element vector", size);
+    free(ds);
+    return -1;
+  }
+
+  ds->ds_size = size;
+  ds->ds_current = 0;
+
+  sn->s_more = ds;
+
+  return 0;
+}
+
+int event_check_discrete_katcp(struct katcp_nonsense *ns)
+{
+  struct katcp_sensor *sn;
+  struct katcp_discrete_sensor *ds;
+  struct katcp_discrete_nonsense *dn;
+  struct katcp_dispatch *dx;
+  int result;
+
+  sn = ns->n_sensor;
+  if(sn == NULL){
+    fprintf(stderr, "major logic problem: null sensor for client while checking for event\n");
+    abort();
+  }
+
+  dx = ns->n_client;
+
+  switch(sn->s_type){
+    case KATCP_SENSOR_DISCRETE :
+      break;
+    default :
+      log_message_katcp(dx, KATCP_LEVEL_FATAL, NULL, "called discrete comparison on type %d", sn->s_type);
+      return 0;
+  }
+
+  ds = sn->s_more;
+  dn = ns->n_more;
+
+  log_message_katcp(dx, KATCP_LEVEL_TRACE, NULL, "discrete event check had %u now %u", dn->dn_previous, ds->ds_current);
+
+  result = status_check_katcp(ns); /* WARNING: status_check has the side effect of updating status */
+  
+  if(dn->dn_previous == ds->ds_current){
+    return result;
+  }
+
+  dn->dn_previous = ds->ds_current;
+
+  return 1;
+}
+
+#if 0
+int set_discrete_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a, discrete value)
+{
+  int result;
+
+  result = set_value_discrete_katcp(a, value);
+
+  propagate_acquire_katcp(d, a);
+
+  return result;
+}
+
+#endif
+
 /* integer routines, intbool common to integer and boolean code *******************************/
 
 int extract_intbool_katcp(struct katcp_dispatch *d, struct katcp_sensor *sn)
@@ -616,14 +949,21 @@ int set_value_intbool_katcp(struct katcp_acquire *a, int value)
   return 0;
 }
 
-int scan_value_intbool_katcp(struct katcp_acquire *a, char *value)
+int scan_value_intbool_katcp(struct katcp_sensor *sn, char *value)
 {
   struct katcp_integer_acquire *ia;
   char *end;
   int got;
+  struct katcp_acquire *a;
+
+  a = sn->s_acquire;
+  if(a == NULL){
+    return -1;
+  }
+
+  sane_acquire(a);
 
   ia = a->a_more;
-
   if(ia == NULL){
     return -1;
   }
@@ -1007,6 +1347,7 @@ static struct katcp_check_table type_lookup_table[] = {
       &scan_diff_integer_katcp,
       &scan_value_intbool_katcp,
       &has_poll_intbool_katcp,
+      NULL, 
       { 
          NULL, /* never used, strategy none causes the deletion of the matching nonsense structure */
         &period_check_katcp,
@@ -1026,6 +1367,7 @@ static struct katcp_check_table type_lookup_table[] = {
        NULL,
       &scan_value_intbool_katcp,
       &has_poll_intbool_katcp,
+      NULL, 
       { 
          NULL, /* never used, strategy none causes the deletion of the matching nonsense structure */
         &period_check_katcp,
@@ -1035,21 +1377,22 @@ static struct katcp_check_table type_lookup_table[] = {
       }
     }, 
   [KATCP_SENSOR_DISCRETE] = /* currently unimplemented */
-    {  NULL, 
-       NULL, 
-       NULL, 
-       NULL, 
-       NULL,
-       NULL, 
-       NULL,
-       NULL,
+    {   "discrete", 
+       &extract_discrete_katcp, 
+       &create_acquire_discrete_katcp, 
+       &create_nonsense_discrete_katcp, 
+       &append_type_discrete_katcp,
+       &append_value_discrete_katcp, 
        NULL,
        NULL,
+       &scan_value_discrete_katcp,
+       &has_poll_discrete_katcp,
+       &destroy_sensor_discrete_katcp,
       { 
-         NULL,
+         NULL, /* never used */
         &period_check_katcp,
-         NULL,
-         NULL,
+        &event_check_discrete_katcp,
+         NULL, /* we assume all set members are equally different */
         &force_check_katcp
       }
     },
@@ -1064,6 +1407,7 @@ static struct katcp_check_table type_lookup_table[] = {
        NULL,
        NULL,
        NULL,
+       NULL, 
       { 
          NULL,
         &period_check_katcp,
@@ -1085,6 +1429,7 @@ static struct katcp_check_table type_lookup_table[] = {
       &scan_diff_double_katcp,
       &scan_value_double_katcp,
       &has_poll_double_katcp,
+      NULL, 
       { 
          NULL, /* never used, strategy none causes the deletion of the matching nonsense structure */
         &period_check_katcp,
@@ -1106,8 +1451,9 @@ void destroy_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a)
   struct katcp_sensor *s;
   struct katcp_integer_acquire *ia;
 #ifdef KATCP_USE_FLOATS
-  struct katcp_double_acquire *da;
+  struct katcp_double_acquire *doa;
 #endif
+  struct katcp_discrete_acquire *dsa;
 
   if(a->a_release){
     (*(a->a_release))(d, a);
@@ -1134,10 +1480,10 @@ void destroy_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a)
   a->a_users = 0;
 
   if(a->a_more){
+    /* rather pointless ... */
     switch(a->a_type){
       case KATCP_SENSOR_INTEGER :
       case KATCP_SENSOR_BOOLEAN :
-        log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "destroying acquire %p type %d", a, a->a_type);
 
         ia = a->a_more;
         ia->ia_get = NULL;
@@ -1145,12 +1491,16 @@ void destroy_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a)
 
 #ifdef KATCP_USE_FLOATS
       case KATCP_SENSOR_FLOAT :
-        log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "destroying acquire %p type %d", a, a->a_type);
 
-        da = a->a_more;
-        da->da_get = NULL;
+        doa = a->a_more;
+        doa->da_get = NULL;
         break;
 #endif
+
+      case KATCP_SENSOR_DISCRETE :
+        dsa = a->a_more;
+        dsa->da_get = NULL;
+        break;
 
       default : 
         log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "destroying unsupported sensor type %d", a->a_type);
@@ -1295,6 +1645,28 @@ struct katcp_acquire *setup_double_acquire_katcp(struct katcp_dispatch *d, doubl
 }
 #endif
 
+struct katcp_acquire *setup_discrete_acquire_katcp(struct katcp_dispatch *d, int (*get)(struct katcp_dispatch *d, struct katcp_acquire *a), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a))
+{
+  struct katcp_acquire *a;
+  struct katcp_discrete_acquire *da;
+
+  a = extended_create_acquire_katcp(d, KATCP_SENSOR_DISCRETE, local, release, NULL, NULL);
+  if(a == NULL){
+    return NULL;
+  }
+
+  da = a->a_more;
+
+  da->da_current = 0;
+  da->da_get = get;
+
+#ifdef DEBUG
+  fprintf(stderr, "discrete: acquire %p populated with get %p\n", da, da->da_get);
+#endif
+
+  return a;
+}
+
 /* link acquire to sensor, have acquire adopt type of sensor if emtpy */
 
 static int link_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a, struct katcp_sensor *sn, int (*extract)(struct katcp_dispatch *d, struct katcp_sensor *sn))
@@ -1408,8 +1780,9 @@ static int run_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a, 
 {
   struct katcp_integer_acquire *ia;
 #ifdef KATCP_USE_FLOATS
-  struct katcp_double_acquire *da;
+  struct katcp_double_acquire *doa;
 #endif
+  struct katcp_double_acquire *dsa;
   struct timeval now, legal;
   struct katcp_shared *s;
 
@@ -1439,13 +1812,21 @@ static int run_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a, 
         break;
 #ifdef KATCP_USE_FLOATS
       case KATCP_SENSOR_FLOAT :
-        da = a->a_more;
-        if(da->da_get){
-          da->da_current = (*(da->da_get))(d, a);
-          log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "acquired floating point result %e for %p", da->da_current, a);
+        doa = a->a_more;
+        if(doa->da_get){
+          doa->da_current = (*(doa->da_get))(d, a);
+          log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "acquired floating point result %e for %p", doa->da_current, a);
         }
         break;
 #endif
+      case KATCP_SENSOR_DISCRETE : 
+        dsa = a->a_more;
+        if(dsa->da_get){
+          dsa->da_current = (*(dsa->da_get))(d, a);
+          log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "acquired index %d for %p", dsa->da_current, a);
+        }
+        break;
+
       default :
         log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unsupported sensor type %d", a->a_type);
         break;
@@ -1640,15 +2021,6 @@ static void destroy_sensor_katcp(struct katcp_dispatch *d, struct katcp_sensor *
 
   s = d->d_shared;
 
-#if 0
-  if(s->s_more){
-    if((s->s_type >= 0) && (s->s_type < KATCP_SENSORS_COUNT)){
-      (*(sensor_type_table[s->s_type].sd_destroy))(s);
-    }
-    s->s_more = NULL;
-  }
-#endif
-
 #ifdef DEBUG
   if(sn->s_magic != SENSOR_MAGIC){
     fprintf(stderr, "sensor: logic problem: bad magic\n");
@@ -1686,6 +2058,17 @@ static void destroy_sensor_katcp(struct katcp_dispatch *d, struct katcp_sensor *
     }
   }
 
+  if((sn->s_type >= 0) && (sn->s_type < KATCP_SENSORS_COUNT)){
+    if(type_lookup_table[sn->s_type].c_destroy_sensor){
+      (*(type_lookup_table[sn->s_type].c_destroy_sensor))(d, sn);
+    } else {
+      if(sn->s_more){
+        free(sn->s_more);
+        sn->s_more = NULL;
+      }
+    }
+  }
+
   sn->s_magic = 0;
   sn->s_type = KATCP_SENSOR_INVALID;
 
@@ -1700,12 +2083,6 @@ static void destroy_sensor_katcp(struct katcp_dispatch *d, struct katcp_sensor *
   if(sn->s_units){
     free(sn->s_units);
     sn->s_units = NULL;
-  }
-
-  /* MAYBE have a routine to clean out. Will be needed for discrete */
-  if(sn->s_more){ 
-    free(sn->s_more);
-    sn->s_more = NULL;
   }
 
   free(sn);
@@ -2231,6 +2608,38 @@ int register_double_sensor_katcp(struct katcp_dispatch *d, int mode, char *name,
 }
 #endif
 
+/* discrete registration *************************************************/
+
+int register_discrete_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, int (*get)(struct katcp_dispatch *d, struct katcp_acquire *a), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a), char **vector, unsigned int size)
+{
+  struct katcp_sensor *sn;
+  struct katcp_acquire *a;
+
+  sn = create_sensor_katcp(d, name, description, units, KATCP_STRATEGY_EVENT, KATCP_SENSOR_DISCRETE, mode);
+  if(sn == NULL){
+    return -1;
+  }
+
+  if(create_sensor_vector_discrete_katcp(d, sn, vector, size) < 0){
+    destroy_sensor_katcp(d, sn);
+    return -1;
+  }
+
+  a = setup_discrete_acquire_katcp(d, get, local, release);
+  if(a == NULL){
+    destroy_sensor_katcp(d, sn);
+    return -1;
+  }
+
+  if(link_acquire_katcp(d, a, sn, NULL)){
+    destroy_sensor_katcp(d, sn);
+    destroy_acquire_katcp(d, a);
+    return -1;
+  }
+
+  return 0;
+}
+
 /* type information *************************************************/
 
 char *type_name_sensor_katcp(struct katcp_sensor *sn)
@@ -2336,15 +2745,13 @@ int set_status_sensor_katcp(struct katcp_sensor *sn, int status)
   return 0;
 }
 
-int scan_value_sensor_katcp(struct katcp_acquire *a, char *value)
+int scan_value_sensor_katcp(struct katcp_sensor *sn, char *value)
 {
-  sane_acquire(a);
-  
-  if(type_lookup_table[a->a_type].c_scan_value == NULL){
+  if(type_lookup_table[sn->s_type].c_scan_value == NULL){
     return -1;
   }
 
-  return (*(type_lookup_table[a->a_type].c_scan_value))(a, value);
+  return (*(type_lookup_table[sn->s_type].c_scan_value))(sn, value);
 }
 
 /*** sensor value and support *********************************************/
@@ -2925,8 +3332,9 @@ int sensor_dump_cmd_katcp(struct katcp_dispatch *d, int argc)
   struct katcp_nonsense *ns;
   struct katcp_acquire *a;
   struct katcp_integer_acquire *ia;
+  struct katcp_discrete_acquire *dsa;
 #ifdef KATCP_USE_FLOATS
-  struct katcp_double_acquire *da;
+  struct katcp_double_acquire *doa;
 #endif
   int i, j, got;
 
@@ -2960,10 +3368,14 @@ int sensor_dump_cmd_katcp(struct katcp_dispatch *d, int argc)
         ia = a->a_more;
         log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "acquire current value %d, get %p and local state %p", ia->ia_current, ia->ia_get, a->a_local);
         break;
+      case KATCP_SENSOR_DISCRETE  :
+        dsa = a->a_more;
+        log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "acquire current index %d, get %p and local state %p", dsa->da_current, dsa->da_get, a->a_local);
+        break;
 #ifdef KATCP_USE_FLOATS
       case KATCP_SENSOR_FLOAT  :
-        da = a->a_more;
-        log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "acquire current value %e, get %p and local state %p", da->da_current, da->da_get, a->a_local);
+        doa = a->a_more;
+        log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "acquire current value %e, get %p and local state %p", doa->da_current, doa->da_get, a->a_local);
         break;
 #endif
     }
@@ -3040,9 +3452,9 @@ int match_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_notice *n, vo
   struct katcl_parse *p, *px;
   struct katcp_acquire *a;
   struct katcp_job *j;
-  char *inform, *name, *description, *type, *units, *combine;
+  char *inform, *name, *description, *type, *units, *combine, **vector;
   int code, min, max;
-  unsigned int count;
+  unsigned int count, size, i;
 #ifdef KATCP_USE_FLOATS
   double maxf, minf;
 #endif
@@ -3137,6 +3549,26 @@ int match_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_notice *n, vo
         a = setup_boolean_acquire_katcp(d, NULL, NULL, NULL);
       }
       break;
+    case KATCP_SENSOR_DISCRETE :
+      count = get_count_parse_katcl(p);
+      if(count >= 6){
+        size = count - 5;
+        vector = malloc(sizeof(char *) * size);
+        if(vector){
+          for(i = 0; i < size; i++){
+            vector[i] = get_string_parse_katcl(p, i + 5);
+          }
+          if(create_sensor_vector_discrete_katcp(d, sn, vector, size) >= 0){
+            a = setup_discrete_acquire_katcp(d, NULL, NULL, NULL);
+          }
+          free(vector);
+        } else {
+          log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to allocate vector of %u strings", size);
+        }
+      } else {
+        log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "%u parameters not sufficient to copy discrete sensor %s", count, name);
+      }
+      break;
 #ifdef KATCP_USE_FLOATS
     case KATCP_SENSOR_FLOAT :
       count = get_count_parse_katcl(p);
@@ -3223,7 +3655,6 @@ int match_sensor_status_katcp(struct katcp_dispatch *d, struct katcp_notice *n, 
     return 0;
   }
 
-
   /* WARNING: will only extract the first sensor out of a composite list */
   name = get_string_parse_katcl(p, 3);
   status = get_string_parse_katcl(p, 4);
@@ -3250,14 +3681,13 @@ int match_sensor_status_katcp(struct katcp_dispatch *d, struct katcp_notice *n, 
     return 1;
   }
 
-  /* in a real OO program, this would be an accessor function */
   a = sn->s_acquire;
   if(a == NULL){
     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "sensor %s has no acquire", name);
     return -1;
   }
 
-  if(scan_value_sensor_katcp(a, value) < 0){
+  if(scan_value_sensor_katcp(sn, value) < 0){
     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to scan value %s for sensor %s", value, name);
     return -1;
   }
@@ -3408,8 +3838,9 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
   struct katcp_job *jb;
   struct katcp_acquire *a;
   struct katcp_integer_acquire *ia;
+  struct katcp_discrete_acquire *dsa;
 #ifdef KATCP_USE_FLOATS
-  struct katcp_double_acquire *da;
+  struct katcp_double_acquire *doa;
 #endif
   struct katcl_parse *p;
   int i, j, got, code;
@@ -3452,10 +3883,14 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
           ia = a->a_more;
           log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "integer/boolean acquire current value %d, get %p and local state %p", ia->ia_current, ia->ia_get, a->a_local);
           break;
+        case KATCP_SENSOR_DISCRETE : 
+          dsa = a->a_more;
+          log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "discrte acquire current value %u, get %p and local state %p", dsa->da_current, dsa->da_get, a->a_local);
+          break;
 #ifdef KATCP_USE_FLOATS
         case KATCP_SENSOR_FLOAT :
-          da = a->a_more;
-          log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "double acquire current value %e, get %p and local state %p", da->da_current, da->da_get, a->a_local);
+          doa = a->a_more;
+          log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "double acquire current value %e, get %p and local state %p", doa->da_current, doa->da_get, a->a_local);
           break;
 #endif
       }
@@ -3571,6 +4006,11 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
         return KATCP_RESULT_OK;
 #endif
 
+      case KATCP_SENSOR_DISCRETE :
+        /* TODO */
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no logic to register discrete sensor yet");
+        return KATCP_RESULT_FAIL;
+
       default :
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no logic to handle type %s (code %d) yet", type, code);
         return KATCP_RESULT_FAIL;
@@ -3623,14 +4063,19 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
           return KATCP_RESULT_FAIL;
         }
         
-        da = a->a_more;
-        da->da_current = atof(value);
+        doa = a->a_more;
+        doa->da_current = atof(value);
 
         propagate_acquire_katcp(d, a);
 
-        log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "updated double sensor %s to new value %e", label, da->da_current);
+        log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "updated double sensor %s to new value %e", label, doa->da_current);
         return KATCP_RESULT_OK;
 #endif
+
+      case KATCP_SENSOR_DISCRETE :
+        /* TODO */
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no logic to set discrete sensor yet");
+        return KATCP_RESULT_FAIL;
 
       default :
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to update sensor %s of unsupported type %d\n", label, a->a_type);

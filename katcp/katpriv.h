@@ -124,6 +124,11 @@ struct katcp_double_acquire{
 };
 #endif
 
+struct katcp_discrete_acquire{
+  unsigned int da_current;
+  int (*da_get)(struct katcp_dispatch *d, struct katcp_acquire *a);
+};
+
 struct katcp_integer_acquire{
   int ia_current;
   int (*ia_get)(struct katcp_dispatch *d, struct katcp_acquire *a);
@@ -187,6 +192,12 @@ struct katcp_integer_sensor{
   int is_max;
 };
 
+struct katcp_discrete_sensor{
+  int ds_current;
+  int ds_size;
+  char **ds_vector;
+};
+
 struct katcp_nonsense{
   int n_magic;
   struct katcp_dispatch *n_client;
@@ -210,6 +221,10 @@ struct katcp_double_nonsense{
 struct katcp_integer_nonsense{
   int in_previous;
   int in_delta;
+};
+
+struct katcp_discrete_nonsense{
+  unsigned int dn_previous;
 };
 
 #if 0
@@ -518,7 +533,11 @@ int sensor_sampling_cmd_katcp(struct katcp_dispatch *d, int argc);
 int sensor_dump_cmd_katcp(struct katcp_dispatch *d, int argc);
 int sensor_cmd_katcp(struct katcp_dispatch *d, int argc);
 
+/* misc */
+
 char *code_to_name_katcm(int code);
+char **copy_vector_katcm(char **vector, unsigned int size);
+void delete_vector_katcm(char **vector, unsigned int size);
 
 /* timing support */
 int empty_timers_katcp(struct katcp_dispatch *d);
