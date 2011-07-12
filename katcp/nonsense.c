@@ -362,7 +362,11 @@ int create_nonsense_double_katcp(struct katcp_dispatch *d, struct katcp_nonsense
   }
 
   /* changed as per request from simon to always report initial value for event */
+#if 0
   dn->dn_previous = ds->ds_max + 1; 
+#endif
+  /* instead of munging the data values to trigger notification, use the status */
+  dn->dn_previous = ds->ds_current;
   dn->dn_delta = 1; /* guessing at a reasonable default */
 
   ns->n_more = dn;
@@ -617,7 +621,7 @@ int create_nonsense_discrete_katcp(struct katcp_dispatch *d, struct katcp_nonsen
     return -1;
   }
 
-  dn->dn_previous = ds->ds_size;
+  dn->dn_previous = ds->ds_current;
   ns->n_more = dn;
 
   return 0;
@@ -1057,7 +1061,11 @@ int create_nonsense_intbool_katcp(struct katcp_dispatch *d, struct katcp_nonsens
   }
 
   /* changed as per request from simon to always report initial value for event */
+#if 0
   in->in_previous = is->is_max + 1; 
+#endif
+  /* use the status, rather than the value to trigger a notification */
+  in->in_previous = is->is_current;
   in->in_delta = 1; /* guessing at a reasonable default */
 
   ns->n_more = in;
@@ -2138,6 +2146,7 @@ static int reload_sensor_katcp(struct katcp_dispatch *d, struct katcp_sensor *sz
             log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "did not expect an off strategy while recomputing poll periods\n");
             break; /* WARNING: there wasn't a break here previously */
 
+          case KATCP_STRATEGY_DIFF  : 
           case KATCP_STRATEGY_EVENT : 
             if(polling == 0){
               break;
@@ -2162,6 +2171,37 @@ static int reload_sensor_katcp(struct katcp_dispatch *d, struct katcp_sensor *sz
 
   a->a_users = users;
 
+#if 0
+  if(a->a_users <= 0){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "expected some users of %p while recomputing poll period", a);
+  }
+#endif
+
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "acquire %p has %d sensors with %d users of which %d poll", a, a->a_count, a->a_users, a->a_periodics);
+
+  if(periodics == 0){
+    if(a->a_periodics > 0){ /* we had timers, but don't want them anymore */
+      discharge_timer_katcp(d, a);
+    } else {
+      /* we didn't have timers previously, we don't want them now */
+    }
+    a->a_periodics = 0;
+
+    if((polling == 0) || (a->a_users > 0)){
+      log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "acquire has users none of which are polling doing initial notification");
+      propagate_acquire_katcp(d, a);
+    }
+
+  } else { /* we need timers, replace old with new if necessary */
+    a->a_periodics = periodics;
+    if(register_every_tv_katcp(d, &(a->a_current), &run_timer_acquire_katcp, a) < 0){
+      return -1;
+    }
+  }
+
+
+
+#if 0
   /* was running timers, but they are no longer needed */
   if((a->a_periodics > 0) && (periodics == 0)){
     a->a_periodics = 0;
@@ -2171,16 +2211,14 @@ static int reload_sensor_katcp(struct katcp_dispatch *d, struct katcp_sensor *sz
 
   a->a_periodics = periodics;
 
-  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "acquire %p has %d sensors with %d users of which %d poll", a, a->a_count, a->a_users, a->a_periodics);
 
+  propagate_acquire_katcp(d, a);
   if(a->a_periodics == 0){
     log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "not polling aquire %p so propagation needs to be triggered elsewhere", a->a_count);
     return 0;
   }
 
-  if(register_every_tv_katcp(d, &(a->a_current), &run_timer_acquire_katcp, a) < 0){
-    return -1;
-  }
+#endif
 
   return 0;
 }
@@ -2312,7 +2350,11 @@ static struct katcp_nonsense *create_nonsense_katcp(struct katcp_dispatch *d, st
 
   ns->n_sensor = sn;
   ns->n_strategy = KATCP_STRATEGY_OFF;
+  /* WARNING: status could also be unknown, this will trigger initial message */
+#if 0
   ns->n_status = sn->s_status;
+#endif
+  ns->n_status = KATCP_STATUS_UNKNOWN;
 
   ns->n_period.tv_sec  = a->a_current.tv_sec;
   ns->n_period.tv_usec = a->a_current.tv_usec;
@@ -3195,6 +3237,9 @@ static int configure_sensor_katcp(struct katcp_dispatch *d, struct katcp_sensor 
       case KATCP_STRATEGY_EVENT : 
         ns->n_period.tv_sec = a->a_poll.tv_sec;
         ns->n_period.tv_usec = a->a_poll.tv_usec;
+#if 0
+        ns->n_status = KATCP_STATUS_UNKNOWN;
+#endif
         break;
       case KATCP_STRATEGY_PERIOD : 
         if(extra == NULL){
@@ -3819,7 +3864,7 @@ int job_suspend_sensor_katcp(struct katcp_dispatch *d, struct katcp_notice *n, v
     return -1;
   }
 
-  result =  set_status_group_sensor_katcp(d, prefix, KATCP_STATUS_UNKNOWN);
+  result = set_status_group_sensor_katcp(d, prefix, KATCP_STATUS_UNKNOWN);
 
   destroy_kurl_katcp(ku);
 
