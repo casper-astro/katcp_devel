@@ -8,7 +8,7 @@ CFLAGS += -fPIC
 
 SERVER = kcs
 SRCSHARED = shared.c
-SRC = $(SRCSHARED) watchannounce.c subprocess.c statemachine.c roachpool.c execpy.c parser.c kcserver.c basic.c
+SRC = $(SRCSHARED) watchannounce.c subprocess.c actor.c statemachine.c roachpool.c execpy.c parser.c kcserver.c basic.c
 
 OBJ = $(patsubst %.c,%.o,$(SRC))
 all: $(SERVER)
@@ -46,4 +46,7 @@ test-avltree: avltree.c
 
 test-type: ktype.c 
 	$(CC) $(CFLAGS) -DSTANDALONE -o $@ $^ $(INC) $(LIB)
+
+test-actor: actor.c 
+	$(CC) $(CFLAGS) -D__ACTOR_UNIT_TEST -o $@ $^ $(INC) $(LIB)
 

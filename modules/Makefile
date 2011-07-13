@@ -9,15 +9,16 @@ CFLAGS += -DVERSION=\"$(GITVER)\"
 LDFLAGS += -shared 
 vpath %.c ../kcs
 
-STATEMACHINE = statemachine.c
+DEPENDS = statemachine.c actor.c
 SRC = mod_media_man.c mod_conf_parser.c mod_simple_ops.c mod_roach_comms.c
 
-OBJ = $(patsubst %.c,%.o,$(SRC)) $(patsubst %.c,%.o,$(STATEMACHINE))
-MOD = $(patsubst %.c,%.so,$(SRC))
+DOBJ = $(patsubst %.c,%.o,$(DEPENDS))
+OBJ  = $(patsubst %.c,%.o,$(SRC)) $(DOBJ)
+MOD  = $(patsubst %.c,%.so,$(SRC))
 
 all: $(MOD)
 
-%.so: %.o statemachine.o
+%.so: %.o $(DOBJ)
 	$(CC) $(LDFLAGS) -Wl,-soname=$@ $^ -o $@ $(LIB)
 
 %.o: %.c $(wildcard *.h)

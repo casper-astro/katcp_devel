@@ -23,14 +23,14 @@ struct katcp_stack *create_stack_katcp()
   return s;
 } 
 
-struct katcp_stack_obj *create_obj_stack_katcp(void *data, struct katcp_type *type, int flagman)
+struct katcp_tobject *create_tobject_katcp(void *data, struct katcp_type *type, int flagman)
 {
-  struct katcp_stack_obj *o;
+  struct katcp_tobject *o;
 
   if (data == NULL && type == NULL)
     return NULL;
   
-  o =  malloc(sizeof(struct katcp_stack_obj));
+  o =  malloc(sizeof(struct katcp_tobject));
   if (o == NULL)
     return NULL;
 
@@ -41,7 +41,7 @@ struct katcp_stack_obj *create_obj_stack_katcp(void *data, struct katcp_type *ty
   return o;
 }
 
-struct katcp_stack_obj *create_named_type_obj_stack_katcp(struct katcp_dispatch *d, void *data, char *type, int flagman)
+struct katcp_tobject *create_named_tobject_katcp(struct katcp_dispatch *d, void *data, char *type, int flagman)
 {
   struct katcp_type *t;
   
@@ -52,18 +52,37 @@ struct katcp_stack_obj *create_named_type_obj_stack_katcp(struct katcp_dispatch 
   if (t == NULL)
     return NULL;
 
-  return create_obj_stack_katcp(data, t, flagman);
+  return create_tobject_katcp(data, t, flagman);
 }
 #if 1
-struct katcp_stack_obj *copy_obj_stack_katcp(struct katcp_stack_obj *o)
+struct katcp_tobject *copy_tobject_katcp(struct katcp_tobject *o)
 {
   if (o == NULL)
     return NULL;
-  return create_obj_stack_katcp(o->o_data, o->o_type, 0);
+  return create_tobject_katcp(o->o_data, o->o_type, 0);
 }
 #endif
+
+int compare_tobject_katcp(const void *m1, const void *m2)
+{
+  const struct katcp_tobject *a, *b;
+  a = m1;
+  b = m2;
+
+  if (a == NULL || b == NULL)
+    return 2;
+
+  if (a->o_data > b->o_data)
+    return 1;
+  else if (a->o_data < b->o_data)
+    return -1;
+
+  return 0;
+}
+
+
 #if 0
-void inc_ref_obj_stack_katcp(struct katcp_stack_obj *o)
+void inc_ref_tobject_katcp(struct katcp_tobject *o)
 {
   if (o == NULL)
     return;
@@ -78,9 +97,11 @@ int is_empty_stack_katcp(struct katcp_stack *s)
   return (s->s_count == 0) ? 1 : 0;
 }
 
-void destroy_obj_stack_katcp(struct katcp_stack_obj *o)
+void destroy_tobject_katcp(void *data)
 {
+  struct katcp_tobject *o;
   struct katcp_type *t;
+  o = data;
   if (o != NULL){
 
     if (o->o_man){
@@ -131,72 +152,72 @@ void destroy_stack_katcp(struct katcp_stack *s)
   if (s != NULL){
     if (s->s_objs != NULL){
       for (i=0; i<s->s_count; i++)
-        destroy_obj_stack_katcp(s->s_objs[i]);
+        destroy_tobject_katcp(s->s_objs[i]);
       free(s->s_objs);
     }
     free(s);
   }
 }
 
-int push_stack_obj_katcp(struct katcp_stack *s, struct katcp_stack_obj *o)
+int push_tobject_katcp(struct katcp_stack *s, struct katcp_tobject *o)
 {
   if (s == NULL || o == NULL)
     return -1;
   
-  s->s_objs = realloc(s->s_objs, sizeof(struct katcp_stack_obj *) * (s->s_count + 1));
+  s->s_objs = realloc(s->s_objs, sizeof(struct katcp_tobject *) * (s->s_count + 1));
   if (s->s_objs == NULL){
-    destroy_obj_stack_katcp(o);
+    destroy_tobject_katcp(o);
     return -1;
   }
   
   s->s_objs[s->s_count] = o;
   s->s_count++;
  
-  //inc_ref_obj_stack_katcp(o);
+  //inc_ref_tobject_katcp(o);
 
   return 0;
 }
 #if 0
-int push_stack_ref_obj_katcp(struct katcp_stack *s, struct katcp_stack_obj *o)
+int push_stack_ref_obj_katcp(struct katcp_stack *s, struct katcp_tobject *o)
 {
-  inc_ref_obj_stack_katcp(o);
-  return push_stack_obj_katcp(s, o);
+  inc_ref_tobject_katcp(o);
+  return push_tobject_katcp(s, o);
 }
 #endif
 
 int push_stack_katcp(struct katcp_stack *s, void *data, struct katcp_type *type)
 {
-  struct katcp_stack_obj *o;
+  struct katcp_tobject *o;
 
   if (s == NULL)
     return -1;
 
-  o = create_obj_stack_katcp(data, type, 0);
+  o = create_tobject_katcp(data, type, 0);
   if (o == NULL)
     return -1;
   
-  return push_stack_obj_katcp(s, o);
+  return push_tobject_katcp(s, o);
 }
 
 int push_named_stack_katcp(struct katcp_dispatch *d, struct katcp_stack *s, void *data, char *type)
 {
-  struct katcp_stack_obj *o;
+  struct katcp_tobject *o;
 
   if (s == NULL || type == NULL)
     return -1;
 
-  o = create_named_type_obj_stack_katcp(d, data, type, 0);
+  o = create_named_tobject_katcp(d, data, type, 0);
   if (o == NULL)
     return -1;
 #if 0 
-  return (refd > 0) ? push_stack_ref_obj_katcp(s, o) : push_stack_obj_katcp(s, o);
+  return (refd > 0) ? push_stack_ref_obj_katcp(s, o) : push_tobject_katcp(s, o);
 #endif
-  return push_stack_obj_katcp(s, o);
+  return push_tobject_katcp(s, o);
 }
 
-struct katcp_stack_obj *pop_stack_katcp(struct katcp_stack *s)
+struct katcp_tobject *pop_stack_katcp(struct katcp_stack *s)
 {
-  struct katcp_stack_obj *o;
+  struct katcp_tobject *o;
   
   if (s == NULL)
     return NULL;
@@ -206,7 +227,7 @@ struct katcp_stack_obj *pop_stack_katcp(struct katcp_stack *s)
   
   o = s->s_objs[s->s_count - 1];
   
-  s->s_objs = realloc(s->s_objs, sizeof(struct katcp_stack_obj *) * (s->s_count - 1));
+  s->s_objs = realloc(s->s_objs, sizeof(struct katcp_tobject *) * (s->s_count - 1));
   s->s_count--;
 
 #if 0
@@ -219,7 +240,7 @@ struct katcp_stack_obj *pop_stack_katcp(struct katcp_stack *s)
 
 void *pop_data_stack_katcp(struct katcp_stack *s)
 {
-  struct katcp_stack_obj *o;
+  struct katcp_tobject *o;
   void *data;
 
   o = pop_stack_katcp(s);
@@ -228,7 +249,7 @@ void *pop_data_stack_katcp(struct katcp_stack *s)
     
   data = o->o_data;
 
-  destroy_obj_stack_katcp(o);
+  destroy_tobject_katcp(o);
 
   return data;
 }
@@ -236,7 +257,7 @@ void *pop_data_stack_katcp(struct katcp_stack *s)
 void *pop_data_expecting_stack_katcp(struct katcp_dispatch *d, struct katcp_stack *s, char *type)
 {
   struct katcp_type *t;
-  struct katcp_stack_obj *o;
+  struct katcp_tobject *o;
   
   t = find_name_type_katcp(d, type);
   if (t == NULL)
@@ -252,14 +273,14 @@ void *pop_data_expecting_stack_katcp(struct katcp_dispatch *d, struct katcp_stac
   return NULL;
 }
 
-struct katcp_stack_obj *peek_stack_katcp(struct katcp_stack *s)
+struct katcp_tobject *peek_stack_katcp(struct katcp_stack *s)
 {
   if (s == NULL || is_empty_stack_katcp(s))
     return NULL;
   return s->s_objs[s->s_count - 1];
 }
 
-struct katcp_stack_obj *index_stack_katcp(struct katcp_stack *s, int indx)
+struct katcp_tobject *index_stack_katcp(struct katcp_stack *s, int indx)
 {
   if (s == NULL)
     return NULL;
@@ -270,7 +291,7 @@ struct katcp_stack_obj *index_stack_katcp(struct katcp_stack *s, int indx)
   return s->s_objs[indx];
 }
 
-void print_stack_obj_katcp(struct katcp_dispatch *d, struct katcp_stack_obj *o)
+void print_tobject_katcp(struct katcp_dispatch *d, struct katcp_tobject *o)
 {
   struct katcp_type *t;
   if (o == NULL){
@@ -290,7 +311,7 @@ void print_stack_obj_katcp(struct katcp_dispatch *d, struct katcp_stack_obj *o)
 
 void print_stack_katcp(struct katcp_dispatch *d, struct katcp_stack *s)
 {
-  struct katcp_stack_obj *o;
+  struct katcp_tobject *o;
   int i;
 
   if (s == NULL)
@@ -301,7 +322,7 @@ void print_stack_katcp(struct katcp_dispatch *d, struct katcp_stack *s)
 #ifdef DEBUG
     fprintf(stderr,"stack: [%2d] ",i);
 #endif
-    print_stack_obj_katcp(d, o);
+    print_tobject_katcp(d, o);
   }
 }
 
@@ -310,7 +331,7 @@ void print_stack_katcp(struct katcp_dispatch *d, struct katcp_stack *s)
 int main(int argc, char *argv[])
 {
   struct katcp_stack *s;
-  struct katcp_stack_obj *o;
+  struct katcp_tobject *o;
 
   s = create_stack_katcp();
 
@@ -347,7 +368,7 @@ int main(int argc, char *argv[])
     #ifdef DEBUG
     fprintf(stderr,"stack [%d] pop: %s type:%p\n", s->s_count, (char *)o->o_data, o->o_type);
 #endif
-    destroy_obj_stack_katcp(o);
+    destroy_tobject_katcp(o);
   }
   
   destroy_stack_katcp(s);

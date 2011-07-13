@@ -32,13 +32,13 @@ void *add_float_mod(void *a, void *b)
 }
 #endif
 
-int rpn_add_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_stack_obj *o)
+int rpn_add_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_tobject *o)
 {
 #define TYPE_COUNT  1
 #if 0
   struct kcs_sm *m;
   struct katcp_stack *stack;
-  struct katcp_stack_obj *a, *b;
+  struct katcp_tobject *a, *b;
 #endif
   int *a, *b;
   //int i;
@@ -86,8 +86,8 @@ int rpn_add_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct katc
   b = pop_stack_katcp(stack);
 
   if (a == NULL || b == NULL){
-    destroy_obj_stack_katcp(a);
-    destroy_obj_stack_katcp(b);
+    destroy_tobject_katcp(a);
+    destroy_tobject_katcp(b);
     return -1;
   }
   
@@ -95,8 +95,8 @@ int rpn_add_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct katc
 #ifdef DEBUG
     fprintf(stderr, "rpn_add_mod: runtime error o: (%p) a: (%p) b: (%p)\n", o->o_type, a->o_type, b->o_type);
 #endif
-    destroy_obj_stack_katcp(a);
-    destroy_obj_stack_katcp(b);
+    destroy_tobject_katcp(a);
+    destroy_tobject_katcp(b);
     log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "rpn_add runtime type mismatch");
     return -1;
   }
@@ -116,8 +116,8 @@ int rpn_add_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct katc
 #endif
           free(temp);
         }
-        destroy_obj_stack_katcp(a);
-        destroy_obj_stack_katcp(b);
+        destroy_tobject_katcp(a);
+        destroy_tobject_katcp(b);
         return -1;
       }
       //log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "rpn_add to print ans");
@@ -127,8 +127,8 @@ int rpn_add_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct katc
     } 
   }
   
-  destroy_obj_stack_katcp(a);
-  destroy_obj_stack_katcp(b);
+  destroy_tobject_katcp(a);
+  destroy_tobject_katcp(b);
 #endif
 
   return 0;
@@ -138,7 +138,7 @@ int rpn_add_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct katc
 struct kcs_sm_op *rpn_add_setup_mod(struct katcp_dispatch *d, struct kcs_sm_state *s)
 {
   struct katcp_type *t;
-  struct katcp_stack_obj *o;
+  struct katcp_tobject *o;
   struct kcs_sm_op *op;
   char *type;
 
@@ -153,13 +153,13 @@ struct kcs_sm_op *rpn_add_setup_mod(struct katcp_dispatch *d, struct kcs_sm_stat
   if (t == NULL)
     return NULL;
 
-  o = create_obj_stack_katcp(NULL, t, 1);
+  o = create_tobject_katcp(NULL, t, 1);
   if (o == NULL)
     return NULL;
 
   op = create_sm_op_kcs(&rpn_add_mod, o);
   if (op == NULL){
-    destroy_obj_stack_katcp(o);
+    destroy_tobject_katcp(o);
     return NULL;
   }
 
@@ -178,7 +178,7 @@ int compare_generic_mod(struct katcp_dispatch *d, struct katcp_notice *n, void *
   struct kcs_sm *m;
   struct kcs_sm_state *s;
   struct katcp_stack *stack;
-  struct katcp_stack_obj *a, *b;
+  struct katcp_tobject *a, *b;
 
   s = data;
   if (s == NULL)
@@ -196,20 +196,20 @@ int compare_generic_mod(struct katcp_dispatch *d, struct katcp_notice *n, void *
   b = pop_stack_katcp(stack);
 
   if (a == NULL || b == NULL){
-    destroy_obj_stack_katcp(a);
-    destroy_obj_stack_katcp(b);
+    destroy_tobject_katcp(a);
+    destroy_tobject_katcp(b);
     return -2;
   }
   
   if (a->o_type == NULL){
-    destroy_obj_stack_katcp(a);
-    destroy_obj_stack_katcp(b);
+    destroy_tobject_katcp(a);
+    destroy_tobject_katcp(b);
     return -2;
   }
   
   if (a->o_type->t_compare == NULL){
-    destroy_obj_stack_katcp(a);
-    destroy_obj_stack_katcp(b);
+    destroy_tobject_katcp(a);
+    destroy_tobject_katcp(b);
     return -2;
   }
  
@@ -220,8 +220,8 @@ int compare_generic_mod(struct katcp_dispatch *d, struct katcp_notice *n, void *
 #endif
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "compare_generic t_compare rtn: %d", rtn);
 
-  destroy_obj_stack_katcp(a);
-  destroy_obj_stack_katcp(b);
+  destroy_tobject_katcp(a);
+  destroy_tobject_katcp(b);
 #endif
 
   wake_notice_katcp(d, n, NULL);

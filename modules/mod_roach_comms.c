@@ -37,7 +37,7 @@ void destroy_katcp_url_type_mod(void *data)
   ku = data;
   destroy_kurl_katcp(ku);
 }
-void *parse_katcp_url_type_mod(char **str)
+void *parse_katcp_url_type_mod(struct katcp_dispatch *d, char **str)
 {
   struct katcp_url *ku;
   ku = create_kurl_from_string_katcp(str[0]);
@@ -145,7 +145,7 @@ int roach_disconnect_mod(struct katcp_dispatch *d, struct katcp_notice *n, void 
   return 0;
 }
 
-int roach_connect_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_stack_obj *o)
+int roach_connect_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_tobject *o)
 {
   struct katcp_url *u;
   struct katcp_notice *n;
@@ -208,7 +208,7 @@ struct kcs_sm_op *roach_connect_setup_mod(struct katcp_dispatch *d, struct kcs_s
   return op;
 }
 
-int roach_connect_multi_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_stack_obj *o)
+int roach_connect_multi_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_tobject *o)
 {
   int rtn;
 
@@ -293,7 +293,8 @@ int roach_ping_mod(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
     return -1;
   }
 
-  a->a_sm_notice = n;
+  if (assign_sm_notice_actor_type_katcp(a, n) < 0)
+    return -1; 
 
   p = create_parse_katcl();
   if (p == NULL){

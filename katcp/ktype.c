@@ -101,7 +101,7 @@ int binary_search_type_list_katcp(struct katcp_type **ts, int t_size, char *str)
   return (-1) * (low+1) ;
 }
 
-int register_at_id_type_katcp(struct katcp_dispatch *d, int tid, char *tname, int dep, void (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(void *, void *), void *(*fn_parse)(char **))
+int register_at_id_type_katcp(struct katcp_dispatch *d, int tid, char *tname, int dep, void (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(const void *, const void *), void *(*fn_parse)(struct katcp_dispatch *d, char **))
 {
   struct katcp_shared *s;
   struct katcp_type **ts;
@@ -164,7 +164,7 @@ int register_at_id_type_katcp(struct katcp_dispatch *d, int tid, char *tname, in
   return i; 
 }
 
-int register_name_type_katcp(struct katcp_dispatch *d, char *name, int dep, void (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(void *, void *), void *(*fn_parse)(char **))
+int register_name_type_katcp(struct katcp_dispatch *d, char *name, int dep, void (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(const void *, const void *), void *(*fn_parse)(struct katcp_dispatch *d, char **))
 {
   struct katcp_shared *s;
   struct katcp_type **ts;
@@ -236,7 +236,7 @@ int deregister_type_katcp(struct katcp_dispatch *d, char *name)
 }
 
 
-int store_data_type_katcp(struct katcp_dispatch *d, char *t_name, int dep, char *d_name, void *d_data, void (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(void *, void *), void *(*fn_parse)(char **))
+int store_data_type_katcp(struct katcp_dispatch *d, char *t_name, int dep, char *d_name, void *d_data, void (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(const void *, const void *), void *(*fn_parse)(struct katcp_dispatch *d, char **))
 {
   struct katcp_shared *s;
   

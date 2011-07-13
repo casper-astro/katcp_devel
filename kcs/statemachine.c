@@ -20,79 +20,6 @@
 
 #include "kcs.h"
 
-struct katcp_actor *create_actor_type_katcp(struct katcp_dispatch *d, char *str, struct katcp_job *j, struct katcp_notice *n, void *data, char *datatype)
-{
-  struct katcp_actor *a;
-
-  a = malloc(sizeof(struct katcp_actor));
-  if (a == NULL)
-    return NULL;
-
-  a->a_key = strdup(str);
-  if(a->a_key == NULL){
-    destroy_actor_type_katcp(a);
-    return NULL;
-  }
-
-  a->a_job = j;
-  a->a_sm_notice = n;
-  
-  if (a->a_data != NULL && datatype != NULL){
-    a->a_data = data;
-    a->a_data_type = find_name_type_katcp(d, datatype);
-  }
-
-  return a;
-}
-void print_actor_type_katcp(struct katcp_dispatch *d, void *data)
-{
-  struct katcp_actor *a;
-  a = data;
-  if (a == NULL)
-    return;
-
-  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, "#actor type:");
-  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, a->a_key);
-
-}
-void destroy_actor_type_katcp(void *data)
-{
-  struct katcp_actor *a;
-
-  a = data;
-  if (a == NULL)
-    return;
-
-  if (a->a_key) { free(a->a_key); }
-
-  a->a_job = NULL;
-  a->a_sm_notice = NULL;
-
-  a->a_data = NULL;
-  a->a_data_type = NULL;
-
-  free(a);
-}
-int copy_actor_type_katcp(void *src, void *dest, int n)
-{
-
-  return 0;
-}
-int compare_actor_type_katcp(void *a, void *b)
-{
-
-  return 0;
-}
-void *parse_actor_type_katcp(char **str)
-{
-  struct katcp_actor *a;
-  
-  a = NULL;
-  
-  return a;
-}
-
-
 void print_integer_type_kcs(struct katcp_dispatch *d, void *data)
 {
   int *o;
@@ -113,9 +40,9 @@ void destroy_integer_type_kcs(void *data)
     free(o);
   }
 }
-int compare_integer_type_kcs(void *a, void *b)
+int compare_integer_type_kcs(const void *a, const void *b)
 {
-  int *x, *y;
+  const int *x, *y;
   x = a;
   y = b;
 
@@ -135,7 +62,7 @@ int compare_integer_type_kcs(void *a, void *b)
   
   return -2;
 }
-void *parse_integer_type_kcs(char **str)
+void *parse_integer_type_kcs(struct katcp_dispatch *d, char **str)
 {
   int *o;
   o = malloc(sizeof(int));
@@ -165,7 +92,7 @@ void destroy_string_type_kcs(void *data)
     free(o);
   }
 }
-void *parse_string_type_kcs(char **str)
+void *parse_string_type_kcs(struct katcp_dispatch *d, char **str)
 {
   char *o;
   int i, len, start, size;
@@ -226,7 +153,7 @@ void print_task_stack_kcs(struct katcp_dispatch *d, struct kcs_sched_task *t)
   print_stack_katcp(d, stack);
 }
 
-struct kcs_sm_op *create_sm_op_kcs(int (*call)(struct katcp_dispatch *, struct katcp_stack *, struct katcp_stack_obj *), struct katcp_stack_obj *o)
+struct kcs_sm_op *create_sm_op_kcs(int (*call)(struct katcp_dispatch *, struct katcp_stack *, struct katcp_tobject *), struct katcp_tobject *o)
 {
   struct kcs_sm_op *op;
   
@@ -238,7 +165,7 @@ struct kcs_sm_op *create_sm_op_kcs(int (*call)(struct katcp_dispatch *, struct k
     return NULL;
 
   op->o_call = call;
-  op->o_stack_obj = o;
+  op->o_tobject = o;
 
   return op;
 }
@@ -246,22 +173,22 @@ void destroy_sm_op_kcs(struct kcs_sm_op *op)
 {
   if (op != NULL){
     op->o_call = NULL;
-    destroy_obj_stack_katcp(op->o_stack_obj);
+    destroy_tobject_katcp(op->o_tobject);
     free(op);
   }
 } 
 void print_sm_op_kcs(struct katcp_dispatch *d, struct kcs_sm_op *op)
 {
   if (op != NULL){
-    append_args_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_LAST, "#node op: call:(%p) stackable data:(%p)", op->o_call, op->o_stack_obj);
+    append_args_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_LAST, "#node op: call:(%p) stackable data:(%p)", op->o_call, op->o_tobject);
 #ifdef DEBUG
     fprintf(stderr,"statemachine: print_sm_op call: (%p)\n", op->o_call);
 #endif
-    print_stack_obj_katcp(d, op->o_stack_obj);
+    print_tobject_katcp(d, op->o_tobject);
   } 
 }
 
-int pushstack_statemachine_kcs(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_stack_obj *o)
+int pushstack_statemachine_kcs(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_tobject *o)
 {
   if (stack == NULL || o == NULL)
     return -1;
@@ -269,7 +196,7 @@ int pushstack_statemachine_kcs(struct katcp_dispatch *d, struct katcp_stack *sta
   return push_stack_ref_obj_katcp(stack, o);
 #endif
 #if 1
-  return push_stack_obj_katcp(stack, copy_obj_stack_katcp(o));
+  return push_tobject_katcp(stack, copy_tobject_katcp(o));
 #endif
 }
 
@@ -277,7 +204,7 @@ struct kcs_sm_op *pushstack_setup_statemachine_kcs(struct katcp_dispatch *d, str
 {
 #define ARG_BASE 5
   struct katcp_type *t;
-  struct katcp_stack_obj *o;
+  struct katcp_tobject *o;
   struct kcs_sm_op *op;
   char **data, *type;
   void *temp;
@@ -311,7 +238,7 @@ struct kcs_sm_op *pushstack_setup_statemachine_kcs(struct katcp_dispatch *d, str
 #ifdef DEBUG
   fprintf(stderr, "statemachine: call type parse function\n");
 #endif
-  temp = (*t->t_parse)(data);
+  temp = (*t->t_parse)(d, data);
   
   free(data);
 
@@ -322,7 +249,7 @@ struct kcs_sm_op *pushstack_setup_statemachine_kcs(struct katcp_dispatch *d, str
     return NULL;  
   }
 
-  o = create_obj_stack_katcp(temp, t, 1);
+  o = create_tobject_katcp(temp, t, 1);
   if (o == NULL){
     (*t->t_free)(temp);
 #ifdef DEBUG
@@ -334,7 +261,7 @@ struct kcs_sm_op *pushstack_setup_statemachine_kcs(struct katcp_dispatch *d, str
   op = create_sm_op_kcs(&pushstack_statemachine_kcs, o);
   if (op == NULL){
     (*t->t_free)(temp);
-    destroy_obj_stack_katcp(o);
+    destroy_tobject_katcp(o);
     return NULL;
   }
 
@@ -355,6 +282,8 @@ int statemachine_init_kcs(struct katcp_dispatch *d)
   rtn += register_name_type_katcp(d, KATCP_TYPE_STRING, KATCP_DEP_BASE, &print_string_type_kcs, &destroy_string_type_kcs, NULL, NULL, &parse_string_type_kcs);
 
   rtn += register_name_type_katcp(d, KATCP_TYPE_ACTOR, KATCP_DEP_BASE, &print_actor_type_katcp, &destroy_actor_type_katcp, &copy_actor_type_katcp, &compare_actor_type_katcp, &parse_actor_type_katcp);
+  
+  rtn += register_name_type_katcp(d, KATCP_TYPE_TAG, KATCP_DEP_BASE, &print_tag_katcp, &destroy_tag_katcp, NULL, &compare_tag_katcp, &parse_tag_katcp);
 
 #if 0
   rtn += register_name_type_katcp(d, KATCP_TYPE_FLOAT, NULL, NULL, NULL, NULL, NULL);
@@ -864,7 +793,7 @@ int statemachine_loadmod_kcs(struct katcp_dispatch *d)
 
   if (handle == NULL){
     err = dlerror();
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "%s\n", err);
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "%s", err);
 #ifdef DEBUG
     fprintf(stderr, "statemachine: %s\n", err);
 #endif
@@ -960,7 +889,7 @@ int statemachine_run_ops_kcs(struct katcp_dispatch *d, struct katcp_notice *n, s
   for (i=0; i<s->s_op_list_count; i++){
     op = s->s_op_list[i];
     if (op != NULL){
-      rtn = (*(op->o_call))(d, stack, op->o_stack_obj);
+      rtn = (*(op->o_call))(d, stack, op->o_tobject);
 #ifdef DEBUG
       fprintf(stderr,"statemachine RUN: op %p call returned %d\n", op, rtn);
 #endif  
@@ -1093,15 +1022,19 @@ int statemachine_run_kcs(struct katcp_dispatch *d)
   struct katcp_notice *n;
   struct kcs_sched_task *t;
   struct kcs_sm_state *s;
+  struct katcp_dispatch *dl;
 
   char *startnode;
 
-  startnode = arg_string_katcp(d, 2);
+  //dl = template_shared_katcp(d);
+  dl = d;
+
+  startnode = arg_string_katcp(dl, 2);
 
   if (startnode == NULL)
     return KATCP_RESULT_FAIL;
   
-  s = get_key_data_type_katcp(d, KATCP_TYPE_STATEMACHINE_STATE, startnode);
+  s = get_key_data_type_katcp(dl, KATCP_TYPE_STATEMACHINE_STATE, startnode);
   
   if (s == NULL)
     return KATCP_RESULT_FAIL;
@@ -1113,13 +1046,13 @@ int statemachine_run_kcs(struct katcp_dispatch *d)
 #if 0
   n = register_notice_katcp(d, STATEMACHINE_SCHEDULER_NOTICE, 0, &statemachine_process_kcs, t);
 #endif
-  n = register_notice_katcp(d, NULL, 0, &statemachine_process_kcs, t);
+  n = register_notice_katcp(dl, NULL, 0, &statemachine_process_kcs, t);
   if (n == NULL){
     destroy_sched_task_kcs(t);
     return KATCP_RESULT_FAIL;
   }
   
-  wake_notice_katcp(d, n, NULL);
+  wake_notice_katcp(dl, n, NULL);
 
   return KATCP_RESULT_OK;
 }

@@ -67,7 +67,7 @@ void destroy_config_setting_type_mod(void *data)
     free(s);
   }
 }
-void *parse_config_setting_type_mod(char **str)
+void *parse_config_setting_type_mod(struct katcp_dispatch *d, char **str)
 {
   struct config_setting *s;
 
@@ -104,7 +104,7 @@ int store_config_setting_mod(struct katcp_dispatch *d, char *setting, char *valu
   params[0] = setting;
   params[1] = value;
 
-  s = parse_config_setting_type_mod(params);
+  s = parse_config_setting_type_mod(d, params);
   
   if (s == NULL)
     return -1;
@@ -304,7 +304,7 @@ int start_config_parser_mod(struct katcp_dispatch *d, char *file)
   return 0;
 }
 
-int config_parser_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_stack_obj *o)
+int config_parser_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_tobject *o)
 {
   char *string;
   int rtn; 

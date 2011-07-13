@@ -484,18 +484,18 @@ struct katcp_type {
   void (*t_print)(struct katcp_dispatch *, void *);
   void (*t_free)(void *);
   int  (*t_copy)(void *src, void *dest, int);
-  int  (*t_compare)(void *, void *);
-  void *(*t_parse)(char **);
+  int  (*t_compare)(const void *, const void *);
+  void *(*t_parse)(struct katcp_dispatch *d, char **);
 };
 
-struct katcp_stack_obj {
+struct katcp_tobject {
   void *o_data;
   struct katcp_type *o_type;
   int o_man;
 };
 
 struct katcp_stack {
-  struct katcp_stack_obj **s_objs;
+  struct katcp_tobject **s_objs;
   int s_count;
 };
 
