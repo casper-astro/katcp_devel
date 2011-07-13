@@ -22,6 +22,7 @@
 
 #include "kcs.h"
 
+
 struct katcp_actor *create_actor_type_katcp(struct katcp_dispatch *d, char *str, struct katcp_job *j, struct katcp_notice *n, void *data, char *datatype)
 {
   struct katcp_actor *a;
@@ -229,7 +230,7 @@ void print_tag_katcp(struct katcp_dispatch *d, void *data)
     return;
 
   append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, "#tag type:");
-  append_string_katcp(d, KATCP_FLAG_STRING, t->t_name);
+  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, t->t_name);
   //append_args_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, "%s", t->t_memb_count);
   
 #ifdef DEBUG
@@ -243,9 +244,16 @@ void print_tag_katcp(struct katcp_dispatch *d, void *data)
 void *parse_tag_katcp(struct katcp_dispatch *d, char **str)
 {
   struct katcp_tag *t;
+  int level;
 
-  //t = create_tag_katcp(d, str[0], ;
- 
+  level = 0;
+
+  if (str == NULL || str[0] == NULL || str[1] == NULL)
+    return NULL;
+
+  level = atoi(str[1]);
+
+  t = create_tag_katcp(str[0], level);
   
   return t;
 }
@@ -434,10 +442,13 @@ int add_tobject_tag_katcp(struct katcp_dispatch *d, struct katcp_tag *t, struct 
 #ifdef DEBUG
     fprintf(stderr, "tag: error with tsearch for actor:<%s> in tag:<%s>\n", a->a_key, t->t_name);
 #endif
+    destroy_tobject_katcp(to);
     return -1;
   }
-    
+  
+#if 0
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "added tobject <%s> to tag <%s>", a->a_key, t->t_name);
+#endif
 
   t->t_tobject_count++;
 
@@ -503,7 +514,7 @@ int tag_actor_katcp(struct katcp_dispatch *d, struct katcp_actor *a, struct katc
 #ifdef DEBUG
     fprintf(stderr, "actor: cannot add actor to tag set. undo\n");
 #endif
-    untag_actor_katcp(d, a, t);
+    //untag_actor_katcp(d, a, t);
     return -1;
   }
 
@@ -576,6 +587,46 @@ int untag_named_actor_katcp(struct katcp_dispatch *d, struct katcp_actor *a, cha
   return untag_actor_katcp(d, a, t);
 }
 
+
+int tag_actor_sm_katcp(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_tobject *o)
+{
+  struct katcp_actor *a;
+  struct katcp_tag *t;
+  int rtn;
+
+  if (stack == NULL)
+    return -1;
+
+  a = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_ACTOR);
+  if (a == NULL)
+    return -1;
+
+  rtn = 0;
+
+  while ((t = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_TAG)) != NULL){
+    rtn += tag_actor_katcp(d, a, t);
+  }
+
+  return rtn;
+}
+
+struct kcs_sm_op *tag_actor_sm_setup_katcp(struct katcp_dispatch *d, struct kcs_sm_state *s)
+{
+  return create_sm_op_kcs(&tag_actor_sm_katcp, NULL);
+}
+
+int init_actor_tag_katcp(struct katcp_dispatch *d)
+{
+  int rtn;
+  
+  rtn  = register_name_type_katcp(d, KATCP_TYPE_ACTOR, KATCP_DEP_BASE, &print_actor_type_katcp, &destroy_actor_type_katcp, &copy_actor_type_katcp, &compare_actor_type_katcp, &parse_actor_type_katcp);
+  
+  rtn += register_name_type_katcp(d, KATCP_TYPE_TAG, KATCP_DEP_BASE, &print_tag_katcp, &destroy_tag_katcp, NULL, &compare_tag_katcp, &parse_tag_katcp);
+
+  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_TAG_ACTOR, &tag_actor_sm_setup_katcp, NULL, NULL, NULL, NULL, NULL);
+
+  return rtn;
+}
 
 #ifdef __ACTOR_UNIT_TEST
 int main(int argc, char *argv[])

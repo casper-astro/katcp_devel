@@ -195,12 +195,11 @@ struct kcs_statemachine {
 #define KATCP_TYPE_FLOAT                "float"
 #define KATCP_TYPE_DOUBLE               "double"
 #define KATCP_TYPE_CHAR                 "char"
-#define KATCP_TYPE_ACTOR                "actors"
-#define KATCP_TYPE_TAG                  "tags"
-
-
+#define KATCP_TYPE_ACTOR                "actor"
+#define KATCP_TYPE_TAG                  "tag"
 
 #define KATCP_OPERATION_STACK_PUSH      "push"
+#define KATCP_OPERATION_TAG_ACTOR       "tagactor"
 
 #define TASK_STATE_RUN_OPS              3
 #define TASK_STATE_FOLLOW_EDGES         2
@@ -275,16 +274,14 @@ struct kcs_sm_op *create_sm_op_kcs(int (*call)(struct katcp_dispatch *d, struct 
 struct kcs_sm_edge *create_sm_edge_kcs(struct kcs_sm_state *s_next, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n, void *data));
 
 
+int init_actor_tag_katcp(struct katcp_dispatch *d);
+
 struct katcp_tag {
   char *t_name;
   int t_level;
 
   void *t_tobject_root;
   int t_tobject_count;
-#if 0
-  struct katcp_tobject **t_memb;
-  int t_memb_count;
-#endif
 };
 struct katcp_actor;
 
@@ -296,7 +293,6 @@ int compare_tag_katcp(const void *m1, const void *m2);
 int deregister_tag_katcp(struct katcp_dispatch *d, char *name);
 int register_tag_katcp(struct katcp_dispatch *d, char *name, int level);
 
-
 struct katcp_actor {
   char *a_key;
 
@@ -307,10 +303,6 @@ struct katcp_actor {
 
   void *a_tag_root;
   int a_tag_count;
-#if 0
-  struct katcp_tag **a_tags;
-  int a_tags_count;
-#endif
 };
 
 struct katcp_actor *create_actor_type_katcp(struct katcp_dispatch *d, char *str, struct katcp_job *j, struct katcp_notice *n, void *data, char *datatype);
