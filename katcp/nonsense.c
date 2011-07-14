@@ -804,6 +804,70 @@ int create_sensor_vector_discrete_katcp(struct katcp_dispatch *d, struct katcp_s
   return 0;
 }
 
+int expand_sensor_discrete_katcp(struct katcp_dispatch *d, struct katcp_sensor *sn, unsigned int position, char *name)
+{
+#define BUFFER 16
+  struct katcp_discrete_sensor *ds;
+  char **tmp, *copy;
+  char buffer[BUFFER];
+  unsigned int i;
+
+  if((sn == NULL) || (sn->s_type != KATCP_SENSOR_DISCRETE)){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to layer discrete sensor over %p", sn);
+    return -1;
+  }
+
+  ds = sn->s_more;
+  if(ds == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no discrete state for sensor %s", sn->s_name);
+    return -1;
+  }
+
+  if(ds->ds_size <= position){
+    tmp = realloc(ds->ds_vector, sizeof(char *) * (position + 1));
+    if(tmp == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate %d element vector", position + 1);
+      return -1;
+    }
+    ds->ds_vector = tmp;
+    for(i = ds->ds_size; i < position; i++){
+      snprintf(buffer, BUFFER - 1, "mode%u", i);
+      ds->ds_vector[i] = strdup(buffer);
+      if(ds->ds_vector[i] == NULL){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to duplicate string %s", buffer);
+        ds->ds_size = i;
+        return -1;
+      }
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "creating default mode name %s", buffer);
+    }
+    ds->ds_size = position;
+    ds->ds_vector[position] = strdup(name);
+    if(ds->ds_vector[position] == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to duplicate string %s", name);
+      return -1;
+    }
+    ds->ds_size++;
+  } else {
+    copy = strdup(name);
+    if(copy == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to duplicate string %s", name);
+      return -1;
+    }
+
+    if(ds->ds_vector[position]){
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "renaming mode %s to %s", ds->ds_vector[position], name);
+      free(ds->ds_vector[position]);
+    } else {
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "mode at index %d has no name", position);
+    }
+
+    ds->ds_vector[position] = copy;
+  }
+
+  return 0;
+#undef BUFFER
+}
+
 int event_check_discrete_katcp(struct katcp_nonsense *ns)
 {
   struct katcp_sensor *sn;
@@ -844,8 +908,7 @@ int event_check_discrete_katcp(struct katcp_nonsense *ns)
   return 1;
 }
 
-#if 0
-int set_discrete_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a, discrete value)
+int set_discrete_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a, unsigned value)
 {
   int result;
 
@@ -855,8 +918,6 @@ int set_discrete_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a
 
   return result;
 }
-
-#endif
 
 /* integer routines, intbool common to integer and boolean code *******************************/
 

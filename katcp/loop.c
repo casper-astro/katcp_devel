@@ -30,7 +30,10 @@ int run_katcp(struct katcp_dispatch *d, int server, char *host, int port)
 
 int run_server_katcp(struct katcp_dispatch *d, char *host, int port)
 {
-  return run_multi_server_katcp(d, 1, host, port);
+  return run_config_server_katcp(d, NULL, 1, host, port);
 }
 
-
+int run_multi_server_katcp(struct katcp_dispatch *d, int count, char *host, int port)
+{
+  return run_config_server_katcp(d, NULL, count, host, port);
+}

@@ -122,16 +122,21 @@ struct katcp_dispatch *setup_katcp(int fd)
     return NULL;
   }
 
-  register_flag_mode_katcp(d, "?setenv", "sets/clears an enviroment variable (?setenv [label [value]]", &setenv_cmd_katcp, KATCP_CMD_HIDDEN, 0);
-  register_flag_mode_katcp(d, "?chdir", "change directory (?chdir directory)", &chdir_cmd_katcp, KATCP_CMD_HIDDEN, 0);
-  register_flag_mode_katcp(d, "?forget", "deregister a command (?forget command)", &forget_cmd_katcp, KATCP_CMD_HIDDEN, 0);
+  register_flag_mode_katcp(d, "?setenv",  "sets/clears an enviroment variable (?setenv [label [value]]", &setenv_cmd_katcp, KATCP_CMD_HIDDEN, 0);
+  register_flag_mode_katcp(d, "?chdir",   "change directory (?chdir directory)", &chdir_cmd_katcp, KATCP_CMD_HIDDEN, 0);
+  register_flag_mode_katcp(d, "?forget",  "deregister a command (?forget command)", &forget_cmd_katcp, KATCP_CMD_HIDDEN, 0);
 
-  register_katcp(d, "?halt", "shuts the system down (?halt)", &halt_cmd_katcp);
-  register_katcp(d, "?restart", "restarts the system (?restart)", &restart_cmd_katcp);
-  register_katcp(d, "?help", "displays this help (?help [command])", &help_cmd_katcp);
-  register_katcp(d, "?log-level", "sets the minimum reported log priority (?log-level [priority])", &log_level_cmd_katcp);
-  register_katcp(d, "?log-record", "generate a log entry (?log-record [priority] message)", &log_record_cmd_katcp);
-  register_katcp(d, "?watchdog", "pings the system (?watchdog)", &watchdog_cmd_katcp);
+  register_katcp(d, "?halt",              "shuts the system down (?halt)", &halt_cmd_katcp);
+  register_katcp(d, "?restart",           "restarts the system (?restart)", &restart_cmd_katcp);
+  register_katcp(d, "?help",              "displays this help (?help [command])", &help_cmd_katcp);
+  register_katcp(d, "?log-level",         "sets the minimum reported log priority (?log-level [priority])", &log_level_cmd_katcp);
+  register_katcp(d, "?log-record",        "generate a log entry (?log-record [priority] message)", &log_record_cmd_katcp);
+  register_katcp(d, "?watchdog",          "pings the system (?watchdog)", &watchdog_cmd_katcp);
+
+  register_katcp(d, "?sensor-list",       "lists available sensors (?sensor-list [sensor])", &sensor_list_cmd_katcp);
+  register_katcp(d, "?sensor-sampling",   "configure sensor (?sensor-sampling sensor [strategy [parameter]])", &sensor_sampling_cmd_katcp);
+  register_katcp(d, "?sensor-value",      "query a sensor (?sensor-value sensor)", &sensor_value_cmd_katcp);
+
 
   return d;
 }
@@ -1435,6 +1440,7 @@ int log_message_katcp(struct katcp_dispatch *d, unsigned int priority, char *nam
     if(e->e_name){
       fixed_name = e->e_name;
     } else {
+      /* WARNING: not the most elegant option ... */
       fixed_name = "tcpborphserver";
     }
   }

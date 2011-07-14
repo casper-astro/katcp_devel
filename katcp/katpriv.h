@@ -396,6 +396,7 @@ struct katcp_shared{
   unsigned int s_modal;
 
   struct katcp_cmd *s_commands;
+  struct katcp_sensor *s_mode_sensor;
   unsigned int s_mode;
 
   unsigned int s_new;
@@ -514,7 +515,8 @@ int cmp_time_katcp(struct timeval *alpha, struct timeval *beta);
 
 int startup_shared_katcp(struct katcp_dispatch *d);
 void shutdown_shared_katcp(struct katcp_dispatch *d);
-int listen_shared_katcp(struct katcp_dispatch *d, int count, char *host, int port);
+int listen_shared_katcp(struct katcp_dispatch *d, char *host, int port);
+int allocate_shared_katcp(struct katcp_dispatch *d, unsigned int count);
 int link_shared_katcp(struct katcp_dispatch *d, struct katcp_dispatch *cd);
 
 int load_shared_katcp(struct katcp_dispatch *d);

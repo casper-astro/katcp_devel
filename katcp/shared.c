@@ -148,11 +148,15 @@ int startup_shared_katcp(struct katcp_dispatch *d)
   s->s_vector = NULL;
 
   s->s_size = 0;
+#if 0
   s->s_modal = 0;
+#endif
 
   s->s_commands = NULL;
 
+  s->s_mode_sensor = NULL;
   s->s_mode = 0;
+
   s->s_new = 0;
   s->s_options = NULL;
   s->s_transition = NULL;
@@ -309,8 +313,12 @@ void shutdown_shared_katcp(struct katcp_dispatch *d)
 
   /* TODO: what about destroying jobs, need to happen before sensors ? */
 
+
   destroy_notices_katcp(d);
+
+  s->s_mode_sensor = NULL;
   destroy_sensors_katcp(d);
+
   destroy_versions_katcp(d);
 
   while(s->s_count > 0){
@@ -651,7 +659,7 @@ int ended_shared_katcp(struct katcp_dispatch *d)
 
 /*******************************************************************/
 
-int listen_shared_katcp(struct katcp_dispatch *d, int count, char *host, int port)
+int allocate_shared_katcp(struct katcp_dispatch *d, unsigned int count)
 {
   int i;
   struct katcp_shared *s;
@@ -662,13 +670,6 @@ int listen_shared_katcp(struct katcp_dispatch *d, int count, char *host, int por
   if(s == NULL){
     return -1;
   }
-
-  s->s_lfd = net_listen(host, port, 0);
-  if(s->s_lfd < 0){
-    return -1;
-  }
-
-  fcntl(s->s_lfd, F_SETFD, FD_CLOEXEC);
 
   if(s->s_clients){
 #ifdef DEBUG
@@ -698,6 +699,27 @@ int listen_shared_katcp(struct katcp_dispatch *d, int count, char *host, int por
 #endif
 
   return count;
+}
+
+int listen_shared_katcp(struct katcp_dispatch *d, char *host, int port)
+{
+  struct katcp_shared *s;
+
+  sane_shared_katcp(d);
+
+  s = d->d_shared;
+  if(s == NULL){
+    return -1;
+  }
+
+  s->s_lfd = net_listen(host, port, 0);
+  if(s->s_lfd < 0){
+    return -1;
+  }
+
+  fcntl(s->s_lfd, F_SETFD, FD_CLOEXEC);
+
+  return 0;
 }
 
 struct katcp_dispatch *template_shared_katcp(struct katcp_dispatch *d)
@@ -760,7 +782,7 @@ int mode_cmd_katcp(struct katcp_dispatch *d, int argc)
   s = d->d_shared;
   name = NULL;
 
-  if(s->s_modal == 0){
+  if(s->s_mode_sensor == 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "logic problem, mode command invoked without modes registered");
     return KATCP_RESULT_FAIL;
   }
@@ -940,8 +962,8 @@ int store_full_mode_katcp(struct katcp_dispatch *d, unsigned int mode, char *nam
 int store_prepared_mode_katcp(struct katcp_dispatch *d, unsigned int mode, char *name, struct katcp_notice *(*prepare)(struct katcp_dispatch *d, char *flags, unsigned int from, unsigned int to), int (*enter)(struct katcp_dispatch *d, struct katcp_notice *n, char *flags, unsigned int to), void (*leave)(struct katcp_dispatch *d, unsigned int to), void *state, void (*clear)(struct katcp_dispatch *d, unsigned int mode))
 {
   struct katcp_shared *s;
-  char *copy;
-  int result;
+  char *copy, *vector[1];
+  int result, skip;
 
   sane_shared_katcp(d);
   s = d->d_shared;
@@ -978,14 +1000,42 @@ int store_prepared_mode_katcp(struct katcp_dispatch *d, unsigned int mode, char 
   s->s_vector[mode].e_leave = leave;
   s->s_vector[mode].e_state = state;
   s->s_vector[mode].e_clear = clear;
-
+  
   if(name){
-    if(s->s_modal == 0){
+
+    skip = 0;
+    if(s->s_mode_sensor == NULL){
+
       if(register_katcp(d, "?mode", "mode change command (?mode [new-mode])", &mode_cmd_katcp)){
-        return -1;
+        result = (-1);
       }
-      s->s_modal = 1;
+
+      if(mode > 0){
+        vector[0] = "mode0";
+      } else {
+        vector[0] = name;
+        skip = 1;
+      }
+
+      if(register_discrete_sensor_katcp(d, 0, "mode", "current mode", "none", NULL, NULL, NULL, vector, 1) < 0){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to create mode sensor");
+      } else {
+        s->s_mode_sensor = find_sensor_katcp(d, "mode");
+        if(s->s_mode_sensor == NULL){
+          log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to locate recently newly created mode sensor");
+          skip = 1;
+          result = (-1);
+        }
+      }
+    }  
+
+    if(skip == 0){
+      if(expand_sensor_discrete_katcp(d, s->s_mode_sensor, mode, name) < 0){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to add mode %d (%s) to mode sensor", mode, name);
+        result = (-1);
+      }
     }
+
   }
 
   return result;
@@ -1094,6 +1144,7 @@ int enter_name_mode_katcp(struct katcp_dispatch *d, char *name, char *flags)
 int complete_mode_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 {
   struct katcp_shared *s;
+  struct katcp_acquire *a;
   int result;
 
   sane_shared_katcp(d);
@@ -1134,6 +1185,13 @@ int complete_mode_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *
     if(s->s_vector[s->s_mode].e_name){ /* broadcast mode change */
       broadcast_inform_katcp(d, "#mode", s->s_vector[s->s_mode].e_name);
     }
+    if(s->s_mode_sensor){
+      a = s->s_mode_sensor->s_acquire;
+      if(a){
+        set_discrete_acquire_katcp(d, a, s->s_mode);
+      }
+    }
+
   }
 
   return result;
