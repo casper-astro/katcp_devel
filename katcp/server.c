@@ -398,12 +398,19 @@ int prepare_core_loop_katcp(struct katcp_dispatch *dl)
 {
   struct katcp_shared *s;
 
+#ifdef DEBUG
+  fprintf(stderr, "running prepare core loop\n");
+#endif
+
   dl->d_exit = KATCP_EXIT_ABORT; /* assume the worst */
 
   s = dl->d_shared;
 
   /* double check this logic */
   if(s == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "no shared state in core loop preparation\n");
+#endif
     return -1;
   }
 
@@ -444,6 +451,8 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
 
   /* setup child signal routines, in case they haven't yet */
   init_signals_shared_katcp(s);
+
+  run = 1;
 
   while(run){
     FD_ZERO(&(s->s_read));
@@ -621,10 +630,16 @@ int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, ch
   int fd, result;
 
   if(count <= 0){
+#ifdef DEBUG
+    fprintf(stderr, "server: need a natural number of clients, not %d\n", count);
+#endif
     return terminate_katcp(dl, KATCP_EXIT_ABORT);
   }
 
   if(prepare_core_loop_katcp(dl) < 0){
+#ifdef DEBUG
+    fprintf(stderr, "server: need a natural number of clients, not %d\n", count);
+#endif
     return terminate_katcp(dl, KATCP_EXIT_ABORT);
   }
 
@@ -636,19 +651,25 @@ int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, ch
   }
 
   if(allocate_shared_katcp(dl, count) <= 0){
+#ifdef DEBUG
+    fprintf(stderr, "allocation of %d clients failed\n", count);
+#endif
     return terminate_katcp(dl, KATCP_EXIT_ABORT);
   }
 
   if(file){
     fd = pipe_from_file_katcp(dl, file);
     if(fd < 0){
+#ifdef DEBUG
+    fprintf(stderr, "creation of pipe from file failed\n");
+#endif
       return terminate_katcp(dl, KATCP_EXIT_ABORT);
     }
     add_client_server_katcp(dl, fd, file);
   }
 
   result = listen_shared_katcp(dl, host, port);
-  if(result <= 0){
+  if(result < 0){
 #ifdef DEBUG
     fprintf(stderr, "multi: unable to initiate server listen\n");
 #endif

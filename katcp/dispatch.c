@@ -1441,7 +1441,10 @@ int log_message_katcp(struct katcp_dispatch *d, unsigned int priority, char *nam
       fixed_name = e->e_name;
     } else {
       /* WARNING: not the most elegant option ... */
+#if 0
       fixed_name = "tcpborphserver";
+#endif
+      fixed_name = KATCP_CODEBASE_NAME;
     }
   }
 
