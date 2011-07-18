@@ -221,6 +221,8 @@ struct kcs_sm_op *pushstack_setup_statemachine_kcs(struct katcp_dispatch *d, str
     return NULL;
   }
   
+
+
   num = arg_count_katcp(d) - ARG_BASE;
   
   data = malloc(sizeof(char *) * (num + 1));
@@ -273,21 +275,34 @@ struct kcs_sm_op *pushstack_setup_statemachine_kcs(struct katcp_dispatch *d, str
 #undef ARG_BASE
 }
 
-#if 0
-int store_statemachine_kcs(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_object *o)
+#if 1
+int store_statemachine_kcs(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_tobject *o)
 {
   struct katcp_type *t;
+  char *key;
 
   if (o == NULL)
     return -1;
 
   t = o->o_type;
+  if (t == NULL)
+    return -1;
 
-  return store_data_at_type_katcp(d, t, KATCP_DEP_BASE, "eish", 
+  if (t->t_getkey == NULL)
+    return -1;
+
+  key = (*t->t_getkey)(o->o_data);
+  
+#ifdef DEBUG
+  fprintf(stderr, "statemachine: about to store <%s>\n", key);
+#endif
+
+  return store_data_at_type_katcp(d, t, KATCP_DEP_BASE, key, o->o_data, t->t_print, t->t_free, t->t_copy, t->t_compare, t->t_parse, t->t_getkey); 
 }
 
 struct kcs_sm_op *store_setup_statemachine_kcs(struct katcp_dispatch *d, struct kcs_sm_state *s)
 {
+#define ARG_BASE 5
   struct kcs_sm_op *op;
 
   struct katcp_type *t;
@@ -344,7 +359,7 @@ struct kcs_sm_op *store_setup_statemachine_kcs(struct katcp_dispatch *d, struct 
     return NULL;
   }
   
-  op = create_sm_op_kcs(&pushstack_statemachine_kcs, o);
+  op = create_sm_op_kcs(&store_statemachine_kcs, o);
   if (op == NULL){
     (*t->t_free)(temp);
     destroy_tobject_katcp(o);
@@ -365,8 +380,8 @@ int statemachine_init_kcs(struct katcp_dispatch *d)
   int rtn;
   
   /*register basic types*/
-  rtn  = register_name_type_katcp(d, KATCP_TYPE_INTEGER, KATCP_DEP_BASE, &print_integer_type_kcs, &destroy_integer_type_kcs, NULL, &compare_integer_type_kcs, &parse_integer_type_kcs);
-  rtn += register_name_type_katcp(d, KATCP_TYPE_STRING, KATCP_DEP_BASE, &print_string_type_kcs, &destroy_string_type_kcs, NULL, NULL, &parse_string_type_kcs);
+  rtn  = register_name_type_katcp(d, KATCP_TYPE_INTEGER, KATCP_DEP_BASE, &print_integer_type_kcs, &destroy_integer_type_kcs, NULL, &compare_integer_type_kcs, &parse_integer_type_kcs, NULL);
+  rtn += register_name_type_katcp(d, KATCP_TYPE_STRING, KATCP_DEP_BASE, &print_string_type_kcs, &destroy_string_type_kcs, NULL, NULL, &parse_string_type_kcs, NULL);
 
 #if 0
   rtn += register_name_type_katcp(d, KATCP_TYPE_FLOAT, NULL, NULL, NULL, NULL, NULL);
@@ -374,7 +389,9 @@ int statemachine_init_kcs(struct katcp_dispatch *d)
   rtn += register_name_type_katcp(d, KATCP_TYPE_CHAR, NULL, NULL, NULL, NULL, NULL);
 #endif
 
-  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_STACK_PUSH, &pushstack_setup_statemachine_kcs, NULL, NULL, NULL, NULL, NULL);
+  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_STACK_PUSH, &pushstack_setup_statemachine_kcs, NULL, NULL, NULL, NULL, NULL, NULL);
+  
+  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_STORE, &store_setup_statemachine_kcs, NULL, NULL, NULL, NULL, NULL, NULL);
   
   rtn += init_actor_tag_katcp(d);
  
@@ -559,6 +576,15 @@ void print_sm_state_kcs(struct katcp_dispatch *d, void *data)
   }
 }
 
+char *getkey_sm_state_kcs(void *data)
+{
+  struct kcs_sm_state *s;
+  s = data;
+  if (s == NULL)
+    return NULL;
+  return s->s_name;
+}
+
 #if 0
 int create_named_statemachine(struct katcp_dispatch *d, char *name)
 {
@@ -616,7 +642,7 @@ int create_named_node_kcs(struct katcp_dispatch *d, char *s_name)
   if (s == NULL)
     return -1;
    
-  if (store_data_type_katcp(d, KATCP_TYPE_STATEMACHINE_STATE, KATCP_DEP_BASE, s_name, s, &print_sm_state_kcs, &destroy_sm_state_kcs, NULL, NULL, NULL) < 0){
+  if (store_data_type_katcp(d, KATCP_TYPE_STATEMACHINE_STATE, KATCP_DEP_BASE, s_name, s, &print_sm_state_kcs, &destroy_sm_state_kcs, NULL, NULL, NULL, &getkey_sm_state_kcs) < 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not store datatype %s %s", KATCP_TYPE_STATEMACHINE_STATE, s_name);
 #ifdef DEBUG
     fprintf(stderr, "statemachine: could not store datatype %s %s\n", KATCP_TYPE_STATEMACHINE_STATE, s_name);
@@ -842,6 +868,15 @@ void destroy_sm_mod_kcs(void *data)
   }
 }
 
+char *getkey_module_katcp(void *data)
+{
+  struct katcp_module *m;
+  m = data;
+  if (m == NULL)
+    return NULL;
+  return m->m_name;
+}
+
 struct katcp_module *create_module_katcp()
 {
   struct katcp_module *m;
@@ -907,7 +942,7 @@ int statemachine_loadmod_kcs(struct katcp_dispatch *d)
     return KATCP_RESULT_FAIL;
   } 
   
-  if (store_data_type_katcp(d, KATCP_TYPE_MODULES, KATCP_DEP_ELAV,  mod, m, &print_sm_mod_kcs, &destroy_sm_mod_kcs, NULL, NULL, NULL) < 0){
+  if (store_data_type_katcp(d, KATCP_TYPE_MODULES, KATCP_DEP_ELAV,  mod, m, &print_sm_mod_kcs, &destroy_sm_mod_kcs, NULL, NULL, NULL, &getkey_module_katcp) < 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not store datatype %s %s", KATCP_TYPE_MODULES, mod);
 #ifdef DEBUG
     fprintf(stderr, "statemachine: could not store datatype %s %s\n", KATCP_TYPE_MODULES, mod);
@@ -978,8 +1013,10 @@ int statemachine_run_ops_kcs(struct katcp_dispatch *d, struct katcp_notice *n, s
 #ifdef DEBUG
       fprintf(stderr,"statemachine RUN: op %p call returned %d\n", op, rtn);
 #endif  
-      if (rtn < 0)
+      if (rtn < 0){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "statemachine op error rtn: %d", rtn);
         return rtn;
+      }
     }
   }
   
@@ -1091,6 +1128,7 @@ int statemachine_process_kcs(struct katcp_dispatch *d, struct katcp_notice *n, v
 #ifdef DEBUG
     fprintf(stderr, "statemachine: process error setting task state to CLEAN UP\n");
 #endif
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "statemachine: going to cleanup state");
     rtn = TASK_STATE_CLEAN_UP;
     wake_notice_katcp(d, n, NULL);
   }

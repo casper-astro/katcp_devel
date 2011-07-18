@@ -126,12 +126,6 @@ struct kcs_roach {
   char *mac;
   struct katcp_url *kurl;
 
-/*
-  struct kcs_statemachine **ksm;
-  int ksmcount;
-  int ksmactive;
-*/
-
   struct timeval r_seen;
 
   struct katcp_acquire *r_acquire;
@@ -153,33 +147,6 @@ int roachpool_count_kcs(struct katcp_dispatch *d);
 int update_sensor_for_roach_kcs(struct katcp_dispatch *d, struct kcs_obj *ko, int val);
 int add_sensor_to_roach_kcs(struct katcp_dispatch *d, struct kcs_obj *ko);
 
-#if 0
-#define KCS_SM_PING_STOP 0 
-#define KCS_SM_PING_S1   1
-#define KCS_SM_PING_S2   2
-
-#define KCS_SM_CONNECT_STOP             0 
-#define KCS_SM_CONNECT_DISCONNECTED     1 
-#define KCS_SM_CONNECT_CONNECTED        2
-
-#define KCS_SM_PROGDEV_TRY      0
-#define KCS_SM_PROGDEV_OKAY     1
-#define KCS_SM_PROGDEV_STOP     2
-
-struct kcs_statemachine {
-  int (**sm)(struct katcp_dispatch *,struct katcp_notice *, void *); 
-  int state;
-  struct katcp_notice *n;
-  void *data; /*used to pass config data around no GC make sure to free when you use*/
-};
-#endif
-
-#if 0
-#define MOD_STORE               "mod_store"
-#define MOD_STORE_TYPE_SYMBOL   0  
-#define MOD_STORE_TYPE_HANDLE   1
-#endif 
-
 #define STATEMACHINE_SCHEDULER_NOTICE   "<kcs_scheduler>"
 
 #define KATCP_DEP_BASE                  0
@@ -200,23 +167,11 @@ struct kcs_statemachine {
 
 #define KATCP_OPERATION_STACK_PUSH      "push"
 #define KATCP_OPERATION_TAG_ACTOR       "tagactor"
+#define KATCP_OPERATION_STORE           "store"
 
 #define TASK_STATE_RUN_OPS              3
 #define TASK_STATE_FOLLOW_EDGES         2
 #define TASK_STATE_CLEAN_UP             1
-
-/*
-struct kcs_mod_store {
-  struct avl_node_list *m_hl;
-  struct avl_node_list *m_sl;
-};
-
-struct kcs_sm_list {
-  struct kcs_sm **l_sm;
-  int l_count;
-};
-*/
-
 
 struct katcp_module {
   char *m_name;
@@ -224,10 +179,6 @@ struct katcp_module {
 };
 
 struct kcs_sched_task {
-#if 0
-  struct kcs_sm *t_machine;
-#endif
-  
   int t_state;
   int t_edge_i;
 
@@ -237,10 +188,6 @@ struct kcs_sched_task {
 
 struct kcs_sm {
   char *m_name;
-#if 0
-  struct katcp_stack *m_stack;
-  struct kcs_sm_state *m_pc;
-#endif
 };
 
 struct kcs_sm_op {
@@ -249,9 +196,6 @@ struct kcs_sm_op {
 };
 
 struct kcs_sm_state {
-#if 0
-  struct kcs_sm *s_sm;
-#endif
   char *s_name;
   
   struct kcs_sm_edge **s_edge_list;
@@ -312,27 +256,13 @@ void destroy_actor_type_katcp(void *data);
 int copy_actor_type_katcp(void *src, void *dest, int n);
 int compare_actor_type_katcp(const void *a, const void *b);
 void *parse_actor_type_katcp(struct katcp_dispatch *d, char **str);
+char *getkey_actor_katcp(void *data);
 
 int tag_actor_katcp(struct katcp_dispatch *d, struct katcp_actor *a, struct katcp_tag *t);
 int tag_named_actor_katcp(struct katcp_dispatch *d, struct katcp_actor *a, char *tag);
 int untag_actor_katcp(struct katcp_dispatch *d, struct katcp_actor *a, struct katcp_tag *t);
 int untag_named_actor_katcp(struct katcp_dispatch *d, struct katcp_actor *a, char *tag);
 int unlink_tags_actor_katcp(struct katcp_dispatch *d, struct katcp_actor *a);
-
-#if 0
-int statemachine_greeting(struct katcp_dispatch *d);
-int statemachine_ping(struct katcp_dispatch *d);
-int statemachine_stop(struct katcp_dispatch *d);
-int statemachine_connect(struct katcp_dispatch *d);
-int statemachine_disconnect(struct katcp_dispatch *d);
-int statemachine_progdev(struct katcp_dispatch *d);
-int statemachine_poweron(struct katcp_dispatch *d);
-int statemachine_poweroff(struct katcp_dispatch *d);
-int statemachine_powersoft(struct katcp_dispatch *d);
-//void statemachine_destroy(struct katcp_dispatch *d);
-void destroy_last_roach_ksm_kcs(struct kcs_roach *kr);
-void destroy_ksm_kcs(struct kcs_statemachine *ksm);
-#endif
 
 struct katcp_job * run_child_process_kcs(struct katcp_dispatch *d, struct katcp_url *url, int (*call)(struct katcl_line *, void *), void *data, struct katcp_notice *n);
 int xport_sync_connect_and_start_subprocess_kcs(struct katcl_line *l, void *data);

@@ -104,7 +104,7 @@ def DEBUG
   return (-1) * (low+1) ;
 }
 
-int register_at_id_type_katcp(struct katcp_dispatch *d, int tid, char *tname, int dep, void (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(const void *, const void *), void *(*fn_parse)(struct katcp_dispatch *d, char **))
+int register_at_id_type_katcp(struct katcp_dispatch *d, int tid, char *tname, int dep, void (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(const void *, const void *), void *(*fn_parse)(struct katcp_dispatch *d, char **), char *(*fn_getkey)(void *))
 {
   struct katcp_shared *s;
   struct katcp_type **ts;
@@ -149,6 +149,7 @@ int register_at_id_type_katcp(struct katcp_dispatch *d, int tid, char *tname, in
   t->t_copy = fn_copy;
   t->t_compare = fn_compare;
   t->t_parse = fn_parse;
+  t->t_getkey = fn_getkey;
 
   i = size;
   for (; i > tid; i--){
@@ -167,7 +168,7 @@ int register_at_id_type_katcp(struct katcp_dispatch *d, int tid, char *tname, in
   return i; 
 }
 
-int register_name_type_katcp(struct katcp_dispatch *d, char *name, int dep, void (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(const void *, const void *), void *(*fn_parse)(struct katcp_dispatch *d, char **))
+int register_name_type_katcp(struct katcp_dispatch *d, char *name, int dep, void (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(const void *, const void *), void *(*fn_parse)(struct katcp_dispatch *d, char **), char *(*fn_getkey)(void *))
 {
   struct katcp_shared *s;
   struct katcp_type **ts;
@@ -193,7 +194,7 @@ int register_name_type_katcp(struct katcp_dispatch *d, char *name, int dep, void
 
   pos = (pos+1)* (-1);
 
-  return register_at_id_type_katcp(d, pos, name, dep, fn_print, fn_free, fn_copy, fn_compare, fn_parse);
+  return register_at_id_type_katcp(d, pos, name, dep, fn_print, fn_free, fn_copy, fn_compare, fn_parse, fn_getkey);
 }
 
 int deregister_type_katcp(struct katcp_dispatch *d, char *name)
@@ -238,7 +239,7 @@ int deregister_type_katcp(struct katcp_dispatch *d, char *name)
   return 0;
 }
 
-int store_data_at_type_katcp(struct katcp_dispatch *d, struct katcp_type *t, int dep, char *d_name, void *d_data, void (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(const void *, const void *), void *(*fn_parse)(struct katcp_dispatch *d, char **))
+int store_data_at_type_katcp(struct katcp_dispatch *d, struct katcp_type *t, int dep, char *d_name, void *d_data, void (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(const void *, const void *), void *(*fn_parse)(struct katcp_dispatch *d, char **), char *(*fn_getkey)(void *))
 {
   struct avl_tree *at;
   struct avl_node *an;
@@ -246,7 +247,7 @@ int store_data_at_type_katcp(struct katcp_dispatch *d, struct katcp_type *t, int
   if (t == NULL)
     return -1;
   
-  if (t->t_print != fn_print || t->t_free != fn_free || t->t_copy != fn_copy || t->t_compare != fn_compare || t->t_parse != fn_parse){
+  if (t->t_print != fn_print || t->t_free != fn_free || t->t_copy != fn_copy || t->t_compare != fn_compare || t->t_parse != fn_parse || t->t_getkey != fn_getkey){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "callbacks for data with key <%s> dont match type %s\n", d_name, t->t_name);
 #ifdef DEBUG
     fprintf(stderr, "katcp_type: callbacks for data with key <%s> dont match type %s\n", d_name, t->t_name); 
@@ -271,7 +272,8 @@ int store_data_at_type_katcp(struct katcp_dispatch *d, struct katcp_type *t, int
     return -1;
 
   if (add_node_avltree(at, an) < 0){
-    free_node_avltree(an, fn_free);
+    //free_node_avltree(an, fn_free);
+    free_node_avltree(an, NULL);
     an = NULL;
     return -1;
   }
@@ -283,7 +285,7 @@ int store_data_at_type_katcp(struct katcp_dispatch *d, struct katcp_type *t, int
   return 0;
 }
 
-int store_data_type_katcp(struct katcp_dispatch *d, char *t_name, int dep, char *d_name, void *d_data, void (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(const void *, const void *), void *(*fn_parse)(struct katcp_dispatch *d, char **))
+int store_data_type_katcp(struct katcp_dispatch *d, char *t_name, int dep, char *d_name, void *d_data, void (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(const void *, const void *), void *(*fn_parse)(struct katcp_dispatch *d, char **), char *(*fn_getkey)(void *))
 {
   struct katcp_shared *s;
   
@@ -309,7 +311,7 @@ int store_data_type_katcp(struct katcp_dispatch *d, char *t_name, int dep, char 
 #endif
     /*pos returned from bsearch is pos to insert new type of searched name 
       but it needs to be decremented and flipped positive*/
-    pos = register_at_id_type_katcp(d, (pos+1)*(-1), t_name, dep, fn_print, fn_free, fn_copy, fn_compare, fn_parse);
+    pos = register_at_id_type_katcp(d, (pos+1)*(-1), t_name, dep, fn_print, fn_free, fn_copy, fn_compare, fn_parse, fn_getkey);
     if (pos < 0){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not create new type %s\n", t_name);
 #ifdef DEBUG
@@ -324,7 +326,7 @@ int store_data_type_katcp(struct katcp_dispatch *d, char *t_name, int dep, char 
   
   t = ts[pos];
   
-  return store_data_at_type_katcp(d, t, dep, d_name, d_data, fn_print, fn_free, fn_copy, fn_compare, fn_parse);
+  return store_data_at_type_katcp(d, t, dep, d_name, d_data, fn_print, fn_free, fn_copy, fn_compare, fn_parse, fn_getkey);
 }
 
 int find_name_id_type_katcp(struct katcp_dispatch *d, char *str)

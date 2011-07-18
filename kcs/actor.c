@@ -154,6 +154,15 @@ void *parse_actor_type_katcp(struct katcp_dispatch *d, char **str)
   return a;
 }
 
+char *getkey_actor_katcp(void *data)
+{
+  struct katcp_actor *a;
+  a = data;
+  if (a == NULL)
+    return NULL;
+  return a->a_key;
+}
+
 struct katcp_tag *create_tag_katcp(char *name, int level)
 {
   struct katcp_tag *t;
@@ -258,6 +267,15 @@ void *parse_tag_katcp(struct katcp_dispatch *d, char **str)
   return t;
 }
 
+char *getkey_tag_katcp(void *data)
+{
+  struct katcp_tag *t;
+  t = data;
+  if (t == NULL)
+    return NULL;
+  return t->t_name;
+}
+
 int compare_tag_katcp(const void *m1, const void *m2)
 {
   const struct katcp_tag *a, *b;
@@ -278,7 +296,7 @@ int register_tag_katcp(struct katcp_dispatch *d, char *name, int level)
   if (t == NULL)
     return -1;
 
-  if (store_data_type_katcp(d, KATCP_TYPE_TAG, KATCP_DEP_BASE, name, t, &print_tag_katcp, &destroy_tag_katcp, NULL, NULL, &parse_tag_katcp) < 0){
+  if (store_data_type_katcp(d, KATCP_TYPE_TAG, KATCP_DEP_BASE, name, t, &print_tag_katcp, &destroy_tag_katcp, NULL, NULL, &parse_tag_katcp, &getkey_tag_katcp) < 0){
     destroy_tag_katcp(d);
     return -1;
   }
@@ -619,11 +637,11 @@ int init_actor_tag_katcp(struct katcp_dispatch *d)
 {
   int rtn;
   
-  rtn  = register_name_type_katcp(d, KATCP_TYPE_ACTOR, KATCP_DEP_BASE, &print_actor_type_katcp, &destroy_actor_type_katcp, &copy_actor_type_katcp, &compare_actor_type_katcp, &parse_actor_type_katcp);
+  rtn  = register_name_type_katcp(d, KATCP_TYPE_ACTOR, KATCP_DEP_BASE, &print_actor_type_katcp, &destroy_actor_type_katcp, &copy_actor_type_katcp, &compare_actor_type_katcp, &parse_actor_type_katcp, &getkey_actor_katcp);
   
-  rtn += register_name_type_katcp(d, KATCP_TYPE_TAG, KATCP_DEP_BASE, &print_tag_katcp, &destroy_tag_katcp, NULL, &compare_tag_katcp, &parse_tag_katcp);
+  rtn += register_name_type_katcp(d, KATCP_TYPE_TAG, KATCP_DEP_BASE, &print_tag_katcp, &destroy_tag_katcp, NULL, &compare_tag_katcp, &parse_tag_katcp, &getkey_tag_katcp);
 
-  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_TAG_ACTOR, &tag_actor_sm_setup_katcp, NULL, NULL, NULL, NULL, NULL);
+  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_TAG_ACTOR, &tag_actor_sm_setup_katcp, NULL, NULL, NULL, NULL, NULL, NULL);
 
   return rtn;
 }
@@ -640,7 +658,7 @@ int main(int argc, char *argv[])
   if (d == NULL)
     return 1;
 
-  rtn = register_name_type_katcp(d, KATCP_TYPE_ACTOR, KATCP_DEP_BASE, &print_actor_type_katcp, &destroy_actor_type_katcp, &copy_actor_type_katcp, &compare_actor_type_katcp, &parse_actor_type_katcp);
+  rtn = register_name_type_katcp(d, KATCP_TYPE_ACTOR, KATCP_DEP_BASE, &print_actor_type_katcp, &destroy_actor_type_katcp, &copy_actor_type_katcp, &compare_actor_type_katcp, &parse_actor_type_katcp, &getkey_actor_katcp);
 
   a1 = create_actor_type_katcp(d, "actor1", NULL, NULL, NULL, NULL); 
   a2 = create_actor_type_katcp(d, "actor2", NULL, NULL, NULL, NULL); 

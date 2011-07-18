@@ -251,8 +251,8 @@ int init_mod(struct katcp_dispatch *d)
     return -1;
   }
 
-  rtn  = store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_ADD, &rpn_add_setup_mod, NULL, NULL, NULL, NULL, NULL);
-  rtn  = store_data_type_katcp(d, KATCP_TYPE_EDGE, KATCP_DEP_BASE, KATCP_EDGE_COMPARE_EQUAL, &compare_generic_setup_mod, NULL, NULL, NULL, NULL, NULL);
+  rtn  = store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_ADD, &rpn_add_setup_mod, NULL, NULL, NULL, NULL, NULL, NULL);
+  rtn  = store_data_type_katcp(d, KATCP_TYPE_EDGE, KATCP_DEP_BASE, KATCP_EDGE_COMPARE_EQUAL, &compare_generic_setup_mod, NULL, NULL, NULL, NULL, NULL, NULL);
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "successfully loaded mod_simple_ops");
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "added operations:");

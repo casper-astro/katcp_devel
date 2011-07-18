@@ -163,7 +163,7 @@ struct media_tag *get_named_media_tag_mm(struct katcp_dispatch *d, char *tagname
   if (mt == NULL)
     return NULL;
 
-  if (store_data_type_katcp(d, MEDIAMAN_TYPE_MEDIA_TAG, KATCP_DEP_BASE, tagname, mt, &print_media_tag_mm, &destroy_media_tag_mm, NULL, NULL, &parse_media_tag_mm) < 0){
+  if (store_data_type_katcp(d, MEDIAMAN_TYPE_MEDIA_TAG, KATCP_DEP_BASE, tagname, mt, &print_media_tag_mm, &destroy_media_tag_mm, NULL, NULL, &parse_media_tag_mm, NULL) < 0){
     destroy_media_tag_mm(mt);
     return NULL;
   }
@@ -372,7 +372,7 @@ int catch_media_item_mm(struct katcp_dispatch *d, struct katcp_notice *n, void *
       if (get_key_data_type_katcp(d, MEDIAMAN_TYPE_MEDIA_ITEM, temp[1]) == NULL){
         mi = parse_media_item_mm(d, temp);
 
-        if (store_data_type_katcp(d, MEDIAMAN_TYPE_MEDIA_ITEM, KATCP_DEP_BASE, mi->mi_key, mi, &print_media_item_mm, &destroy_media_item_mm, NULL, NULL, &parse_media_item_mm) < 0){
+        if (store_data_type_katcp(d, MEDIAMAN_TYPE_MEDIA_ITEM, KATCP_DEP_BASE, mi->mi_key, mi, &print_media_item_mm, &destroy_media_item_mm, NULL, NULL, &parse_media_item_mm, NULL) < 0){
           destroy_media_item_mm(mi);
           return 1;
         }
@@ -636,9 +636,9 @@ int init_mod(struct katcp_dispatch *d)
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "successfully loaded mod_media_man");
   
 #if 1
-  rtn  = register_name_type_katcp(d, MEDIAMAN_TYPE_MEDIA_ITEM, KATCP_DEP_BASE, &print_media_item_mm, &destroy_media_item_mm, NULL, NULL, &parse_media_item_mm);
-  rtn += register_name_type_katcp(d, MEDIAMAN_TYPE_MEDIA_TAG, KATCP_DEP_BASE, &print_media_tag_mm, &destroy_media_tag_mm, NULL, NULL, &parse_media_tag_mm);
-  rtn += register_name_type_katcp(d, MEDIAMAN_TYPE_SEARCH_TERMS, KATCP_DEP_BASE, &print_search_terms_mm, &destroy_search_terms_mm, NULL, NULL, &parse_search_terms_mm);
+  rtn  = register_name_type_katcp(d, MEDIAMAN_TYPE_MEDIA_ITEM, KATCP_DEP_BASE, &print_media_item_mm, &destroy_media_item_mm, NULL, NULL, &parse_media_item_mm, NULL);
+  rtn += register_name_type_katcp(d, MEDIAMAN_TYPE_MEDIA_TAG, KATCP_DEP_BASE, &print_media_tag_mm, &destroy_media_tag_mm, NULL, NULL, &parse_media_tag_mm, NULL);
+  rtn += register_name_type_katcp(d, MEDIAMAN_TYPE_SEARCH_TERMS, KATCP_DEP_BASE, &print_search_terms_mm, &destroy_search_terms_mm, NULL, NULL, &parse_search_terms_mm, NULL);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "added type:");
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", MEDIAMAN_TYPE_MEDIA_ITEM);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", MEDIAMAN_TYPE_MEDIA_TAG);
@@ -646,8 +646,8 @@ int init_mod(struct katcp_dispatch *d)
 #endif  
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "added operations:");
-  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, MEDIAMAN_OPERATION_SUBPROCESS, &subprocess_setup_mm, NULL, NULL, NULL, NULL, NULL);
-  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, MEDIAMAN_OPERATION_SEARCH, &search_setup_mm, NULL, NULL, NULL, NULL, NULL);
+  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, MEDIAMAN_OPERATION_SUBPROCESS, &subprocess_setup_mm, NULL, NULL, NULL, NULL, NULL, NULL);
+  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, MEDIAMAN_OPERATION_SEARCH, &search_setup_mm, NULL, NULL, NULL, NULL, NULL, NULL);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", MEDIAMAN_OPERATION_SUBPROCESS);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", MEDIAMAN_OPERATION_SEARCH);
 #if 0

@@ -486,6 +486,7 @@ struct katcp_type {
   int  (*t_copy)(void *src, void *dest, int);
   int  (*t_compare)(const void *, const void *);
   void *(*t_parse)(struct katcp_dispatch *d, char **);
+  char *(*t_getkey)(void *data);
 };
 
 struct katcp_tobject {

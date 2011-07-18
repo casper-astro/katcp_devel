@@ -46,6 +46,14 @@ void *parse_katcp_url_type_mod(struct katcp_dispatch *d, char **str)
   ku->u_use++;
   return ku;
 }
+char *getkey_katcp_url_type_mod(void *data)
+{
+  struct katcp_url *u;
+  u = data;
+  if (u == NULL)
+    return NULL;
+  return u->u_str;
+}
 
 #if 0
 struct katcp_roach {
@@ -180,7 +188,7 @@ int roach_connect_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struc
     return -1;
   }
 
-  if (store_data_type_katcp(d, KATCP_TYPE_ACTOR, KATCP_DEP_BASE, u->u_str, a, &print_actor_type_katcp, &destroy_actor_type_katcp, &copy_actor_type_katcp, &compare_actor_type_katcp, &parse_actor_type_katcp) < 0){
+  if (store_data_type_katcp(d, KATCP_TYPE_ACTOR, KATCP_DEP_BASE, u->u_str, a, &print_actor_type_katcp, &destroy_actor_type_katcp, &copy_actor_type_katcp, &compare_actor_type_katcp, &parse_actor_type_katcp, &getkey_actor_katcp) < 0){
     zap_job_katcp(d, j);
     destroy_actor_type_katcp(a);
     return -1;
@@ -354,7 +362,7 @@ int init_mod(struct katcp_dispatch *d)
 #if 0
   rtn  = register_name_type_katcp(d, KATCP_TYPE_ROACH, KATCP_DEP_BASE, &print_roach_type_mod, &destroy_roach_type_mod, NULL, NULL, &parse_roach_type_mod);
 #endif
-  rtn  = register_name_type_katcp(d, KATCP_TYPE_URL, KATCP_DEP_BASE, &print_katcp_url_type_mod, &destroy_katcp_url_type_mod, NULL, NULL, &parse_katcp_url_type_mod);
+  rtn  = register_name_type_katcp(d, KATCP_TYPE_URL, KATCP_DEP_BASE, &print_katcp_url_type_mod, &destroy_katcp_url_type_mod, NULL, NULL, &parse_katcp_url_type_mod, &getkey_katcp_url_type_mod);
   
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "added type:");
 #if 0
@@ -365,8 +373,8 @@ int init_mod(struct katcp_dispatch *d)
   
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "added operations:");
 
-  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_ROACH_CONNECT, &roach_connect_setup_mod, NULL, NULL, NULL, NULL, NULL);
-  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_ROACH_CONNECT_MULTI, &roach_connect_multi_setup_mod, NULL, NULL, NULL, NULL, NULL);
+  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_ROACH_CONNECT, &roach_connect_setup_mod, NULL, NULL, NULL, NULL, NULL, NULL);
+  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_ROACH_CONNECT_MULTI, &roach_connect_multi_setup_mod, NULL, NULL, NULL, NULL, NULL, NULL);
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", KATCP_OPERATION_ROACH_CONNECT);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", KATCP_OPERATION_ROACH_CONNECT_MULTI);
@@ -374,7 +382,7 @@ int init_mod(struct katcp_dispatch *d)
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "added edges:");
 
-  rtn += store_data_type_katcp(d, KATCP_TYPE_EDGE, KATCP_DEP_BASE, KATCP_EDGE_ROACH_PING, &roach_ping_setup_mod, NULL, NULL, NULL, NULL, NULL);
+  rtn += store_data_type_katcp(d, KATCP_TYPE_EDGE, KATCP_DEP_BASE, KATCP_EDGE_ROACH_PING, &roach_ping_setup_mod, NULL, NULL, NULL, NULL, NULL, NULL);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", KATCP_EDGE_ROACH_PING);
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "to see the full operation list: ?sm oplist");
