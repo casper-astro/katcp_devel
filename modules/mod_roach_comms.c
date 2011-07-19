@@ -15,6 +15,7 @@
 
 #define KATCP_OPERATION_ROACH_CONNECT         "roachconnect"
 #define KATCP_OPERATION_ROACH_CONNECT_MULTI   "roachconnectmulti"
+#define KATCP_OPERATION_URL_CONSTRUCT         "urlconstruct"
 #define KATCP_EDGE_ROACH_PING                 "ping"
 #define KATCP_TYPE_ROACH                      "roach"
 #define KATCP_TYPE_URL                        "url"
@@ -55,88 +56,68 @@ char *getkey_katcp_url_type_mod(void *data)
   return u->u_str;
 }
 
-#if 0
-struct katcp_roach {
-  struct katcp_url *r_url;
-  struct katcp_job *r_job;
-  struct katcp_notice *r_statemachine_notice;
-  struct katcp_type **r_tags;
-  struct timeval r_seen;
-  int r_refs;
-};
-
-void print_roach_type_mod(struct katcp_dispatch *d, void *data)
+int url_construct_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_tobject *o)
 {
-  struct katcp_roach *r;
-  struct katcp_url *ku;
-
-  r = data;
-  if (r == NULL)
-    return;
-
-  ku = r->r_url;
-  if (ku == NULL)
-    return;
-
-#ifdef DEBUG
-  fprintf(stderr, "mod_roach_comms: print_roach_type %s\n", ku->u_str);
-#endif
-  //log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "kat url: %s", ku->u_str);
- // prepend_inform_katcp(d);
-  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, "#roach url:");
-  append_string_katcp(d, KATCP_FLAG_STRING, ku->u_str);
-  append_string_katcp(d, KATCP_FLAG_STRING, "use count:");
-  append_unsigned_long_katcp(d, KATCP_FLAG_ULONG | KATCP_FLAG_LAST, ku->u_use);
-}
-void destroy_roach_type_mod(void *data)
-{
-  struct katcp_roach *r;
-  struct katcp_url *ku;
-
-  r = data;
-  if (r == NULL)
-    return;
-
-  ku = r->r_url;
+  char *str;
+  struct katcp_type *tstr;
+  struct katcp_type *tint;
+  int port, i, *count;
+  struct katcp_url *url;
   
-  if (ku != NULL)
-#ifdef DEBUG
-    fprintf(stderr, "mod_roach_comms: del roach url: %s\n", ku->u_str);
-#endif
-  
-  destroy_kurl_katcp(ku);
-  free(r->r_tags);
-  
-  r->r_job = NULL;
-  r->r_statemachine_notice = NULL;
+  struct katcp_stack *tempstack;
 
-  free(r);
-}
-void *parse_roach_type_mod(char **str)
-{ 
-  struct katcp_roach *r;
-  struct katcp_url *ku;
+  port = 0;
+
+  tempstack = create_stack_katcp();
   
-  ku = create_kurl_from_string_katcp(str[0]);
-  if (ku == NULL)
-    return NULL;
+  tstr = find_name_type_katcp(d, KATCP_TYPE_STRING);
+  if (tstr == NULL || tstr->t_free == NULL)
+    return -1;
+  tint = find_name_type_katcp(d, KATCP_TYPE_INTEGER);
+  if (tint == NULL || tint->t_free == NULL)
+    return -1;
   
-  r = malloc(sizeof(struct katcp_roach));
-  if (r == NULL){
-    destroy_kurl_katcp(ku);
-    return NULL;
+  str = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_STRING);
+  if (str == NULL)
+    return -1;
+
+  port = atoi(str);
+
+  (*tstr->t_free)(str);
+  str = NULL;
+
+  count = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_INTEGER);
+  if (count == NULL)
+    return -1;
+
+  for (i=0; i<*count; i++){
+    str = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_STRING);
+    /*if (str == NULL)
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "url construct encounted a null param");
+    */
+    url = create_kurl_katcp("katcp", str, port, "/");
+
+    push_named_stack_katcp(d, tempstack, url, KATCP_TYPE_URL);  
+
+    (*tstr->t_free)(str);
+    str = NULL;
   }
 
-  ku->u_use++;
+  (*tint->t_free)(count);
   
-  r->r_url  = ku;
-  r->r_tags = NULL;
-  r->r_job  = NULL;
-  r->r_statemachine_notice = NULL;
+  while (!is_empty_stack_katcp(tempstack)){
+    push_tobject_katcp(stack, pop_stack_katcp(tempstack));
+  }
 
-  return r;
+  destroy_stack_katcp(tempstack);
+
+  return 0;
 }
-#endif
+
+struct kcs_sm_op *url_construct_setup_mod(struct katcp_dispatch *d, struct kcs_sm_state *s)
+{
+  return create_sm_op_kcs(&url_construct_mod, NULL);
+}
 
 int roach_disconnect_mod(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 {
@@ -375,9 +356,11 @@ int init_mod(struct katcp_dispatch *d)
 
   rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_ROACH_CONNECT, &roach_connect_setup_mod, NULL, NULL, NULL, NULL, NULL, NULL);
   rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_ROACH_CONNECT_MULTI, &roach_connect_multi_setup_mod, NULL, NULL, NULL, NULL, NULL, NULL);
+  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_URL_CONSTRUCT, &url_construct_setup_mod, NULL, NULL, NULL, NULL, NULL, NULL);
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", KATCP_OPERATION_ROACH_CONNECT);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", KATCP_OPERATION_ROACH_CONNECT_MULTI);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", KATCP_OPERATION_URL_CONSTRUCT);
 
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "added edges:");

@@ -351,6 +351,7 @@ struct katcp_url *create_kurl_katcp(char *scheme, char *host, int port, char *pa
   }
 
   ku->u_str    = copy_kurl_string_katcp(ku, NULL);
+  
 
   tmp          = realloc(ku->u_path, sizeof(char*)*(ku->u_pcount));
   if(tmp == NULL){

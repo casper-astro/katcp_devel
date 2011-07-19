@@ -258,7 +258,7 @@ struct kcs_sm_op *pushstack_setup_statemachine_kcs(struct katcp_dispatch *d, str
 #ifdef DEBUG
     fprintf(stderr, "statemachine: type parse fn failed\n");
 #endif
-    return NULL;  
+    //return NULL;  
   }
 
   if (stemp == NULL){

@@ -438,21 +438,21 @@ void *search_type_katcp(struct katcp_dispatch *d, struct katcp_type *t, char *ke
 
   o = get_node_data_avltree(find_name_node_avltree(t->t_tree, key));
   if (o == NULL){
-
-    if (store_data_at_type_katcp(d, t, 0, key, data,
-                                    t->t_print,
-                                    t->t_free,
-                                    t->t_copy,
-                                    t->t_compare,
-                                    t->t_parse,
-                                    t->t_getkey) < 0){
+    if (data != NULL){
+      if (store_data_at_type_katcp(d, t, 0, key, data,
+                                      t->t_print,
+                                      t->t_free,
+                                      t->t_copy,
+                                      t->t_compare,
+                                      t->t_parse,
+                                      t->t_getkey) < 0){
 #ifdef DEBUG
-      fprintf(stderr, "ktype: search store data fail calling process must manage data at (%p)\n", data);
+        fprintf(stderr, "ktype: search store data fail calling process must manage data at (%p)\n", data);
 #endif
 
-      return NULL;
+        return NULL;
+      }
     }
-    
   }
   else {
 #ifdef DEBUG
