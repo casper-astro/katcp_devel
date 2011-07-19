@@ -1995,6 +1995,8 @@ void generic_release_local_acquire_katcp(struct katcp_dispatch *d, struct katcp_
   }
 
   free(a->a_local);
+
+  a->a_local = NULL;
 }
 
 int is_up_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a)
