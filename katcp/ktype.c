@@ -423,6 +423,51 @@ void *get_key_data_type_katcp(struct katcp_dispatch *d, char *type, char *key)
   return get_node_data_avltree(n);
 }
 
+void *search_type_katcp(struct katcp_dispatch *d, struct katcp_type *t, char *key, void *data)
+{
+  //struct katcp_type *t;
+  void *o;
+  
+  if (t == NULL || key == NULL)
+    return NULL;
+#if 0
+  t = find_name_type_katcp(d, type);
+  if (t == NULL)
+    return NULL;
+#endif
+
+  o = get_node_data_avltree(find_name_node_avltree(t->t_tree, key));
+  if (o == NULL){
+
+    if (store_data_at_type_katcp(d, t, 0, key, data,
+                                    t->t_print,
+                                    t->t_free,
+                                    t->t_copy,
+                                    t->t_compare,
+                                    t->t_parse,
+                                    t->t_getkey) < 0){
+#ifdef DEBUG
+      fprintf(stderr, "ktype: search store data fail calling process must manage data at (%p)\n", data);
+#endif
+
+      return NULL;
+    }
+    
+  }
+  else {
+#ifdef DEBUG
+    fprintf(stderr, "ktype: search found key: <%s> managing data at (%p)\n", key, data);
+#endif
+    
+    if (t->t_free != NULL)
+      (*t->t_free)(data);
+
+    data = o;
+  }
+
+  return data;
+}
+
 int del_data_type_katcp(struct katcp_dispatch *d, char *type, char *key)
 {
   struct katcp_type *t;

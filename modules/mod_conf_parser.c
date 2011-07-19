@@ -13,6 +13,7 @@
 #include <kcs.h>
 
 #define KATCP_OPERATION_CONF_PARSE  "confparser"
+#define KATCP_OPERATION_PARSE_CSV   "csvparser"
 #define KATCP_EDGE_CONF_SEARCH      "confsearch"
 #define KATCP_TYPE_CONFIG_SETTING   "configsetting"
 
@@ -24,6 +25,7 @@
 #define CR            '\r'
 #define LF            '\n'
 #define SPACE         ' '
+#define EOL           '\0'
 
 #define S_WHITESPACE  -1
 #define S_COMMENT     0
@@ -340,6 +342,72 @@ struct kcs_sm_op *config_parser_setup_mod(struct katcp_dispatch *d, struct kcs_s
   return op;
 }
 
+int parse_csv_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_tobject *o)
+{
+  struct config_setting *cs;
+  struct katcp_type *strtype;
+  char *str, c, *temp[2];
+  int len, pos, i, count;
+
+  void *data;
+  
+  strtype = find_name_type_katcp(d, KATCP_TYPE_STRING);
+  if (strtype == NULL || strtype->t_parse == NULL)
+    return -1;
+
+  cs = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_CONFIG_SETTING);
+  if (cs == NULL)
+    return -1;
+  
+  str = cs->s_value;
+  if (str == NULL)
+    return -1;
+
+  len = strlen(str);
+  pos = 0;
+  temp[1] = NULL;
+  count = 0;
+
+  for (i=0; i<=len; i++){
+    c = str[i];
+    switch(c){
+      case EOL:
+      case CR:
+      case LF:
+      case VALUE:
+        temp[0] = strndup(str + pos, i-pos);
+        if (temp[0] != NULL){
+#ifdef DEBUG
+          fprintf(stderr, "csv: <%s>\n", temp[0]);
+#endif
+        
+          //data = search_type_katcp(d, strtype, temp[0], (*strtype->t_parse)(d, temp));
+          data = (*strtype->t_parse)(d, temp);
+        
+          if (push_named_stack_katcp(d, stack, data, KATCP_TYPE_STRING) < 0){
+#ifdef DEBUG
+            fprintf(stderr, "csv: push named stack katcp error\n");
+#endif
+          }
+          count++;
+          free(temp[0]);
+        }
+        pos = i+1;
+        break;
+    }
+    
+  }
+  if (count > 1)
+    push_named_stack_katcp(d, stack, create_integer_type_kcs(count), KATCP_TYPE_INTEGER);
+   
+  return 0;
+}
+
+struct kcs_sm_op *parse_csv_setup_mod(struct katcp_dispatch *d, struct kcs_sm_state *s)
+{
+  return create_sm_op_kcs(&parse_csv_mod, NULL);
+}
+
 struct config_setting *search_config_settings_mod(struct katcp_dispatch *d, void *data)
 {
   char *str;
@@ -438,6 +506,8 @@ int init_mod(struct katcp_dispatch *d)
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "added operations:");
   rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_CONF_PARSE, &config_parser_setup_mod, NULL, NULL, NULL, NULL, NULL, NULL);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", KATCP_OPERATION_CONF_PARSE);
+  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_PARSE_CSV, &parse_csv_setup_mod, NULL, NULL, NULL, NULL, NULL, NULL);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", KATCP_OPERATION_PARSE_CSV);
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "added edges:");
   rtn += store_data_type_katcp(d, KATCP_TYPE_EDGE, KATCP_DEP_BASE, KATCP_EDGE_CONF_SEARCH, &config_search_setup_mod, NULL, NULL, NULL, NULL, NULL, NULL);

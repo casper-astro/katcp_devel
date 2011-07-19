@@ -59,12 +59,12 @@ struct avl_node *create_node_avltree(char *key, void *data)
 
 char *get_node_name_avltree(struct avl_node *n)
 {
-  return n->n_key;
+  return (n != NULL) ? n->n_key : NULL;
 }
 
 void *get_node_data_avltree(struct avl_node *n)
 {
-  return n->n_data;
+  return (n != NULL) ? n->n_data : NULL;
 }
   
 int update_node_data_avltree(struct avl_node *n, void *data)

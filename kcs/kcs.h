@@ -167,6 +167,7 @@ int add_sensor_to_roach_kcs(struct katcp_dispatch *d, struct kcs_obj *ko);
 
 #define KATCP_OPERATION_STACK_PUSH      "push"
 #define KATCP_OPERATION_TAG_ACTOR       "tagactor"
+#define KATCP_OPERATION_GET_TAG_SET     "gettagset"
 #define KATCP_OPERATION_STORE           "store"
 
 #define TASK_STATE_RUN_OPS              3
@@ -209,6 +210,8 @@ struct kcs_sm_edge {
   struct kcs_sm_state *e_next;
   int (*e_call)(struct katcp_dispatch *, struct katcp_notice *, void *);
 };
+
+int *create_integer_type_kcs(int val);
 
 int statemachine_init_kcs(struct katcp_dispatch *d);
 int statemachine_cmd(struct katcp_dispatch *d, int argc);

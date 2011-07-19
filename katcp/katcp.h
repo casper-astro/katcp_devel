@@ -461,6 +461,7 @@ int find_name_id_type_katcp(struct katcp_dispatch *d, char *type);
 struct katcp_type *find_name_type_katcp(struct katcp_dispatch *d, char *str);
 struct katcp_type *get_id_type_katcp(struct katcp_dispatch *d, int id);
 void *get_key_data_type_katcp(struct katcp_dispatch *d, char *type, char *key);
+void *search_type_katcp(struct katcp_dispatch *d, struct katcp_type *t, char *key, void *data);
 int del_data_type_katcp(struct katcp_dispatch *d, char *type, char *key);
 void destroy_type_list_katcp(struct katcp_dispatch *d);
 void print_types_katcp(struct katcp_dispatch *d);

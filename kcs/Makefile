@@ -47,6 +47,6 @@ test-avltree: avltree.c
 test-type: ktype.c 
 	$(CC) $(CFLAGS) -DSTANDALONE -o $@ $^ $(INC) $(LIB)
 
-test-actor: actor.c 
+test-actor: actor.c statemachine.c
 	$(CC) $(CFLAGS) -D__ACTOR_UNIT_TEST -o $@ $^ $(INC) $(LIB)
 
