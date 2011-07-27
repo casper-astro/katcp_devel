@@ -345,7 +345,7 @@ struct kcs_sm_op *config_parser_setup_mod(struct katcp_dispatch *d, struct kcs_s
 int parse_csv_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_tobject *o)
 {
   struct config_setting *cs;
-  struct katcp_type *strtype;
+  struct katcp_type *strtype, *inttype;
   char *str, c, *temp[2];
   int len, pos, i, count;
 
@@ -381,8 +381,7 @@ int parse_csv_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct ka
           fprintf(stderr, "csv: <%s>\n", temp[0]);
 #endif
         
-          //data = search_type_katcp(d, strtype, temp[0], (*strtype->t_parse)(d, temp));
-          data = (*strtype->t_parse)(d, temp);
+          data = search_type_katcp(d, strtype, temp[0], (*strtype->t_parse)(d, temp));
         
           if (push_named_stack_katcp(d, stack, data, KATCP_TYPE_STRING) < 0){
 #ifdef DEBUG
@@ -397,9 +396,28 @@ int parse_csv_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct ka
     }
     
   }
-  if (count > 1)
-    push_named_stack_katcp(d, stack, create_integer_type_kcs(count), KATCP_TYPE_INTEGER);
-   
+  if (count > 0){
+    inttype = find_name_type_katcp(d, KATCP_TYPE_INTEGER);
+    if (inttype == NULL || inttype->t_getkey == NULL)
+      return -1;
+      
+    data = create_integer_type_kcs(count);
+    if (data == NULL)
+      return -1;
+
+    str = (*inttype->t_getkey)(data);
+    if (str == NULL)
+      return -1;
+
+#ifdef DEBUG
+    fprintf(stderr, "csv: <%s>\n", str);
+#endif
+    data = search_type_katcp(d, inttype, str, data);
+    push_named_stack_katcp(d, stack, data, KATCP_TYPE_INTEGER);
+
+    free(str);
+  }
+
   return 0;
 }
 

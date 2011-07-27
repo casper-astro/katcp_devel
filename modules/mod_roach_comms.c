@@ -59,55 +59,61 @@ char *getkey_katcp_url_type_mod(void *data)
 int url_construct_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_tobject *o)
 {
   char *str;
-  struct katcp_type *tstr;
-  struct katcp_type *tint;
   int port, i, *count;
   struct katcp_url *url;
+  struct katcp_actor *a;
   
   struct katcp_stack *tempstack;
 
   port = 0;
+  
+  count = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_INTEGER);
+  if (count == NULL)
+    return -1;
 
-  tempstack = create_stack_katcp();
-  
-  tstr = find_name_type_katcp(d, KATCP_TYPE_STRING);
-  if (tstr == NULL || tstr->t_free == NULL)
-    return -1;
-  tint = find_name_type_katcp(d, KATCP_TYPE_INTEGER);
-  if (tint == NULL || tint->t_free == NULL)
-    return -1;
-  
   str = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_STRING);
   if (str == NULL)
     return -1;
 
   port = atoi(str);
 
-  (*tstr->t_free)(str);
   str = NULL;
 
   count = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_INTEGER);
   if (count == NULL)
     return -1;
+  
+  tempstack = create_stack_katcp();
 
   for (i=0; i<*count; i++){
     str = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_STRING);
-    /*if (str == NULL)
+    if (str == NULL){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "url construct encounted a null param");
-    */
-    url = create_kurl_katcp("katcp", str, port, "/");
+      destroy_stack_katcp(tempstack);
+      return -1;
+    }
 
+    url = create_kurl_katcp("katcp", str, port, NULL);
+    if (url == NULL){
+      destroy_stack_katcp(tempstack);
+      return -1;
+    }
+    url->u_use++;
+    url = search_named_type_katcp(d, KATCP_TYPE_URL, url->u_str, url);
     push_named_stack_katcp(d, tempstack, url, KATCP_TYPE_URL);  
+#if 0
+    a = create_actor_type_katcp(d, url->u_str, NULL, NULL, NULL, NULL);
+    search_named_type_katcp(d, KATCP_TYPE_ACTOR, url->u_str, a);
+#endif
 
-    (*tstr->t_free)(str);
     str = NULL;
   }
-
-  (*tint->t_free)(count);
   
   while (!is_empty_stack_katcp(tempstack)){
     push_tobject_katcp(stack, pop_stack_katcp(tempstack));
   }
+  
+  push_named_stack_katcp(d, stack, count, KATCP_TYPE_INTEGER);
 
   destroy_stack_katcp(tempstack);
 
@@ -142,30 +148,36 @@ int roach_connect_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struc
   struct katcp_actor *a;
 
   u = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_URL);
-  if (u == NULL)
+  if (u == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "mod_roach_comms: could not pop url\n");
+#endif
     return -1;
+  }
 #if 0 
   n = register_notice_katcp(d, NULL, 0, &roach_disconnect_mod, NULL);
 #endif
   n = create_notice_katcp(d, NULL, 0);
   if (n == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "mod_roach_comms: cannot create notice\n");
+#endif
     return -1;
   }
+
+#ifdef DEBUG
+  fprintf(stderr, "mod_roach_comms: running roach connect to <%s>\n", u->u_str);
+#endif
   
   j = network_connect_job_katcp(d, u, n);
   if (j == NULL){
     return -1;
   }
   
+  
   a = create_actor_type_katcp(d, u->u_str, j, NULL, NULL, NULL);
   if (a == NULL){
     zap_job_katcp(d, j);
-    return -1;
-  }
- 
-  if (add_notice_katcp(d, n, &roach_disconnect_mod, a) < 0){
-    zap_job_katcp(d, j);
-    destroy_actor_type_katcp(a);
     return -1;
   }
 
@@ -174,8 +186,14 @@ int roach_connect_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struc
     destroy_actor_type_katcp(a);
     return -1;
   }
+  
+  if (add_notice_katcp(d, n, &roach_disconnect_mod, a) < 0){
+    zap_job_katcp(d, j);
+    destroy_actor_type_katcp(a);
+    return -1;
+  }
     
-  //push_named_stack_katcp(d, stack, a, KATCP_TYPE_ACTOR);
+  push_named_stack_katcp(d, stack, a, KATCP_TYPE_ACTOR);
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "roach connected %s with job %p", u->u_str, j);
 
@@ -199,13 +217,43 @@ struct kcs_sm_op *roach_connect_setup_mod(struct katcp_dispatch *d, struct kcs_s
 
 int roach_connect_multi_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_tobject *o)
 {
-  int rtn;
+  int i, rtn1, rtn2, *count;
+  struct katcp_stack *tempstack;
 
-  do {
-    rtn = roach_connect_mod(d, stack, o);
-  } while (rtn == 0);
+  tempstack = create_stack_katcp();
+  if (tempstack == NULL)
+    return -1;
 
-  return 0;
+#ifdef DEBUG
+  fprintf(stderr, "mod_roach_comms: running roach connect multi\n");
+#endif
+
+  count = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_INTEGER);
+  if (count == NULL)
+    return -1;
+  
+  rtn1 = 0;
+  rtn2 = 0;
+
+  for (i=0;i<*count; i++) {
+    rtn1 = roach_connect_mod(d, stack, o);
+    if (rtn1 == 0){
+      push_tobject_katcp(tempstack, pop_stack_katcp(stack));
+    }
+    rtn2 += rtn1;
+  }
+
+  while (!is_empty_stack_katcp(tempstack)){
+    push_tobject_katcp(stack, pop_stack_katcp(tempstack));
+  }
+
+#if 0
+  push_named_stack_katcp(d, stack, count, KATCP_TYPE_INTEGER);
+#endif
+
+  destroy_stack_katcp(tempstack);
+  
+  return rtn2;
 }
 
 struct kcs_sm_op *roach_connect_multi_setup_mod(struct katcp_dispatch *d, struct kcs_sm_state *s)

@@ -334,7 +334,7 @@ struct katcp_url *create_kurl_from_string_katcp(char *url){
 
 struct katcp_url *create_kurl_katcp(char *scheme, char *host, int port, char *path){
   struct katcp_url *ku;
-  char **tmp;
+  //char **tmp;
 
   ku = allocate_kurl_katcp();
   if(ku == NULL){
@@ -351,20 +351,23 @@ struct katcp_url *create_kurl_katcp(char *scheme, char *host, int port, char *pa
   }
 
   ku->u_str    = copy_kurl_string_katcp(ku, NULL);
-  
-
+#if 0
   tmp          = realloc(ku->u_path, sizeof(char*)*(ku->u_pcount));
   if(tmp == NULL){
     destroy_kurl_katcp(ku);
     return NULL;
   }
+#endif
 
-  ku->u_path = tmp;
-  ku->u_path[ku->u_pcount] = strdup(path);
-
-  ku->u_pcount++;
-
-  /* TODO: check for final strdup fail */
+  if (path != NULL){
+    ku->u_path = malloc(sizeof(char*)*(ku->u_pcount+1));
+    if (ku->u_path == NULL){
+      destroy_kurl_katcp(ku);
+      return NULL;
+    }
+    ku->u_path[ku->u_pcount] = strdup(path);
+    ku->u_pcount++;
+  }
 
   return ku;
 }

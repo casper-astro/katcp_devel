@@ -636,20 +636,48 @@ int tag_actor_sm_katcp(struct katcp_dispatch *d, struct katcp_stack *stack, stru
   struct katcp_actor *a;
   struct katcp_tag *t;
   int rtn;
+  struct katcp_stack *tags1, *tags2, *cur;
+  struct katcp_type *tagtype, *actortype;
 
   if (stack == NULL)
     return -1;
 
-  a = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_ACTOR);
-  if (a == NULL)
+  tagtype = find_name_type_katcp(d, KATCP_TYPE_TAG);
+  if (tagtype == NULL)
     return -1;
-
-  rtn = 0;
-
-  while ((t = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_TAG)) != NULL){
-    rtn += tag_actor_katcp(d, a, t);
+  
+  actortype = find_name_type_katcp(d, KATCP_TYPE_ACTOR);
+  if (actortype == NULL)
+    return -1;
+  
+  tags1 = create_stack_katcp();
+  tags2 = create_stack_katcp();
+  if (tags1 == NULL || tags2 == NULL){
+    destroy_stack_katcp(tags1);
+    destroy_stack_katcp(tags2);
+    return -1;
   }
+  
+  while ((t = pop_data_type_stack_katcp(stack, tagtype)) != NULL){
+    push_stack_katcp(tags1, t, tagtype);
+  }
+  
+  rtn = 0;
+  cur = NULL;
 
+  while ((a = pop_data_type_stack_katcp(stack, actortype)) != NULL){
+    while ((t = pop_data_type_stack_katcp(tags1, tagtype)) != NULL){
+      push_stack_katcp(tags2, t, tagtype);
+      rtn += tag_actor_katcp(d, a, t);      
+    }
+    cur   = tags1;
+    tags1 = tags2;
+    tags2 = cur;
+  }
+    
+  destroy_stack_katcp(tags1);
+  destroy_stack_katcp(tags2);
+ 
   return rtn;
 }
 

@@ -254,14 +254,9 @@ void *pop_data_stack_katcp(struct katcp_stack *s)
   return data;
 }
 
-void *pop_data_expecting_stack_katcp(struct katcp_dispatch *d, struct katcp_stack *s, char *type)
+void *pop_data_type_stack_katcp(struct katcp_stack *s, struct katcp_type *t)
 {
-  struct katcp_type *t;
   struct katcp_tobject *o;
-  
-  t = find_name_type_katcp(d, type);
-  if (t == NULL)
-    return NULL;
 
   o = peek_stack_katcp(s);
   if (o == NULL)
@@ -271,6 +266,17 @@ void *pop_data_expecting_stack_katcp(struct katcp_dispatch *d, struct katcp_stac
     return pop_data_stack_katcp(s);
 
   return NULL;
+}
+
+void *pop_data_expecting_stack_katcp(struct katcp_dispatch *d, struct katcp_stack *s, char *type)
+{
+  struct katcp_type *t;
+  
+  t = find_name_type_katcp(d, type);
+  if (t == NULL)
+    return NULL;
+  
+  return pop_data_type_stack_katcp(s, t);
 }
 
 struct katcp_tobject *peek_stack_katcp(struct katcp_stack *s)

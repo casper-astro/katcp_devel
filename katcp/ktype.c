@@ -468,6 +468,11 @@ void *search_type_katcp(struct katcp_dispatch *d, struct katcp_type *t, char *ke
   return data;
 }
 
+void *search_named_type_katcp(struct katcp_dispatch *d, char *type, char *key, void *data)
+{ 
+  return search_type_katcp(d, find_name_type_katcp(d, type), key, data);
+}
+
 int del_data_type_katcp(struct katcp_dispatch *d, char *type, char *key)
 {
   struct katcp_type *t;

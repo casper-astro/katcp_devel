@@ -169,6 +169,7 @@ int add_sensor_to_roach_kcs(struct katcp_dispatch *d, struct kcs_obj *ko);
 #define KATCP_OPERATION_TAG_ACTOR       "tagactor"
 #define KATCP_OPERATION_GET_TAG_SET     "gettagset"
 #define KATCP_OPERATION_STORE           "store"
+#define KATCP_OPERATION_SPAWN           "spawn"
 
 #define TASK_STATE_RUN_OPS              3
 #define TASK_STATE_FOLLOW_EDGES         2
@@ -185,6 +186,8 @@ struct kcs_sched_task {
 
   struct katcp_stack *t_stack;
   struct kcs_sm_state *t_pc;
+  
+  int t_rtn;
 };
 
 struct kcs_sm {
@@ -220,6 +223,7 @@ void destroy_statemachine_data_kcs(struct katcp_dispatch *d);
 struct kcs_sm_op *create_sm_op_kcs(int (*call)(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_tobject *o), struct katcp_tobject *o);
 struct kcs_sm_edge *create_sm_edge_kcs(struct kcs_sm_state *s_next, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n, void *data));
 
+int start_process_kcs(struct katcp_dispatch *d, char *startnode, struct katcp_tobject *to);
 
 int init_actor_tag_katcp(struct katcp_dispatch *d);
 
