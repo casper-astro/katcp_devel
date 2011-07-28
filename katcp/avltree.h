@@ -56,6 +56,6 @@ int check_balances_avltree(struct avl_node *n, int depth);
 
 /*extra*/
 
-char *gen_id_avltree();
+char *gen_id_avltree(char *prefix);
 
 #endif

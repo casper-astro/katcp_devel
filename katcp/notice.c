@@ -536,6 +536,32 @@ struct katcp_notice *find_notice_katcp(struct katcp_dispatch *d, char *name)
   return NULL;
 }
 
+int find_prefix_notices_katcp(struct katcp_dispatch *d, char *prefix, struct katcp_notice **n_set, int n_count)
+{
+  struct katcp_notice *n;
+  struct katcp_shared *s;
+  int len, i, found;
+
+  if (prefix == NULL)
+    return -1;
+
+  s     = d->d_shared;
+  len   = strlen(prefix);
+  found = 0;
+
+  for (i = 0; i < s->s_pending; i++){
+    n = s->s_notices[i];
+    if (n->n_name && (!strncmp(prefix, n->n_name, len))){
+      if (found < n_count && n_set != NULL){
+        n_set[found] = n;
+      } 
+      found++;    
+    }
+  }
+
+  return found;
+}
+
 struct katcp_notice *find_used_notice_katcp(struct katcp_dispatch *d, char *name)
 {
   struct katcp_notice *n;

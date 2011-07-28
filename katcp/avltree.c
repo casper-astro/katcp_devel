@@ -995,7 +995,7 @@ void destroy_avltree(struct avl_tree *t, void (*d_free)(void *))
   
 }
 
-char *gen_id_avltree()
+char *gen_id_avltree(char *prefix)
 {
   struct timeval now;
   char *id;
@@ -1009,17 +1009,20 @@ char *gen_id_avltree()
   while (id == NULL){
     if (id == NULL && len > 0){
       id = malloc(sizeof(char)*len);
-#ifdef DEBUG
+#if 0
+      def DEBUG
       fprintf(stderr, "gen_id_avltree: done malloc %p for len: %d\n", id, len);
 #endif
     }
-    len = snprintf(id, len,"%lu.%06lu", now.tv_sec, now.tv_usec);
-#ifdef DEBUG
+    len = snprintf(id, len,"%s.%lu.%06lu", prefix,now.tv_sec, now.tv_usec);
+#if 0
+    def DEBUG
     fprintf(stderr, "gen_id_avltree: len: %d\n", len);
 #endif
   }
 
-#ifdef DEBUG
+#if 0
+  def DEBUG
   fprintf(stderr, "gen_id_avltree: %s\n", id);
 #endif
   

@@ -365,6 +365,7 @@ void forget_parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
 #endif
 
 struct katcp_notice *find_notice_katcp(struct katcp_dispatch *d, char *name);
+int find_prefix_notices_katcp(struct katcp_dispatch *d, char *prefix, struct katcp_notice **n_set, int n_count);
 struct katcp_notice *find_used_notice_katcp(struct katcp_dispatch *d, char *name);
 int has_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n, void *data), void *data);
 

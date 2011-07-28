@@ -61,7 +61,7 @@ int url_construct_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struc
   char *str;
   int port, i, *count;
   struct katcp_url *url;
-  struct katcp_actor *a;
+  //struct katcp_actor *a;
   
   struct katcp_stack *tempstack;
 
