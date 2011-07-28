@@ -19,7 +19,12 @@ struct katcp_url;
 #include <sys/types.h>
 #include <stdarg.h>
 
-#define KATCP_CODEBASE_NAME "libkatcp" 
+#define KATCP_CODEBASE_NAME     "libkatcp" 
+
+#define KATCP_LIBRARY_LABEL     "katcp-library"
+
+#define KATCP_PROTOCOL_LABEL    "katcp-protocol"
+#define KATCP_PROTOCOL_VERSION  "4.9"
 
 #define KATCP_REQUEST '?' 
 #define KATCP_REPLY   '!' 
@@ -75,8 +80,10 @@ struct katcp_url;
 #define KATCP_CMD_HIDDEN    0x1
 #define KATCP_CMD_WILDCARD  0x2
 
-#define KATCP_RETURN_JOB    "#return"
-#define KATCP_WAKE_TIMEOUT  "#timout"
+#define KATCP_RETURN_JOB      "#return"
+#define KATCP_WAKE_TIMEOUT    "#timout"
+#define KATCP_VERSION_LIST    "#version-list"
+#define KATCP_VERSION_CONNECT "#version-connect"
 
 /******************* core api ********************/
 
@@ -459,8 +466,9 @@ int add_code_version_katcp(struct katcp_dispatch *d);
 #endif
 int has_code_version_katcp(struct katcp_dispatch *d, char *label, char *value);
 
-int print_versions_katcp(struct katcp_dispatch *d, int initial);
+int print_versions_katcp(struct katcp_dispatch *d, char *prefix);
 int version_cmd_katcp(struct katcp_dispatch *d, int argc);
+int version_list_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 #endif
 

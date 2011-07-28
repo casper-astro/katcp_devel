@@ -421,7 +421,6 @@ void on_connect_katcp(struct katcp_dispatch *d)
   /* prints initial inform messages, could possibly be made dynamic */
   struct katcp_shared *s;
   struct katcp_entry *e;
-  int i;
 
   if(d == NULL){
     return;
@@ -432,7 +431,7 @@ void on_connect_katcp(struct katcp_dispatch *d)
     return;
   }
 
-  print_versions_katcp(d, 1);
+  print_versions_katcp(d, KATCP_VERSION_CONNECT);
 
   e = &(s->s_vector[s->s_mode]);
 
@@ -441,7 +440,6 @@ void on_connect_katcp(struct katcp_dispatch *d)
     append_string_katcp(d, KATCP_FLAG_FIRST, "#version");
     append_args_katcp(d, KATCP_FLAG_LAST, "%s-%d.%d", e->e_version ? e->e_version : e->e_name, e->e_major, e->e_minor);
   }
-#endif
   if(s->s_build_state){
     append_string_katcp(d, KATCP_FLAG_FIRST, "#build-state");
 
@@ -450,6 +448,7 @@ void on_connect_katcp(struct katcp_dispatch *d)
     }
     append_string_katcp(d, KATCP_FLAG_LAST, s->s_build_state[s->s_build_items - 1]);
   }
+#endif
 }
 
 #if 0

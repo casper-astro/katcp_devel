@@ -393,7 +393,9 @@ struct katcp_shared{
   unsigned int s_magic;
   struct katcp_entry *s_vector;
   unsigned int s_size;
+#if 0
   unsigned int s_modal;
+#endif
 
   struct katcp_cmd *s_commands;
   struct katcp_sensor *s_mode_sensor;
