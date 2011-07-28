@@ -467,7 +467,7 @@ int add_kernel_version_katcp(struct katcp_dispatch *d);
 int add_code_version_katcp(struct katcp_dispatch *d);
 
 #ifdef VERSION
-#define check_code_version_katcp(d) has_code_version_katcp(d, KATCP_CODEBASE_NAME, VERSION)
+#define check_code_version_katcp(d) has_code_version_katcp(d, KATCP_LIBRARY_LABEL, VERSION)
 #endif
 int has_code_version_katcp(struct katcp_dispatch *d, char *label, char *value);
 
