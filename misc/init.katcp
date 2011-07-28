@@ -10,15 +10,16 @@
 ?process ?halt halt\_the\_control\_server_\(?halt)
 ?process ?restart restart\_the\_system\_(?restart)
 ?process ?sync-now resynchronises\_the\_correlator\_(?sync-now)
-?process ?capture-start start\_a\_capture\_(?capture-start\_name\_[time])
-?process ?capture-stop stop\_a\_capture\_(?capture-start\_name\_[time])
+?process ?capture-start start\_a\_capture\_(?capture-start\_k7\_[time])
+?process ?capture-stop stop\_a\_capture\_(?capture-start\_k7\_[time])
 ?process ?capture-list list\_available\_data\_streams\_(?capture-list)
 ?process ?k7-accumulation-length sets\_the\_accumulation\_length\_(?k7-accumlation-length\_accumulation-period)
 ?process ?k7-delay set\_the\_delay\_and\_fringe\_correction\_(?k7-delay\_board-input\_time\_delay-value\_delay-rate\_fringe-offset\_fringe-rate)
-?process ?k7-snap-shot retrieve\_an\_processing\_pipeline\_data\_block\_(?k7-snap-shot\_[adc\_board-input|quant\_[count]])
+?process ?k7-snap-shot retrieve\_a\_processing\_pipeline\_data\_block\_(?k7-snap-shot\_[adc\_board-input|quant\_[count]])
+?process ?k7-adc-snap-shot retrieve\_an\_adc\_snapshot\_(?k7-adc-snap-shot\_[pps|now]\_threshold\_input+)
 ?process ?k7-gain sets\_the\_digital\_gain\_(?k7-gain\_board-input\_values)
 ?process ?xport start
 ?xport start
 ?mode ready
-?enable-sensors
 ?mode wbc
+?enable-sensors

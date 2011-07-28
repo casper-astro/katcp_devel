@@ -19,7 +19,12 @@ struct katcp_url;
 #include <sys/types.h>
 #include <stdarg.h>
 
-#define KATCP_CODEBASE_NAME "libkatcp" 
+#define KATCP_CODEBASE_NAME     "libkatcp" 
+
+#define KATCP_LIBRARY_LABEL     "katcp-library"
+
+#define KATCP_PROTOCOL_LABEL    "katcp-protocol"
+#define KATCP_PROTOCOL_VERSION  "4.9"
 
 #define KATCP_REQUEST '?' 
 #define KATCP_REPLY   '!' 
@@ -75,8 +80,10 @@ struct katcp_url;
 #define KATCP_CMD_HIDDEN    0x1
 #define KATCP_CMD_WILDCARD  0x2
 
-#define KATCP_RETURN_JOB    "#return"
-#define KATCP_WAKE_TIMEOUT  "#timout"
+#define KATCP_RETURN_JOB      "#return"
+#define KATCP_WAKE_TIMEOUT    "#timout"
+#define KATCP_VERSION_LIST    "#version-list"
+#define KATCP_VERSION_CONNECT "#version-connect"
 
 /******************* core api ********************/
 
@@ -141,9 +148,10 @@ void resume_katcp(struct katcp_dispatch *d);
 int run_katcp(struct katcp_dispatch *d, int server, char *host, int port);
 int run_client_katcp(struct katcp_dispatch *d, char *host, int port);
 int run_server_katcp(struct katcp_dispatch *d, char *host, int port);
+int run_multi_server_katcp(struct katcp_dispatch *d, int count, char *host, int port);
 
-int run_multi_server_katcp(struct katcp_dispatch *dl, int count, char *host, int port);
 int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, char *host, int port);
+int run_pipe_server_katcp(struct katcp_dispatch *dl, char *file, int pfd);
 
 /******************* io functions ****************/
 
@@ -293,6 +301,20 @@ struct katcp_acquire *setup_double_acquire_katcp(struct katcp_dispatch *d, doubl
 int set_double_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a, double value);
 
 #endif
+
+/***************************************************************************/
+
+int register_discrete_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, int (*get)(struct katcp_dispatch *d, struct katcp_acquire *a), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a), char **vector, unsigned int size);
+
+int expand_sensor_discrete_katcp(struct katcp_dispatch *d, struct katcp_sensor *sn, unsigned int position, char *name);
+
+struct katcp_acquire *setup_discrete_acquire_katcp(struct katcp_dispatch *d, int (*get)(struct katcp_dispatch *d, struct katcp_acquire *a), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a));
+
+int set_discrete_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a, unsigned value);
+
+/***************************************************************************/
+
+
 
 #if 0
 int register_discrete_sensor_katcp(struct katcp_dispatch *d, char *name, char *description, char *units, int preferred, int (*get)(struct katcp_sensor *s, void *local), ...);
@@ -446,8 +468,9 @@ int add_code_version_katcp(struct katcp_dispatch *d);
 #endif
 int has_code_version_katcp(struct katcp_dispatch *d, char *label, char *value);
 
-int print_versions_katcp(struct katcp_dispatch *d, int initial);
+int print_versions_katcp(struct katcp_dispatch *d, char *prefix);
 int version_cmd_katcp(struct katcp_dispatch *d, int argc);
+int version_list_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 #endif
 

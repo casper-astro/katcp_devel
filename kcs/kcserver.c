@@ -152,7 +152,10 @@ int main(int argc, char **argv)
   }
 
   if(setup_basic_kcs(d, scripts, argv, argc) < 0){
+#ifdef DEBUG
     fprintf(stderr, "%s: unable to set up basic logic\n", argv[0]);
+#endif
+    return 1;
   }
 
   /* mode from command line */
@@ -181,8 +184,13 @@ int main(int argc, char **argv)
     }
   }
 
+#ifdef DEBUG
+  fprintf(stderr, "server: about to run config server\n");
+#endif
+
   if(run_config_server_katcp(d, init, KCS_MAX_CLIENTS, port, 0) < 0){
     fprintf(stderr, "server: run failed\n");
+    return 1;
   }
 
   status = exited_katcp(d);

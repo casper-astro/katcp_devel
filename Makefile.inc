@@ -25,4 +25,3 @@ AR = ar
 ECHO = echo
 
 .PHONY: all clean install
-

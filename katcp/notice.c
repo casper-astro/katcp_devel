@@ -418,6 +418,56 @@ int has_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*cal
   return 0;
 }
 
+unsigned int fetch_data_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void **vector, unsigned int size)
+{
+  struct katcp_invoke *v;
+  int i;
+  unsigned int min;
+
+  min = (size < n->n_count) ? size : n->n_count;
+
+  for(i = 0; i < min; i++){
+    v = &(n->n_vector[i]);
+    vector[i] = v->v_data;
+  }
+
+  return n->n_count;
+}
+
+int remove_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n, void *data), void *data)
+{
+  struct katcp_invoke *v;
+  int i;
+
+  for(i = 0; i < n->n_count; i++){
+    v = &(n->n_vector[i]);
+
+    if(v->v_data == data){
+      if((call == NULL) && (v->v_call == call)){
+        n->n_count--;
+
+        dispatch_compact_notice_katcp(v->v_client, n);
+
+        if(i < n->n_count){
+          n->n_vector[i].v_client  = n->n_vector[n->n_count].v_client;
+          n->n_vector[i].v_call    = n->n_vector[n->n_count].v_call;
+          n->n_vector[i].v_data    = n->n_vector[n->n_count].v_data;
+          n->n_vector[i].v_trigger = n->n_vector[n->n_count].v_trigger;
+        }
+
+        if(n->n_count == 0){
+          free(n->n_vector);
+          n->n_vector = NULL;
+        }
+
+        return 0;
+      }
+    }
+  }
+
+  return -1;
+}
+
 int add_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n, void *data), void *data)
 {
   struct katcp_invoke *v;

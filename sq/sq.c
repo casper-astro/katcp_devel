@@ -117,8 +117,9 @@ int await_result(struct katcl_line *l, char *sensor, unsigned short *success, in
   }
 
   if(FD_ISSET(fd, &fsr)){
-    if(read_katcl(l) < 0){
-      fprintf(stderr, "%s: read failed: %s\n", NAME, strerror(error_katcl(l)));
+    result = read_katcl(l);
+    if(result){
+      fprintf(stderr, "%s: read failed: %s\n", NAME, (result < 0) ? strerror(error_katcl(l)) : "connection terminated");
       return -1;
     }
   }

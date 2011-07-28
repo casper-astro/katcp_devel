@@ -247,7 +247,7 @@ int add_version_katcp(struct katcp_dispatch *d, char *label, unsigned int mode, 
 
 /****************************************************************************************/
 
-int print_versions_katcp(struct katcp_dispatch *d, int initial)
+int print_versions_katcp(struct katcp_dispatch *d, char *prefix)
 {
   unsigned int i;
   struct katcp_version *v;
@@ -262,7 +262,7 @@ int print_versions_katcp(struct katcp_dispatch *d, int initial)
     v = s->s_versions[i];
 
     if(v->v_value && ((v->v_mode == 0) || (v->v_mode == s->s_mode))){
-      append_string_katcp(d,   KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#version");
+      append_string_katcp(d,   KATCP_FLAG_FIRST | KATCP_FLAG_STRING, prefix);
       append_string_katcp(d,                      KATCP_FLAG_STRING, v->v_label);
       if(v->v_build == NULL){
         append_string_katcp(d, KATCP_FLAG_LAST  | KATCP_FLAG_STRING, v->v_value);
@@ -290,15 +290,37 @@ int add_kernel_version_katcp(struct katcp_dispatch *d)
 
 int add_code_version_katcp(struct katcp_dispatch *d)
 {
+#define BUFFER 128
+  struct katcp_shared *s;
+  char buffer[BUFFER];
+  int result;
+
+  s = d->d_shared;
+  if(s == NULL){
+    return -1;
+  }
+
+  result = 0;
+
+  if(s->s_size > 1){
+    snprintf(buffer, BUFFER, "%s-%c", KATCP_PROTOCOL_VERSION, 'M');
+  } else {
+    strncpy(buffer, KATCP_PROTOCOL_VERSION, BUFFER - 1);
+    buffer[BUFFER - 1] = '\0';
+  }
+
+  result += add_version_katcp(d, KATCP_PROTOCOL_LABEL, 0, buffer, NULL);
+
 #ifdef VERSION
 #ifdef BUILD
-  return add_version_katcp(d, KATCP_CODEBASE_NAME, 0, VERSION, BUILD);
+  result += add_version_katcp(d, KATCP_LIBRARY_LABEL, 0, VERSION, BUILD);
 #else
-  return add_version_katcp(d, KATCP_CODEBASE_NAME, 0, VERSION, NULL);
+  result += add_version_katcp(d, KATCP_LIBRARY_LABEL, 0, VERSION, NULL);
 #endif
-#else
-  return -1;
 #endif
+
+  return result;
+#undef BUFFER
 }
 
 int has_code_version_katcp(struct katcp_dispatch *d, char *label, char *value)
@@ -331,6 +353,19 @@ int has_code_version_katcp(struct katcp_dispatch *d, char *label, char *value)
   return (result == 0) ? 0 : 1;
 }
 
+int version_list_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  struct katcp_shared *s;
+
+  s = d->d_shared;
+  if(s == NULL){
+    return KATCP_RESULT_FAIL;
+  }
+
+  print_versions_katcp(d, KATCP_VERSION_LIST);
+  return KATCP_RESULT_OK;
+}
+
 int version_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   char *op, *label, *value, *mode, *build;
@@ -344,7 +379,7 @@ int version_cmd_katcp(struct katcp_dispatch *d, int argc)
 
   op = arg_string_katcp(d, 1);
   if(op == NULL){
-    print_versions_katcp(d, 0);
+    print_versions_katcp(d, KATCP_VERSION_LIST);
     return KATCP_RESULT_OK;
   }
 

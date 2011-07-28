@@ -157,7 +157,7 @@ int watch_announce_kcs(struct katcl_line *l, void *data)
         rb = read_katcl(l);
         if (rb) {
 #ifdef DEBUG
-          fprintf(stderr,"udp ear: fd %d read EOF\n",lfd);
+          fprintf(stderr,"udp ear: fd %d read failed: %s\n",lfd, (rb < 0) ? strerror(errno) : "EOF");
 #endif
           fflush(stderr);
           run = 0;

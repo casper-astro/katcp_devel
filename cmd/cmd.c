@@ -506,11 +506,13 @@ int main(int argc, char **argv)
     }
 
     if(FD_ISSET(fd, &fsr)){
-      if(read_katcl(l) < 0){
+      result = read_katcl(l);
+      if(result){
         if(k){
-          sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPCMD_NAME, "read failed: %s", strerror(errno));
+          sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPCMD_NAME, "read failed: %s", (result < 0) ? strerror(error_katcl(l)) : "connection terminated");
+
         } 
-        fprintf(stderr, "%s: read failed: %s\n", app, strerror(error_katcl(l)));
+        fprintf(stderr, "%s: read failed: %s\n", app, (result < 0) ? strerror(error_katcl(l)) : "connection terminated");
       	return 2;
       }
     }

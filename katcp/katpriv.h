@@ -124,6 +124,11 @@ struct katcp_double_acquire{
 };
 #endif
 
+struct katcp_discrete_acquire{
+  unsigned int da_current;
+  int (*da_get)(struct katcp_dispatch *d, struct katcp_acquire *a);
+};
+
 struct katcp_integer_acquire{
   int ia_current;
   int (*ia_get)(struct katcp_dispatch *d, struct katcp_acquire *a);
@@ -187,6 +192,12 @@ struct katcp_integer_sensor{
   int is_max;
 };
 
+struct katcp_discrete_sensor{
+  int ds_current;
+  int ds_size;
+  char **ds_vector;
+};
+
 struct katcp_nonsense{
   int n_magic;
   struct katcp_dispatch *n_client;
@@ -210,6 +221,10 @@ struct katcp_double_nonsense{
 struct katcp_integer_nonsense{
   int in_previous;
   int in_delta;
+};
+
+struct katcp_discrete_nonsense{
+  unsigned int dn_previous;
 };
 
 #if 0
@@ -378,9 +393,12 @@ struct katcp_shared{
   unsigned int s_magic;
   struct katcp_entry *s_vector;
   unsigned int s_size;
+#if 0
   unsigned int s_modal;
+#endif
 
   struct katcp_cmd *s_commands;
+  struct katcp_sensor *s_mode_sensor;
   unsigned int s_mode;
 
   unsigned int s_new;
@@ -516,7 +534,8 @@ int cmp_time_katcp(struct timeval *alpha, struct timeval *beta);
 
 int startup_shared_katcp(struct katcp_dispatch *d);
 void shutdown_shared_katcp(struct katcp_dispatch *d);
-int listen_shared_katcp(struct katcp_dispatch *d, int count, char *host, int port);
+int listen_shared_katcp(struct katcp_dispatch *d, char *host, int port);
+int allocate_shared_katcp(struct katcp_dispatch *d, unsigned int count);
 int link_shared_katcp(struct katcp_dispatch *d, struct katcp_dispatch *cd);
 
 int load_shared_katcp(struct katcp_dispatch *d);
@@ -535,7 +554,11 @@ int sensor_sampling_cmd_katcp(struct katcp_dispatch *d, int argc);
 int sensor_dump_cmd_katcp(struct katcp_dispatch *d, int argc);
 int sensor_cmd_katcp(struct katcp_dispatch *d, int argc);
 
+/* misc */
+
 char *code_to_name_katcm(int code);
+char **copy_vector_katcm(char **vector, unsigned int size);
+void delete_vector_katcm(char **vector, unsigned int size);
 
 /* timing support */
 int empty_timers_katcp(struct katcp_dispatch *d);

@@ -1603,6 +1603,9 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
   struct katcp_shared *s;
   struct katcp_job *j;
   struct katcp_notice *n;
+#if 0
+  struct katcp_notice *nr;
+#endif
   struct katcl_parse *p;
   char *name, *watch, *cmd, *host, *label, *buffer, *tmp;
   char **vector;
@@ -1726,7 +1729,13 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
       }
       vector[k] = NULL;
 
+#if 0
+      nr = register_notice_katcp(d, NULL, 0, &relay_cmd_job_katcp, NULL);
+      j = process_relay_create_job_katcp(d, url, vector, n, nr);
+#else
       j = process_relay_create_job_katcp(d, url, vector, n, NULL);
+#endif
+
       free(vector);
 
       if(j == NULL){

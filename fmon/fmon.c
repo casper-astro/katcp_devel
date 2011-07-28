@@ -45,12 +45,16 @@
 #define FMON_SENSOR_ADC_DISABLED            1
 #define FMON_SENSOR_FFT_OVERRANGE           2
 #define FMON_SENSOR_ADC_RAW_POWER           3
+#define FMON_SENSOR_ADC_DBM_POWER           4
 
-#define FMON_INPUT_SENSORS                  4
+#define FMON_INPUT_SENSORS                  5
 
 /* registers fields */
 
-#define FMON_CONTROL_CLEAR_STATUS      0x0008
+#define FMON_FCONTROL_CLEAR_STATUS    0x0008
+#define FMON_FCONTROL_FLASHER_EN      0x1000
+
+#define FMON_XCONTROL_FLASHER_EN      0x1000
 
 #define FMON_FSTATUS_QUANT_OVERRANGE   0x0001
 #define FMON_FSTATUS_FFT_OVERRANGE     0x0002
@@ -68,6 +72,12 @@
 
 #define FMON_KATADC_SCALE   1.0/184.3
 #define FMON_IADC_SCALE     1.0/368.0
+
+#define FMON_KATADC_ERR_HIGH       0.0
+#define FMON_KATADC_ERR_LOW      -32.0
+
+#define FMON_KATADC_WARN_HIGH    -15.0
+#define FMON_KATADC_WARN_LOW     -30.0
 
 volatile int run;
 
@@ -101,7 +111,8 @@ struct fmon_sensor_template input_template[FMON_INPUT_SENSORS] = {
   { "%s.adc.overrange",  "adc overrange indicator", KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0 },
   { "%s.adc.terminated", "adc disabled",            KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0 },
   { "%s.fft.overrange",  "fft overrange indicator", KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0 },
-  { "%s.adc.amplitude",  "approximate input signal strength",  KATCP_SENSOR_FLOAT,   0, 0, 0.0, 65000.0}
+  { "%s.adc.amplitude",  "approximate input signal strength",  KATCP_SENSOR_FLOAT,   0, 0, 0.0, 65000.0},
+  { "%s.adc.power",      "approximate input signal strength",  KATCP_SENSOR_FLOAT,   0, 0, -81.0, 16.0}
 };
 
 struct fmon_sensor{
@@ -121,6 +132,8 @@ struct fmon_sensor{
 struct fmon_input{
   struct fmon_sensor n_sensors[FMON_INPUT_SENSORS];
   char *n_label;
+  double n_rf_gain;
+  int n_rf_enabled;
 };
 
 struct fmon_state
@@ -140,6 +153,7 @@ struct fmon_state
   char *f_symbolic;
 
   int f_board;
+  int f_prior;
 
   int f_reprobe;
   int f_cycle;
@@ -203,6 +217,7 @@ void destroy_fmon(struct fmon_state *f)
   }
 
   f->f_board = (-1);
+  f->f_prior = (-1);
   f->f_reprobe = 0;
   f->f_fs = 0;
   f->f_xs = 0;
@@ -349,6 +364,7 @@ struct fmon_state *create_fmon(char *server, int verbose, unsigned int timeout, 
   f->f_symbolic = NULL;
 
   f->f_board = (-1);
+  f->f_prior = (-1);
 
   f->f_reprobe = reprobe;
   f->f_cycle = 0;
@@ -384,6 +400,7 @@ struct fmon_state *create_fmon(char *server, int verbose, unsigned int timeout, 
     }
 
     n->n_label = NULL;
+    n->n_rf_gain = 0.0;
   }
 
   f->f_server = strdup(server);
@@ -721,7 +738,7 @@ int maintain_fmon(struct fmon_state *f)
           state = STATE_CONNECT; /* try again */
           break;
         } /* fall */
-        state = STATE_DONE; /* superflous, but symmetrical */
+        state = STATE_DONE; /* superfluous, but symmetrical */
       case STATE_DONE :
         set_lru_fmon(f, 1, KATCP_STATUS_NOMINAL);
         f->f_maintaining = 0;
@@ -1207,6 +1224,7 @@ int detect_fmon(struct fmon_state *f)
   uint32_t word;
   char buffer[BUFFER];
   int limit, result;
+  struct fmon_input *n;
 
   /* assume all things to have gone wrong */
   f->f_board = (-1);
@@ -1237,7 +1255,19 @@ int detect_fmon(struct fmon_state *f)
     if(read_word_fmon(f, buffer, &word)){
       limit = 0;
     } else {
-      f->f_fs++;
+
+      snprintf(buffer, BUFFER - 1, "adc_ctrl%d", f->f_fs);
+      buffer[BUFFER - 1] = '\0';
+
+      if(read_word_fmon(f, buffer, &word)){
+        limit = 0;
+      } else {
+        n = &(f->f_inputs[f->f_fs]);
+        n->n_rf_enabled = (word & 0x80000000) ? 1 : 0;
+        n->n_rf_gain = 20.0 - (word & 0x3f) * 0.5;
+
+        f->f_fs++;
+      }
     }
   }
 
@@ -1253,7 +1283,41 @@ int detect_fmon(struct fmon_state *f)
   }
 
   log_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_server, "board contains %d fengines and %d xengines", f->f_fs, f->f_xs);
-  return 0;
+
+  if(f->f_board > 0){
+    f->f_prior = f->f_board;
+    return 0;
+  } 
+  
+  /* else if board_id == 0, then do some more checking that we are actually set up */
+
+  if(f->f_fs > 0){
+    result = read_word_fmon(f, "control", &word);
+    if(result != 0){
+      return result;
+    }
+    if(word & FMON_FCONTROL_FLASHER_EN){
+      f->f_prior = 0;
+      return 0;
+    }
+  }
+
+  if(f->f_xs > 0){
+    result = read_word_fmon(f, "ctrl", &word);
+    if(result != 0){
+      return result;
+    }
+    if(word & FMON_XCONTROL_FLASHER_EN){
+      f->f_prior = 0;
+      return 0;
+    }
+  }
+
+  log_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_server, "ignoring board id 0 as roach not initalised");
+
+  f->f_board = (-1); /* board id is just 0 because it is unset */
+
+  return -1;
 #undef BUFFER
 }
 
@@ -1364,7 +1428,7 @@ int clear_control_fmon(struct fmon_state *f)
     return -1;
   }
 
-  word &= ~FMON_CONTROL_CLEAR_STATUS;
+  word &= ~FMON_FCONTROL_CLEAR_STATUS;
   if(write_word_fmon(f, "control", word)){
     return -1;
   }
@@ -1373,7 +1437,7 @@ int clear_control_fmon(struct fmon_state *f)
     return -1;
   }
 
-  word |= FMON_CONTROL_CLEAR_STATUS;
+  word |= FMON_FCONTROL_CLEAR_STATUS;
   if(write_word_fmon(f, "control", word)){
     return -1;
   }
@@ -1428,14 +1492,16 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, char *name)
 int check_fengine_amplitude(struct fmon_state *f, struct fmon_input *n, char *name)
 {
   uint32_t word;
-  double result;
-  struct fmon_sensor *sensor;
+  double result, dbm, fixed;
+  struct fmon_sensor *raw, *pow;
   unsigned int value;
+  int status;
 
-  sensor = &(n->n_sensors[FMON_SENSOR_ADC_RAW_POWER]);
+  raw = &(n->n_sensors[FMON_SENSOR_ADC_RAW_POWER]);
+  pow = &(n->n_sensors[FMON_SENSOR_ADC_DBM_POWER]);
 
   if(read_word_fmon(f, name, &word)){
-    update_sensor_status_fmon(f, sensor, KATCP_STATUS_UNKNOWN);
+    update_sensor_status_fmon(f, raw, KATCP_STATUS_UNKNOWN);
     return 0;
   }
 
@@ -1443,11 +1509,40 @@ int check_fengine_amplitude(struct fmon_state *f, struct fmon_input *n, char *na
 
   result = sqrt((double)value / ((double)f->f_amplitude_acc_len)) * f->f_adc_scale_factor;
 
+  dbm = 10.0 * log10(result * result / 50.0 * 1000.0);
+
 #ifdef DEBUG
-  fprintf(stderr, "raw value 0x%x -> %f\n", value, result);
+  fprintf(stderr, "raw value 0x%x (%f, %d) -> %f (%f - %f)\n", value, f->f_adc_scale_factor, f->f_amplitude_acc_len, result, dbm, n->n_rf_gain);
 #endif
 
-  update_sensor_double_fmon(f, sensor, result, KATCP_STATUS_NOMINAL);
+  update_sensor_double_fmon(f, raw, result, KATCP_STATUS_NOMINAL);
+
+  if(n->n_rf_enabled){
+
+    fixed = dbm - n->n_rf_gain;
+    status = KATCP_STATUS_NOMINAL;
+
+    if(fixed > FMON_KATADC_WARN_HIGH){
+      if(fixed > FMON_KATADC_ERR_HIGH){
+        status = KATCP_STATUS_ERROR;
+      } else {
+        status = KATCP_STATUS_WARN;
+      }
+    }
+
+    if(fixed < FMON_KATADC_WARN_LOW){
+      if(fixed < FMON_KATADC_ERR_LOW){
+        status = KATCP_STATUS_ERROR;
+      } else {
+        status = KATCP_STATUS_WARN;
+      }
+    }
+
+    update_sensor_double_fmon(f, pow, fixed, status);
+
+  } else {
+    update_sensor_double_fmon(f, pow, FMON_KATADC_ERR_HIGH, KATCP_STATUS_UNKNOWN);
+  }
 
   return 0;  
 }
