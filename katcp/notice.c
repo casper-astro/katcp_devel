@@ -460,10 +460,16 @@ int remove_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*
           n->n_vector = NULL;
         }
 
+        /* WARNING: require a return here, otherwise i will be increment while count decremented, skipping one invoke entry */
+
         return 0;
       }
+    } else {
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "found match for data %p but function call %p does not match", data, call);
     }
   }
+
+  log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "did not find match for data %p in vector of %u elements", data, n->n_count);
 
   return -1;
 }
