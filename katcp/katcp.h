@@ -377,6 +377,9 @@ static void destroy_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *
 #endif
 
 int add_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n, void *data), void *data);
+int remove_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n, void *data), void *data);
+unsigned int fetch_data_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void **vector, unsigned int size);
+
 struct katcp_notice *register_notice_katcp(struct katcp_dispatch *d, char *name, unsigned int tag, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n, void *data), void *data);
 
 #if 0
