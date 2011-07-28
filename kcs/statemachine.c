@@ -444,6 +444,31 @@ struct kcs_sm_op *store_setup_statemachine_kcs(struct katcp_dispatch *d, struct 
 }
 #endif 
 
+int msleep_statemachine_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
+{
+  struct katcp_stack *stack;
+  int *time;
+  struct timeval tv;
+
+  stack = data;
+  if (stack == NULL)
+    return -1;
+
+  time = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_INTEGER);
+  if (time == NULL)
+    return -1;
+  
+  component_time_katcp(&tv, (unsigned int) (*time));
+
+  wake_notice_in_tv_katcp(d, n, &tv);
+
+  return 0;
+}
+
+struct kcs_sm_edge *msleep_setup_statemachine_kcs(struct katcp_dispatch *d, struct kcs_sm_state *s)
+{
+  return create_sm_edge_kcs(s, &msleep_statemachine_kcs);
+}
 
 int statemachine_init_kcs(struct katcp_dispatch *d)
 { 
@@ -462,6 +487,8 @@ int statemachine_init_kcs(struct katcp_dispatch *d)
   rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_STACK_PUSH, &pushstack_setup_statemachine_kcs, NULL, NULL, NULL, NULL, NULL, NULL);
   
   rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_SPAWN, &spawn_setup_statemachine_kcs, NULL, NULL, NULL, NULL, NULL, NULL);
+
+  rtn += store_data_type_katcp(d, KATCP_TYPE_EDGE, KATCP_DEP_BASE, KATCP_EDGE_SLEEP, &msleep_setup_statemachine_kcs, NULL, NULL, NULL, NULL, NULL, NULL);
   
 #if 0
   rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_STORE, &store_setup_statemachine_kcs, NULL, NULL, NULL, NULL, NULL, NULL);
@@ -1185,9 +1212,13 @@ int statemachine_run_kcs(struct katcp_dispatch *d)
 int statemachine_stopall_kcs(struct katcp_dispatch *d)
 {
   struct katcp_notice **n_set, *n;
-  struct katcp_invoke iv;
   int n_count, i;
   struct kcs_sched_task *t;
+  void *data[1];
+
+#ifdef DEBUG
+  fprintf(stderr, "statemachine: STOPALL start\n");
+#endif
   
   n_set = NULL;
   n_count = 0;
@@ -1208,21 +1239,27 @@ int statemachine_stopall_kcs(struct katcp_dispatch *d)
     n = n_set[i];
     if (n != NULL && n->n_vector != NULL){
       
-      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "notice: %s", n->n_name);
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "stopall notice: %s", n->n_name);
       
-      iv = n->n_vector[0];
-      //if (iv != NULL){
-        t = iv.v_data;
+      if (fetch_data_notice_katcp(d, n, data, 1) == 1){
+        t = data[0];
         if (t != NULL){
+          if (remove_notice_katcp(d, n, &statemachine_process_kcs, t) < 0){
+            log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "could not remove notice");
+          }
+
           t->t_state = TASK_STATE_CLEAN_UP;
           statemachine_process_kcs(d, n, t);  
         }
-      //}
+      }
     }
-    //release_notice_katcp(d, n);
   }
   
   free(n_set);
+
+#ifdef DEBUG
+  fprintf(stderr, "statemachine: STOPALL end\n");
+#endif
 
   return KATCP_RESULT_OK;
 }

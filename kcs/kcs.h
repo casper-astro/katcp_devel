@@ -172,6 +172,8 @@ int add_sensor_to_roach_kcs(struct katcp_dispatch *d, struct kcs_obj *ko);
 #define KATCP_OPERATION_SPAWN           "spawn"
 #define KATCP_OPERATION_RELAY_KATCP     "relaykatcp"
 
+#define KATCP_EDGE_SLEEP                "msleep"
+
 #define TASK_STATE_RUN_OPS              3
 #define TASK_STATE_FOLLOW_EDGES         2
 #define TASK_STATE_CLEAN_UP             1

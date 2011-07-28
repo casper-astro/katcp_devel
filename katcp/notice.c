@@ -442,8 +442,10 @@ int remove_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*
   for(i = 0; i < n->n_count; i++){
     v = &(n->n_vector[i]);
 
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "comparing given data %p to entry[%d]=%p", data, i, v->v_data);
+
     if(v->v_data == data){
-      if((call == NULL) && (v->v_call == call)){
+      if((call == NULL) || (v->v_call == call)){
         n->n_count--;
 
         dispatch_compact_notice_katcp(v->v_client, n);
@@ -463,9 +465,9 @@ int remove_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*
         /* WARNING: require a return here, otherwise i will be increment while count decremented, skipping one invoke entry */
 
         return 0;
+      } else {
+        log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "found match for data %p but function call %p does not match", data, call);
       }
-    } else {
-      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "found match for data %p but function call %p does not match", data, call);
     }
   }
 
