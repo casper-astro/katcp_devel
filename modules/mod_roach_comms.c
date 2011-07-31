@@ -66,10 +66,12 @@ int url_construct_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struc
   struct katcp_stack *tempstack;
 
   port = 0;
-  
+
+#if 0
   count = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_INTEGER);
   if (count == NULL)
     return -1;
+#endif
 
   str = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_STRING);
   if (str == NULL)

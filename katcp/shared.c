@@ -1006,6 +1006,7 @@ int store_prepared_mode_katcp(struct katcp_dispatch *d, unsigned int mode, char 
   if(name){
 
     skip = 0;
+#if 0
     if(s->s_mode_sensor == NULL){
 
       if(register_katcp(d, "?mode", "mode change command (?mode [new-mode])", &mode_cmd_katcp)){
@@ -1037,7 +1038,7 @@ int store_prepared_mode_katcp(struct katcp_dispatch *d, unsigned int mode, char 
         result = (-1);
       }
     }
-
+#endif
   }
 
   return result;

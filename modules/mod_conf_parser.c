@@ -396,7 +396,7 @@ int parse_csv_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct ka
     }
     
   }
-  if (count > 0){
+  if (count > 1){
     inttype = find_name_type_katcp(d, KATCP_TYPE_INTEGER);
     if (inttype == NULL || inttype->t_getkey == NULL)
       return -1;

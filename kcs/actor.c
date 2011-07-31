@@ -717,6 +717,17 @@ struct kcs_sm_op *get_tag_set_sm_setup_katcp(struct katcp_dispatch *d, struct kc
   return create_sm_op_kcs(&get_tag_set_sm_katcp, NULL);
 }
 
+int relay_katcp_statemachine_kcs(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_tobject *o)
+{
+
+  return 0; 
+}
+
+struct kcs_sm_op *relay_katcp_setup_statemachine_kcs(struct katcp_dispatch *d, struct kcs_sm_state *s)
+{
+  return create_sm_op_kcs(&relay_katcp_statemachine_kcs, NULL); 
+}
+
 int init_actor_tag_katcp(struct katcp_dispatch *d)
 {
   int rtn;
@@ -728,6 +739,8 @@ int init_actor_tag_katcp(struct katcp_dispatch *d)
   rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_TAG_ACTOR, &tag_actor_sm_setup_katcp, NULL, NULL, NULL, NULL, NULL, NULL);
 
   rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_GET_TAG_SET, &get_tag_set_sm_setup_katcp, NULL, NULL, NULL, NULL, NULL, NULL);
+  
+  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_RELAY_KATCP, &relay_katcp_setup_statemachine_kcs, NULL, NULL, NULL, NULL, NULL, NULL);
 
   return rtn;
 }
