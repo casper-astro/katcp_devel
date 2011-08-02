@@ -175,7 +175,9 @@ int set_task_pc_kcs(struct kcs_sched_task *t, struct kcs_sm_state *s)
 void print_task_stack_kcs(struct katcp_dispatch *d, struct kcs_sched_task *t)
 {
   struct katcp_stack *stack;
+
   stack = get_task_stack_kcs(t);
+
   print_stack_katcp(d, stack);
 }
 
@@ -470,6 +472,39 @@ struct kcs_sm_edge *msleep_setup_statemachine_kcs(struct katcp_dispatch *d, stru
   return create_sm_edge_kcs(s, &msleep_statemachine_kcs);
 }
 
+int peek_stack_type_statemachine_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
+{
+  struct katcp_stack *stack;
+  struct katcp_type *t;
+  struct katcp_tobject *to;
+  char *ctype;
+
+  stack = data;
+  if (stack == NULL)
+    return -1;
+
+  ctype = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_STRING);
+  if (ctype == NULL)
+    return -1;
+  
+  t = find_name_type_katcp(d, ctype);
+  if (t == NULL)
+    return -1;
+
+  to = peek_stack_katcp(stack);
+  if (to == NULL && to->o_type != t)
+    return -1;
+
+  wake_notice_katcp(d, n, NULL);
+  
+  return 0;
+}
+
+struct kcs_sm_edge *peek_stack_type_setup_statemachine_kcs(struct katcp_dispatch *d, struct kcs_sm_state *s)
+{
+  return create_sm_edge_kcs(s, &peek_stack_type_statemachine_kcs);
+}
+
 int statemachine_init_kcs(struct katcp_dispatch *d)
 { 
   int rtn;
@@ -489,6 +524,8 @@ int statemachine_init_kcs(struct katcp_dispatch *d)
   rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_SPAWN, &spawn_setup_statemachine_kcs, NULL, NULL, NULL, NULL, NULL, NULL);
 
   rtn += store_data_type_katcp(d, KATCP_TYPE_EDGE, KATCP_DEP_BASE, KATCP_EDGE_SLEEP, &msleep_setup_statemachine_kcs, NULL, NULL, NULL, NULL, NULL, NULL);
+  
+  rtn += store_data_type_katcp(d, KATCP_TYPE_EDGE, KATCP_DEP_BASE, KATCP_EDGE_PEEK_STACK_TYPE, &peek_stack_type_setup_statemachine_kcs, NULL, NULL, NULL, NULL, NULL, NULL);
   
 #if 0
   rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_STORE, &store_setup_statemachine_kcs, NULL, NULL, NULL, NULL, NULL, NULL);
@@ -1003,7 +1040,7 @@ int statemachine_run_ops_kcs(struct katcp_dispatch *d, struct katcp_notice *n, s
   s = get_task_pc_kcs(t);
   stack = get_task_stack_kcs(t);
 
-#if 0 
+#if 1 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "running ops in state %s", s->s_name);
 #endif
 

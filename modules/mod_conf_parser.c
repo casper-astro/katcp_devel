@@ -382,8 +382,10 @@ int parse_csv_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct ka
 #endif
         
           data = search_type_katcp(d, strtype, temp[0], (*strtype->t_parse)(d, temp));
-        
+#if 0 
           if (push_named_stack_katcp(d, stack, data, KATCP_TYPE_STRING) < 0){
+#endif
+          if (push_stack_katcp(stack, data, strtype) < 0){
 #ifdef DEBUG
             fprintf(stderr, "csv: push named stack katcp error\n");
 #endif

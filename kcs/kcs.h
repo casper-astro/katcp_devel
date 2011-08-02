@@ -173,6 +173,7 @@ int add_sensor_to_roach_kcs(struct katcp_dispatch *d, struct kcs_obj *ko);
 #define KATCP_OPERATION_RELAY_KATCP     "relaykatcp"
 
 #define KATCP_EDGE_SLEEP                "msleep"
+#define KATCP_EDGE_PEEK_STACK_TYPE      "peekstacktype"
 
 #define TASK_STATE_RUN_OPS              3
 #define TASK_STATE_FOLLOW_EDGES         2
@@ -260,13 +261,15 @@ struct katcp_actor {
 };
 
 struct katcp_actor *create_actor_type_katcp(struct katcp_dispatch *d, char *str, struct katcp_job *j, struct katcp_notice *n, void *data, char *datatype);
-int assign_sm_notice_actor_type_katcp(struct katcp_actor *a, struct katcp_notice *n);
 void print_actor_type_katcp(struct katcp_dispatch *d, void *data);
 void destroy_actor_type_katcp(void *data);
 int copy_actor_type_katcp(void *src, void *dest, int n);
 int compare_actor_type_katcp(const void *a, const void *b);
 void *parse_actor_type_katcp(struct katcp_dispatch *d, char **str);
 char *getkey_actor_katcp(void *data);
+
+int hold_sm_notice_actor_katcp(struct katcp_actor *a, struct katcp_notice *n);
+int relase_sm_notice_actor_katcp(struct katcp_dispatch *d, struct katcp_actor *a);
 
 int tag_actor_katcp(struct katcp_dispatch *d, struct katcp_actor *a, struct katcp_tag *t);
 int tag_named_actor_katcp(struct katcp_dispatch *d, struct katcp_actor *a, char *tag);

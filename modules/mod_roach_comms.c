@@ -137,7 +137,7 @@ int roach_disconnect_mod(struct katcp_dispatch *d, struct katcp_notice *n, void 
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "roach comms: notice disconnect %s", a->a_key);
   
-  del_data_type_katcp(d, KATCP_TYPE_ACTOR, a->a_key);
+  //del_data_type_katcp(d, KATCP_TYPE_ACTOR, a->a_key);
   
   return 0;
 }
@@ -175,7 +175,6 @@ int roach_connect_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struc
   if (j == NULL){
     return -1;
   }
-  
   
   a = create_actor_type_katcp(d, u->u_str, j, NULL, NULL, NULL);
   if (a == NULL){
@@ -300,9 +299,9 @@ int roach_ping_returns_mod(struct katcp_dispatch *d, struct katcp_notice *n, voi
 #endif
   }
 
-  wake_notice_katcp(d, a->a_sm_notice, NULL);
-
+  release_sm_notice_actor_katcp(d, a);
 #if 0
+  wake_notice_katcp(d, a->a_sm_notice, NULL);
   struct timeval now, delta;
  
   r = data;
@@ -332,7 +331,7 @@ int roach_ping_mod(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
     return -1;
   }
 
-  if (assign_sm_notice_actor_type_katcp(a, n) < 0)
+  if (hold_sm_notice_actor_katcp(a, n) < 0)
     return -1; 
 
   p = create_parse_katcl();
