@@ -605,9 +605,15 @@ void drop_connection_fmon(struct fmon_state *f)
     }
   }
 
+#if 0
   while(flushing_katcl(f->f_report)){
-    write_katcl(f->f_report);
+    if(write_katcl(f->f_report) != 0){
+      break;
+    }
   }
+#endif
+  while(write_katcl(f->f_report) == 0);
+
 
   /* previous part did notification, below invalidates */
 
@@ -1413,9 +1419,14 @@ void set_lru_fmon(struct fmon_state *f, int value, unsigned int status)
 
   update_sensor_fmon(f, sensor_lru, value, status);
 
+  while(write_katcl(f->f_report) == 0);
+#if 0
   while(flushing_katcl(f->f_report)){
-    write_katcl(f->f_report);
+    if(write_katcl(f->f_report) == 0){
+      break;
+    }
   }
+#endif
 }
 
 /* f-engine monitoring stuff ***************************************/
