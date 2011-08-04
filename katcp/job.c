@@ -601,8 +601,10 @@ int issue_request_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
 
     p = remove_parse_notice_katcp(d, n);
     if(p){
-      px = turnaround_parse_katcl(p, KATCP_RESULT_FAIL);
+      px = turnaround_extra_parse_katcl(p, KATCP_RESULT_FAIL, "allocation");
       if(px){ 
+        p = NULL;
+        /* WARNING: turnaround invalidates p */
         if(set_parse_notice_katcp(d, n, px) < 0){
           destroy_parse_katcl(px);
         }
@@ -766,6 +768,31 @@ int notice_to_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, struct ka
   return 0;
 }
 
+static int fail_request_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, struct katcl_parse *p)
+{
+  struct katcl_parse *px, *py;
+  int result;
+
+  /* WARNING: refcount + reuse logic quite scary */
+  px = copy_parse_katcl(p);
+  if(px == NULL){
+    return -1;
+  }
+
+  py = turnaround_extra_parse_katcl(px, KATCP_RESULT_FAIL, "unimplemented");
+  if(py == NULL){
+    destroy_parse_katcl(px);
+    return -1;
+  } 
+
+  /* turnaround invalidates px, but py has to be destroyed (append does a copy internally) */
+
+  result = append_parse_katcl(j->j_line, py);
+  destroy_parse_katcl(py);
+
+  return result;
+}
+
 static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
 {
   int result;
@@ -785,9 +812,15 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
       return -1;
     }
 
-#ifdef DEBUG
     p = ready_katcl(j->j_line);
 
+    if(p == NULL){
+      /* if we got this far, we should really have a ready data structure */
+      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "unable to retrieve parsed job data");
+      return -1;
+    }
+
+#ifdef DEBUG
     fprintf(stderr, "job: processing message starting with <%s %s ...>\n", cmd, arg_string_katcl(j->j_line, 1));
 
     fprintf(stderr, "job: alt:");
@@ -799,24 +832,10 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
 
     switch(cmd[0]){
 
-      case KATCP_REQUEST : 
-        /* our logic is unable to service requests */
-#if 0
-        extra_response_katcl(j->j_line, KATCP_RESULT_FAIL, NULL);
-#endif
-        break;
-
       case KATCP_REPLY   :
 
         if(j->j_state & JOB_MAY_REQUEST){
           log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "received spurious reply, no request was issued");
-          return -1;
-        }
-
-        p = ready_katcl(j->j_line);
-        if(p == NULL){
-          /* if we got this far, we should really have a ready data structure */
-          log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "unable to retrieve parsed job data");
           return -1;
         }
 
@@ -837,14 +856,25 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
         issue_request_job_katcp(d, j);
         break;
 
-      case KATCP_INFORM  :
+      case KATCP_REQUEST : 
 
-        p = ready_katcl(j->j_line);
-        if(p == NULL){
-          /* if we got this far, we should really have a ready data structure */
-          log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "unable to retrieve parsed job data");
-          return -1;
+        /* our logic is unable to service requests */
+        kt = find_map_katcp(j->j_map, cmd);
+        if(kt){
+#ifdef DEBUG
+          fprintf(stderr, "job: found match for %s in map\n", cmd);
+#endif
+          n = kt->t_notice;
+          add_parse_notice_katcp(d, n, p);
+          trigger_notice_katcp(d, n);
+        } else {
+          log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "unable to handle request %s by job %s", cmd, j->j_url->u_str);
+          fail_request_job_katcp(d, j, p);
         }
+
+        break;
+
+      case KATCP_INFORM  :
 
         kt = find_map_katcp(j->j_map, cmd);
         if(kt){
@@ -1084,8 +1114,10 @@ int run_jobs_katcp(struct katcp_dispatch *d)
 
         p = remove_parse_notice_katcp(d, n);
         if(p){
-          px = turnaround_parse_katcl(p, KATCP_RESULT_FAIL);
+          px = turnaround_extra_parse_katcl(p, KATCP_RESULT_FAIL, "disconnected");
           if(px){
+            /* WARNING: turnaround invalidates p */
+            p = NULL;
             if(set_parse_notice_katcp(d, n, px) < 0){
               destroy_parse_katcl(px);
             }

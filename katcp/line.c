@@ -610,6 +610,13 @@ int append_parse_katcl(struct katcl_line *l, struct katcl_parse *p)
   int result;
 
 #ifdef DEBUG
+
+  if(p->p_magic != KATCL_PARSE_MAGIC){
+    fprintf(stderr, "problem: attempting to append parse %p with bad magic %x to line\n", p, p->p_magic);
+    abort();
+  }
+
+
   if(l->l_stage){
     fprintf(stderr, "warning: appending full message to line which contains partial staged message (ordering will be odd)\n");
   }

@@ -567,7 +567,6 @@ struct katcl_parse *turnaround_extra_parse_katcl(struct katcl_parse *p, int code
 {
   char *string;
   struct katcl_parse *px;
-  int flags;
   va_list args;
 
 #ifdef DEBUG
@@ -609,7 +608,7 @@ struct katcl_parse *turnaround_extra_parse_katcl(struct katcl_parse *p, int code
 #endif
 
     va_start(args, fmt);
-    add_vargs_parse_katcl(p, KATCP_FLAG_LAST | KATCP_FLAG_STRING, fmt, args);
+    add_vargs_parse_katcl(px, KATCP_FLAG_LAST | KATCP_FLAG_STRING, fmt, args);
     va_end(args);
 
   } else {
