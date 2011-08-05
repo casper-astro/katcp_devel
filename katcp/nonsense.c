@@ -756,11 +756,9 @@ void destroy_sensor_discrete_katcp(struct katcp_dispatch *d, struct katcp_sensor
     return;
   }
 
-  if(ds->ds_vector){
-    free(ds->ds_vector);
-    ds->ds_vector = NULL;
-  }
+  delete_vector_katcm(ds->ds_vector, ds->ds_size);
 
+  ds->ds_vector = NULL;
   ds->ds_size = 0;
 
   free(ds);
