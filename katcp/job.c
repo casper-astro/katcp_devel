@@ -23,13 +23,23 @@
 
 #define JOB_MAGIC 0x21525110
 
+#if 0
 #define JOB_MAY_REQUEST 0x01
 #define JOB_MAY_WRITE   0x02
 #define JOB_MAY_WORK    0x04
 #define JOB_MAY_READ    0x08
+#if 0
 #define JOB_MAY_KILL    0x10
 #define JOB_MAY_COLLECT 0x20
+#endif
 #define JOB_PRE_CONNECT 0x40
+#endif
+
+#define JOB_STATE_PRE      1
+#define JOB_STATE_UP       2
+#define JOB_STATE_POST     3
+#define JOB_STATE_DRAIN    4
+#define JOB_STATE_DONE     5
 
 /******************************************************************/
 
@@ -273,7 +283,10 @@ static void delete_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
   j->j_halt = NULL;
   j->j_count = 0;
 
-  j->j_state = 0;
+  j->j_state = JOB_STATE_DONE;
+
+  j->j_receivr = 0;
+  j->j_sendr = 0;
 
   free(j);
 }
@@ -406,15 +419,21 @@ struct katcp_job *create_job_katcp(struct katcp_dispatch *d, struct katcp_url *n
   j->j_pid = pid;
   j->j_halt = NULL;
 
+#if 0
   if(async){
     j->j_state = JOB_PRE_CONNECT;
   } else {
     j->j_state = JOB_MAY_REQUEST | JOB_MAY_WRITE | JOB_MAY_WORK | JOB_MAY_READ;
   }
+#endif
 
+#if 0
   if(j->j_pid > 0){
     j->j_state |= JOB_MAY_KILL | JOB_MAY_COLLECT;
   }
+#endif
+
+  j->j_state = async ? JOB_STATE_PRE : JOB_STATE_UP;
 
   j->j_code = KATCP_RESULT_INVALID;
   j->j_line = NULL;
@@ -529,7 +548,7 @@ int zap_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
 
   log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "terminating job %p (%s)", j, j->j_url->u_str ? j->j_url->u_str : "<anonymous>");
 
-  j->j_state = 0;
+  j->j_state = JOB_STATE_DRAIN;
 
   return 0;
 }
@@ -549,7 +568,7 @@ int ended_jobs_katcp(struct katcp_dispatch *d)
 
     log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "ending job [%d]=%p (%s) immediately", i, j, j->j_url->u_str ? j->j_url->u_str : "<anonymous>");
 
-    j->j_state = 0;
+    j->j_state = JOB_STATE_DONE;
   }
 
   return (s->s_number > 0) ? 0 : 1;
@@ -568,15 +587,25 @@ int issue_request_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
     return 0; /* nothing to do */
   }
 
-  if((j->j_state & JOB_MAY_REQUEST) == 0){
+  if(j->j_sendr > 0){
     log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "not sending request, another one already in queue");
     return 0; /* still waiting for a reply */
   }
 
+  switch(j->j_state){
+    case JOB_STATE_POST : 
+    case JOB_STATE_DRAIN : 
+    case JOB_STATE_DONE :
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "not sending request, job is terminating");
+      break;
+  }
+
+#if 0
   if((j->j_state & JOB_MAY_WRITE) == 0){
     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "not sending request, finished writing");
     return 0; /* still waiting for a reply */
   }
+#endif
 
   n = j->j_queue[j->j_head];
   if(n == NULL){
@@ -593,7 +622,7 @@ int issue_request_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
     fprintf(stderr, "issue: got parse %p from notice %p (%s)\n", p, n, n->n_name);
 #endif
     if(append_parse_katcl(j->j_line, p) >= 0){
-      j->j_state &= ~(JOB_MAY_REQUEST);
+      j->j_sendr++;
       return 0;
     }
 
@@ -795,6 +824,159 @@ static int fail_request_job_katcp(struct katcp_dispatch *d, struct katcp_job *j,
 
 static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
 {
+  int result, run;
+  char *cmd;
+  struct katcp_notice *n;
+  struct katcl_parse *p;
+  struct katcp_trap *kt;
+#ifdef DEBUG
+  int i;
+  char *tmp;
+#endif
+
+
+  for(;;){
+
+    p = ready_katcl(j->j_line);
+    if(p == NULL){
+      result = parse_katcl(j->j_line);
+      if(result <= 0){
+#ifdef DEBUG
+        fprintf(stderr, "job: nothing more to parse (result=%d)\n", result);
+#endif
+        return result;
+      }
+      p = ready_katcl(j->j_line);
+      if(p == NULL){
+        log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "claim to have parsed data (result=%d) but no parse available", result);
+        return -1;
+      }
+    }
+
+    /* now we have a parse structure, it is our responsibility to call clear from here onwards (use have_katcl to clear via side-effect) */
+
+    cmd = get_string_parse_katcl(p, 0);
+    if(cmd == NULL){
+      clear_katcl(j->j_line);
+      return -1;
+    }
+
+#ifdef DEBUG
+    fprintf(stderr, "job: alt:");
+    for(i = 0; (tmp = get_string_parse_katcl(p, i)); i++){
+      fprintf(stderr, " <%s>", tmp);
+    }
+    fprintf(stderr, "\n");
+#endif
+
+    switch(cmd[0]){
+
+      case KATCP_REPLY   :
+
+        if(j->j_sendr == 0){
+          log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "received spurious reply, no request was issued");
+          clear_katcl(j->j_line);
+          return -1;
+        }
+
+        n = remove_head_job(d, j);
+        if(n == NULL){
+          /* as long as there are references, notices should not go away */
+          log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "no outstanding notice despite waiting for a reply");
+          clear_katcl(j->j_line);
+          return -1;
+        }
+
+        set_parse_notice_katcp(d, n, p);
+        trigger_notice_katcp(d, n);
+        release_notice_katcp(d, n);
+
+        j->j_sendr--;
+
+        /* see if we can start the next round, if there is one */
+        issue_request_job_katcp(d, j);
+        break;
+
+      case KATCP_REQUEST : 
+
+        if(j->j_recvr > 0){
+          /* WARNING: keeps old parse around ... until recvr decremented */
+          return 1; 
+        }
+
+        kt = find_map_katcp(j->j_map, cmd);
+        if(kt){
+#ifdef DEBUG
+          fprintf(stderr, "job: found match for %s in map\n", cmd);
+#endif
+          n = kt->t_notice;
+          add_parse_notice_katcp(d, n, p);
+
+          j->j_recvr++;
+
+          trigger_notice_katcp(d, n);
+        } else {
+          log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "unable to handle request %s by job %s", cmd, j->j_url->u_str);
+          fail_request_job_katcp(d, j, p);
+        }
+
+        break;
+
+      case KATCP_INFORM  :
+
+        kt = find_map_katcp(j->j_map, cmd);
+        if(kt){
+#ifdef DEBUG
+          fprintf(stderr, "job: found match for %s in map\n", cmd);
+#endif
+          n = kt->t_notice;
+          add_parse_notice_katcp(d, n, p);
+          trigger_notice_katcp(d, n);
+        } else {
+          log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "ignoring inform %s of job %s", cmd, j->j_url->u_str);
+        }
+
+        if(!strcmp(cmd, KATCP_RETURN_JOB)){
+
+#ifdef DEBUG
+          fprintf(stderr, "job: saw return inform message\n");
+#endif
+
+          if(j->j_halt){
+            log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "relaying return value");
+            n = j->j_halt;
+            j->j_halt = NULL;
+
+#ifdef DEBUG
+            fprintf(stderr, "job: waking notice %p\n", n);
+#endif
+
+            set_parse_notice_katcp(d, n, p);
+            trigger_notice_katcp(d, n);
+            release_notice_katcp(d, n);
+          }
+
+          /* terminating job, otherwise halt notice can not assume that job is gone */
+
+          zap_job_katcp(d, j);
+
+          /* WARNING: maybe not a bad thing to get stuck on a #return message */
+          /* clear_katcl(j->j_line); */
+          return 0;
+        }
+
+        break;
+    }
+
+    /* clear parse - get another one later */
+    clear_katcl(j->j_line);
+  }
+
+}
+
+#if 0
+static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
+{
   int result;
   char *cmd;
   struct katcp_notice *n;
@@ -834,7 +1016,7 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
 
       case KATCP_REPLY   :
 
-        if(j->j_state & JOB_MAY_REQUEST){
+        if(j->j_sendr == 0){
           log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "received spurious reply, no request was issued");
           return -1;
         }
@@ -850,7 +1032,7 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
         trigger_notice_katcp(d, n);
         release_notice_katcp(d, n);
 
-        j->j_state |= JOB_MAY_REQUEST;
+        j->j_sendr--;
 
         /* see if we can start the next round, if there is one */
         issue_request_job_katcp(d, j);
@@ -929,6 +1111,7 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
 #endif
   return result;
 }
+#endif
 
 /* stuff to be called from mainloop *******************************/
 
@@ -952,7 +1135,7 @@ int wait_jobs_katcp(struct katcp_dispatch *d)
     while(i < s->s_number){
       j = s->s_tasks[i];
 
-      if((j->j_pid == pid) && (j->j_state & JOB_MAY_COLLECT)){
+      if(j->j_pid == pid){
         if(WIFEXITED(status)){
           code = WEXITSTATUS(status);
           log_message_katcp(d, code ? KATCP_LEVEL_INFO : KATCP_LEVEL_DEBUG, NULL, "process %d exited with code %d", j->j_pid, code);
@@ -965,7 +1148,10 @@ int wait_jobs_katcp(struct katcp_dispatch *d)
           log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "process %d exited abnormally", j->j_pid);
           j->j_code = KATCP_RESULT_FAIL;
         }
+#if 0
         j->j_state &= ~(JOB_MAY_KILL | JOB_MAY_COLLECT);
+#endif
+        j->j_pid = 0;
       }
 
       i++;
@@ -986,6 +1172,30 @@ int load_jobs_katcp(struct katcp_dispatch *d)
   for(i = 0; i < s->s_number; i++){
     j = s->s_tasks[i];
 
+    fd = fileno_katcl(j->j_line);
+    if(fd >= 0){
+
+      switch(j->j_state){
+        case JOB_STATE_PRE   :  
+          FD_SET(fd, &(s->s_write));
+          break;
+        case JOB_STATE_UP    :
+          FD_SET(fd, &(s->s_read));
+          /* FALL */
+        case JOB_STATE_POST :  
+        case JOB_STATE_DRAIN :  
+          if(flushing_katcl(j->j_line)){
+            FD_SET(fd, &(s->s_write));
+          }
+          break;
+        /* case JOB_STATE_DONE : */
+      }
+      if(fd > s->s_max){ /* WARNING: what if no fd gets added ? */
+        s->s_max = fd;
+      }
+    }
+
+#if 0
     if(j->j_state & (JOB_MAY_READ | JOB_MAY_WRITE | JOB_PRE_CONNECT)){
       fd = fileno_katcl(j->j_line);
       if(fd >= 0){
@@ -998,11 +1208,9 @@ int load_jobs_katcp(struct katcp_dispatch *d)
         if(j->j_state & JOB_PRE_CONNECT){
           FD_SET(fd, &(s->s_write));
         }
-        if(fd > s->s_max){
-          s->s_max = fd;
-        }
       }
     }
+#endif
   }
 
   return 0;
@@ -1030,83 +1238,111 @@ int run_jobs_katcp(struct katcp_dispatch *d)
     sane_job_katcp(j);
 #endif
 
-#if 0
-    if(j->j_state > 1){
-      } /* else some notice still interested in this job */
-    } else {
-#endif
-
-    if(j->j_state & (JOB_MAY_READ | JOB_MAY_WRITE | JOB_PRE_CONNECT)){
-      fd = fileno_katcl(j->j_line);
-    } else {
-      fd = (-1);
-    } 
-
-    if((j->j_state & JOB_MAY_READ) && FD_ISSET(fd, &(s->s_read))){
-      result = read_katcl(j->j_line);
-#ifdef DEBUG
-      fprintf(stderr, "job: read from job returns %d\n", result);
-#endif
-      if(result < 0){
-        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to read from subordinate task");
-        j->j_state = 0;
-        j->j_code = KATCP_RESULT_FAIL;
-      }
-
-      if(result > 0){ /* end of file, won't do further io */
-        j->j_state &= ~(JOB_MAY_REQUEST | JOB_MAY_WRITE | JOB_MAY_READ);
-        j->j_code = KATCP_RESULT_OK;
-      }
+    switch(j->j_state){
+      case JOB_STATE_PRE :
+      case JOB_STATE_UP :
+      case JOB_STATE_POST :
+      case JOB_STATE_DRAIN :
+        fd = fileno_katcl(j->j_line);
+        break;
+      default : 
+        fd = (-1);
+        break;
     }
 
-    if(j->j_state & JOB_MAY_WORK){
-      result = field_job_katcp(d, j);
-#ifdef DEBUG
-      fprintf(stderr, "job: field job returns %d\n", result);
-#endif
-      if(result < 0){ /* error */
-        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to process messages from subordinate task");
-        j->j_state = 0;
-        j->j_code = KATCP_RESULT_FAIL;
-      } else { /* nothing more in buffer  */
-        if((j->j_state & (JOB_MAY_READ | JOB_MAY_WRITE)) == 0){ /* and no more io */
-          j->j_state &= ~JOB_MAY_WORK; /* implies we are done with processing things */
+    switch(j->j_state){ /* async connect completes */
+      case JOB_STATE_PRE : 
+        if(FD_ISSET(fd, &(s->s_write))){
+          len = sizeof(int);
+          result = getsockopt(fd, SOL_SOCKET, SO_ERROR, &code, &len);
+          if(result == 0){
+            switch(code){
+              case 0 :
+                j->j_state = JOB_STATE_UP;
+                log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "async connect to %s succeeded", j->j_url->u_str);
+                break;
+              case EINPROGRESS : 
+                log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "saw an in progress despite write set being ready on job %s", j->j_url->u_str);
+                break;
+              default : 
+                log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to connect to %s: %s", j->j_url->u_str, strerror(code));
+                j->j_state = JOB_STATE_DONE;
+                break;
+            }
+          }
         }
-      }
+        break;
     }
 
-    if((j->j_state & JOB_MAY_WRITE) && FD_ISSET(fd, &(s->s_write))){
-      if(write_katcl(j->j_line) < 0){
-        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to write messages to subordinate task");
-        j->j_state = 0;
-        j->j_code = KATCP_RESULT_FAIL;
-      }
-    }
+    switch(j->j_state){ /* read */
+      case JOB_STATE_UP : 
+        if(FD_ISSET(fd, &(s->s_read))){
+          result = read_katcl(j->j_line);
+#ifdef DEBUG
+          fprintf(stderr, "job: read from job returns %d\n", result);
+#endif
+          if(result < 0){
+            log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to read from subordinate task");
+            j->j_state = JOB_STATE_DONE;
+            j->j_code = KATCP_RESULT_FAIL;
+          }
 
-    if((j->j_state & JOB_PRE_CONNECT) && FD_ISSET(fd, &(s->s_write))){
-      len = sizeof(int);
-      result = getsockopt(fd, SOL_SOCKET, SO_ERROR, &code, &len);
-      if(result == 0){
-        switch(code){
-          case 0 :
-            j->j_state = (JOB_MAY_REQUEST | JOB_MAY_WRITE | JOB_MAY_WORK | JOB_MAY_READ) | ((JOB_MAY_KILL | JOB_MAY_COLLECT) & j->j_state);
-            log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "async connect to %s succeeded", j->j_url->u_str);
-            break;
-          case EINPROGRESS : 
-            log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "saw an in progress despite write set being ready on job %s", j->j_url->u_str);
-            break;
-          default : 
-            log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to connect to %s: %s", j->j_url->u_str, strerror(code));
-            break;
+          if(result > 0){ /* end of file, won't do further io */
+            j->j_state = JOB_STATE_POST;
+            j->j_code = KATCP_RESULT_OK;
+          }
         }
-      }
+        break;
+    }
+
+    switch(j->j_state){ /* process */
+      case JOB_STATE_UP : 
+      case JOB_STATE_POST : 
+
+        result = field_job_katcp(d, j);
+#ifdef DEBUG
+        fprintf(stderr, "job: field job returns %d\n", result);
+#endif
+        if(result < 0){ /* error */
+          log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to process messages from subordinate task");
+          j->j_state = JOB_STATE_DONE;
+          j->j_code = KATCP_RESULT_FAIL;
+        } else {
+          if(j->j_state == JOB_STATE_POST){
+            j->j_state = JOB_STATE_DRAIN;
+          }
+        }
+        break;
+    }
+
+    switch(j->j_state){
+      case JOB_STATE_UP :
+      case JOB_STATE_POST :
+      case JOB_STATE_DRAIN :
+        if(FD_ISSET(fd, &(s->s_write))){
+          result = write_katcl(j->j_line);
+
+          if(result < 0){
+            log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to write messages to subordinate task");
+            j->j_state = JOB_STATE_DONE;
+            j->j_code = KATCP_RESULT_FAIL;
+          }
+
+          if(result > 0){
+            if(j->j_state == JOB_STATE_DRAIN){
+              j->j_state = JOB_STATE_DONE;
+            }
+          }
+
+        }
+      break;
     }
 
 #ifdef DEBUG
     fprintf(stderr, "job: state after run is 0x%x\n", j->j_state);
 #endif
 
-    if(j->j_state == 0){ 
+    if(j->j_state == JOB_STATE_DONE){ 
 
       n = remove_head_job(d, j);
       while(n != NULL){
@@ -1657,6 +1893,7 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
     if(!strcmp(name, "list")){
       for(i = 0; i < s->s_number; i++){
         j = s->s_tasks[i];
+#if 0
         log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "job on %s (%p) with %d notices in queue, %s, %s, %s, %s, %s and %s", 
         j->j_url->u_str, j, j->j_count,
         (j->j_state & JOB_MAY_REQUEST) ? "can issue requests" : "has a request pending", 
@@ -1665,6 +1902,19 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
         (j->j_state & JOB_MAY_WORK) ? "can process data" : "has no more data", 
         (j->j_state & JOB_MAY_KILL) ? "may be signalled" : "may not be signalled", 
         (j->j_state & JOB_MAY_COLLECT) ? "has an outstanding status code" : "has no status to collect");
+
+        log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "job on %s (%p) with %d notices in queue, %s, %s, %s, %s, and %s", 
+        j->j_url->u_str, j, j->j_count,
+        (j->j_state & JOB_MAY_REQUEST) ? "can issue requests" : "has a request pending", 
+        (j->j_state & JOB_MAY_WRITE) ? "can write data" : "has finished writing", 
+        (j->j_state & JOB_MAY_READ) ? "can read" : "has stopped reading", 
+        (j->j_state & JOB_MAY_WORK) ? "can process data" : "has no more data", 
+        (j->j_pid == 0) ? "is not a subprocess" : "is a subprocess");
+#endif
+
+        log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "job on %s (%p) with %d notices in queue, %d sent requests, %d received requests, pid %d and state %d", 
+        j->j_url->u_str, j, j->j_count,
+        j->j_sendr, j->j_receivr, j->j_pid, j->j_state);
         log_map_katcp(d, j->j_url->u_str, j->j_map);
       }
       log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%d jobs", s->s_number);

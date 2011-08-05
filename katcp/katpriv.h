@@ -319,6 +319,9 @@ struct katcp_job{
   int j_state; /* state machine */
   int j_code; /* exit code */
 
+  int j_receivr;  /* number of requests received */
+  int j_sendr; /* number of requests sent */
+
   struct katcl_line *j_line;
 
   struct katcp_notice *j_halt;
