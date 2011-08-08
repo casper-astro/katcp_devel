@@ -299,7 +299,7 @@ int roach_ping_returns_mod(struct katcp_dispatch *d, struct katcp_notice *n, voi
 #endif
   }
 
-  release_sm_notice_actor_katcp(d, a);
+  release_sm_notice_actor_katcp(d, a, get_parse_notice_katcp(d, n));
 #if 0
   wake_notice_katcp(d, a->a_sm_notice, NULL);
   struct timeval now, delta;

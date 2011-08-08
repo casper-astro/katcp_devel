@@ -58,6 +58,9 @@ int hold_sm_notice_actor_katcp(struct katcp_actor *a, struct katcp_notice *n)
     return -1;
  
   if (a->a_sm_notice == NULL || a->a_sm_notice == n){
+#ifdef DEBUG
+    fprintf(stderr, "actor: holding notice %s\n", n->n_name);
+#endif
     a->a_sm_notice = n;
     return 0;
   } 
@@ -69,7 +72,7 @@ int hold_sm_notice_actor_katcp(struct katcp_actor *a, struct katcp_notice *n)
   return -1;
 }
 
-int relase_sm_notice_actor_katcp(struct katcp_dispatch *d, struct katcp_actor *a)
+int release_sm_notice_actor_katcp(struct katcp_dispatch *d, struct katcp_actor *a, struct katcl_parse *p)
 {
   if (a == NULL){
 #ifdef DEBUG
@@ -78,7 +81,11 @@ int relase_sm_notice_actor_katcp(struct katcp_dispatch *d, struct katcp_actor *a
     return -1;
   }
 
-  wake_notice_katcp(d, a->a_sm_notice, NULL);
+  wake_notice_katcp(d, a->a_sm_notice, p);
+
+#ifdef DEBUG
+  fprintf(stderr, "actor: releases notice %s\n", (a->a_sm_notice) ? a->a_sm_notice->n_name : "<anon>");
+#endif
 
   a->a_sm_notice = NULL;
 
@@ -132,8 +139,7 @@ def DEBUG
 
 }
 
-void do_nothing(void *data)
-{}
+void do_nothing(void *data){}
 
 /*Unsafe*/
 void destroy_actor_type_katcp(void *data)
@@ -738,15 +744,47 @@ struct kcs_sm_op *get_tag_set_sm_setup_katcp(struct katcp_dispatch *d, struct kc
   return create_sm_op_kcs(&get_tag_set_sm_katcp, NULL);
 }
 
+int relay_reply_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
+{
+  struct katcp_actor *a;
+  struct katcl_parse *p;
+  char *ptr;
+
+  a = data;
+  if (a == NULL)
+    return -1;
+
+  p = get_parse_notice_katcp(d, n);
+
+  if(p){
+    ptr = get_string_parse_katcl(p, 1);
+#ifdef DEBUG
+    fprintf(stderr, "resume: parameter %d is %s\n", 1, ptr);
+#endif
+  } else {
+    ptr = NULL;
+  }
+
+/*
+  prepend_reply_katcp(d);
+  append_string_katcp(d, KATCP_FLAG_LAST, ptr ? ptr : KATCP_FAIL);
+*/
+  
+  release_sm_notice_actor_katcp(d, a, p);
+
+  return 0;
+}
+
 int relay_katcp_statemachine_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 {
-  struct katcp_stack *stack;
+  struct katcp_stack *stack, *argstack;
   struct katcp_actor *a;
   struct katcp_type *strtype;
   struct katcl_parse *p;
-  struct katcp_notice *relaynotice;
-  char *str;
-  int count;
+  char *str, *buffer;
+  int count, i, len, flags;
+  
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "edge relaykatcp START");
 
   stack = data;
   if (stack == NULL)
@@ -756,56 +794,92 @@ int relay_katcp_statemachine_kcs(struct katcp_dispatch *d, struct katcp_notice *
   if (strtype == NULL)
     return -1;
   
+  argstack = create_stack_katcp();
+  if (argstack == NULL)
+    return -1;
+  
+  count = 0;
+  while ((str = pop_data_type_stack_katcp(stack, strtype)) != NULL){
+    if (push_stack_katcp(argstack, str, strtype) < 0){
+      destroy_stack_katcp(argstack);
+      return -1;
+    }
+    count++;
+  }
+
+#ifdef DEBUG
+  fprintf(stderr, "actor: relaykatcp got %d args\n", count);
+#endif
+  print_stack_katcp(d, argstack);
+
   p = create_parse_katcl();
   if (p == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "relay katcp unable to create parse message");
     return -1;
   }
-
-  count = 0;
-  while ((str = pop_data_type_stack_katcp(stack, strtype)) != NULL){
-    if (add_string_parse_katcl(p, 
-                (count == 0) ? KATCP_FLAG_FIRST : 0 |     
-                KATCP_FLAG_STRING, str) < 0){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "relay katcp add string parse fail"); 
-      destroy_parse_katcl(p);
-      return -1;     
-    }
-     
-    count++;
-  }
   
-  mark_parse_done_katcp(p);
+  flags = KATCP_FLAG_FIRST;
+  buffer = NULL;
+  i = 0;
+
+  while(i < count){
+    str = pop_data_type_stack_katcp(argstack, strtype);
+    if (str == NULL){
+      destroy_parse_katcl(p);
+      destroy_stack_katcp(argstack);
+      return -1;
+    }
+    len = strlen(str);
+    if(len < 0){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "bad length %d for argument %d", len, i);
+      destroy_parse_katcl(p);
+      destroy_stack_katcp(argstack);
+      return -1;
+    }
+    buffer = str;
+    i++;
+    if(i == count){
+      flags |= KATCP_FLAG_LAST;
+    }
+    if(add_buffer_parse_katcl(p, flags | KATCP_FLAG_BUFFER, buffer, len) < 0){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to assemble message");
+      destroy_parse_katcl(p);
+      destroy_stack_katcp(argstack);
+      return -1;
+    }
+
+    flags = 0;
+  }
 
   a = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_ACTOR);
   if (a == NULL){
     destroy_parse_katcl(p);
+    destroy_stack_katcp(argstack);
     return -1;
   }
+  
   
   hold_sm_notice_actor_katcp(a, n);
 
-  relaynotice = create_parse_notice_katcp(d, NULL, 0, p);
-  if (relaynotice == NULL){
+  if(submit_to_job_katcp(d, a->a_job, p, NULL, &relay_reply_kcs, a) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to submit message to job");
     destroy_parse_katcl(p);
-    return -1;
-  }
-  
-  if (add_notice_katcp(d, relaynotice, &relay_reply_katcp, a) < 0){
-    destroy_parse_katcl(p);
-    destroy_notice_katcp(relaynotice);
+    destroy_stack_katcp(argstack);
     return -1;
   }
 
-  set_parse_notice_katcp(d, n, p);
+  destroy_stack_katcp(argstack);
   
+  push_named_stack_katcp(d, stack, a, KATCP_TYPE_ACTOR);
   
-  return 0; 
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "edge relaykatcp command down stream and pushed actor back onto the stack");
+  
+  return EDGE_WAIT; 
 }
 
 struct kcs_sm_edge *relay_katcp_setup_statemachine_kcs(struct katcp_dispatch *d, struct kcs_sm_state *s)
 {
-  return create_sm_edge_kcs(&relay_katcp_statemachine_kcs, NULL); 
+  return create_sm_edge_kcs(s, &relay_katcp_statemachine_kcs); 
 }
 
 int init_actor_tag_katcp(struct katcp_dispatch *d)
@@ -820,7 +894,7 @@ int init_actor_tag_katcp(struct katcp_dispatch *d)
 
   rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_GET_TAG_SET, &get_tag_set_sm_setup_katcp, NULL, NULL, NULL, NULL, NULL, NULL);
   
-  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_RELAY_KATCP, &relay_katcp_setup_statemachine_kcs, NULL, NULL, NULL, NULL, NULL, NULL);
+  rtn += store_data_type_katcp(d, KATCP_TYPE_EDGE, KATCP_DEP_BASE, KATCP_EDGE_RELAY_KATCP, &relay_katcp_setup_statemachine_kcs, NULL, NULL, NULL, NULL, NULL, NULL);
 
   return rtn;
 }

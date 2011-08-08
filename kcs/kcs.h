@@ -170,14 +170,19 @@ int add_sensor_to_roach_kcs(struct katcp_dispatch *d, struct kcs_obj *ko);
 #define KATCP_OPERATION_GET_TAG_SET     "gettagset"
 #define KATCP_OPERATION_STORE           "store"
 #define KATCP_OPERATION_SPAWN           "spawn"
-#define KATCP_OPERATION_RELAY_KATCP     "relaykatcp"
 
 #define KATCP_EDGE_SLEEP                "msleep"
 #define KATCP_EDGE_PEEK_STACK_TYPE      "peekstacktype"
+#define KATCP_EDGE_RELAY_KATCP          "relaykatcp"
 
-#define TASK_STATE_RUN_OPS              3
-#define TASK_STATE_FOLLOW_EDGES         2
 #define TASK_STATE_CLEAN_UP             1
+#define TASK_STATE_FOLLOW_EDGES         2
+#define TASK_STATE_RUN_OPS              3
+#define TASK_STATE_EDGE_WAIT            4
+
+#define EDGE_WAIT                       1
+#define EDGE_OKAY                       0
+#define EDGE_FAIL                       -1
 
 struct katcp_module {
   char *m_name;
@@ -187,6 +192,7 @@ struct katcp_module {
 struct kcs_sched_task {
   int t_state;
   int t_edge_i;
+  int t_op_i;
 
   struct katcp_stack *t_stack;
   struct kcs_sm_state *t_pc;
@@ -228,6 +234,7 @@ struct kcs_sm_op *create_sm_op_kcs(int (*call)(struct katcp_dispatch *d, struct 
 struct kcs_sm_edge *create_sm_edge_kcs(struct kcs_sm_state *s_next, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n, void *data));
 
 int start_process_kcs(struct katcp_dispatch *d, char *startnode, struct katcp_tobject *to);
+int trigger_edge_process_kcs(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_tobject *to);
 
 int init_actor_tag_katcp(struct katcp_dispatch *d);
 
@@ -269,7 +276,7 @@ void *parse_actor_type_katcp(struct katcp_dispatch *d, char **str);
 char *getkey_actor_katcp(void *data);
 
 int hold_sm_notice_actor_katcp(struct katcp_actor *a, struct katcp_notice *n);
-int relase_sm_notice_actor_katcp(struct katcp_dispatch *d, struct katcp_actor *a);
+int release_sm_notice_actor_katcp(struct katcp_dispatch *d, struct katcp_actor *a, struct katcl_parse *p);
 
 int tag_actor_katcp(struct katcp_dispatch *d, struct katcp_actor *a, struct katcp_tag *t);
 int tag_named_actor_katcp(struct katcp_dispatch *d, struct katcp_actor *a, char *tag);

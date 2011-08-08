@@ -228,16 +228,6 @@ static int before_add_parse_katcl(struct katcl_parse *p, unsigned int flags)
   return 0;
 }
 
-int mark_parse_done_katcl(struct katcl_parse *p)
-{
-  if (p == NULL)
-    return -1;
-  
-  p->p_state = KATCL_PARSE_DONE;
-
-  return 0;
-}
-
 static int after_add_parse_katcl(struct katcl_parse *p, unsigned int data, unsigned int escape)
 {
 #ifdef DEBUG
