@@ -8,7 +8,7 @@ CFLAGS += -fPIC
 
 SERVER = kcs
 SRCSHARED = shared.c
-SRC = $(SRCSHARED) watchannounce.c subprocess.c actor.c statemachine.c roachpool.c execpy.c parser.c kcserver.c basic.c
+SRC = $(SRCSHARED) watchannounce.c subprocess.c actor.c statemachine.c statemachine_base.c roachpool.c execpy.c parser.c kcserver.c basic.c
 
 OBJ = $(patsubst %.c,%.o,$(SRC))
 all: $(SERVER)

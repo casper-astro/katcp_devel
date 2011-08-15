@@ -16,6 +16,7 @@
 #define KATCP_OPERATION_ROACH_CONNECT         "roachconnect"
 #define KATCP_OPERATION_ROACH_CONNECT_MULTI   "roachconnectmulti"
 #define KATCP_OPERATION_URL_CONSTRUCT         "urlconstruct"
+#define KATCP_OPERATION_URL_TO_ACTOR          "url2actor"
 #define KATCP_EDGE_ROACH_PING                 "ping"
 #define KATCP_TYPE_ROACH                      "roach"
 #define KATCP_TYPE_URL                        "url"
@@ -125,6 +126,29 @@ int url_construct_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struc
 struct kcs_sm_op *url_construct_setup_mod(struct katcp_dispatch *d, struct kcs_sm_state *s)
 {
   return create_sm_op_kcs(&url_construct_mod, NULL);
+}
+
+int url_to_actor_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_tobject *to)
+{
+  struct katcp_actor *a;
+  struct katcp_url *u;
+
+  u = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_URL);
+  if (u == NULL)
+    return -1;
+  
+  a = search_named_type_katcp(d, KATCP_TYPE_ACTOR, u->u_str, create_actor_type_katcp(d, u->u_str, NULL, NULL, NULL, NULL));
+  if (a == NULL)
+    return -1;
+
+  push_named_stack_katcp(d, stack, a, KATCP_TYPE_ACTOR);
+
+  return 0;
+}
+
+struct kcs_sm_op *url_to_actor_setup_mod(struct katcp_dispatch *d, struct kcs_sm_state *s)
+{
+  return create_sm_op_kcs(&url_to_actor_mod, NULL);
 }
 
 int roach_disconnect_mod(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
@@ -406,10 +430,12 @@ int init_mod(struct katcp_dispatch *d)
   rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_ROACH_CONNECT, &roach_connect_setup_mod, NULL, NULL, NULL, NULL, NULL, NULL);
   rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_ROACH_CONNECT_MULTI, &roach_connect_multi_setup_mod, NULL, NULL, NULL, NULL, NULL, NULL);
   rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_URL_CONSTRUCT, &url_construct_setup_mod, NULL, NULL, NULL, NULL, NULL, NULL);
+  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_URL_TO_ACTOR, &url_to_actor_setup_mod, NULL, NULL, NULL, NULL, NULL, NULL);
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", KATCP_OPERATION_ROACH_CONNECT);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", KATCP_OPERATION_ROACH_CONNECT_MULTI);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", KATCP_OPERATION_URL_CONSTRUCT);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", KATCP_OPERATION_URL_TO_ACTOR);
 
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "added edges:");

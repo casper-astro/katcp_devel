@@ -321,6 +321,7 @@ int compare_tag_katcp(const void *m1, const void *m2)
   return strcmp(a->t_name, b->t_name);
 }
 
+
 int register_tag_katcp(struct katcp_dispatch *d, char *name, int level)
 {
   struct katcp_tag *t;
@@ -424,6 +425,46 @@ int deregister_tag_katcp(struct katcp_dispatch *d, char *name)
   destroy_tobjs_katcp();
 
   return del_data_type_katcp(d, KATCP_TYPE_TAG, name);
+}
+
+void dump_tag_katcp(struct katcp_dispatch *d, void *data)
+{
+  struct katcp_tag *t;
+  struct katcp_tobject *to;
+  int i;
+
+  t = data;
+  
+  if (t == NULL)
+    return;
+
+  print_tag_katcp(d, data);
+  
+  if (populate_tobjs_katcp(t) < 0)
+    return;
+  
+  for (i=0; i<__tcount; i++){
+    to = __tobjs[i];
+    if (to != NULL || to->o_type != NULL || to->o_type->t_print != NULL) {
+      (*(to->o_type->t_print))(d, to->o_data);
+    }
+  }
+
+  destroy_tobjs_katcp();
+}
+
+int dump_tagsets_katcp(struct katcp_dispatch *d)
+{
+  struct katcp_type *t;
+
+  t = find_name_type_katcp(d, KATCP_TYPE_TAG);
+  if (t == NULL)
+    return -1;
+
+  if (t->t_tree != NULL)
+    print_inorder_avltree(d, t->t_tree->t_root, &dump_tag_katcp, 0);
+
+  return 0;
 }
 
 struct katcp_tag **__tags;
@@ -663,7 +704,10 @@ int tag_actor_sm_katcp(struct katcp_dispatch *d, struct katcp_stack *stack, stru
   struct katcp_actor *a;
   struct katcp_tag *t;
   int rtn;
+#if 0
   struct katcp_stack *tags1, *tags2, *cur;
+#endif
+  struct katcp_stack *tags1;
   struct katcp_type *tagtype, *actortype;
 
   if (stack == NULL)
@@ -677,11 +721,17 @@ int tag_actor_sm_katcp(struct katcp_dispatch *d, struct katcp_stack *stack, stru
   if (actortype == NULL)
     return -1;
   
-  tags1 = create_stack_katcp();
+#if 0
   tags2 = create_stack_katcp();
   if (tags1 == NULL || tags2 == NULL){
     destroy_stack_katcp(tags1);
     destroy_stack_katcp(tags2);
+    return -1;
+  }
+#endif
+  tags1 = create_stack_katcp();
+  if (tags1 == NULL){
+    destroy_stack_katcp(tags1);
     return -1;
   }
   
@@ -690,6 +740,7 @@ int tag_actor_sm_katcp(struct katcp_dispatch *d, struct katcp_stack *stack, stru
   }
   
   rtn = 0;
+#if 0
   cur = NULL;
 
   while ((a = pop_data_type_stack_katcp(stack, actortype)) != NULL){
@@ -702,8 +753,16 @@ int tag_actor_sm_katcp(struct katcp_dispatch *d, struct katcp_stack *stack, stru
     tags2 = cur;
   }
     
-  destroy_stack_katcp(tags1);
   destroy_stack_katcp(tags2);
+#endif
+  a = pop_data_type_stack_katcp(stack, actortype);
+  while ((t = pop_data_type_stack_katcp(tags1, tagtype)) != NULL){
+    rtn += tag_actor_katcp(d, a, t);      
+  }
+
+  destroy_stack_katcp(tags1);
+
+  push_stack_katcp(stack, a, actortype);
  
   return rtn;
 }

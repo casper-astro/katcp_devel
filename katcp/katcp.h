@@ -517,10 +517,12 @@ int push_named_stack_katcp(struct katcp_dispatch *d, struct katcp_stack *s, void
 struct katcp_tobject *pop_stack_katcp(struct katcp_stack *s);
 struct katcp_tobject *peek_stack_katcp(struct katcp_stack *s);
 struct katcp_tobject *index_stack_katcp(struct katcp_stack *s, int indx);
+void *index_data_stack_katcp(struct katcp_stack *s, int indx);
 void print_tobject_katcp(struct katcp_dispatch *d, struct katcp_tobject *o);
 void print_stack_katcp(struct katcp_dispatch *d, struct katcp_stack *s);
 void destroy_stack_katcp(struct katcp_stack *s);
 void destroy_tobject_katcp(void *data);
+int sizeof_stack_katcp(struct katcp_stack *s);
 int is_empty_stack_katcp(struct katcp_stack *s);
 void *pop_data_stack_katcp(struct katcp_stack *s);
 void *pop_data_type_stack_katcp(struct katcp_stack *s, struct katcp_type *t);
