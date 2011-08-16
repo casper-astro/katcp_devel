@@ -179,7 +179,7 @@ struct katcl_parse *get_index_queue_katcl(struct katcl_queue *q, unsigned int in
 {
   unsigned int wrap;
 
-  if(q->q_count == 0 || q->q_size == 0 || q->q_count >= q->q_size){
+  if((q->q_count == 0) || (q->q_size == 0) || (q->q_count >= q->q_size)){
     return NULL;
   }
 

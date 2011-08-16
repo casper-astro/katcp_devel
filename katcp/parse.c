@@ -563,11 +563,10 @@ int add_args_parse_katcl(struct katcl_parse *p, int flags, char *fmt, ...)
   return result;
 }
 
-struct katcl_parse *turnaround_extra_parse_katcl(struct katcl_parse *p, int code, char *fmt, ...)
+struct katcl_parse *vturnaround_extra_parse_katcl(struct katcl_parse *p, int code, char *fmt, va_list args)
 {
   char *string;
   struct katcl_parse *px;
-  va_list args;
 
 #ifdef DEBUG
   if(p->p_state != KATCL_PARSE_DONE){
@@ -607,15 +606,24 @@ struct katcl_parse *turnaround_extra_parse_katcl(struct katcl_parse *p, int code
     add_string_parse_katcl(px, KATCP_FLAG_LAST | KATCP_FLAG_STRING, fmt);
 #endif
 
-    va_start(args, fmt);
     add_vargs_parse_katcl(px, KATCP_FLAG_LAST | KATCP_FLAG_STRING, fmt, args);
-    va_end(args);
 
   } else {
     add_plain_parse_katcl(px, KATCP_FLAG_LAST | KATCP_FLAG_STRING, string ? string : KATCP_FAIL);
   }
 
   return px;
+}
+
+struct katcl_parse *turnaround_extra_parse_katcl(struct katcl_parse *p, int code, char *fmt, ...)
+{
+  va_list args;
+
+  va_start(args, fmt);
+  p = vturnaround_extra_parse_katcl(p, code, fmt, args);
+  va_end(args);
+
+  return p;
 }
 
 struct katcl_parse *turnaround_parse_katcl(struct katcl_parse *p, int code)
