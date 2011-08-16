@@ -52,13 +52,43 @@ struct katcp_actor *create_actor_type_katcp(struct katcp_dispatch *d, char *str,
   return a;
 }
 
-int assign_sm_notice_actor_type_katcp(struct katcp_actor *a, struct katcp_notice *n)
+int hold_sm_notice_actor_katcp(struct katcp_actor *a, struct katcp_notice *n)
 {
   if (a == NULL || n == NULL)
     return -1;
+ 
+  if (a->a_sm_notice == NULL || a->a_sm_notice == n){
+#ifdef DEBUG
+    fprintf(stderr, "actor: holding notice %s\n", n->n_name);
+#endif
+    a->a_sm_notice = n;
+    return 0;
+  } 
   
-  a->a_sm_notice = n;
+#ifdef DEBUG
+  fprintf(stderr, "actor: trying to hold sm notice to actor already holding\n");
+#endif
   
+  return -1;
+}
+
+int release_sm_notice_actor_katcp(struct katcp_dispatch *d, struct katcp_actor *a, struct katcl_parse *p)
+{
+  if (a == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "actor: cannot release notice for NULL actor\n");
+#endif
+    return -1;
+  }
+
+  wake_notice_katcp(d, a->a_sm_notice, p);
+
+#ifdef DEBUG
+  fprintf(stderr, "actor: releases notice %s\n", (a->a_sm_notice) ? a->a_sm_notice->n_name : "<anon>");
+#endif
+
+  a->a_sm_notice = NULL;
+
   return 0;
 }
 
@@ -109,12 +139,7 @@ def DEBUG
 
 }
 
-void do_nothing(void *data)
-{
-#ifdef DEBUG
-  fprintf(stderr, "actor: do_nothing (%p)\n", data);
-#endif
-}
+void do_nothing(void *data){}
 
 /*Unsafe*/
 void destroy_actor_type_katcp(void *data)
@@ -148,6 +173,7 @@ int compare_actor_type_katcp(const void *a, const void *b)
   return 0;
 }
 
+#if 1
 void *parse_actor_type_katcp(struct katcp_dispatch *d, char **str)
 {
   struct katcp_actor *a;
@@ -156,6 +182,7 @@ void *parse_actor_type_katcp(struct katcp_dispatch *d, char **str)
   
   return a;
 }
+#endif
 
 char *getkey_actor_katcp(void *data)
 {
@@ -294,6 +321,7 @@ int compare_tag_katcp(const void *m1, const void *m2)
   return strcmp(a->t_name, b->t_name);
 }
 
+
 int register_tag_katcp(struct katcp_dispatch *d, char *name, int level)
 {
   struct katcp_tag *t;
@@ -338,7 +366,7 @@ void collect_tobjects_from_tag(const void *nodep, const VISIT which, const int d
   }
 }
 
-void destroy_tobjs_katcp()
+void destroy_tobjs_katcp(void)
 {
   free(__tobjs);
   __tobjs   = NULL;
@@ -397,6 +425,46 @@ int deregister_tag_katcp(struct katcp_dispatch *d, char *name)
   destroy_tobjs_katcp();
 
   return del_data_type_katcp(d, KATCP_TYPE_TAG, name);
+}
+
+void dump_tag_katcp(struct katcp_dispatch *d, void *data)
+{
+  struct katcp_tag *t;
+  struct katcp_tobject *to;
+  int i;
+
+  t = data;
+  
+  if (t == NULL)
+    return;
+
+  print_tag_katcp(d, data);
+  
+  if (populate_tobjs_katcp(t) < 0)
+    return;
+  
+  for (i=0; i<__tcount; i++){
+    to = __tobjs[i];
+    if (to != NULL || to->o_type != NULL || to->o_type->t_print != NULL) {
+      (*(to->o_type->t_print))(d, to->o_data);
+    }
+  }
+
+  destroy_tobjs_katcp();
+}
+
+int dump_tagsets_katcp(struct katcp_dispatch *d)
+{
+  struct katcp_type *t;
+
+  t = find_name_type_katcp(d, KATCP_TYPE_TAG);
+  if (t == NULL)
+    return -1;
+
+  if (t->t_tree != NULL)
+    print_inorder_avltree(d, t->t_tree->t_root, &dump_tag_katcp, 0);
+
+  return 0;
 }
 
 struct katcp_tag **__tags;
@@ -636,7 +704,10 @@ int tag_actor_sm_katcp(struct katcp_dispatch *d, struct katcp_stack *stack, stru
   struct katcp_actor *a;
   struct katcp_tag *t;
   int rtn;
+#if 0
   struct katcp_stack *tags1, *tags2, *cur;
+#endif
+  struct katcp_stack *tags1;
   struct katcp_type *tagtype, *actortype;
 
   if (stack == NULL)
@@ -650,11 +721,17 @@ int tag_actor_sm_katcp(struct katcp_dispatch *d, struct katcp_stack *stack, stru
   if (actortype == NULL)
     return -1;
   
-  tags1 = create_stack_katcp();
+#if 0
   tags2 = create_stack_katcp();
   if (tags1 == NULL || tags2 == NULL){
     destroy_stack_katcp(tags1);
     destroy_stack_katcp(tags2);
+    return -1;
+  }
+#endif
+  tags1 = create_stack_katcp();
+  if (tags1 == NULL){
+    destroy_stack_katcp(tags1);
     return -1;
   }
   
@@ -663,6 +740,7 @@ int tag_actor_sm_katcp(struct katcp_dispatch *d, struct katcp_stack *stack, stru
   }
   
   rtn = 0;
+#if 0
   cur = NULL;
 
   while ((a = pop_data_type_stack_katcp(stack, actortype)) != NULL){
@@ -675,8 +753,16 @@ int tag_actor_sm_katcp(struct katcp_dispatch *d, struct katcp_stack *stack, stru
     tags2 = cur;
   }
     
-  destroy_stack_katcp(tags1);
   destroy_stack_katcp(tags2);
+#endif
+  a = pop_data_type_stack_katcp(stack, actortype);
+  while ((t = pop_data_type_stack_katcp(tags1, tagtype)) != NULL){
+    rtn += tag_actor_katcp(d, a, t);      
+  }
+
+  destroy_stack_katcp(tags1);
+
+  push_stack_katcp(stack, a, actortype);
  
   return rtn;
 }
@@ -717,6 +803,144 @@ struct kcs_sm_op *get_tag_set_sm_setup_katcp(struct katcp_dispatch *d, struct kc
   return create_sm_op_kcs(&get_tag_set_sm_katcp, NULL);
 }
 
+int relay_reply_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
+{
+  struct katcp_actor *a;
+  struct katcl_parse *p;
+  char *ptr;
+
+  a = data;
+  if (a == NULL)
+    return -1;
+
+  p = get_parse_notice_katcp(d, n);
+
+  if(p){
+    ptr = get_string_parse_katcl(p, 1);
+#ifdef DEBUG
+    fprintf(stderr, "resume: parameter %d is %s\n", 1, ptr);
+#endif
+  } else {
+    ptr = NULL;
+  }
+
+/*
+  prepend_reply_katcp(d);
+  append_string_katcp(d, KATCP_FLAG_LAST, ptr ? ptr : KATCP_FAIL);
+*/
+  
+  release_sm_notice_actor_katcp(d, a, p);
+
+  return 0;
+}
+
+int relay_katcp_statemachine_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
+{
+  struct katcp_stack *stack, *argstack;
+  struct katcp_actor *a;
+  struct katcp_type *strtype;
+  struct katcl_parse *p;
+  char *str, *buffer;
+  int count, i, len, flags;
+  
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "edge relaykatcp START");
+
+  stack = data;
+  if (stack == NULL)
+    return -1;
+
+  strtype = find_name_type_katcp(d, KATCP_TYPE_STRING);
+  if (strtype == NULL)
+    return -1;
+  
+  argstack = create_stack_katcp();
+  if (argstack == NULL)
+    return -1;
+  
+  count = 0;
+  while ((str = pop_data_type_stack_katcp(stack, strtype)) != NULL){
+    if (push_stack_katcp(argstack, str, strtype) < 0){
+      destroy_stack_katcp(argstack);
+      return -1;
+    }
+    count++;
+  }
+
+#ifdef DEBUG
+  fprintf(stderr, "actor: relaykatcp got %d args\n", count);
+#endif
+  print_stack_katcp(d, argstack);
+
+  p = create_parse_katcl();
+  if (p == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "relay katcp unable to create parse message");
+    return -1;
+  }
+  
+  flags = KATCP_FLAG_FIRST;
+  buffer = NULL;
+  i = 0;
+
+  while(i < count){
+    str = pop_data_type_stack_katcp(argstack, strtype);
+    if (str == NULL){
+      destroy_parse_katcl(p);
+      destroy_stack_katcp(argstack);
+      return -1;
+    }
+    len = strlen(str);
+    if(len < 0){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "bad length %d for argument %d", len, i);
+      destroy_parse_katcl(p);
+      destroy_stack_katcp(argstack);
+      return -1;
+    }
+    buffer = str;
+    i++;
+    if(i == count){
+      flags |= KATCP_FLAG_LAST;
+    }
+    if(add_buffer_parse_katcl(p, flags | KATCP_FLAG_BUFFER, buffer, len) < 0){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to assemble message");
+      destroy_parse_katcl(p);
+      destroy_stack_katcp(argstack);
+      return -1;
+    }
+
+    flags = 0;
+  }
+
+  a = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_ACTOR);
+  if (a == NULL){
+    destroy_parse_katcl(p);
+    destroy_stack_katcp(argstack);
+    return -1;
+  }
+  
+  
+  hold_sm_notice_actor_katcp(a, n);
+
+  if(submit_to_job_katcp(d, a->a_job, p, NULL, &relay_reply_kcs, a) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to submit message to job");
+    destroy_parse_katcl(p);
+    destroy_stack_katcp(argstack);
+    return -1;
+  }
+
+  destroy_stack_katcp(argstack);
+  
+  push_named_stack_katcp(d, stack, a, KATCP_TYPE_ACTOR);
+  
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "edge relaykatcp command down stream and pushed actor back onto the stack");
+  
+  return EDGE_WAIT; 
+}
+
+struct kcs_sm_edge *relay_katcp_setup_statemachine_kcs(struct katcp_dispatch *d, struct kcs_sm_state *s)
+{
+  return create_sm_edge_kcs(s, &relay_katcp_statemachine_kcs); 
+}
+
 int init_actor_tag_katcp(struct katcp_dispatch *d)
 {
   int rtn;
@@ -728,6 +952,8 @@ int init_actor_tag_katcp(struct katcp_dispatch *d)
   rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_TAG_ACTOR, &tag_actor_sm_setup_katcp, NULL, NULL, NULL, NULL, NULL, NULL);
 
   rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_GET_TAG_SET, &get_tag_set_sm_setup_katcp, NULL, NULL, NULL, NULL, NULL, NULL);
+  
+  rtn += store_data_type_katcp(d, KATCP_TYPE_EDGE, KATCP_DEP_BASE, KATCP_EDGE_RELAY_KATCP, &relay_katcp_setup_statemachine_kcs, NULL, NULL, NULL, NULL, NULL, NULL);
 
   return rtn;
 }

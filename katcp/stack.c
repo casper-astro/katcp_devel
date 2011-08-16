@@ -90,6 +90,11 @@ void inc_ref_tobject_katcp(struct katcp_tobject *o)
   o->o_ref++;
 }
 #endif
+int sizeof_stack_katcp(struct katcp_stack *s)
+{
+  return (s != NULL) ? s->s_count : 0;
+}
+
 int is_empty_stack_katcp(struct katcp_stack *s)
 {
   if (s == NULL)
@@ -295,6 +300,17 @@ struct katcp_tobject *index_stack_katcp(struct katcp_stack *s, int indx)
     return NULL;
   
   return s->s_objs[indx];
+}
+
+void *index_data_stack_katcp(struct katcp_stack *s, int indx)
+{
+  struct katcp_tobject *o;
+
+  o = index_stack_katcp(s, indx);
+  if (o == NULL)
+    return NULL;
+
+  return o->o_data;
 }
 
 void print_tobject_katcp(struct katcp_dispatch *d, struct katcp_tobject *o)

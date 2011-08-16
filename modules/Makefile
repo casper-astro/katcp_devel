@@ -9,7 +9,7 @@ CFLAGS += -DVERSION=\"$(GITVER)\"
 LDFLAGS += -shared 
 vpath %.c ../kcs
 
-DEPENDS = statemachine.c actor.c
+DEPENDS = statemachine.c actor.c statemachine_base.c
 SRC = mod_media_man.c mod_conf_parser.c mod_simple_ops.c mod_roach_comms.c
 
 DOBJ = $(patsubst %.c,%.o,$(DEPENDS))
