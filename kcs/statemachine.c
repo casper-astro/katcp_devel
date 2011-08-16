@@ -955,6 +955,24 @@ int statemachine_print_ds_kcs(struct katcp_dispatch *d)
   return KATCP_RESULT_OK;
 }
 
+int statemachine_dump_type_kcs(struct katcp_dispatch *d)
+{
+  struct katcp_type *t;
+  char *type;
+
+  type = arg_string_katcp(d, 2);
+  if (type == NULL)
+    return KATCP_RESULT_FAIL;
+
+  t = find_name_type_katcp(d, type);
+  if (t == NULL)
+    return KATCP_RESULT_FAIL;
+
+  print_type_katcp(d, t, 0);
+  
+  return KATCP_RESULT_OK;
+}
+
 int statemachine_print_oplist_kcs(struct katcp_dispatch *d)
 {
   struct katcp_type *t;
@@ -988,6 +1006,8 @@ int statemachine_greeting_kcs(struct katcp_dispatch *d)
   append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST, "stopall");
   prepend_inform_katcp(d);
   append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST, "tagsets");
+  prepend_inform_katcp(d);
+  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST, "dt [type] dump items in type tree");
   return KATCP_RESULT_OK;
 }
 
@@ -1010,24 +1030,14 @@ int statemachine_cmd(struct katcp_dispatch *d, int argc)
       
       break;
     case 3:
-#if 0
-      if (strcmp(arg_string_katcp(d, 1), "declare") == 0)
-        return statemachine_declare_kcs(d);
-#endif
       if (strcmp(arg_string_katcp(d, 1), "loadmod") == 0)
         return statemachine_loadmod_kcs(d);
-
-#if 0
-      break;
-    case 3:
-#endif
       if (strcmp(arg_string_katcp(d, 1), "node") == 0)
         return statemachine_node_kcs(d);
       if (strcmp(arg_string_katcp(d, 1), "run") == 0)
         return statemachine_run_kcs(d);
-      
-      break;
-    case 6:
+      if (strcmp(arg_string_katcp(d, 1), "dt") == 0)
+        return statemachine_dump_type_kcs(d);
       
       break;
   }
