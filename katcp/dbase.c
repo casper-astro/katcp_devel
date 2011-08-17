@@ -93,7 +93,7 @@ void print_dbase_type_katcp(struct katcp_dispatch *d, void *data)
     return;
 
 #ifdef DEBUG
-  fprintf(stderr, "dbase: <%s> with stamp: %lu%03d\n", db->d_key, db->d_stamped.tv_sec, db->d_stamped.tv_usec / 1000);
+  fprintf(stderr, "dbase: <%s> with stamp: %lu%03ld\n", db->d_key, db->d_stamped.tv_sec, (long) db->d_stamped.tv_usec / 1000);
 #endif
   
   append_string_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#db:");
@@ -315,7 +315,7 @@ struct katcl_parse *get_dbase_katcp(struct katcp_dispatch *d, struct katcl_parse
   prx = create_parse_katcl();
   
   err =  add_string_parse_katcl(prx, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, "!get");
-  err += add_string_parse_katcl(prx, KATCP_FLAG_STRING, "ok");
+  err += add_string_parse_katcl(prx, KATCP_FLAG_STRING, KATCP_OK);
   
   if (err < 0){
     destroy_parse_katcl(prx);
