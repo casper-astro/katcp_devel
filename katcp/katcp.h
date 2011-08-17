@@ -480,6 +480,12 @@ int version_list_cmd_katcp(struct katcp_dispatch *d, int argc);
 #endif
 
 /*katcp_type functions*/
+
+#define KATCP_DEP_BASE          0
+
+#define KATCP_TYPE_DBASE        "db"
+#define KATCP_TYPE_STRING       "string"
+
 struct katcp_type;
 
 int store_data_at_type_katcp(struct katcp_dispatch *d, struct katcp_type *t, int dep, char *d_name, void *d_data, void (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(const void *, const void *), void *(*fn_parse)(struct katcp_dispatch *d, char **), char *(*fn_getkey)(void *));
@@ -531,15 +537,13 @@ void *pop_data_stack_katcp(struct katcp_stack *s);
 void *pop_data_type_stack_katcp(struct katcp_stack *s, struct katcp_type *t);
 void *pop_data_expecting_stack_katcp(struct katcp_dispatch *d, struct katcp_stack *s, char *type);
 
-
-#define KATCP_DEP_BASE          0
-
-#define KATCP_TYPE_DBASE        "db"
-#define KATCP_TYPE_STRING       "string"
+/*katcp_dbase*/
 
 int get_dbase_cmd_katcp(struct katcp_dispatch *d, int argc);
 int set_dbase_cmd_katcp(struct katcp_dispatch *d, int argc);
 
-/*katcp_dbase*/
+int store_kv_dbase_katcp(struct katcp_dispatch *d, char *key, struct katcp_stack *values);
 
+int set_dbase_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
+struct katcl_parse *get_dbase_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
 
