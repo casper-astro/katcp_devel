@@ -102,6 +102,18 @@ int is_empty_stack_katcp(struct katcp_stack *s)
   return (s->s_count == 0) ? 1 : 0;
 }
 
+int empty_stack_katcp(struct katcp_stack *s)
+{
+  if (s == NULL)
+    return -1;
+
+  while(!is_empty_stack_katcp(s)){
+    pop_data_stack_katcp(s);
+  }
+  
+  return 0;
+}
+
 void destroy_tobject_katcp(void *data)
 {
   struct katcp_tobject *o;

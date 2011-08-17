@@ -515,81 +515,6 @@ int create_search_statemachine_mod(struct katcp_dispatch *d)
   return rtn;
 }
 
-int get_config_setting_mod(struct katcp_dispatch *d, int argc)
-{
-  struct config_setting *cs;
-  struct katcp_stack *stack;
-  char *str, *rtn;
-  unsigned long indx;
-
-  str = arg_string_katcp(d, 1);
-  if (str == NULL)
-    return KATCP_RESULT_FAIL;
-
-#ifdef DEBUG
-  fprintf(stderr, "mod: get about to seach for <%s>\n", str);
-#endif
-  
-  cs = search_named_type_katcp(d, KATCP_TYPE_CONFIG_SETTING, str, NULL);
-  if (cs == NULL)
-    return KATCP_RESULT_FAIL;
-
-#if 0
-  print_config_setting_type_mod(d, cs);
-#endif
-  
-  indx = arg_unsigned_long_katcp(d, 2);
-  if (indx > 0){
-    stack = create_stack_katcp();
-    push_named_stack_katcp(d, stack, cs, KATCP_TYPE_CONFIG_SETTING);
-    parse_csv_mod(d, stack, NULL);
-#if 0
-    print_stack_katcp(d, stack);
-#endif
-    if ((sizeof_stack_katcp(stack) - 1) >= indx)
-      rtn = index_data_stack_katcp(stack, indx - 1);
-    else {
-      destroy_stack_katcp(stack);
-      return KATCP_RESULT_FAIL;
-    }
-    destroy_stack_katcp(stack);
-  } else {
-    rtn = cs->s_value;
-  }
-
-  prepend_reply_katcp(d);
-  append_string_katcp(d, KATCP_FLAG_STRING, KATCP_OK);
-  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, rtn);
-
-  return KATCP_RESULT_OWN;
-}
-
-int set_config_setting_mod(struct katcp_dispatch *d, int argc)
-{
-  struct config_setting *cs;
-  char *str, *value;
-
-  str = arg_string_katcp(d, 1);
-  value = arg_string_katcp(d, 2);
-
-  if (str == NULL || value == NULL)
-    return KATCP_RESULT_FAIL;
-
-  cs = search_named_type_katcp(d, KATCP_TYPE_CONFIG_SETTING, str, NULL);
-  if (cs != NULL) {
-
-    if (replace_value_config_setting_mod(cs, value) < 0)
-      return KATCP_RESULT_FAIL;
-
-  } else {
-    
-    if (store_config_setting_mod(d, str, value) < 0)
-      return KATCP_RESULT_FAIL;
-    
-  }
- 
-  return KATCP_RESULT_OK;
-}
 
 
 int init_mod(struct katcp_dispatch *d)
@@ -612,10 +537,6 @@ int init_mod(struct katcp_dispatch *d)
   rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_PARSE_CSV, &parse_csv_setup_mod, NULL, NULL, NULL, NULL, NULL, NULL);
   
   rtn += store_data_type_katcp(d, KATCP_TYPE_EDGE, KATCP_DEP_BASE, KATCP_EDGE_CONF_SEARCH, &config_search_setup_mod, NULL, NULL, NULL, NULL, NULL, NULL);
-  
-
-  rtn += register_katcp(d, "?get", "get a config setting", &get_config_setting_mod);
-  rtn += register_katcp(d, "?set", "set a config setting", &set_config_setting_mod);
 
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "successfully loaded mod_config_parser");
