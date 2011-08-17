@@ -204,7 +204,7 @@ int store_kv_dbase_katcp(struct katcp_dispatch *d, char *key, struct katcp_stack
   if (db == NULL)
     return -1;
 
-  return store_data_type_katcp(d, KATCP_TYPE_DBASE, KATCP_DEP_BASE, params[0], db, &print_dbase_type_katcp, &destroy_dbase_type_katcp, NULL, NULL, &parse_dbase_type_katcp, &getkey_dbase_type_katcp);
+  return store_data_type_katcp(d, KATCP_TYPE_DBASE, KATCP_DEP_BASE, key, db, &print_dbase_type_katcp, &destroy_dbase_type_katcp, NULL, NULL, &parse_dbase_type_katcp, &getkey_dbase_type_katcp);
 }
 
 int replace_dbase_values_katcp(struct katcp_dispatch *d, struct katcp_dbase *db, char **values)
