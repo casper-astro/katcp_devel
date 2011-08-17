@@ -96,62 +96,6 @@ char *getkey_integer_type_kcs(void *data)
 }
 
 
-void print_string_type_kcs(struct katcp_dispatch *d, void *data)
-{
-  char *o;
-  o = data;
-  if (o == NULL)
-    return;
-#ifdef DEBUG
-  fprintf(stderr, "statemachine: print_string_type %s\n",o);
-#endif
-  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, "#string type:");
-  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, o);
-}
-void destroy_string_type_kcs(void *data)
-{
-  char *o;
-  o = data;
-  if (o != NULL){
-    free(o);
-  }
-}
-void *parse_string_type_kcs(struct katcp_dispatch *d, char **str)
-{
-  char *o;
-  int i, len, start, size;
-
-  len = 0;
-  o   = NULL;
-
-  for (i=0; str[i] != NULL; i++) {
-    
-    start = len;
-    size  = strlen(str[i]); 
-    len   += size;
-
-#ifdef DEBUG
-    fprintf(stderr,"statemachine: parse_string_type_kcs: start: %d size: %d len: %d str: %s\n", start, size, len, str[i]);
-#endif
-
-    o = realloc(o, sizeof(char *) * (len + 1));
-    if (o == NULL)
-      return NULL;
-    
-    strncpy(o + start, str[i], size); 
-    o[len] = ' ';
-    len++;
-    
-  }
-  
-  o[len-1] = '\0';
-
-#ifdef DEBUG
-  fprintf(stderr,"statemachine: parse_string_type_kcs: string: <%s> len:%d strlen:%d\n", o, len, (int)strlen(o));
-#endif
-
-  return o;
-}
 
 int pushstack_statemachine_kcs(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_tobject *o)
 {
@@ -295,7 +239,7 @@ struct kcs_sm_op *spawn_setup_statemachine_kcs(struct katcp_dispatch *d, struct 
   str[0] = node;
   str[1] = NULL;
 
-  o = create_named_tobject_katcp(d, parse_string_type_kcs(d, str), KATCP_TYPE_STRING, 1);
+  o = create_named_tobject_katcp(d, parse_string_type_katcp(d, str), KATCP_TYPE_STRING, 1);
   if (o == NULL)
     return NULL;
   
@@ -504,7 +448,6 @@ int init_statemachine_base_kcs(struct katcp_dispatch *d)
   
   /*register basic types*/
   rtn  = register_name_type_katcp(d, KATCP_TYPE_INTEGER, KATCP_DEP_BASE, &print_integer_type_kcs, &destroy_integer_type_kcs, NULL, &compare_integer_type_kcs, &parse_integer_type_kcs, &getkey_integer_type_kcs);
-  rtn += register_name_type_katcp(d, KATCP_TYPE_STRING, KATCP_DEP_BASE, &print_string_type_kcs, &destroy_string_type_kcs, NULL, NULL, &parse_string_type_kcs, NULL);
 
 #if 0
   rtn += register_name_type_katcp(d, KATCP_TYPE_FLOAT, NULL, NULL, NULL, NULL, NULL);

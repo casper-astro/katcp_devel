@@ -149,7 +149,9 @@ int add_sensor_to_roach_kcs(struct katcp_dispatch *d, struct kcs_obj *ko);
 
 #define STATEMACHINE_SCHEDULER_NOTICE   "<kcs_scheduler>"
 
+#if 0
 #define KATCP_DEP_BASE                  0
+#endif
 #define KATCP_DEP_ELAV                  1
 
 #define KATCP_TYPE_MODULES              "modules"
@@ -158,7 +160,9 @@ int add_sensor_to_roach_kcs(struct katcp_dispatch *d, struct kcs_obj *ko);
 #define KATCP_TYPE_EDGE                 "edges"
 #define KATCP_TYPE_OPERATION            "operations"
 #define KATCP_TYPE_INTEGER              "int"
+#if 0
 #define KATCP_TYPE_STRING               "string"
+#endif
 #define KATCP_TYPE_FLOAT                "float"
 #define KATCP_TYPE_DOUBLE               "double"
 #define KATCP_TYPE_CHAR                 "char"

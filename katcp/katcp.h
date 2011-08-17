@@ -524,6 +524,20 @@ void destroy_stack_katcp(struct katcp_stack *s);
 void destroy_tobject_katcp(void *data);
 int sizeof_stack_katcp(struct katcp_stack *s);
 int is_empty_stack_katcp(struct katcp_stack *s);
+int empty_stack_katcp(struct katcp_stack *s);
 void *pop_data_stack_katcp(struct katcp_stack *s);
 void *pop_data_type_stack_katcp(struct katcp_stack *s, struct katcp_type *t);
 void *pop_data_expecting_stack_katcp(struct katcp_dispatch *d, struct katcp_stack *s, char *type);
+
+
+#define KATCP_DEP_BASE          0
+
+#define KATCP_TYPE_DBASE        "db"
+#define KATCP_TYPE_STRING       "string"
+
+int get_dbase_cmd_katcp(struct katcp_dispatch *d, int argc);
+int set_dbase_cmd_katcp(struct katcp_dispatch *d, int argc);
+
+/*katcp_dbase*/
+
+

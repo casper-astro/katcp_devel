@@ -122,6 +122,11 @@ struct katcp_dispatch *setup_katcp(int fd)
     return NULL;
   }
 
+  if(startup_services_katcp(d) < 0){
+    shutdown_katcp(d);
+    return NULL;
+  }
+
   register_flag_mode_katcp(d, "?setenv",  "sets/clears an enviroment variable (?setenv [label [value]]", &setenv_cmd_katcp, KATCP_CMD_HIDDEN, 0);
   register_flag_mode_katcp(d, "?chdir",   "change directory (?chdir directory)", &chdir_cmd_katcp, KATCP_CMD_HIDDEN, 0);
   register_flag_mode_katcp(d, "?forget",  "deregister a command (?forget command)", &forget_cmd_katcp, KATCP_CMD_HIDDEN, 0);
