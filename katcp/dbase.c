@@ -123,7 +123,7 @@ void stamp_dbase_type_katcp(struct katcp_dbase *db)
   gettimeofday(&(db->d_stamped), NULL);
 }
 
-struct katcp_dbase *create_dbase_type_katcp(char *key)
+struct katcp_dbase *create_dbase_type_katcp(char *key, struct katcp_stack *values)
 {
   struct katcp_dbase *db;
   
@@ -138,10 +138,14 @@ struct katcp_dbase *create_dbase_type_katcp(char *key)
     return NULL;
   }
   
-  db->d_values = create_stack_katcp();
-  if (db->d_values == NULL){
-    destroy_dbase_type_katcp(db);
-    return NULL;
+  if (values == NULL){
+    db->d_values = create_stack_katcp();
+    if (db->d_values == NULL){
+      destroy_dbase_type_katcp(db);
+      return NULL;
+    }
+  } else {
+    db->d_values = values;
   }
   
   stamp_dbase_type_katcp(db);
@@ -159,7 +163,7 @@ void *parse_dbase_type_katcp(struct katcp_dispatch *d, char **str)
   if (str == NULL || str[0] == NULL || str[1] == NULL)
     return NULL;
   
-  db = create_dbase_type_katcp(str[0]);
+  db = create_dbase_type_katcp(str[0], NULL);
   if (db == NULL)
     return NULL;
 
@@ -175,7 +179,6 @@ void *parse_dbase_type_katcp(struct katcp_dispatch *d, char **str)
   return db;
 }
 
-
 int store_dbase_katcp(struct katcp_dispatch *d, char **params)
 {
   struct katcp_dbase *db;
@@ -187,6 +190,20 @@ int store_dbase_katcp(struct katcp_dispatch *d, char **params)
   if (db == NULL)
     return -1;
   
+  return store_data_type_katcp(d, KATCP_TYPE_DBASE, KATCP_DEP_BASE, params[0], db, &print_dbase_type_katcp, &destroy_dbase_type_katcp, NULL, NULL, &parse_dbase_type_katcp, &getkey_dbase_type_katcp);
+}
+
+int store_kv_dbase_katcp(struct katcp_dispatch *d, char *key, struct katcp_stack *values)
+{
+  struct katcp_dbase *db;
+  
+  if (key == NULL || values == NULL)
+    return -1;
+
+  db = create_dbase_type_katcp(key, values);
+  if (db == NULL)
+    return -1;
+
   return store_data_type_katcp(d, KATCP_TYPE_DBASE, KATCP_DEP_BASE, params[0], db, &print_dbase_type_katcp, &destroy_dbase_type_katcp, NULL, NULL, &parse_dbase_type_katcp, &getkey_dbase_type_katcp);
 }
 
