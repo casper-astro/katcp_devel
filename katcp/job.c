@@ -389,7 +389,10 @@ int acknowledge_request_job_katcp(struct katcp_dispatch *d, struct katcp_notice 
 static int set_request_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 {
   struct katcl_parse *p;
-  char *cmd, *label, *value;
+  char *cmd;
+#if 0
+  char *label, *value;
+#endif
 
   p = get_parse_notice_katcp(d, n);
   if(p == NULL){
@@ -411,6 +414,7 @@ static int set_request_job_katcp(struct katcp_dispatch *d, struct katcp_notice *
     return 0;
   }
 
+#if 0
   label = get_string_parse_katcl(p, 1);
   value = get_string_parse_katcl(p, 2);
   if((label == NULL) || (value == NULL)){
@@ -419,8 +423,11 @@ static int set_request_job_katcp(struct katcp_dispatch *d, struct katcp_notice *
   }
 
   log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "fielding request %s with label %s and value %s", cmd, label, value);
+#endif
 
-  /* TODO: insert into tree */
+  if(set_dbase_katcp(d, p) < 0){
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "unable to honour set request");
+  }
 
   if(acknowledge_request_job_katcp(d, n, KATCP_RESULT_OK, NULL, NULL) < 0){
     return 0;

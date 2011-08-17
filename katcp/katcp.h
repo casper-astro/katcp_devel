@@ -477,8 +477,6 @@ int print_versions_katcp(struct katcp_dispatch *d, char *prefix);
 int version_cmd_katcp(struct katcp_dispatch *d, int argc);
 int version_list_cmd_katcp(struct katcp_dispatch *d, int argc);
 
-#endif
-
 /*katcp_type functions*/
 
 #define KATCP_DEP_BASE          0
@@ -544,6 +542,8 @@ int set_dbase_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 int store_kv_dbase_katcp(struct katcp_dispatch *d, char *key, struct katcp_stack *values);
 
-int set_dbase_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
-struct katcl_parse *get_dbase_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
+int set_dbase_katcp(struct katcp_dispatch *d, struct katcl_parse *p);
+struct katcl_parse *get_dbase_katcp(struct katcp_dispatch *d, struct katcl_parse *p);
+
+#endif
 
