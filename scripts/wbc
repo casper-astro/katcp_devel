@@ -2,7 +2,7 @@
 
 source functions.sh
 
-kcs_debug "about to extrac channel count"
+kcs_debug "about to extract channel count"
 
 echo "#sensor-list channels number\_of\_channels\_in\_wideband\_correlator none integer 0 65536"
 

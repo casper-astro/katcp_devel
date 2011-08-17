@@ -29,6 +29,8 @@ int error_katcl(struct katcl_line *l);
 
 int read_katcl(struct katcl_line *l);
 int have_katcl(struct katcl_line *l);
+void clear_katcl(struct katcl_line *l);
+
 
 int arg_request_katcl(struct katcl_line *l);
 int arg_reply_katcl(struct katcl_line *l);

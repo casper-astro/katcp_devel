@@ -855,6 +855,15 @@ struct katcl_parse *remove_parse_notice_katcp(struct katcp_dispatch *d, struct k
 
   sane_notice_katcp(n);
 
+#if 1
+  if(n->n_parse){
+    n->n_changes |= NOTICE_CHANGE_REMOVE;
+    p = n->n_parse;
+    n->n_parse = NULL;
+    return p;
+  }
+#endif
+
   p = remove_head_queue_katcl(n->n_queue);
   if(p){
     n->n_changes |= NOTICE_CHANGE_REMOVE;

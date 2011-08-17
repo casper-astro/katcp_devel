@@ -21,7 +21,9 @@ HDR = katcp.h katcl.h katpriv.h fork-parent.h avltree.h
 
 OBJ = $(patsubst %.c,%.o,$(SRC))
 
-all: $(LIB) $(SHARED) 
+all: $(LIB)
+
+both: $(LIB) $(SHARED) 
 
 $(LIB): $(OBJ)
 	$(AR) rcs $(LIB) $(OBJ)

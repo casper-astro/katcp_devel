@@ -80,6 +80,8 @@ struct katcp_url;
 #define KATCP_CMD_HIDDEN    0x1
 #define KATCP_CMD_WILDCARD  0x2
 
+#define KATCP_SET_JOB         "?set"
+
 #define KATCP_RETURN_JOB      "#return"
 #define KATCP_WAKE_TIMEOUT    "#timout"
 #define KATCP_VERSION_LIST    "#version-list"

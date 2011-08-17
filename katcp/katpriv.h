@@ -2,6 +2,7 @@
 #define _KATPRIV_H_
 
 #include <signal.h>
+#include <stdarg.h>
 
 #include <sys/time.h>
 #include <sys/types.h>
@@ -319,6 +320,9 @@ struct katcp_job{
   int j_state; /* state machine */
   int j_code; /* exit code */
 
+  int j_recvr;  /* number of requests received */
+  int j_sendr; /* number of requests sent */
+
   struct katcl_line *j_line;
 
   struct katcp_notice *j_halt;
@@ -604,6 +608,8 @@ void destroy_parse_katcl(struct katcl_parse *p);
 struct katcl_parse *reuse_parse_katcl(struct katcl_parse *p);
 struct katcl_parse *copy_parse_katcl(struct katcl_parse *p);
 struct katcl_parse *turnaround_parse_katcl(struct katcl_parse *p, int code);
+struct katcl_parse *turnaround_extra_parse_katcl(struct katcl_parse *p, int code, char *fmt, ...);
+struct katcl_parse *vturnaround_extra_parse_katcl(struct katcl_parse *p, int code, char *fmt, va_list args);
 
 /* parse: adding fields */
 int add_plain_parse_katcl(struct katcl_parse *p, int flags, char *string);
@@ -640,8 +646,6 @@ unsigned int get_buffer_parse_katcl(struct katcl_parse *p, unsigned int index, v
 int parse_katcl(struct katcl_line *l);
 struct katcl_parse *ready_katcl(struct katcl_line *l);
 struct katcl_parse *ready_katcp(struct katcp_dispatch *d);
-
-#include <stdarg.h>
 
 int add_vargs_parse_katcl(struct katcl_parse *p, int flags, char *fmt, va_list args);
 int add_args_parse_katcl(struct katcl_parse *p, int flags, char *fmt, ...);
