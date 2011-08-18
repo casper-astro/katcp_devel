@@ -162,6 +162,8 @@ struct fmon_state
   int f_fs;
   int f_xs;
 
+  unsigned int f_clock_err;
+
   struct fmon_input f_inputs[FMON_MAX_INPUTS];
   int f_dirty;
 
@@ -1630,6 +1632,7 @@ int check_adc_clock_fmon(struct fmon_state *f)
   uint32_t word;
   struct fmon_sensor *sensor_clock;
   int value_clock, status_clock;
+  int delta;
 
   if(f->f_fs > 0){
     sensor_clock   = &(f->f_sensors[FMON_SENSOR_CLOCK]);
@@ -1637,12 +1640,27 @@ int check_adc_clock_fmon(struct fmon_state *f)
     if(read_word_fmon(f, "clk_frequency", &word)){
       status_clock = KATCP_STATUS_UNKNOWN;
       value_clock = 0;
-    } else if(word != FMON_GOOD_DSP_CLOCK){
-      status_clock = KATCP_STATUS_ERROR;
-      value_clock = 0;
+
+      f->f_clock_err = 0;
     } else {
-      status_clock = KATCP_STATUS_NOMINAL;
-      value_clock = 1;
+
+      delta = FMON_GOOD_DSP_CLOCK - word;
+      if(abs(delta) > 1){ /* major clock problem */
+        status_clock = KATCP_STATUS_ERROR;
+        value_clock = 0;
+      } else if(abs(delta + f->f_clock_err) > 1){ /* still major clock problem */
+        status_clock = KATCP_STATUS_ERROR;
+        value_clock = 0;
+      } else {
+        if(delta == 0){ /* clock perfect */
+          status_clock = KATCP_STATUS_NOMINAL;
+        } else {        /* clock kindof ok */
+          status_clock = KATCP_STATUS_WARN;
+        }
+        value_clock = 1;
+      }
+
+      f->f_clock_err = delta;
     }
 
     update_sensor_fmon(f, sensor_clock, value_clock, status_clock);
