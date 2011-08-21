@@ -459,7 +459,7 @@ void *search_type_katcp(struct katcp_dispatch *d, struct katcp_type *t, char *ke
     fprintf(stderr, "ktype: search found key: <%s> managing data at (%p)\n", key, data);
 #endif
     
-    if (t->t_free != NULL && data != NULL)
+    if (t->t_free != NULL && data != NULL && data != o)
       (*t->t_free)(data);
 
     data = o;

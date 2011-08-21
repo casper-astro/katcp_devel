@@ -482,6 +482,8 @@ int version_list_cmd_katcp(struct katcp_dispatch *d, int argc);
 #define KATCP_DEP_BASE          0
 
 #define KATCP_TYPE_DBASE        "db"
+#define KATCP_TYPE_DICT         "dict"
+#define KATCP_TYPE_SCHEMA       "schema"
 #define KATCP_TYPE_STRING       "string"
 
 struct katcp_type;
@@ -536,14 +538,18 @@ void *pop_data_type_stack_katcp(struct katcp_stack *s, struct katcp_type *t);
 void *pop_data_expecting_stack_katcp(struct katcp_dispatch *d, struct katcp_stack *s, char *type);
 
 /*katcp_dbase*/
+struct katcp_dbase;
 
+#if 0
+int dbase_cmd_katcp(struct katcp_dispatch *d, int argc);
+#endif
 int get_dbase_cmd_katcp(struct katcp_dispatch *d, int argc);
 int set_dbase_cmd_katcp(struct katcp_dispatch *d, int argc);
-
-int store_kv_dbase_katcp(struct katcp_dispatch *d, char *key, struct katcp_stack *values);
-
+int store_kv_dbase_katcp(struct katcp_dispatch *d, char *key, char *schema, struct katcp_stack *values);
 int set_dbase_katcp(struct katcp_dispatch *d, struct katcl_parse *p);
 struct katcl_parse *get_dbase_katcp(struct katcp_dispatch *d, struct katcl_parse *p);
+int get_value_count_dbase_katcp(struct katcp_dbase *db);
+struct katcp_stack *get_value_stack_dbase_katcp(struct katcp_dbase *db);
 
 #endif
 
