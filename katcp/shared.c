@@ -786,7 +786,7 @@ int mode_cmd_katcp(struct katcp_dispatch *d, int argc)
   s = d->d_shared;
   name = NULL;
 
-  if(s->s_mode_sensor == 0){
+  if(s->s_mode_sensor == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "logic problem, mode command invoked without modes registered");
     return KATCP_RESULT_FAIL;
   }
@@ -1017,7 +1017,6 @@ int store_sensor_mode_katcp(struct katcp_dispatch *d, unsigned int mode, char *n
   if(name){
 
     skip = 0;
-#if 0
     if(s->s_mode_sensor == NULL){
 
       if(register_katcp(d, "?mode", "mode change command (?mode [new-mode])", &mode_cmd_katcp)){
@@ -1049,7 +1048,6 @@ int store_sensor_mode_katcp(struct katcp_dispatch *d, unsigned int mode, char *n
         result = (-1);
       }
     }
-#endif
   }
 
   return result;
@@ -1200,6 +1198,7 @@ int complete_mode_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *
       broadcast_inform_katcp(d, "#mode", s->s_vector[s->s_mode].e_name);
     }
     if(s->s_mode_sensor){
+      set_status_sensor_katcp(s->s_mode_sensor, s->s_vector[s->s_mode].e_status);
       a = s->s_mode_sensor->s_acquire;
       if(a){
         set_discrete_acquire_katcp(d, a, s->s_mode);
