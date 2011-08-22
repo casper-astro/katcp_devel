@@ -389,7 +389,7 @@ void on_disconnect_katcp(struct katcp_dispatch *d, char *fmt, ...)
 
   if(exiting_katcp(d)){ /* ensures that we only run once */
 
-    append_string_katcp(d, KATCP_FLAG_FIRST, "#disconnect");
+    append_string_katcp(d, KATCP_FLAG_FIRST, KATCP_DISCONNECT_INFORM);
 
 #ifdef DEBUG
     fprintf(stderr, "disconnect: ending d=%p fd=%d\n", d, fileno_katcp(d));
@@ -436,7 +436,7 @@ void on_connect_katcp(struct katcp_dispatch *d)
     return;
   }
 
-  print_versions_katcp(d, KATCP_VERSION_CONNECT);
+  print_versions_katcp(d, 1);
 
   e = &(s->s_vector[s->s_mode]);
 
@@ -1157,10 +1157,6 @@ int help_cmd_katcp(struct katcp_dispatch *d, int argc)
         prepend_inform_katcp(d);
         append_string_katcp(d, KATCP_FLAG_STRING, c->c_name + 1);
         append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, c->c_help);
-
-#if 0
-        send_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#help", KATCP_FLAG_STRING, c->c_name + 1, KATCP_FLAG_LAST | KATCP_FLAG_STRING, c->c_help);
-#endif
 
         count++;
       }

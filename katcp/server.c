@@ -415,8 +415,8 @@ int prepare_core_loop_katcp(struct katcp_dispatch *dl)
     return -1;
   }
 
-  add_kernel_version_katcp(dl);
   add_code_version_katcp(dl);
+  add_kernel_version_katcp(dl);
 
   /* extra commands, not really part of the standard */
   register_flag_mode_katcp(dl, "?system-info",  "report server information (?system-info)", &system_info_cmd_katcp, 0, 0);

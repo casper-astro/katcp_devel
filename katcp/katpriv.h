@@ -38,18 +38,6 @@ struct katcl_queue
   unsigned int q_count;         /* No of entries */
 };
 
-#if 0
-struct katcl_msg{
-  struct katcl_line *m_line;
-
-  char *m_buffer;
-  unsigned int m_size;
-  unsigned int m_want;
-  int m_tag;
-  int m_complete;
-};
-#endif
-
 struct katcl_parse{
   unsigned int p_magic;
   unsigned int p_state;

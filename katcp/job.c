@@ -326,16 +326,13 @@ static int relay_cmd_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n,
   return 1;
 }
 
-int acknowledge_request_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int code, char *fmt, ...)
+int acknowledge_parse_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n, struct katcl_parse *p)
 {
-  char *result;
   struct katcp_job *j;
-  struct katcl_parse *p, *px;
-  va_list args;
 
   j = find_containing_job_katcp(d, n->n_name);
   if(j == NULL){
-    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "job that issued %s no longer available", KATCP_SET_JOB);
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "job that issued %s no longer available", KATCP_SET_REQUEST);
     return -1;
   }
 
@@ -344,6 +341,27 @@ int acknowledge_request_job_katcp(struct katcp_dispatch *d, struct katcp_notice 
 #endif
 
   sane_job_katcp(j);
+
+  if(j->j_recvr <= 0){
+    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "logic problem, answered a request to generate reply for requst %s", KATCP_SET_REQUEST);
+    return -1; 
+  }
+
+  if(append_parse_katcl(j->j_line, p) < 0){
+    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "unable to send reply for %s", KATCP_SET_REQUEST);
+    return -1;
+  }
+
+  j->j_recvr++;
+
+  return 0;
+}
+
+int acknowledge_request_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int code, char *fmt, ...)
+{
+  char *result;
+  struct katcl_parse *p, *px;
+  va_list args;
 
   result = code_to_name_katcm(code);
   if(result == NULL){
@@ -354,11 +372,6 @@ int acknowledge_request_job_katcp(struct katcp_dispatch *d, struct katcp_notice 
 
   p = remove_parse_notice_katcp(d, n);
   if(p == NULL){
-#ifdef DEBUG
-    p = get_parse_notice_katcp(d, n);
-    fprintf(stderr, "job: failed in attempt to remove parse from notice %p, parse could be %p\n", n, p);
-#endif
-
     log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "really odd internal problem, failed to remove parse structure which we just had");
     return -1;
   }
@@ -367,30 +380,65 @@ int acknowledge_request_job_katcp(struct katcp_dispatch *d, struct katcp_notice 
   px = turnaround_extra_parse_katcl(p, KATCP_RESULT_OK, NULL, args);
   va_end(args);
   if(px == NULL){ 
-    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "unable to generate reply for requst %s", KATCP_SET_JOB);
+    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "unable to generate reply for requst %s", KATCP_SET_REQUEST);
     return -1;
   }
 
-  if(j->j_recvr <= 0){
-    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "logic problem, answered a request  to generate reply for requst %s", KATCP_SET_JOB);
-    return -1; 
+  if(acknowledge_parse_job_katcp(d, n, px) < 0){
+    destroy_parse_katcl(px);
+    return -1;
   }
 
-  if(append_parse_katcl(j->j_line, px) < 0){
-    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "unable to send reply for %s", KATCP_SET_JOB);
+  return 0;
+}
+
+static int get_request_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
+{
+  struct katcl_parse *p, *px;
+  char *cmd;
+
+  p = get_parse_notice_katcp(d, n);
+  if(p == NULL){
     return 0;
   }
 
-  j->j_recvr++;
+  cmd = get_string_parse_katcl(p, 0);
+  if(cmd == NULL){
+    return 0;
+  }
+  
+  if(!strcmp(cmd, KATCP_RETURN_JOB)){
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "detaching set command match in response to %s", cmd);
+    return 0;
+  }
 
-  return 0;
+  if(strcmp(cmd, KATCP_GET_REQUEST)){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "received unexpected request %s, expected %s", cmd, KATCP_SET_REQUEST);
+    return 0;
+  }
+
+  px = get_dbase_katcp(d, p);
+  if(px == NULL){
+    if(acknowledge_request_job_katcp(d, n, KATCP_RESULT_FAIL, NULL, NULL) < 0){
+      return 0;
+    } 
+    /* a get failing isn't a reason to give up, it may just be that there is nothing to be found */
+    return 1;
+  }
+
+  if(acknowledge_parse_job_katcp(d, n, px) < 0){
+    destroy_parse_katcl(px);
+    return 0;
+  }
+
+  return 1;
 }
 
 static int set_request_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 {
   struct katcl_parse *p;
   char *cmd;
-#if 0
+#if DEBUG
   char *label, *value;
 #endif
 
@@ -409,16 +457,16 @@ static int set_request_job_katcp(struct katcp_dispatch *d, struct katcp_notice *
     return 0;
   }
 
-  if(strcmp(cmd, KATCP_SET_JOB)){
-    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "received unexpected request %s, expected %s", cmd, KATCP_SET_JOB);
+  if(strcmp(cmd, KATCP_SET_REQUEST)){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "received unexpected request %s, expected %s", cmd, KATCP_SET_REQUEST);
     return 0;
   }
 
-#if 0
+#if DEBUG
   label = get_string_parse_katcl(p, 1);
   value = get_string_parse_katcl(p, 2);
   if((label == NULL) || (value == NULL)){
-    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "insufficient parameters to %s", KATCP_SET_JOB);
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "insufficient parameters to %s", KATCP_SET_REQUEST);
     return 0;
   }
 
@@ -570,13 +618,16 @@ struct katcp_job *create_job_katcp(struct katcp_dispatch *d, struct katcp_url *n
 
   dl = template_shared_katcp(d);
   if(dl){
-    if(match_inform_job_katcp(dl, j, KATCP_SET_JOB, &set_request_job_katcp, NULL) < 0){
-      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to register set command for job %s", j->j_url->u_str ? j->j_url->u_str : "<anonymous>");
+    if(match_inform_job_katcp(dl, j, KATCP_GET_REQUEST, &get_request_job_katcp, NULL) < 0){
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to register %s command for job %s", KATCP_GET_REQUEST, j->j_url->u_str ? j->j_url->u_str : "<anonymous>");
     }
-    if(match_inform_job_katcp(dl, j, "#log", &relay_log_job_katcp, NULL) < 0){
+    if(match_inform_job_katcp(dl, j, KATCP_SET_REQUEST, &set_request_job_katcp, NULL) < 0){
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to register %s command for job %s", KATCP_SET_REQUEST, j->j_url->u_str ? j->j_url->u_str : "<anonymous>");
+    }
+    if(match_inform_job_katcp(dl, j, KATCP_LOG_INFORM, &relay_log_job_katcp, NULL) < 0){
       log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to register log relay for job %s", j->j_url->u_str ? j->j_url->u_str : "<anonymous>");
     }
-    if(match_inform_job_katcp(dl, j, "#version", &hold_version_job_katcp, NULL) < 0){
+    if(match_inform_job_katcp(dl, j, KATCP_VERSION_CONNECT_INFORM, &hold_version_job_katcp, NULL) < 0){
       log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to register version recorder for job %s", j->j_url->u_str ? j->j_url->u_str : "<anonymous>");
     }
   } 

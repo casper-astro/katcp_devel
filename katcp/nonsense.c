@@ -1961,7 +1961,7 @@ int propagate_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a)
           if((*(type_lookup_table[sn->s_type].c_checks[ns->n_strategy]))(ns)){
             log_message_katcp(d, KATCP_LEVEL_TRACE | KATCP_LEVEL_LOCAL, NULL, "strategy %d reports a match", ns->n_strategy);
             /* TODO: needs work for having tags in katcp messages */
-            generic_sensor_update_katcp(dx, sn, (ns->n_strategy == KATCP_STRATEGY_FORCED) ? "#sensor-value" : "#sensor-status");
+            generic_sensor_update_katcp(dx, sn, (ns->n_strategy == KATCP_STRATEGY_FORCED) ? KATCP_SENSOR_VALUE_INFORM : KATCP_SENSOR_STATUS_INFORM);
           }
         }
       }
@@ -2074,7 +2074,7 @@ static struct katcp_sensor *create_sensor_katcp(struct katcp_dispatch *d, char *
     }
   }
 
-  broadcast_inform_katcp(d, "#device-changed", "sensor-list");
+  broadcast_inform_katcp(d, KATCP_DEVICE_CHANGED_INFORM, "sensor-list");
 
   return sn;
 }
@@ -3014,12 +3014,6 @@ int append_sensor_type_katcp(struct katcp_dispatch *d, int flags, struct katcp_s
 static int inform_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_sensor *sn)
 {
 
-#if 0
-  if(append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, "#sensor-list") < 0){
-    return -1;
-  }
-#endif
-
   if(prepend_inform_katcp(d) < 0){
     return -1;
   }
@@ -3826,12 +3820,12 @@ int job_match_sensor_katcp(struct katcp_dispatch *d, struct katcp_job *j)
     return -1;
   }
 
-  if(match_inform_job_katcp(dl, j, "#sensor-list", &match_sensor_list_katcp, NULL) < 0){
+  if(match_inform_job_katcp(dl, j, KATCP_SENSOR_LIST_INFORM, &match_sensor_list_katcp, NULL) < 0){
     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to match sensor-list on job %s", j->j_url->u_str ? j->j_url->u_str : "<anonymous>");
     result = (-1);
   }
 
-  if(match_inform_job_katcp(dl, j, "#sensor-status", &match_sensor_status_katcp, NULL) < 0){
+  if(match_inform_job_katcp(dl, j, KATCP_SENSOR_STATUS_INFORM, &match_sensor_status_katcp, NULL) < 0){
     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to match sensor-status on job %s", j->j_url->u_str ? j->j_url->u_str : "<anonymous>");
     result = (-1);
   }

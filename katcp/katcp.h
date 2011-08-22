@@ -80,12 +80,27 @@ struct katcp_url;
 #define KATCP_CMD_HIDDEN    0x1
 #define KATCP_CMD_WILDCARD  0x2
 
-#define KATCP_SET_JOB         "?set"
+#define KATCP_SET_REQUEST     "?set"
+#define KATCP_GET_REQUEST     "?get"
+
+#define KATCP_LOG_INFORM               "#log"
+#define KATCP_DEVICE_CHANGED_INFORM    "#device-changed"
+#define KATCP_HELP_INFORM              "#help"
+
+#define KATCP_SENSOR_LIST_INFORM       "#sensor-list"
+#define KATCP_SENSOR_STATUS_INFORM     "#sensor-status"
+#define KATCP_SENSOR_VALUE_INFORM      "#sensor-value"
+
+#define KATCP_DISCONNECT_INFORM        "#disconnect"
 
 #define KATCP_RETURN_JOB      "#return"
-#define KATCP_WAKE_TIMEOUT    "#timout"
-#define KATCP_VERSION_LIST    "#version-list"
-#define KATCP_VERSION_CONNECT "#version-connect"
+#define KATCP_WAKE_TIMEOUT    "#timeout"
+
+#define KATCP_VERSION_LIST_INFORM      "#version-list"
+#define KATCP_VERSION_CONNECT_INFORM   "#version-connect"
+
+#define KATCP_BUILD_STATE_INFORM       "#build-state"
+#define KATCP_VERSION_INFORM           "#version"
 
 /******************* core api ********************/
 
@@ -473,7 +488,7 @@ int add_code_version_katcp(struct katcp_dispatch *d);
 #endif
 int has_code_version_katcp(struct katcp_dispatch *d, char *label, char *value);
 
-int print_versions_katcp(struct katcp_dispatch *d, char *prefix);
+int print_versions_katcp(struct katcp_dispatch *d, int initial);
 int version_cmd_katcp(struct katcp_dispatch *d, int argc);
 int version_list_cmd_katcp(struct katcp_dispatch *d, int argc);
 

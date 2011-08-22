@@ -372,9 +372,10 @@ int get_dbase_cmd_katcp(struct katcp_dispatch *d, int argc)
   if (prx == NULL)
     return KATCP_RESULT_FAIL;
   
-  if (append_parse_katcp(d, prx) < 0)
+  if (append_parse_katcp(d, prx) < 0){
+    destroy_parse_katcl(prx);
     return KATCP_RESULT_FAIL;
+  }
 
   return KATCP_RESULT_OWN;
 }
-

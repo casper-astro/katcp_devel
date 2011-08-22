@@ -9,20 +9,6 @@ struct katcl_larg;
 struct katcl_line;
 struct katcl_parse;
 
-struct katcl_msg *create_msg_katcl(struct katcl_line *l);
-void destroy_msg_katcl(struct katcl_msg *m);
-
-int queue_string_katcl(struct katcl_msg *m, int flags, char *buffer);
-int queue_unsigned_long_katcl(struct katcl_msg *m, int flags, unsigned long v);
-int queue_signed_long_katcl(struct katcl_msg *m, int flags, unsigned long v);
-int queue_hex_long_katcl(struct katcl_msg *m, int flags, unsigned long v);
-int queue_vargs_katcl(struct katcl_msg *m, int flags, char *fmt, va_list args);
-int queue_args_katcl(struct katcl_msg *m, int flags, char *fmt, ...);
-#ifdef KATCP_USE_FLOATS
-int queue_double_katcl(struct katcl_msg *m, int flags, double v);
-#endif
-int queue_buffer_katcl(struct katcl_msg *m, int flags, void *buffer, int len);
-
 struct katcl_line *create_katcl(int fd);
 void destroy_katcl(struct katcl_line *l, int mode);
 int error_katcl(struct katcl_line *l);
