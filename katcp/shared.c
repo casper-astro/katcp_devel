@@ -318,6 +318,7 @@ void shutdown_shared_katcp(struct katcp_dispatch *d)
 
   destroy_notices_katcp(d);
 
+  /* WARNING: s_mode_sensor used to leak, hopefully fixed now */
   s->s_mode_sensor = NULL;
   destroy_sensors_katcp(d);
 

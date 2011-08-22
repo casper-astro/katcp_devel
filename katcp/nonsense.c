@@ -2164,7 +2164,7 @@ static int reload_sensor_katcp(struct katcp_dispatch *d, struct katcp_sensor *sz
   struct katcp_sensor *sn;
   struct katcp_acquire *a;
   struct katcp_shared *s;
-  int users, periodics, polling;
+  int users, periodics, polling, forced;
 
   s = d->d_shared;
   a = sz->s_acquire;
@@ -2180,6 +2180,7 @@ static int reload_sensor_katcp(struct katcp_dispatch *d, struct katcp_sensor *sz
 
   periodics = 0;
   users = 0;
+  forced = 0;
 
   for(j = 0; j < a->a_count; j++){
     sn = a->a_sensors[j];
@@ -2196,23 +2197,14 @@ static int reload_sensor_katcp(struct katcp_dispatch *d, struct katcp_sensor *sz
 
         switch(ns->n_strategy){
           case KATCP_STRATEGY_FORCED :
-#ifdef DEBUG
-            if(sn->s_refs > 1){
-              log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "expected forced acquisition of sensor %s to only have one reference, not %d", sn->s_name, sn->s_refs);
-            }
-#endif
+            forced++;
             break;
-
-          case KATCP_STRATEGY_OFF   :
-            log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "did not expect an off strategy while recomputing poll periods\n");
-            break; /* WARNING: there wasn't a break here previously */
-
           case KATCP_STRATEGY_DIFF  : 
           case KATCP_STRATEGY_EVENT : 
             if(polling == 0){
               break;
             } /* WARNING */
-          default :
+          case KATCP_STRATEGY_PERIOD   :
             if(periodics){
               if(cmp_time_katcp(&(a->a_current), &(ns->n_period)) > 0){
                 a->a_current.tv_sec = ns->n_period.tv_sec;
@@ -2223,6 +2215,9 @@ static int reload_sensor_katcp(struct katcp_dispatch *d, struct katcp_sensor *sz
               a->a_current.tv_usec = ns->n_period.tv_usec;
             }
             periodics++;
+            break;
+          default :
+            log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "did not expect an off strategy while recomputing poll periods\n");
             break;
         }
       }
@@ -2238,7 +2233,7 @@ static int reload_sensor_katcp(struct katcp_dispatch *d, struct katcp_sensor *sz
   }
 #endif
 
-  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "acquire %p has %d sensors with %d users of which %d poll", a, a->a_count, a->a_users, a->a_periodics);
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "acquire %p has %d sensors with %d users of which %d poll and %d are forced", a, a->a_count, a->a_users, periodics, forced);
 
   if(periodics == 0){
     if(a->a_periodics > 0){ /* we had timers, but don't want them anymore */
@@ -2248,8 +2243,9 @@ static int reload_sensor_katcp(struct katcp_dispatch *d, struct katcp_sensor *sz
     }
     a->a_periodics = 0;
 
-    if((polling == 0) || (a->a_users > 0)){
-      log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "acquire has users none of which are polling doing initial notification");
+    /* WARNING: complicated: test above checks that no timer is run, and if we have nonzero users which are not forced, then notify on change (pew) */
+    if(a->a_users > forced){
+      log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "acquire has %d users which are not forced as well as no periodic ones", a->a_users - forced);
       propagate_acquire_katcp(d, a);
     }
 
@@ -2928,7 +2924,7 @@ int force_acquire_katcp(struct katcp_dispatch *d, struct katcp_sensor *sn)
     ns->n_strategy = old;
   } else {
 
-    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "enabling offline sensor %s temporarily", sn->s_name);
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "enabling offline sensor %s temporarily", sn->s_name);
 
     if(configure_sensor_katcp(d, sn, KATCP_STRATEGY_FORCED, 1, NULL) < 0){
       result = (-1);
