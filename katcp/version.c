@@ -259,41 +259,55 @@ int print_versions_katcp(struct katcp_dispatch *d, int initial)
     return -1;
   }
 
-  if(initial){
-    prefix = KATCP_VERSION_CONNECT_INFORM;
-  } else {
-    prefix = KATCP_VERSION_LIST_INFORM;
+  switch(initial){
+    case KATCP_PRINT_VERSION_CONNECT :
+      prefix = KATCP_VERSION_CONNECT_INFORM;
+      break;
+    case KATCP_PRINT_VERSION_LIST :
+      prefix = KATCP_VERSION_LIST_INFORM;
+      break;
+    case KATCP_PRINT_VERSION :
+      prefix = KATCP_VERSION_INFORM;
+      break;
   }
+
 
   for(i = 0; i < s->s_amount; i++){
     v = s->s_versions[i];
 
 #if 1
     if(i == 0){
-      if(initial){
+      switch(initial){
+        case KATCP_PRINT_VERSION_CONNECT : 
+        case KATCP_PRINT_VERSION : 
 
-        append_string_katcp(d,   KATCP_FLAG_FIRST | KATCP_FLAG_STRING, KATCP_VERSION_INFORM);
-        append_string_katcp(d,   KATCP_FLAG_LAST  | KATCP_FLAG_STRING, v->v_value);
-        if(v->v_build){
-          append_string_katcp(d,   KATCP_FLAG_FIRST | KATCP_FLAG_STRING, KATCP_BUILD_STATE_INFORM);
-          append_string_katcp(d,   KATCP_FLAG_LAST  | KATCP_FLAG_STRING, v->v_build);
-        }
-
+          append_string_katcp(d,   KATCP_FLAG_FIRST | KATCP_FLAG_STRING, KATCP_VERSION_INFORM);
+          append_string_katcp(d,   KATCP_FLAG_LAST  | KATCP_FLAG_STRING, v->v_value);
+          if(v->v_build){
+            append_string_katcp(d,   KATCP_FLAG_FIRST | KATCP_FLAG_STRING, KATCP_BUILD_STATE_INFORM);
+            append_string_katcp(d,   KATCP_FLAG_LAST  | KATCP_FLAG_STRING, v->v_build);
+          }
+          break;
       }
     }
 #endif
 
-    if(v->v_value && ((v->v_mode == 0) || (v->v_mode == s->s_mode))){
+    switch(initial){
+      case KATCP_PRINT_VERSION_CONNECT : 
+      case KATCP_PRINT_VERSION_LIST : 
+        if(v->v_value && ((v->v_mode == 0) || (v->v_mode == s->s_mode))){
 
 
-      append_string_katcp(d,   KATCP_FLAG_FIRST | KATCP_FLAG_STRING, prefix);
-      append_string_katcp(d,                      KATCP_FLAG_STRING, v->v_label);
-      if(v->v_build == NULL){
-        append_string_katcp(d, KATCP_FLAG_LAST  | KATCP_FLAG_STRING, v->v_value);
-      } else {
-        append_string_katcp(d,                    KATCP_FLAG_STRING, v->v_value);
-        append_string_katcp(d, KATCP_FLAG_LAST  | KATCP_FLAG_STRING, v->v_build);
-      }
+          append_string_katcp(d,   KATCP_FLAG_FIRST | KATCP_FLAG_STRING, prefix);
+          append_string_katcp(d,                      KATCP_FLAG_STRING, v->v_label);
+          if(v->v_build == NULL){
+            append_string_katcp(d, KATCP_FLAG_LAST  | KATCP_FLAG_STRING, v->v_value);
+          } else {
+            append_string_katcp(d,                    KATCP_FLAG_STRING, v->v_value);
+            append_string_katcp(d, KATCP_FLAG_LAST  | KATCP_FLAG_STRING, v->v_build);
+          }
+        }
+        break;
     }
   }
 
@@ -386,7 +400,7 @@ int version_list_cmd_katcp(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
-  print_versions_katcp(d, 0);
+  print_versions_katcp(d, KATCP_PRINT_VERSION_LIST);
   return KATCP_RESULT_OK;
 }
 
@@ -403,7 +417,7 @@ int version_cmd_katcp(struct katcp_dispatch *d, int argc)
 
   op = arg_string_katcp(d, 1);
   if(op == NULL){
-    print_versions_katcp(d, 0);
+    print_versions_katcp(d, KATCP_PRINT_VERSION);
     return KATCP_RESULT_OK;
   }
 

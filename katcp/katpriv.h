@@ -261,6 +261,7 @@ struct katcp_entry{
 
   void *e_state;
   void (*e_clear)(struct katcp_dispatch *d, unsigned int mode);
+  unsigned int e_status;
 #if 0
   char *e_version;
   unsigned int e_minor;
@@ -695,5 +696,9 @@ void *parse_dbase_type_katcp(struct katcp_dispatch *d, char **str);
 /******************************************/
 
 #define KATCL_PARSE_MAGIC 0xff7f1273
+
+#define KATCP_PRINT_VERSION_CONNECT  0
+#define KATCP_PRINT_VERSION_LIST     1
+#define KATCP_PRINT_VERSION          2 /* deprecated as of V5 */
 
 #endif
