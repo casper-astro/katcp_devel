@@ -39,7 +39,8 @@
 #define JOB_STATE_UP       2
 #define JOB_STATE_POST     3
 #define JOB_STATE_DRAIN    4
-#define JOB_STATE_DONE     5
+#define JOB_STATE_WAIT     5
+#define JOB_STATE_DONE     6
 
 /******************************************************************/
 
@@ -592,8 +593,11 @@ struct katcp_job *create_job_katcp(struct katcp_dispatch *d, struct katcp_url *n
 #endif
 
   j->j_state = async ? JOB_STATE_PRE : JOB_STATE_UP;
-
   j->j_code = KATCP_RESULT_INVALID;
+
+  j->j_sendr = 0;
+  j->j_recvr = 0;
+
   j->j_line = NULL;
 
   j->j_queue = NULL;
@@ -1122,9 +1126,10 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
             release_notice_katcp(d, n);
           }
 
-          /* terminating job, otherwise halt notice can not assume that job is gone */
-
+          j->j_state = JOB_STATE_DONE;
+#if 0
           zap_job_katcp(d, j);
+#endif
 
           /* WARNING: maybe not a bad thing to get stuck on a #return message */
           /* clear_katcl(j->j_line); */
@@ -1314,9 +1319,13 @@ int wait_jobs_katcp(struct katcp_dispatch *d)
           log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "process %d exited abnormally", j->j_pid);
           j->j_code = KATCP_RESULT_FAIL;
         }
+
+
 #if 0
         j->j_state &= ~(JOB_MAY_KILL | JOB_MAY_COLLECT);
 #endif
+
+        j->j_state = JOB_STATE_DONE;
         j->j_pid = 0;
       }
 
@@ -1411,6 +1420,8 @@ int run_jobs_katcp(struct katcp_dispatch *d)
       case JOB_STATE_DRAIN :
         fd = fileno_katcl(j->j_line);
         break;
+      /* JOB_STATE_WAIT */
+      /* JOB_STATE_DONE */
       default : 
         fd = (-1);
         break;
@@ -1454,8 +1465,12 @@ int run_jobs_katcp(struct katcp_dispatch *d)
           }
 
           if(result > 0){ /* end of file, won't do further io */
-            j->j_state = JOB_STATE_POST;
-            j->j_code = KATCP_RESULT_OK;
+            if(j->j_pid > 0){
+              j->j_state = JOB_STATE_WAIT;
+            } else {
+              j->j_state = JOB_STATE_POST;
+              j->j_code = KATCP_RESULT_OK;
+            }
           }
         }
         break;
@@ -1463,6 +1478,7 @@ int run_jobs_katcp(struct katcp_dispatch *d)
 
     switch(j->j_state){ /* process */
       case JOB_STATE_UP : 
+      case JOB_STATE_WAIT :  /* WARNING: we stall until waitpid() comes back */
       case JOB_STATE_POST : 
 
         result = field_job_katcp(d, j);
@@ -1474,14 +1490,17 @@ int run_jobs_katcp(struct katcp_dispatch *d)
           j->j_state = JOB_STATE_DONE;
           j->j_code = KATCP_RESULT_FAIL;
         } else {
-          if(j->j_state == JOB_STATE_POST){
+          if(j->j_state == JOB_STATE_POST){ /* done processing */
             j->j_state = JOB_STATE_DRAIN;
           }
         }
         break;
+      /* JOB_STATE_PRE  */
+      /* JOB_STATE_DRAIN  */
+      /* JOB_STATE_DONE */
     }
 
-    switch(j->j_state){
+    switch(j->j_state){ /* write */
       case JOB_STATE_UP :
       case JOB_STATE_POST :
       case JOB_STATE_DRAIN :
@@ -1499,16 +1518,29 @@ int run_jobs_katcp(struct katcp_dispatch *d)
               j->j_state = JOB_STATE_DONE;
             }
           }
-
         }
+
+        if(j->j_state == JOB_STATE_DRAIN){
+          if(!flushing_katcl(j->j_line)){  /* done writing */
+#ifdef DEBUG
+            fprintf(stderr, "job: about to transition from drain to done\n");
+#endif
+            j->j_state = JOB_STATE_DONE;
+          }
+        }
+      /* JOB_STATE_PRE */
+      /* JOB_STATE_WAIT */
+      /* JOB_STATE_POST */
+
       break;
     }
+
 
 #ifdef DEBUG
     fprintf(stderr, "job: state after run is 0x%x\n", j->j_state);
 #endif
 
-    if(j->j_state == JOB_STATE_DONE){ 
+    if(j->j_state == JOB_STATE_DONE){  /* just plain done */
 
       n = remove_head_job(d, j);
       while(n != NULL){
