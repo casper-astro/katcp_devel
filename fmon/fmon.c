@@ -806,7 +806,7 @@ int relay_build_state_fmon(struct fmon_state *f)
     return -1;
   }
 
-  append_string_katcl(f->f_report, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, KATCP_PRINT_VERSION_CONNECT);
+  append_string_katcl(f->f_report, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, KATCP_VERSION_CONNECT_INFORM);
   append_buffer_katcl(f->f_report,                    KATCP_FLAG_STRING, parm, delta);
   append_string_katcl(f->f_report,  KATCP_FLAG_LAST | KATCP_FLAG_STRING, version);
 
@@ -1151,7 +1151,7 @@ void query_user_tag_fmon(struct fmon_state *f, char *label, char *reg)
     return;
   }
 
-  append_string_katcl(f->f_report, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, KATCP_PRINT_VERSION_CONNECT);
+  append_string_katcl(f->f_report, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, KATCP_VERSION_CONNECT_INFORM);
   append_string_katcl(f->f_report,                    KATCP_FLAG_STRING, label);
 
   if(value < 0xffff){
