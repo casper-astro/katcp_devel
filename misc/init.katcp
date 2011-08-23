@@ -1,7 +1,7 @@
 ?setenv PATH /usr/local/lib/kcs/scripts:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/sbin:/usr/sbin
 ?chdir /usr/local/lib/kcs
 ?define mode ready
-?define mode wbc mode-wbc
+?define mode wbc mode-wbc nominal
 ?job process tmon exec://tmon
 ?forget ?halt
 ?forget ?restart
