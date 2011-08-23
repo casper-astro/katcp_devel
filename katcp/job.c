@@ -409,7 +409,7 @@ static int get_request_job_katcp(struct katcp_dispatch *d, struct katcp_notice *
   }
   
   if(!strcmp(cmd, KATCP_RETURN_JOB)){
-    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "detaching set command match in response to %s", cmd);
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "detaching get command match in response to %s", cmd);
     return 0;
   }
 
