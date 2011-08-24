@@ -136,7 +136,7 @@ void print_inorder_avltree(struct katcp_dispatch *d, struct avl_node *n, void (*
 
 struct avl_node *walk_inorder_avltree(struct avl_node *n)
 {
-  static struct katcp_stack *s;
+  static struct katcp_stack *s = NULL;
   static int state = WALK_INIT;
   static struct avl_node *c;
 
@@ -217,9 +217,35 @@ struct avl_node *walk_inorder_avltree(struct avl_node *n)
   return NULL;  
 }
 
+void *walk_data_inorder_avltree(struct avl_node *n)
+{
+  struct avl_node *c;
+
+  c = walk_inorder_avltree(n);
+  
+  return (c == NULL) ? c->n_data : NULL;
+}
+
 void print_inorder_avltree(struct katcp_dispatch *d, struct avl_node *n, void (*fn_print)(struct katcp_dispatch *d, void *data), int flags)
 {
   struct avl_node *c;
+
+  while ((c = walk_inorder_avltree(n)) != NULL){
+
+#ifdef DEBUG
+    fprintf(stderr, "avl_tree: <%s>\n", c->n_key);
+#endif
+    if (flags){
+      append_args_katcp(d, KATCP_FLAG_FIRST, "#%s", c->n_key);
+      append_args_katcp(d, KATCP_FLAG_LAST, "with data %p", c->n_data);
+    }
+
+    if (fn_print != NULL)
+      (*fn_print)(d, c->n_data);
+
+  }
+
+#if 0
   struct katcp_stack *s;
   int run;
 
@@ -286,7 +312,7 @@ void print_inorder_avltree(struct katcp_dispatch *d, struct avl_node *n, void (*
   }
   
   destroy_stack_katcp(s);
-
+#endif
 }
 
 int check_balances_avltree(struct avl_node *n, int depth)

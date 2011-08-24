@@ -46,6 +46,9 @@ int del_name_node_avltree(struct avl_tree *t, char *key, void (*d_free)(void *))
 void free_node_avltree(struct avl_node *n, void (*d_free)(void *));
 void destroy_avltree(struct avl_tree *t, void (*d_free)(void *));
 
+struct avl_node *walk_inorder_avltree(struct avl_node *n);
+void *walk_data_inorder_avltree(struct avl_node *n);
+
 /*node api*/
 
 char *get_node_name_avltree(struct avl_node *n);

@@ -17,6 +17,7 @@
 #include "katcl.h"
 #include "katpriv.h"
 #include "netc.h"
+#include "avltree.h"
 
 
 void print_string_type_katcp(struct katcp_dispatch *d, void *data)
@@ -75,7 +76,6 @@ void *parse_string_type_katcp(struct katcp_dispatch *d, char **str)
   return o;
 }
 
-#if 0
 struct katcp_dict *create_dict_katcp(char *key)
 {
   struct katcp_dict *dt;
@@ -95,6 +95,18 @@ struct katcp_dict *create_dict_katcp(char *key)
   return dt;
 }
 
+int add_dict_katcp(struct katcp_dict *dt, char *key, struct katcp_tobject *to)
+{
+ 
+  return 0;
+}
+
+int add_named_dict_katcp(struct katcp_dict *dt, char *key, char *type, void *data)
+{
+  
+  return 0;
+}
+
 void print_dict_type_katcp(struct katcp_dispatch *d, void *data)
 {
   struct katcp_dict *dt;
@@ -102,38 +114,153 @@ void print_dict_type_katcp(struct katcp_dispatch *d, void *data)
   dt = data;
   if (dt == NULL)
     return;
-  
-  
+ 
+#if 0
+ def DEBUG
+  fprintf(stderr, "dict: %s has ");
+#endif
 
   
 }
 
-void destroy_dict_type_katcp(void *data);
+void destroy_dict_type_katcp(void *data)
 {
   struct katcp_dict *dt;
   
   dt = data;
   if (dt != NULL){
-    if (dt->d_key != NULL) free(dt->d_key);
+    if (dt->d_key != NULL) 
+      free(dt->d_key);
     destroy_avltree(dt->d_avl, NULL);
   }
 }
 
-void *parse_dict_type_katcp(struct katcp_dispatch *d, char **str);
-{
+#define TOKEN_START_DICT        '{'
+#define TOKEN_END_DICT          '}'
+#define TOKEN_START_VALUE       ':'
+#define TOKEN_END_VALUE         ','
 
+#define STATE_START             0
+#define STATE_KEY               1
+#define STATE_VALUE             2
+#define STATE_END               3
+
+void *parse_dict_type_katcp(struct katcp_dispatch *d, char **str)
+{
+  struct katcp_dict *dt;
+  int i, j, tlen, state, ipos, spos, len;
+  char c, *key, *value;
+  
+  if (str == NULL || str[1] == NULL)
+    return NULL;
+
+  dt = NULL;
+
+  state = STATE_START;
+  c = TOKEN_START_DICT;
+  ipos = 0;
+  len = 0;
+  key = NULL;
+  value = NULL;
+
+#ifdef DEBUG
+  fprintf(stderr, "dict: %s\n", str[0]);
+#endif
+
+  for (i=1; str[i] != NULL; i++){
+
+    tlen = strlen(str[i]);
+
+    for (j=0; j<tlen; j++){
+      c = str[i][j];  
+      switch (state){
+
+        case STATE_START:
+          switch (c){
+            case TOKEN_START_DICT:
+              state = STATE_KEY;
+              spos = j+1;
+              ipos = i;
+              break;
+          }
+          break;
+
+        case STATE_KEY:
+          switch (c){
+            case TOKEN_START_VALUE:
+              if ((i - ipos) > 0 && j > 0){
+                ipos++;
+                spos = 0;
+                len = j - spos;
+              } else if ((i - ipos) == 2){
+                ipos = i-1;
+                spos = 0;
+                len = strlen(str[ipos]);
+              } else {
+                len = j - spos;
+              }
+              key = strndup(str[ipos] + spos, len);
+              
+              fprintf(stderr, "dict KEY: (%s)\n", key);
+              
+              state = STATE_VALUE;
+              spos = j+1;
+              ipos = i;
+              break;
+          }
+          break;
+
+        case STATE_VALUE:
+          switch (c){
+            case TOKEN_END_DICT:
+              state = STATE_END;
+            case TOKEN_END_VALUE:
+              if ((i - ipos) > 0 && j > 0){
+                ipos++;
+                spos = 0;
+                len = j - spos;
+              } else if ((i - ipos) == 2){
+                ipos = i-1;
+                spos = 0;
+                len = strlen(str[ipos]);
+              } else {
+                len = j - spos;
+              }
+              
+              value = strndup(str[ipos] + spos, len);
+              
+              fprintf(stderr, "dict VALUE: (%s)\n", value);
+              
+              free(value);
+              
+              state = (state != TOKEN_END_DICT) ? STATE_KEY : state;
+              spos = j+1;
+              ipos = i;
+              break;
+          }
+          break;
+
+        case STATE_END:
+          break;
+      }
+    }
+  }
+
+  
+  return dt;
 }
 
-int store_type_dict_katcp(struct katcp_disct *dt, struct katcp_type *to, char *key, void *data)
+int store_type_dict_katcp(struct katcp_dict *dt, struct katcp_type *to, char *key, void *data)
 {
-
+  
+  return 0;
 }
 
 int store_named_type_dict_katcp(struct katcp_dict *dt, char *type, char *key, void *data)
 {
   
+  return 0;
 } 
-#endif
 
 char *getkey_dbase_type_katcp(void *data)
 {
@@ -224,7 +351,6 @@ struct katcp_dbase *create_dbase_type_katcp(char *key, char *schema_key, struct 
 
 void *parse_dbase_type_katcp(struct katcp_dispatch *d, char **str)
 {
-  struct katcp_dbase *db;
   struct katcl_parse *p; 
   int i, err;
 
