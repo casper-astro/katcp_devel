@@ -1514,7 +1514,7 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, char *name)
     value_xaui      = (word & FMON_FSTATUS_XAUI_LINKBAD) ? 0 : 1;
     status_xaui     = value_xaui ? KATCP_STATUS_NOMINAL : KATCP_STATUS_ERROR;
 
-    if(value_adc || value_disabled || value_fft || value_sram || value_xaui){
+    if(value_adc || value_disabled || value_fft || (value_sram == 0) || (value_xaui == 0)){
       f->f_dirty = 1;
     }
   }
