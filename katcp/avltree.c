@@ -222,14 +222,16 @@ void *walk_data_inorder_avltree(struct avl_node *n)
   struct avl_node *c;
 
   c = walk_inorder_avltree(n);
-  
-  return (c == NULL) ? c->n_data : NULL;
+  if (c == NULL)
+    return NULL;
+
+  return c->n_data;
 }
 
 void print_inorder_avltree(struct katcp_dispatch *d, struct avl_node *n, void (*fn_print)(struct katcp_dispatch *d, void *data), int flags)
 {
   struct avl_node *c;
-
+#if 0
   while ((c = walk_inorder_avltree(n)) != NULL){
 
 #ifdef DEBUG
@@ -244,8 +246,8 @@ void print_inorder_avltree(struct katcp_dispatch *d, struct avl_node *n, void (*
       (*fn_print)(d, c->n_data);
 
   }
-
-#if 0
+#endif
+#if 1
   struct katcp_stack *s;
   int run;
 
@@ -674,7 +676,7 @@ int add_node_avltree(struct avl_tree *t, struct avl_node *n)
       c = c->n_left;
     } else if (cmp == 0){
 #ifdef DEBUG
-      fprintf(stderr,"avl_tree: error node seems to match an existing node\n");
+      fprintf(stderr,"avl_tree: error node seems to match an existing node <%s>\n", c->n_key);
 #endif
       run = 0;
       return -1;

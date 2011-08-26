@@ -515,6 +515,7 @@ struct katcp_tobject *create_tobject_katcp(void *data, struct katcp_type *type, 
 struct katcp_tobject *create_named_tobject_katcp(struct katcp_dispatch *d, void *data, char *type, int flagman);
 struct katcp_tobject *copy_tobject_katcp(struct katcp_tobject *o);
 int compare_tobject_katcp(const void *m1, const void *m2);
+void destroy_tobject_katcp(void *data);
 #if 0
 void inc_ref_tobject_katcp(struct katcp_tobject *o);
 int push_stack_ref_obj_katcp(struct katcp_stack *s, struct katcp_tobject *o);
@@ -529,7 +530,6 @@ void *index_data_stack_katcp(struct katcp_stack *s, int indx);
 void print_tobject_katcp(struct katcp_dispatch *d, struct katcp_tobject *o);
 void print_stack_katcp(struct katcp_dispatch *d, struct katcp_stack *s);
 void destroy_stack_katcp(struct katcp_stack *s);
-void destroy_tobject_katcp(void *data);
 int sizeof_stack_katcp(struct katcp_stack *s);
 int is_empty_stack_katcp(struct katcp_stack *s);
 int empty_stack_katcp(struct katcp_stack *s);
@@ -550,6 +550,8 @@ int set_dbase_katcp(struct katcp_dispatch *d, struct katcl_parse *p);
 struct katcl_parse *get_dbase_katcp(struct katcp_dispatch *d, struct katcl_parse *p);
 int get_value_count_dbase_katcp(struct katcp_dbase *db);
 struct katcp_stack *get_value_stack_dbase_katcp(struct katcp_dbase *db);
+
+int dict_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 #endif
 

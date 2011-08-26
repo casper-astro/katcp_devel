@@ -23,9 +23,9 @@ int startup_services_katcp(struct katcp_dispatch *d)
 
 #if 0
   rtn += register_name_type_katcp(d, KATCP_TYPE_SCHEMA, KATCP_DEP_BASE, &print_schema_type_katcp, &destroy_schema_type_katcp, NULL, NULL, &parse_schema_type_katcp, &getkey_schema_type_katcp);
-
-  rtn += register_katcp(d, "?db", "dbase related operations", &dbase_cmd_katcp);
 #endif
+
+  rtn += register_katcp(d, "?dict", "dict [key] {key0:value0,key1:value1,...}", &dict_cmd_katcp);
 
   rtn += register_katcp(d, "?get", "get [key] (n) from database (n optional)", &get_dbase_cmd_katcp);
   rtn += register_katcp(d, "?set", "set [key] [value value ...] to database", &set_dbase_cmd_katcp);
