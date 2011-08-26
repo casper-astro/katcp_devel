@@ -49,16 +49,16 @@ kcs_change_corr()
 
     kcs_debug "attempting to set config file"
 
-    if [ -e ${CORR_CONFIG}-$1 ] ; then
-      kcs_error "no $1 configuration for corr"
-      return 1
-    else 
+    if [ -e ${CORR_CONFIG}-${1} ] ; then
       if [ -h ${CORR_CONFIG} ] ; then
         kcs_debug "unlinking old configuration"
         rm -f ${CORR_CONFIG}
       fi
       kcs_debug "updating configuration to ${CORR_CONFIG}-${1}"
+      return 1
+    else 
       ln -s ${CORR_CONFIG}-${1} ${CORR_CONFIG}
+      kcs_error "no $1 configuration for corr at $${CORR_CONFIG}-${1}"
     fi
 
   fi
