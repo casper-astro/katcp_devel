@@ -55,10 +55,10 @@ kcs_change_corr()
         rm -f ${CORR_CONFIG}
       fi
       kcs_debug "updating configuration to ${CORR_CONFIG}-${1}"
-      return 1
-    else 
       ln -s ${CORR_CONFIG}-${1} ${CORR_CONFIG}
+    else 
       kcs_error "no $1 configuration for corr at $${CORR_CONFIG}-${1}"
+      return 1
     fi
 
   fi
