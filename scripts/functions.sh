@@ -40,7 +40,7 @@ kcs_change_corr()
 {
   kcs_debug "checking for running corr"
 
-  if ps ax | grep -q bin/corr_katcp_interface ; then
+  if ps ax | grep -q corr[_-]katcp[_-]interface ; then
     kcs_info "stopping corr"
     ${CORR_INIT_SCRIPT} stop
   fi
