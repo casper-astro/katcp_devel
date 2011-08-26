@@ -38,12 +38,16 @@ kcs_info () {
 
 kcs_change_corr()
 {
+  kcs_debug "checking for running corr"
+
   if ps ax | grep -q bin/corr_katcp_interface ; then
     kcs_info "stopping corr"
     ${CORR_INIT_SCRIPT} stop
   fi
 
   if [ -n "$1" ] ; then
+
+    kcs_debug "attempting to set config file"
 
     if [ -e ${CONFIG}-$1 ] ; then
       kcs_error "no $1 configuration for corr"
