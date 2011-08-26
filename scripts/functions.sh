@@ -46,15 +46,15 @@ kcs_change_corr()
   if [ -n "$1" ] ; then
 
     if [ -e ${CONFIG}-$1 ] ; then
+      kcs_error "no $1 configuration for corr"
+      return 1
+    else 
       if [ -h ${CONFIG} ] ; then
         kcs_debug "unlinking old configuration"
         rm -f ${CONFIG}
       fi
       kcs_debug "updating configuration to ${CONFIG}-${1}"
       ln -s ${CONFIG}-${1} ${CONFIG}
-    else 
-      kcs_error "no $1 configuration for corr"
-      return 1
     fi
 
   fi
