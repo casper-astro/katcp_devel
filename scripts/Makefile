@@ -1,7 +1,7 @@
 include ../Makefile.inc
 
 DST = $(PREFIX)/lib/kcs/scripts
-SRC = functions.sh capture-start capture-stop capture-list sync-now k7-accumulation-length k7-delay k7-snap-shot k7-gain halt restart xport mode-wbc label-input enable-sensors wbc corr
+SRC = functions.sh capture-start capture-stop capture-list sync-now k7-accumulation-length k7-delay k7-snap-shot k7-gain halt restart xport restart-mode-nbc restart-mode-wbc label-input enable-sensors wbc corr
 
 all:
 
