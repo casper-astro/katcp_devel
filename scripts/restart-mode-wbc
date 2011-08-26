@@ -14,7 +14,7 @@ if [ -z "${mode}" ] ; then
   kcs_error "no valid mode supplied for mode change"
 fi
 
-kcs_debug "chaning mode to $mode"
+kcs_debug "changing mode to $mode"
 
 kcs_change_corr ${mode}
 
