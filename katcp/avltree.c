@@ -1020,6 +1020,17 @@ struct avl_node *find_name_node_avltree(struct avl_tree *t, char *key)
   return NULL;
 }
 
+void *find_data_avltree(struct avl_tree *t, char *key)
+{
+  struct avl_node *n;
+
+  n = find_name_node_avltree(t, key);
+  if (n == NULL)
+    return NULL;
+
+  return get_node_data_avltree(n);
+}
+
 int del_name_node_avltree(struct avl_tree *t, char *key, void (*d_free)(void *))
 {
   struct avl_node *dn;

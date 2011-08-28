@@ -119,6 +119,20 @@ int add_type_dict_katcp(struct katcp_dict *dt, char *key, struct katcp_type *t, 
   return 0;
 }
 
+void *get_value_data_dict_katcp(struct katcp_dict *dt, char *key)
+{
+  struct katcp_tobject *to;
+  
+  if (dt == NULL)
+    return NULL;
+    
+  to = find_data_avltree(dt->d_avl, key);
+  if (to == NULL)
+    return NULL;
+
+  return to->o_data;
+}
+
 int add_named_dict_katcp(struct katcp_dispatch *d, struct katcp_dict *dt, char *key, char *type, void *data)
 {
   struct katcp_type *t;
@@ -367,7 +381,7 @@ char **parse_to_data_vector_katcp(struct katcl_parse *p, int base)
 int dict_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
 {
   struct katcp_dict *dt, *temp;
-  char **data, *key;
+  char **data;
   
 #if 0
   key = get_string_parse_katcl(p, 1);
@@ -660,7 +674,8 @@ struct katcl_parse *get_dbase_katcp(struct katcp_dispatch *d, struct katcl_parse
 {
   struct katcl_parse *prx;
   struct katcp_dbase *db;
-  char *key, *rtn;
+  struct katcp_dict  *dt;
+  char *key, *rtn, *skey;
   unsigned long indx;
   int i, err;
 
@@ -699,17 +714,52 @@ struct katcl_parse *get_dbase_katcp(struct katcp_dispatch *d, struct katcl_parse
     }
 
   } else {
-    
-    indx = sizeof_stack_katcp(db->d_values);
-    for (i=0; i<indx; i++){
-      rtn = index_data_stack_katcp(db->d_values, i);
-      err += add_string_parse_katcl(prx, KATCP_FLAG_STRING | ((i+1 == indx)?KATCP_FLAG_LAST:0x0), rtn);
+
+    skey = get_string_parse_katcl(p, 2);
+
+    if (skey == NULL || strcmp(skey, "0") == 0){
+      indx = sizeof_stack_katcp(db->d_values);
+      for (i=0; i<indx; i++){
+        rtn = index_data_stack_katcp(db->d_values, i);
+        err += add_string_parse_katcl(prx, KATCP_FLAG_STRING | ((i+1 == indx)?KATCP_FLAG_LAST:0x0), rtn);
+      }
+      if (err < 0){
+        destroy_parse_katcl(prx);
+        return NULL;
+      }
+
+    } else {
+     
+      dt = search_named_type_katcp(d, KATCP_TYPE_DICT, db->d_schema, NULL);
+      if (dt == NULL){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "connot find schema %s", db->d_schema);
+        destroy_parse_katcl(prx);
+        return NULL;
+      }
+
+      rtn = get_value_data_dict_katcp(dt, skey);
+      if (rtn == NULL){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "connot find schema %s item %s", db->d_schema, skey);
+        destroy_parse_katcl(prx);
+        return NULL;
+      }
+      indx = atol(rtn);
+      if (sizeof_stack_katcp(db->d_values) >= indx){
+        rtn = index_data_stack_katcp(db->d_values, indx - 1);
+        err += add_string_parse_katcl(prx, KATCP_FLAG_STRING | KATCP_FLAG_LAST, rtn);
+        if (err < 0){
+          destroy_parse_katcl(prx);
+          return NULL;
+        } 
+
+      } else{
+        destroy_parse_katcl(prx);
+        return NULL;
+      }
+
+      
     }
-    if (err < 0){
-      destroy_parse_katcl(prx);
-      return NULL;
-    } 
-    
+     
   }
 
   return prx;
