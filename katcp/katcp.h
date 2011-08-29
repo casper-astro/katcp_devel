@@ -81,6 +81,7 @@ struct katcp_url;
 #define KATCP_CMD_WILDCARD  0x2
 
 #define KATCP_SET_JOB         "?set"
+#define KATCP_DICT_JOB        "?dict"
 
 #define KATCP_RETURN_JOB      "#return"
 #define KATCP_WAKE_TIMEOUT    "#timout"
@@ -551,6 +552,7 @@ struct katcl_parse *get_dbase_katcp(struct katcp_dispatch *d, struct katcl_parse
 int get_value_count_dbase_katcp(struct katcp_dbase *db);
 struct katcp_stack *get_value_stack_dbase_katcp(struct katcp_dbase *db);
 
+int dict_katcp(struct katcp_dispatch *d, struct katcl_parse *p);
 int dict_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 #endif

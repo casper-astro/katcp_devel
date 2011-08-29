@@ -436,6 +436,40 @@ static int set_request_job_katcp(struct katcp_dispatch *d, struct katcp_notice *
   return 1;
 }
 
+static int dict_request_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
+{
+  struct katcl_parse *p;
+  char *cmd;
+
+  p = get_parse_notice_katcp(d, n);
+  if (p == NULL)
+    return 0;
+
+  cmd = get_string_parse_katcl(p, 0);
+  if (cmd == NULL)
+    return 0;
+
+  if(!strcmp(cmd, KATCP_RETURN_JOB)){
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "detaching dict command match in response to %s", cmd);
+    return 0;
+  }
+
+  if(strcmp(cmd, KATCP_DICT_JOB)){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "received unexpected request %s, expected %s", cmd, KATCP_DICT_JOB);
+    return 0;
+  }
+
+  if (dict_katcp(d, p) < 0){
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "unable to honour dict request");
+  }
+
+  if(acknowledge_request_job_katcp(d, n, KATCP_RESULT_OK, NULL, NULL) < 0){
+    return 0;
+  }
+
+  return 1;
+}
+
 static int relay_log_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 {
   struct katcl_parse *p;
@@ -570,6 +604,9 @@ struct katcp_job *create_job_katcp(struct katcp_dispatch *d, struct katcp_url *n
 
   dl = template_shared_katcp(d);
   if(dl){
+    if(match_inform_job_katcp(dl, j, KATCP_DICT_JOB, &dict_request_job_katcp, NULL) < 0){
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to register dict command for job %s", j->j_url->u_str ? j->j_url->u_str : "<anonymous>");
+    }
     if(match_inform_job_katcp(dl, j, KATCP_SET_JOB, &set_request_job_katcp, NULL) < 0){
       log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to register set command for job %s", j->j_url->u_str ? j->j_url->u_str : "<anonymous>");
     }

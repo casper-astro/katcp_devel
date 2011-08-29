@@ -165,16 +165,6 @@ void print_dict_type_katcp(struct katcp_dispatch *d, void *data)
   fprintf(stderr, "dict: <%s>\n", dt->d_key);
 #endif
   
-#if 0
-  while ((to = walk_data_inorder_avltree(dt->d_avl->t_root)) != NULL){
-   
-    if (to != NULL && to->o_type != NULL && to->o_type->t_print != NULL){
-      
-      (*(to->o_type->t_print))(d, to->o_data);
-
-    }
-  }
-#endif
   while ((n = walk_inorder_avltree(dt->d_avl->t_root)) != NULL){
     
     if (n != NULL){
@@ -509,7 +499,7 @@ void *parse_dbase_type_katcp(struct katcp_dispatch *d, char **str)
   if (p == NULL)
     return NULL;
 
-  err =  add_string_parse_katcl(p, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, "?set");
+  err =  add_string_parse_katcl(p, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, KATCP_SET_JOB);
   
   for (i=0; str[i] != NULL; i++){
     err += add_string_parse_katcl(p, KATCP_FLAG_STRING | ((str[i+1] == NULL) ? KATCP_FLAG_LAST : 0x0), str[i]);
@@ -793,7 +783,7 @@ int set_dbase_cmd_katcp(struct katcp_dispatch *d, int argc)
   struct katcl_parse *p;
 
   if (argc < 3){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "useage");
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "usage");
     return KATCP_RESULT_FAIL;
   }
   
@@ -812,7 +802,7 @@ int dict_cmd_katcp(struct katcp_dispatch *d, int argc)
   struct katcl_parse *p;
 
   if (argc < 3){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "useage");
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "usage");
     return KATCP_RESULT_FAIL;
   }
 
