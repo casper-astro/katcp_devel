@@ -21,6 +21,7 @@ case "$1" in
   stop)
     #kcpcmd -s localhost:7147 halt
     killall kcs
+    exit 0
     ;;
   *)
     echo "Usage: $0 {start|stop}" >&2

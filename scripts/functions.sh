@@ -1,4 +1,5 @@
 export CORR_CONFIG=/etc/corr/config
+export CORR_INIT_SCRIPT=/etc/init.d/corr
 export KATCP_SERVER=localhost:1235
 export CORR_MAPPING=/var/run/corr/antenna_mapping
 
@@ -33,6 +34,37 @@ kcs_error () {
 
 kcs_info () {
   echo "#log info $(date +%s)000 script $(echo $1 | sed -e 's/ /\\_/g')"
+}
+
+kcs_change_corr()
+{
+  kcs_debug "checking for running corr"
+
+  if ps ax | grep -q corr[_-]katcp[_-]interface ; then
+    kcs_info "stopping corr"
+    ${CORR_INIT_SCRIPT} stop
+  fi
+
+  if [ -n "$1" ] ; then
+
+    kcs_debug "attempting to set config file"
+
+    if [ -e ${CORR_CONFIG}-${1} ] ; then
+      if [ -h ${CORR_CONFIG} ] ; then
+        kcs_debug "unlinking old configuration"
+        rm -f ${CORR_CONFIG}
+      fi
+      kcs_debug "updating configuration to ${CORR_CONFIG}-${1}"
+      ln -s ${CORR_CONFIG}-${1} ${CORR_CONFIG}
+    else 
+      kcs_error "no $1 configuration for corr at $${CORR_CONFIG}-${1}"
+      return 1
+    fi
+
+  fi
+
+  kcs_debug "restarting corr"
+  ${CORR_INIT_SCRIPT} start
 }
 
 kcs_arg_check () {

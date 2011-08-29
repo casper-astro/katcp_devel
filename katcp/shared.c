@@ -215,6 +215,8 @@ int startup_shared_katcp(struct katcp_dispatch *d)
   s->s_vector[0].e_state = NULL;
   s->s_vector[0].e_clear = NULL;
 
+  s->s_vector[0].e_status = KATCP_STATUS_UNKNOWN;
+
 #if 0
   s->s_vector[0].e_version = NULL;
   s->s_vector[0].e_major = 0;
@@ -316,6 +318,7 @@ void shutdown_shared_katcp(struct katcp_dispatch *d)
 
   destroy_notices_katcp(d);
 
+  /* WARNING: s_mode_sensor used to leak, hopefully fixed now */
   s->s_mode_sensor = NULL;
   destroy_sensors_katcp(d);
 
@@ -784,7 +787,7 @@ int mode_cmd_katcp(struct katcp_dispatch *d, int argc)
   s = d->d_shared;
   name = NULL;
 
-  if(s->s_mode_sensor == 0){
+  if(s->s_mode_sensor == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "logic problem, mode command invoked without modes registered");
     return KATCP_RESULT_FAIL;
   }
@@ -885,6 +888,8 @@ static int expand_modes_katcp(struct katcp_dispatch *d, unsigned int mode)
     s->s_vector[i].e_state = NULL;
     s->s_vector[i].e_clear = NULL;
 
+    s->s_vector[i].e_status = KATCP_STATUS_UNKNOWN;
+
 #if 0
     s->s_vector[i].e_version = NULL;
     s->s_vector[i].e_major = 0;
@@ -948,20 +953,25 @@ int mode_version_katcp(struct katcp_dispatch *d, int mode, char *subsystem, int 
 
 int store_mode_katcp(struct katcp_dispatch *d, unsigned int mode, void *state)
 {
-  return store_full_mode_katcp(d, mode, NULL, NULL, NULL, state, NULL);
+  return store_sensor_mode_katcp(d, mode, NULL, NULL, NULL, NULL, state, NULL, KATCP_STATUS_UNKNOWN);
 }
 
 int store_clear_mode_katcp(struct katcp_dispatch *d, unsigned int mode, void *state, void (*clear)(struct katcp_dispatch *d, unsigned int mode))
 {
-  return store_full_mode_katcp(d, mode, NULL, NULL, NULL, state, clear);
+  return store_sensor_mode_katcp(d, mode, NULL, NULL, NULL, NULL, state, clear, KATCP_STATUS_UNKNOWN);
 }
 
 int store_full_mode_katcp(struct katcp_dispatch *d, unsigned int mode, char *name, int (*enter)(struct katcp_dispatch *d, struct katcp_notice *n, char *flags, unsigned int to), void (*leave)(struct katcp_dispatch *d, unsigned int to), void *state, void (*clear)(struct katcp_dispatch *d, unsigned int mode))
 {
-  return store_prepared_mode_katcp(d, mode, name, NULL, enter, leave, state, clear);
+  return store_sensor_mode_katcp(d, mode, name, NULL, enter, leave, state, clear, KATCP_STATUS_UNKNOWN);
 }
 
 int store_prepared_mode_katcp(struct katcp_dispatch *d, unsigned int mode, char *name, struct katcp_notice *(*prepare)(struct katcp_dispatch *d, char *flags, unsigned int from, unsigned int to), int (*enter)(struct katcp_dispatch *d, struct katcp_notice *n, char *flags, unsigned int to), void (*leave)(struct katcp_dispatch *d, unsigned int to), void *state, void (*clear)(struct katcp_dispatch *d, unsigned int mode))
+{
+  return store_sensor_mode_katcp(d, mode, name, prepare, enter, leave, state, clear, KATCP_STATUS_UNKNOWN);
+}
+
+int store_sensor_mode_katcp(struct katcp_dispatch *d, unsigned int mode, char *name, struct katcp_notice *(*prepare)(struct katcp_dispatch *d, char *flags, unsigned int from, unsigned int to), int (*enter)(struct katcp_dispatch *d, struct katcp_notice *n, char *flags, unsigned int to), void (*leave)(struct katcp_dispatch *d, unsigned int to), void *state, void (*clear)(struct katcp_dispatch *d, unsigned int mode), unsigned int status)
 {
   struct katcp_shared *s;
   char *copy, *vector[1];
@@ -1002,11 +1012,12 @@ int store_prepared_mode_katcp(struct katcp_dispatch *d, unsigned int mode, char 
   s->s_vector[mode].e_leave = leave;
   s->s_vector[mode].e_state = state;
   s->s_vector[mode].e_clear = clear;
+
+  s->s_vector[mode].e_status = status;
   
   if(name){
 
     skip = 0;
-#if 0
     if(s->s_mode_sensor == NULL){
 
       if(register_katcp(d, "?mode", "mode change command (?mode [new-mode])", &mode_cmd_katcp)){
@@ -1038,7 +1049,6 @@ int store_prepared_mode_katcp(struct katcp_dispatch *d, unsigned int mode, char 
         result = (-1);
       }
     }
-#endif
   }
 
   return result;
@@ -1187,8 +1197,12 @@ int complete_mode_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *
   if(result == 0){
     if(s->s_vector[s->s_mode].e_name){ /* broadcast mode change */
       broadcast_inform_katcp(d, "#mode", s->s_vector[s->s_mode].e_name);
+      setenv("MODE", s->s_vector[s->s_mode].e_name, 1);
+    } else {
+      unsetenv("MODE");
     }
     if(s->s_mode_sensor){
+      set_status_sensor_katcp(s->s_mode_sensor, s->s_vector[s->s_mode].e_status);
       a = s->s_mode_sensor->s_acquire;
       if(a){
         set_discrete_acquire_katcp(d, a, s->s_mode);
@@ -1411,8 +1425,8 @@ int define_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   struct katcp_shared *s;
   struct katcp_dynamic_mode *dm;
-  char *name, *label, *script;
-  unsigned int m;
+  char *name, *label, *script, *tmp;
+  unsigned int m, status;
   int result;
 
   s = d->d_shared;
@@ -1424,48 +1438,59 @@ int define_cmd_katcp(struct katcp_dispatch *d, int argc)
   name = arg_string_katcp(d, 1);
   if(name == NULL){
     return KATCP_RESULT_FAIL;
-  } else {
-    if(!strcmp(name, "mode")){
+  }
 
-      label = arg_string_katcp(d, 2);
-      script = arg_string_katcp(d, 3);
+  if(!strcmp(name, "mode")){
 
-      if(label == NULL){
-        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a mode label");
-        return KATCP_RESULT_FAIL;
+    label = arg_string_katcp(d, 2);
+    script = arg_string_katcp(d, 3);
+
+    tmp = arg_string_katcp(d, 4);
+    if(tmp){
+      status = status_code_sensor_katcl(tmp);
+      if(status < 0){
+        status = KATCP_STATUS_UNKNOWN;
       }
-
-      if(query_mode_code_katcp(d, label) >= 0){
-        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "mode %s already defined", label);
-        return KATCP_RESULT_FAIL;
-      }
-
-      m = count_modes_katcp(d);
-
-      if(script){
-        dm = create_dynamic_mode_katcp(script);
-        if(dm == NULL){
-          return KATCP_RESULT_FAIL;
-        }
-
-        result = store_prepared_mode_katcp(d, m, label, &prepare_dynamic_mode_katcp, &enter_dynamic_mode_katcp, NULL, dm, &clear_dynamic_mode_katcp);
-
-        if(result < 0){
-          destroy_dynamic_mode_katcp(dm);
-        }
-      } else {
-        result = store_prepared_mode_katcp(d, m, label, NULL, NULL, NULL, NULL, NULL);
-      }
-
-      if(result < 0){
-        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate mode %s", label);
-        return KATCP_RESULT_FAIL;
-      }
-
-      return KATCP_RESULT_OK;
     } else {
+      status = KATCP_STATUS_UNKNOWN;
+    }
+
+
+    if(label == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a mode label");
       return KATCP_RESULT_FAIL;
     }
+
+    if(query_mode_code_katcp(d, label) >= 0){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "mode %s already defined", label);
+      return KATCP_RESULT_FAIL;
+    }
+
+    m = count_modes_katcp(d);
+
+    if(script){
+      dm = create_dynamic_mode_katcp(script);
+      if(dm == NULL){
+        return KATCP_RESULT_FAIL;
+      }
+
+      result = store_sensor_mode_katcp(d, m, label, &prepare_dynamic_mode_katcp, &enter_dynamic_mode_katcp, NULL, dm, &clear_dynamic_mode_katcp, status);
+
+      if(result < 0){
+        destroy_dynamic_mode_katcp(dm);
+      }
+    } else {
+      result = store_sensor_mode_katcp(d, m, label, NULL, NULL, NULL, NULL, NULL, status);
+    }
+
+    if(result < 0){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate mode %s", label);
+      return KATCP_RESULT_FAIL;
+    }
+
+    return KATCP_RESULT_OK;
+  } else { /* TODO maybe more definitions here */
+      return KATCP_RESULT_FAIL;
   }
 
   return KATCP_RESULT_FAIL;

@@ -38,18 +38,6 @@ struct katcl_queue
   unsigned int q_count;         /* No of entries */
 };
 
-#if 0
-struct katcl_msg{
-  struct katcl_line *m_line;
-
-  char *m_buffer;
-  unsigned int m_size;
-  unsigned int m_want;
-  int m_tag;
-  int m_complete;
-};
-#endif
-
 struct katcl_parse{
   unsigned int p_magic;
   unsigned int p_state;
@@ -273,6 +261,7 @@ struct katcp_entry{
 
   void *e_state;
   void (*e_clear)(struct katcp_dispatch *d, unsigned int mode);
+  unsigned int e_status;
 #if 0
   char *e_version;
   unsigned int e_minor;
@@ -717,5 +706,9 @@ void *parse_dict_type_katcp(struct katcp_dispatch *d, char **str);
 /******************************************/
 
 #define KATCL_PARSE_MAGIC 0xff7f1273
+
+#define KATCP_PRINT_VERSION_CONNECT  0
+#define KATCP_PRINT_VERSION_LIST     1
+#define KATCP_PRINT_VERSION          2 /* deprecated as of V5 */
 
 #endif

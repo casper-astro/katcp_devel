@@ -44,22 +44,27 @@
 #define FMON_SENSOR_ADC_OVERRANGE           0
 #define FMON_SENSOR_ADC_DISABLED            1
 #define FMON_SENSOR_FFT_OVERRANGE           2
-#define FMON_SENSOR_ADC_RAW_POWER           3
-#define FMON_SENSOR_ADC_DBM_POWER           4
+#define FMON_SENSOR_SRAM                    3
+#define FMON_SENSOR_LINK                    4
+#define FMON_SENSOR_ADC_RAW_POWER           5
+#define FMON_SENSOR_ADC_DBM_POWER           6
 
-#define FMON_INPUT_SENSORS                  5
+#define FMON_INPUT_SENSORS                  7
 
 /* registers fields */
 
-#define FMON_FCONTROL_CLEAR_STATUS    0x0008
-#define FMON_FCONTROL_FLASHER_EN      0x1000
+#define FMON_FCONTROL_CLEAR_STATUS     0x0008
+#define FMON_FCONTROL_FLASHER_EN       0x1000
 
-#define FMON_XCONTROL_FLASHER_EN      0x1000
+#define FMON_XCONTROL_FLASHER_EN       0x1000
 
-#define FMON_FSTATUS_QUANT_OVERRANGE   0x0001
-#define FMON_FSTATUS_FFT_OVERRANGE     0x0002
-#define FMON_FSTATUS_ADC_OVERRANGE     0x0004
-#define FMON_FSTATUS_ADC_DISABLED      0x0010
+#define FMON_FSTATUS_QUANT_OVERRANGE   0x0001  /* bit  0, complex eq  registers 10.1 */
+#define FMON_FSTATUS_FFT_OVERRANGE     0x0002  /* bit  1, fft         registers 8.1 */
+#define FMON_FSTATUS_ADC_OVERRANGE     0x0004  /* bit  2, adc         registers 7.1 */
+#define FMON_FSTATUS_SDRAM_BAD         0x0008  /* bit  3, misc        registers 6.2 */
+#define FMON_FSTATUS_ADC_DISABLED      0x0010  /* bit  4, adc         registers 7.1 */
+#define FMON_FSTATUS_CLOCK_BAD         0x0020  /* bit  5, timing      registers 5.1 */
+#define FMON_FSTATUS_XAUI_LINKBAD  0x00020000  /* bit 17, guessed */
 
 /* time related */
 
@@ -108,9 +113,11 @@ struct fmon_sensor_template board_template[FMON_BOARD_SENSORS] = {
 };
 
 struct fmon_sensor_template input_template[FMON_INPUT_SENSORS] = {
-  { "%s.adc.overrange",  "adc overrange indicator", KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0 },
-  { "%s.adc.terminated", "adc disabled",            KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0 },
-  { "%s.fft.overrange",  "fft overrange indicator", KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0 },
+  { "%s.adc.overrange",  "adc overrange indicator",     KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0 },
+  { "%s.adc.terminated", "adc disabled",                KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0 },
+  { "%s.fft.overrange",  "fft overrange indicator",     KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0 },
+  { "%s.sram.available", "sram calibrated and ready",   KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0 },
+  { "%s.xaui.link",      "data link up",                KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0 },
   { "%s.adc.amplitude",  "approximate input signal strength",  KATCP_SENSOR_FLOAT,   0, 0, 0.0, 65000.0},
   { "%s.adc.power",      "approximate input signal strength",  KATCP_SENSOR_FLOAT,   0, 0, -81.0, 16.0}
 };
@@ -161,6 +168,8 @@ struct fmon_state
 
   int f_fs;
   int f_xs;
+
+  unsigned int f_clock_err;
 
   struct fmon_input f_inputs[FMON_MAX_INPUTS];
   int f_dirty;
@@ -804,7 +813,7 @@ int relay_build_state_fmon(struct fmon_state *f)
     return -1;
   }
 
-  append_string_katcl(f->f_report, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#version");
+  append_string_katcl(f->f_report, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, KATCP_VERSION_CONNECT_INFORM);
   append_buffer_katcl(f->f_report,                    KATCP_FLAG_STRING, parm, delta);
   append_string_katcl(f->f_report,  KATCP_FLAG_LAST | KATCP_FLAG_STRING, version);
 
@@ -1149,7 +1158,7 @@ void query_user_tag_fmon(struct fmon_state *f, char *label, char *reg)
     return;
   }
 
-  append_string_katcl(f->f_report, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#version");
+  append_string_katcl(f->f_report, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, KATCP_VERSION_CONNECT_INFORM);
   append_string_katcl(f->f_report,                    KATCP_FLAG_STRING, label);
 
   if(value < 0xffff){
@@ -1185,7 +1194,7 @@ void query_rcs_fmon(struct fmon_state *f, char *label, char *reg)
     return;
   }
 
-  append_string_katcl(f->f_report, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#version");
+  append_string_katcl(f->f_report, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, KATCP_VERSION_CONNECT_INFORM);
   append_string_katcl(f->f_report,                    KATCP_FLAG_STRING, label);
 
   if(value & (1 << 31)){
@@ -1458,13 +1467,18 @@ int clear_control_fmon(struct fmon_state *f)
 
 int check_fengine_status(struct fmon_state *f, struct fmon_input *n, char *name)
 {
-  uint32_t word;
-  struct fmon_sensor *sensor_adc, *sensor_disabled, *sensor_fft;
-  int value_adc, value_disabled, value_fft, status_adc, status_disabled, status_fft;
+  /* WARNING: this is poorly written interrim code, to be redone in zmon */
 
-  sensor_adc   = &(n->n_sensors[FMON_SENSOR_ADC_OVERRANGE]);
+  uint32_t word;
+  struct fmon_sensor *sensor_adc, *sensor_disabled, *sensor_fft, *sensor_sram, *sensor_xaui;
+  int value_adc, value_disabled, value_fft, value_sram, value_xaui;
+  int status_adc, status_disabled, status_fft, status_sram, status_xaui;
+
+  sensor_adc      = &(n->n_sensors[FMON_SENSOR_ADC_OVERRANGE]);
   sensor_disabled = &(n->n_sensors[FMON_SENSOR_ADC_DISABLED]);
-  sensor_fft   = &(n->n_sensors[FMON_SENSOR_FFT_OVERRANGE]);
+  sensor_fft      = &(n->n_sensors[FMON_SENSOR_FFT_OVERRANGE]);
+  sensor_sram     = &(n->n_sensors[FMON_SENSOR_SRAM]);
+  sensor_xaui     = &(n->n_sensors[FMON_SENSOR_LINK]);
 
   if(read_word_fmon(f, name, &word)){
     value_adc       = 1;
@@ -1475,6 +1489,12 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, char *name)
 
     value_fft       = 1;
     status_fft      = KATCP_STATUS_UNKNOWN;
+
+    value_sram      = 0;
+    status_sram     = KATCP_STATUS_UNKNOWN;
+
+    value_xaui      = 0;
+    status_xaui     = KATCP_STATUS_UNKNOWN;
   } else {
 #ifdef DEBUG
     fprintf(stderr, "got status 0x%08x from %s\n", word, n->n_label);
@@ -1488,7 +1508,13 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, char *name)
     value_fft       = (word & FMON_FSTATUS_FFT_OVERRANGE) ? 1 : 0;
     status_fft      = value_fft ? KATCP_STATUS_ERROR : KATCP_STATUS_NOMINAL;
 
-    if(value_adc || value_disabled || value_fft){
+    value_sram      = (word & FMON_FSTATUS_SDRAM_BAD) ? 0 : 1;
+    status_sram     = value_sram ? KATCP_STATUS_NOMINAL : KATCP_STATUS_ERROR;
+
+    value_xaui      = (word & FMON_FSTATUS_XAUI_LINKBAD) ? 0 : 1;
+    status_xaui     = value_xaui ? KATCP_STATUS_NOMINAL : KATCP_STATUS_ERROR;
+
+    if(value_adc || value_disabled || value_fft || (value_sram == 0) || (value_xaui == 0)){
       f->f_dirty = 1;
     }
   }
@@ -1496,6 +1522,8 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, char *name)
   update_sensor_fmon(f, sensor_adc,      value_adc,      status_adc);
   update_sensor_fmon(f, sensor_disabled, value_disabled, status_disabled);
   update_sensor_fmon(f, sensor_fft,      value_fft,      status_fft);
+  update_sensor_fmon(f, sensor_sram,     value_sram,     status_sram);
+  update_sensor_fmon(f, sensor_xaui,     value_xaui,     status_xaui);
 
   return 0;  
 }
@@ -1630,6 +1658,7 @@ int check_adc_clock_fmon(struct fmon_state *f)
   uint32_t word;
   struct fmon_sensor *sensor_clock;
   int value_clock, status_clock;
+  int delta;
 
   if(f->f_fs > 0){
     sensor_clock   = &(f->f_sensors[FMON_SENSOR_CLOCK]);
@@ -1637,12 +1666,27 @@ int check_adc_clock_fmon(struct fmon_state *f)
     if(read_word_fmon(f, "clk_frequency", &word)){
       status_clock = KATCP_STATUS_UNKNOWN;
       value_clock = 0;
-    } else if(word != FMON_GOOD_DSP_CLOCK){
-      status_clock = KATCP_STATUS_ERROR;
-      value_clock = 0;
+
+      f->f_clock_err = 0;
     } else {
-      status_clock = KATCP_STATUS_NOMINAL;
-      value_clock = 1;
+
+      delta = FMON_GOOD_DSP_CLOCK - word;
+      if(abs(delta) > 1){ /* major clock problem */
+        status_clock = KATCP_STATUS_ERROR;
+        value_clock = 0;
+      } else if(abs(delta + f->f_clock_err) > 1){ /* still major clock problem */
+        status_clock = KATCP_STATUS_ERROR;
+        value_clock = 0;
+      } else {
+        if(delta == 0){ /* clock perfect */
+          status_clock = KATCP_STATUS_NOMINAL;
+        } else {        /* clock kindof ok */
+          status_clock = KATCP_STATUS_WARN;
+        }
+        value_clock = 1;
+      }
+
+      f->f_clock_err = delta;
     }
 
     update_sensor_fmon(f, sensor_clock, value_clock, status_clock);

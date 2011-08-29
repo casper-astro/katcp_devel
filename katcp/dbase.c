@@ -499,7 +499,7 @@ void *parse_dbase_type_katcp(struct katcp_dispatch *d, char **str)
   if (p == NULL)
     return NULL;
 
-  err =  add_string_parse_katcl(p, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, KATCP_SET_JOB);
+  err =  add_string_parse_katcl(p, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, KATCP_SET_REQUEST);
   
   for (i=0; str[i] != NULL; i++){
     err += add_string_parse_katcl(p, KATCP_FLAG_STRING | ((str[i+1] == NULL) ? KATCP_FLAG_LAST : 0x0), str[i]);

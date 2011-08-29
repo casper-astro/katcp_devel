@@ -730,39 +730,6 @@ int send_katcl(struct katcl_line *l, ...)
   return result;
 }
 
-#if 0
-int parsed_relay_katcl(struct katcl_parse *p, struct katcl_msg *m)
-{
-  int i, flag, need, len;
-  int status;
-
-  flag = KATCP_FLAG_FIRST;
-
-  need = 0;
-  status = 0;
-
-  for(i = 0; i < p->p_got; i++){
-    if((i + 1) >= p->p_got){
-      flag |= KATCP_FLAG_LAST;
-    }
-
-    len = p->p_args[i].a_end - p->p_args[i].a_begin;
-    need += len;
-
-    if (queue_buffer_katcl(m, flag, p->p_buffer + p->p_args[i].a_begin, len) < 0){
-      status = -1;
-    }
-    flag = 0;
-  }
-
-#ifdef DEBUG
-  fprintf(stderr, "copied line of %d args from %p (%d arg bytes) to %p (status: %d)\n", i, p, need, m, status);
-#endif
-
-  return status;
-}
-#endif
-
 int relay_katcl(struct katcl_line *lx, struct katcl_line *ly)
 {
   if(lx->l_ready == NULL){

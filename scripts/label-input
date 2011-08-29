@@ -32,6 +32,7 @@ if [ ${index} -ge 16 ] ; then
 fi
 
 if [ $# -gt 1 ] ; then
+  kcs_debug "request to map $1 to $2"
   if kcpcmd -k -r label-input $(kcs_input_to_index $1) $2 ; then
     result=0
   fi
