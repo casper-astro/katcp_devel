@@ -134,10 +134,120 @@ void print_inorder_avltree(struct katcp_dispatch *d, struct avl_node *n, void (*
 }
 #endif
 
+struct avl_node *walk_inorder_avltree(struct avl_node *n)
+{
+  static struct katcp_stack *s = NULL;
+  static int state = WALK_INIT;
+  static struct avl_node *c;
+
+  struct avl_node *rtn;
+
+  while (1){
+
+    switch (state) {
+
+      case WALK_INIT:
+
+#if DEBUG>2
+        fprintf(stderr, "walk: about to init\n");
+#endif
+
+        s = create_stack_katcp();
+        if (s == NULL)
+          return NULL;
+
+        c = n;
+
+      case WALK_PUSH:
+
+#if DEBUG>2
+        fprintf(stderr, "walk: about to push\n");
+#endif
+
+        if (c != NULL){ 
+
+          if (push_stack_katcp(s, c, NULL) < 0) {
+            destroy_stack_katcp(s);
+            s = NULL;
+            state = WALK_INIT;
+            return NULL;
+          }
+
+          c = c->n_left;
+        } 
+          
+        if (c == NULL)
+          state = WALK_POP;
+        else
+          state = WALK_PUSH;
+
+        break;
+
+      case WALK_POP:
+#if DEBUG>2
+        fprintf(stderr, "walk: about to pop\n");
+#endif
+
+        if (!is_empty_stack_katcp(s)){
+          
+          c = pop_data_stack_katcp(s);
+          if (c != NULL){
+            
+            rtn = c;
+            c = c->n_right;
+            state = WALK_PUSH;
+
+            return rtn;            
+            
+          } 
+
+       } else {
+         destroy_stack_katcp(s);
+         s = NULL;
+         state = WALK_INIT;
+         return NULL;
+       }
+
+
+        break;
+
+    }
+  }
+  
+  return NULL;  
+}
+
+void *walk_data_inorder_avltree(struct avl_node *n)
+{
+  struct avl_node *c;
+
+  c = walk_inorder_avltree(n);
+  if (c == NULL)
+    return NULL;
+
+  return c->n_data;
+}
 
 void print_inorder_avltree(struct katcp_dispatch *d, struct avl_node *n, void (*fn_print)(struct katcp_dispatch *d, void *data), int flags)
 {
   struct avl_node *c;
+#if 0
+  while ((c = walk_inorder_avltree(n)) != NULL){
+
+#ifdef DEBUG
+    fprintf(stderr, "avl_tree: <%s>\n", c->n_key);
+#endif
+    if (flags){
+      append_args_katcp(d, KATCP_FLAG_FIRST, "#%s", c->n_key);
+      append_args_katcp(d, KATCP_FLAG_LAST, "with data %p", c->n_data);
+    }
+
+    if (fn_print != NULL)
+      (*fn_print)(d, c->n_data);
+
+  }
+#endif
+#if 1
   struct katcp_stack *s;
   int run;
 
@@ -204,7 +314,7 @@ void print_inorder_avltree(struct katcp_dispatch *d, struct avl_node *n, void (*
   }
   
   destroy_stack_katcp(s);
-
+#endif
 }
 
 int check_balances_avltree(struct avl_node *n, int depth)
@@ -566,7 +676,7 @@ int add_node_avltree(struct avl_tree *t, struct avl_node *n)
       c = c->n_left;
     } else if (cmp == 0){
 #ifdef DEBUG
-      fprintf(stderr,"avl_tree: error node seems to match an existing node\n");
+      fprintf(stderr,"avl_tree: error node seems to match an existing node <%s>\n", c->n_key);
 #endif
       run = 0;
       return -1;
@@ -910,6 +1020,17 @@ struct avl_node *find_name_node_avltree(struct avl_tree *t, char *key)
   return NULL;
 }
 
+void *find_data_avltree(struct avl_tree *t, char *key)
+{
+  struct avl_node *n;
+
+  n = find_name_node_avltree(t, key);
+  if (n == NULL)
+    return NULL;
+
+  return get_node_data_avltree(n);
+}
+
 int del_name_node_avltree(struct avl_tree *t, char *key, void (*d_free)(void *))
 {
   struct avl_node *dn;
@@ -1027,6 +1148,22 @@ char *gen_id_avltree(char *prefix)
 #endif
   
   return id;
+}
+
+int store_named_node_avltree(struct avl_tree *t, char *key, void *data)
+{
+  struct avl_node *n;
+
+  n = create_node_avltree(key, data);
+  if (n == NULL)
+    return -1;
+
+  if (add_node_avltree(t, n) < 0){
+    free_node_avltree(n, NULL);
+    return -1;
+  }
+  
+  return 0;
 }
 
 #ifdef UNIT_TEST_AVL 
@@ -1228,6 +1365,30 @@ int main(int argc, char *argv[])
 
 #if 1 
   print_inorder_avltree(NULL, tree->t_root, NULL, 0);
+  
+  while ((a = walk_inorder_avltree(tree->t_root)) != NULL){
+    
+    if (a != NULL){
+#ifdef DEBUG
+      fprintf(stderr, "walk: <%s>\n", a->n_key);
+#endif
+    }
+
+  }
+#ifdef DEBUG
+ fprintf(stderr, "walk round 2\n");
+#endif
+  
+  while ((a = walk_inorder_avltree(tree->t_root)) != NULL){
+    
+    if (a != NULL){
+#ifdef DEBUG
+      fprintf(stderr, "walk: <%s>\n", a->n_key);
+#endif
+    }
+
+  }
+
 
 #endif
 

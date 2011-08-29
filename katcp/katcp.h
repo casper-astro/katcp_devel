@@ -498,6 +498,8 @@ int version_list_cmd_katcp(struct katcp_dispatch *d, int argc);
 #define KATCP_DEP_BASE          0
 
 #define KATCP_TYPE_DBASE        "db"
+#define KATCP_TYPE_DICT         "dict"
+#define KATCP_TYPE_SCHEMA       "schema"
 #define KATCP_TYPE_STRING       "string"
 
 struct katcp_type;
@@ -529,6 +531,7 @@ struct katcp_tobject *create_tobject_katcp(void *data, struct katcp_type *type, 
 struct katcp_tobject *create_named_tobject_katcp(struct katcp_dispatch *d, void *data, char *type, int flagman);
 struct katcp_tobject *copy_tobject_katcp(struct katcp_tobject *o);
 int compare_tobject_katcp(const void *m1, const void *m2);
+void destroy_tobject_katcp(void *data);
 #if 0
 void inc_ref_tobject_katcp(struct katcp_tobject *o);
 int push_stack_ref_obj_katcp(struct katcp_stack *s, struct katcp_tobject *o);
@@ -543,7 +546,6 @@ void *index_data_stack_katcp(struct katcp_stack *s, int indx);
 void print_tobject_katcp(struct katcp_dispatch *d, struct katcp_tobject *o);
 void print_stack_katcp(struct katcp_dispatch *d, struct katcp_stack *s);
 void destroy_stack_katcp(struct katcp_stack *s);
-void destroy_tobject_katcp(void *data);
 int sizeof_stack_katcp(struct katcp_stack *s);
 int is_empty_stack_katcp(struct katcp_stack *s);
 int empty_stack_katcp(struct katcp_stack *s);
@@ -552,14 +554,20 @@ void *pop_data_type_stack_katcp(struct katcp_stack *s, struct katcp_type *t);
 void *pop_data_expecting_stack_katcp(struct katcp_dispatch *d, struct katcp_stack *s, char *type);
 
 /*katcp_dbase*/
+struct katcp_dbase;
 
+#if 0
+int dbase_cmd_katcp(struct katcp_dispatch *d, int argc);
+#endif
 int get_dbase_cmd_katcp(struct katcp_dispatch *d, int argc);
 int set_dbase_cmd_katcp(struct katcp_dispatch *d, int argc);
-
-int store_kv_dbase_katcp(struct katcp_dispatch *d, char *key, struct katcp_stack *values);
-
+int store_kv_dbase_katcp(struct katcp_dispatch *d, char *key, char *schema, struct katcp_stack *values);
 int set_dbase_katcp(struct katcp_dispatch *d, struct katcl_parse *p);
 struct katcl_parse *get_dbase_katcp(struct katcp_dispatch *d, struct katcl_parse *p);
+int get_value_count_dbase_katcp(struct katcp_dbase *db);
+struct katcp_stack *get_value_stack_dbase_katcp(struct katcp_dbase *db);
+
+int dict_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 #endif
 

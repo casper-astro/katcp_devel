@@ -15,7 +15,10 @@
 #define KATCP_OPERATION_CONF_PARSE  "confparser"
 #define KATCP_OPERATION_PARSE_CSV   "csvparser"
 #define KATCP_EDGE_CONF_SEARCH      "confsearch"
+
+#if 0
 #define KATCP_TYPE_CONFIG_SETTING   "configsetting"
+#endif
 
 #define OLABEL        '['
 #define CLABEL        ']'
@@ -33,6 +36,7 @@
 #define S_SETTING     2
 #define S_VALUE       3
 
+#if 0
 struct config_setting {
   char *s_name;
   char *s_value;
@@ -118,22 +122,34 @@ int replace_value_config_setting_mod(struct config_setting *cs, char *setting)
 
   return 0;
 }
+#endif
 
+int parse_csv_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_tobject *o);
 
 int store_config_setting_mod(struct katcp_dispatch *d, char *setting, char *value)
 {
-  struct config_setting *s;
-  char *params[2];
+  struct katcp_stack *stack;
 
-  params[0] = setting;
-  params[1] = value;
-
-  s = parse_config_setting_type_mod(d, params);
-  
-  if (s == NULL)
+  stack = create_stack_katcp();
+  if (stack == NULL)
     return -1;
+  
+  if (push_named_stack_katcp(d, stack, value, KATCP_TYPE_STRING) < 0){
+    destroy_stack_katcp(stack);
+    return -1;
+  } 
 
-  return store_data_type_katcp(d, KATCP_TYPE_CONFIG_SETTING, KATCP_DEP_BASE, setting, s, &print_config_setting_type_mod, &destroy_config_setting_type_mod, NULL, NULL, &parse_config_setting_type_mod, &getkey_config_setting_type_mod);
+  if (parse_csv_mod(d, stack, NULL) < 0){
+    destroy_stack_katcp(stack);
+    return -1;
+  }
+
+  if (store_kv_dbase_katcp(d, setting, NULL, stack) < 0){
+    destroy_stack_katcp(stack);
+    return -1;
+  }
+
+  return 0;
 }
 
 char *rm_whitespace_mod(char *str)
@@ -357,8 +373,10 @@ struct kcs_sm_op *config_parser_setup_mod(struct katcp_dispatch *d, struct kcs_s
 
 int parse_csv_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_tobject *o)
 {
+#if 0
   struct config_setting *cs;
-  struct katcp_type *strtype, *inttype;
+#endif
+  struct katcp_type *strtype; 
   char *str, c, *temp[2];
   int len, pos, i, count;
 
@@ -367,12 +385,13 @@ int parse_csv_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct ka
   strtype = find_name_type_katcp(d, KATCP_TYPE_STRING);
   if (strtype == NULL || strtype->t_parse == NULL)
     return -1;
-
+#if 0
   cs = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_CONFIG_SETTING);
   if (cs == NULL)
     return -1;
-  
-  str = cs->s_value;
+#endif
+
+  str = pop_data_type_stack_katcp(stack, strtype);
   if (str == NULL)
     return -1;
 
@@ -411,6 +430,7 @@ int parse_csv_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct ka
     }
     
   }
+#if 0
   if (count > 1){
     inttype = find_name_type_katcp(d, KATCP_TYPE_INTEGER);
     if (inttype == NULL || inttype->t_getkey == NULL)
@@ -432,6 +452,7 @@ int parse_csv_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct ka
 
     free(str);
   }
+#endif
 
   return 0;
 }
@@ -441,6 +462,7 @@ struct kcs_sm_op *parse_csv_setup_mod(struct katcp_dispatch *d, struct kcs_sm_st
   return create_sm_op_kcs(&parse_csv_mod, NULL);
 }
 
+#if 0
 struct config_setting *search_config_settings_mod(struct katcp_dispatch *d, void *data)
 {
   char *str;
@@ -492,6 +514,7 @@ struct kcs_sm_edge *config_search_setup_mod(struct katcp_dispatch *d, struct kcs
   return e;
 }
 
+#endif
 
 int create_search_statemachine_mod(struct katcp_dispatch *d)
 {
@@ -529,28 +552,28 @@ int init_mod(struct katcp_dispatch *d)
     return -1;
   }
 
-  
+  rtn = store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_CONF_PARSE, &config_parser_setup_mod, NULL, NULL, NULL, NULL, NULL, NULL);
+ #if 0 
   rtn  = register_name_type_katcp(d, KATCP_TYPE_CONFIG_SETTING, KATCP_DEP_BASE, &print_config_setting_type_mod, &destroy_config_setting_type_mod, NULL, NULL, &parse_config_setting_type_mod, &getkey_config_setting_type_mod);
-
-  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_CONF_PARSE, &config_parser_setup_mod, NULL, NULL, NULL, NULL, NULL, NULL);
+#endif
   
   rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_PARSE_CSV, &parse_csv_setup_mod, NULL, NULL, NULL, NULL, NULL, NULL);
-  
+#if 0
   rtn += store_data_type_katcp(d, KATCP_TYPE_EDGE, KATCP_DEP_BASE, KATCP_EDGE_CONF_SEARCH, &config_search_setup_mod, NULL, NULL, NULL, NULL, NULL, NULL);
-
+#endif
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "successfully loaded mod_config_parser");
-  
+ #if 0 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "added type:");
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", KATCP_TYPE_CONFIG_SETTING);
-
+#endif
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "added operations:");
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", KATCP_OPERATION_CONF_PARSE);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", KATCP_OPERATION_PARSE_CSV);
-
+#if 0
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "added edges:");
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s", KATCP_EDGE_CONF_SEARCH);
-
+#endif
   //log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "to see the full operation list: ?sm oplist");
   
   return rtn;

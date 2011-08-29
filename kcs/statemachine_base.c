@@ -246,6 +246,162 @@ struct kcs_sm_op *spawn_setup_statemachine_kcs(struct katcp_dispatch *d, struct 
   return create_sm_op_kcs(&spawn_statemachine_kcs, o);
 }
 
+int msleep_statemachine_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
+{
+  struct katcp_stack *stack;
+  int *time;
+  struct timeval tv;
+
+  stack = data;
+  if (stack == NULL)
+    return -1;
+
+  time = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_INTEGER);
+  if (time == NULL)
+    return -1;
+  
+  component_time_katcp(&tv, (unsigned int) (*time));
+
+  wake_notice_in_tv_katcp(d, n, &tv);
+
+  return 0;
+}
+
+struct kcs_sm_edge *msleep_setup_statemachine_kcs(struct katcp_dispatch *d, struct kcs_sm_state *s)
+{
+  return create_sm_edge_kcs(s, &msleep_statemachine_kcs);
+}
+
+int peek_stack_type_statemachine_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
+{
+  struct katcp_stack *stack;
+  struct katcp_type *t;
+  struct katcp_tobject *to;
+  char *ctype;
+
+  stack = data;
+  if (stack == NULL)
+    return -1;
+
+  ctype = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_STRING);
+  if (ctype == NULL)
+    return -1;
+  
+  t = find_name_type_katcp(d, ctype);
+  if (t == NULL)
+    return -1;
+
+  to = peek_stack_katcp(stack);
+  if (to == NULL && to->o_type != t)
+    return -1;
+
+  wake_notice_katcp(d, n, NULL);
+  
+  return 0;
+}
+
+struct kcs_sm_edge *peek_stack_type_setup_statemachine_kcs(struct katcp_dispatch *d, struct kcs_sm_state *s)
+{
+  return create_sm_edge_kcs(s, &peek_stack_type_statemachine_kcs);
+}
+
+int print_stack_statemachine_kcs(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_tobject *o)
+{
+#ifdef DEBUG
+  fprintf(stderr, "statemachine: about to runtime print stack\n");
+#endif
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "----STACK PRINT START----");
+  print_stack_katcp(d, stack);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "-----STACK PRINT END-----");
+  return 0;
+}
+
+struct kcs_sm_op *print_stack_setup_statemachine_kcs(struct katcp_dispatch *d, struct kcs_sm_state *s)
+{
+  return create_sm_op_kcs(&print_stack_statemachine_kcs, NULL);
+}
+
+int is_stack_empty_statemachine_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
+{
+  struct katcp_stack *stack;
+
+  stack = data;
+  if (stack == NULL)
+    return -1;
+
+  if (is_empty_stack_katcp(stack)){
+    wake_notice_katcp(d, n, NULL);
+    return 0;
+  }
+
+  return -1;
+}
+
+struct kcs_sm_edge *is_stack_empty_setup_statemachine_kcs(struct katcp_dispatch *d, struct kcs_sm_state *s)
+{
+  return create_sm_edge_kcs(s, &is_stack_empty_statemachine_kcs);
+}
+
+int get_values_dbase_katcp(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_tobject *o)
+{
+  struct katcp_dbase *db;
+  struct katcp_tobject *temp;
+  struct katcp_stack *values;
+  int count,i;
+
+  db = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_DBASE);
+  if (db == NULL)
+    return -1;
+  
+  count = get_value_count_dbase_katcp(db);
+  values = get_value_stack_dbase_katcp(db);
+
+  for (i=0; i<count; i++){
+    temp = index_stack_katcp(values, i);
+    push_tobject_katcp(stack, copy_tobject_katcp(temp));
+  }
+
+  return 0;
+}
+
+struct kcs_sm_op *get_values_setup_dbase_katcp(struct katcp_dispatch *d, struct kcs_sm_state *s)
+{
+  return create_sm_op_kcs(&get_values_dbase_katcp, NULL);
+}
+
+int init_statemachine_base_kcs(struct katcp_dispatch *d)
+{
+  int rtn;
+  
+  /*register basic types*/
+  rtn  = register_name_type_katcp(d, KATCP_TYPE_INTEGER, KATCP_DEP_BASE, &print_integer_type_kcs, &destroy_integer_type_kcs, NULL, &compare_integer_type_kcs, &parse_integer_type_kcs, &getkey_integer_type_kcs);
+
+#if 0
+  rtn += register_name_type_katcp(d, KATCP_TYPE_FLOAT, NULL, NULL, NULL, NULL, NULL);
+  rtn += register_name_type_katcp(d, KATCP_TYPE_DOUBLE, NULL, NULL, NULL, NULL, NULL);
+  rtn += register_name_type_katcp(d, KATCP_TYPE_CHAR, NULL, NULL, NULL, NULL, NULL);
+#endif
+
+  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_STACK_PUSH, &pushstack_setup_statemachine_kcs, NULL, NULL, NULL, NULL, NULL, NULL);
+  
+  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_SPAWN, &spawn_setup_statemachine_kcs, NULL, NULL, NULL, NULL, NULL, NULL);
+
+  rtn += store_data_type_katcp(d, KATCP_TYPE_EDGE, KATCP_DEP_BASE, KATCP_EDGE_SLEEP, &msleep_setup_statemachine_kcs, NULL, NULL, NULL, NULL, NULL, NULL);
+  
+  rtn += store_data_type_katcp(d, KATCP_TYPE_EDGE, KATCP_DEP_BASE, KATCP_EDGE_PEEK_STACK_TYPE, &peek_stack_type_setup_statemachine_kcs, NULL, NULL, NULL, NULL, NULL, NULL);
+
+  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_PRINT_STACK, &print_stack_setup_statemachine_kcs, NULL, NULL, NULL, NULL, NULL, NULL);
+  
+  rtn += store_data_type_katcp(d, KATCP_TYPE_EDGE, KATCP_DEP_BASE, KATCP_EDGE_IS_STACK_EMPTY, &is_stack_empty_setup_statemachine_kcs, NULL, NULL, NULL, NULL, NULL, NULL);
+  
+  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_GET_DBASE_VALUES, &get_values_setup_dbase_katcp, NULL, NULL, NULL, NULL, NULL, NULL);
+#if 0
+  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_STORE, &store_setup_statemachine_kcs, NULL, NULL, NULL, NULL, NULL, NULL);
+#endif
+ 
+  return rtn;
+}
+
 #if 0
 int store_statemachine_kcs(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_tobject *o)
 {
@@ -345,131 +501,3 @@ struct kcs_sm_op *store_setup_statemachine_kcs(struct katcp_dispatch *d, struct 
 #undef ARG_BASE
 }
 #endif 
-
-int msleep_statemachine_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
-{
-  struct katcp_stack *stack;
-  int *time;
-  struct timeval tv;
-
-  stack = data;
-  if (stack == NULL)
-    return -1;
-
-  time = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_INTEGER);
-  if (time == NULL)
-    return -1;
-  
-  component_time_katcp(&tv, (unsigned int) (*time));
-
-  wake_notice_in_tv_katcp(d, n, &tv);
-
-  return 0;
-}
-
-struct kcs_sm_edge *msleep_setup_statemachine_kcs(struct katcp_dispatch *d, struct kcs_sm_state *s)
-{
-  return create_sm_edge_kcs(s, &msleep_statemachine_kcs);
-}
-
-int peek_stack_type_statemachine_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
-{
-  struct katcp_stack *stack;
-  struct katcp_type *t;
-  struct katcp_tobject *to;
-  char *ctype;
-
-  stack = data;
-  if (stack == NULL)
-    return -1;
-
-  ctype = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_STRING);
-  if (ctype == NULL)
-    return -1;
-  
-  t = find_name_type_katcp(d, ctype);
-  if (t == NULL)
-    return -1;
-
-  to = peek_stack_katcp(stack);
-  if (to == NULL && to->o_type != t)
-    return -1;
-
-  wake_notice_katcp(d, n, NULL);
-  
-  return 0;
-}
-
-struct kcs_sm_edge *peek_stack_type_setup_statemachine_kcs(struct katcp_dispatch *d, struct kcs_sm_state *s)
-{
-  return create_sm_edge_kcs(s, &peek_stack_type_statemachine_kcs);
-}
-
-int print_stack_statemachine_kcs(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_tobject *o)
-{
-#ifdef DEBUG
-  fprintf(stderr, "statemachine: about to runtime print stack\n");
-#endif
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "----STACK PRINT START----");
-  print_stack_katcp(d, stack);
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "-----STACK PRINT END-----");
-  return 0;
-}
-
-struct kcs_sm_op *print_stack_setup_statemachine_kcs(struct katcp_dispatch *d, struct kcs_sm_state *s)
-{
-  return create_sm_op_kcs(&print_stack_statemachine_kcs, NULL);
-}
-
-int is_stack_empty_statemachine_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
-{
-  struct katcp_stack *stack;
-
-  stack = data;
-  if (stack == NULL)
-    return -1;
-
-  if (is_empty_stack_katcp(stack)){
-    wake_notice_katcp(d, n, NULL);
-    return 0;
-  }
-
-  return -1;
-}
-
-struct kcs_sm_edge *is_stack_empty_setup_statemachine_kcs(struct katcp_dispatch *d, struct kcs_sm_state *s)
-{
-  return create_sm_edge_kcs(s, &is_stack_empty_statemachine_kcs);
-}
-
-int init_statemachine_base_kcs(struct katcp_dispatch *d)
-{
-  int rtn;
-  
-  /*register basic types*/
-  rtn  = register_name_type_katcp(d, KATCP_TYPE_INTEGER, KATCP_DEP_BASE, &print_integer_type_kcs, &destroy_integer_type_kcs, NULL, &compare_integer_type_kcs, &parse_integer_type_kcs, &getkey_integer_type_kcs);
-
-#if 0
-  rtn += register_name_type_katcp(d, KATCP_TYPE_FLOAT, NULL, NULL, NULL, NULL, NULL);
-  rtn += register_name_type_katcp(d, KATCP_TYPE_DOUBLE, NULL, NULL, NULL, NULL, NULL);
-  rtn += register_name_type_katcp(d, KATCP_TYPE_CHAR, NULL, NULL, NULL, NULL, NULL);
-#endif
-
-  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_STACK_PUSH, &pushstack_setup_statemachine_kcs, NULL, NULL, NULL, NULL, NULL, NULL);
-  
-  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_SPAWN, &spawn_setup_statemachine_kcs, NULL, NULL, NULL, NULL, NULL, NULL);
-
-  rtn += store_data_type_katcp(d, KATCP_TYPE_EDGE, KATCP_DEP_BASE, KATCP_EDGE_SLEEP, &msleep_setup_statemachine_kcs, NULL, NULL, NULL, NULL, NULL, NULL);
-  
-  rtn += store_data_type_katcp(d, KATCP_TYPE_EDGE, KATCP_DEP_BASE, KATCP_EDGE_PEEK_STACK_TYPE, &peek_stack_type_setup_statemachine_kcs, NULL, NULL, NULL, NULL, NULL, NULL);
-
-  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_PRINT_STACK, &print_stack_setup_statemachine_kcs, NULL, NULL, NULL, NULL, NULL, NULL);
-  
-  rtn += store_data_type_katcp(d, KATCP_TYPE_EDGE, KATCP_DEP_BASE, KATCP_EDGE_IS_STACK_EMPTY, &is_stack_empty_setup_statemachine_kcs, NULL, NULL, NULL, NULL, NULL, NULL);
-  
-#if 0
-  rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_STORE, &store_setup_statemachine_kcs, NULL, NULL, NULL, NULL, NULL, NULL);
-#endif
- 
-  return rtn;
-}

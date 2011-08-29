@@ -15,7 +15,7 @@ test-map: misc.c parse.c line.c time.c netc.c dispatch.c shared.c ts.c log.c not
 test-kurl: kurl.c
 	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_KURL -o $@ $^
 
-test-avl: misc.c parse.c line.c time.c netc.c dispatch.c shared.c ts.c log.c notice.c nonsense.c job.c queue.c map.c kurl.c version.c avltree.c ktype.c stack.c
+test-avl: misc.c parse.c line.c time.c netc.c dispatch.c shared.c ts.c log.c notice.c nonsense.c job.c queue.c map.c kurl.c version.c avltree.c ktype.c stack.c dbase.c services.c
 	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_AVL -o $@ $^
 
 test-ktype: misc.c parse.c line.c time.c netc.c dispatch.c shared.c ts.c log.c notice.c nonsense.c job.c queue.c map.c kurl.c version.c avltree.c ktype.c

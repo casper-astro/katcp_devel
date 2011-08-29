@@ -676,14 +676,20 @@ struct katcp_type *create_type_katcp();
 struct avl_tree *get_tree_type_katcp(struct katcp_type *t);
 int binary_search_type_list_katcp(struct katcp_type **ts, int t_size, char *str);
 
-
 int startup_services_katcp(struct katcp_dispatch *d);
+
+struct katcp_dict {
+  char *d_key;
+  struct avl_tree *d_avl; 
+};
 
 struct katcp_dbase {
   char *d_key;
-  struct katcp_stack *d_values;
+  char *d_schema;
   struct timeval d_stamped;
+  struct katcp_stack *d_values;
 };
+
 
 void print_string_type_katcp(struct katcp_dispatch *d, void *data);
 void destroy_string_type_katcp(void *data);
@@ -692,7 +698,11 @@ char *getkey_dbase_type_katcp(void *data);
 void print_dbase_type_katcp(struct katcp_dispatch *d, void *data);
 void destroy_dbase_type_katcp(void *data);
 void *parse_dbase_type_katcp(struct katcp_dispatch *d, char **str);
-
+#if 1
+void print_dict_type_katcp(struct katcp_dispatch *d, void *data);
+void destroy_dict_type_katcp(void *data);
+void *parse_dict_type_katcp(struct katcp_dispatch *d, char **str);
+#endif
 /******************************************/
 
 #define KATCL_PARSE_MAGIC 0xff7f1273
