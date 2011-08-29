@@ -789,8 +789,6 @@ int get_dbase_cmd_katcp(struct katcp_dispatch *d, int argc)
 
   return KATCP_RESULT_OWN;
 }
-<<<<<<< HEAD
-=======
 
 int set_dbase_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
