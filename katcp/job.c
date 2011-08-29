@@ -353,7 +353,15 @@ int acknowledge_parse_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n
     return -1;
   }
 
-  j->j_recvr++;
+  if(j->j_recvr <= 0){
+    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "logic problem, acknowledging request when none is outstanding");
+  }
+
+  j->j_recvr--;
+
+#ifdef DEBUG
+  fprintf(stderr, "job: acknowledged request, receive down to %d\n", j->j_recvr);
+#endif
 
   return 0;
 }
@@ -470,6 +478,8 @@ static int set_request_job_katcp(struct katcp_dispatch *d, struct katcp_notice *
     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "insufficient parameters to %s", KATCP_SET_REQUEST);
     return 0;
   }
+
+  fprintf(stderr, "job: fielding set request with label=%s, value=%s\n", label, value);
 
   log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "fielding request %s with label %s and value %s", cmd, label, value);
 #endif
@@ -1068,6 +1078,10 @@ static int field_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
         break;
 
       case KATCP_REQUEST : 
+
+#ifdef DEBUG
+        fprintf(stderr, "job: saw %s request, current receive count is %d\n", cmd, j->j_recvr);
+#endif
 
         if(j->j_recvr > 0){
           /* WARNING: keeps old parse around ... until recvr decremented */
