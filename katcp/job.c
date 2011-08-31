@@ -398,6 +398,8 @@ int acknowledge_request_job_katcp(struct katcp_dispatch *d, struct katcp_notice 
     return -1;
   }
 
+  destroy_parse_katcl(px);
+
   return 0;
 }
 
