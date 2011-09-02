@@ -20,6 +20,10 @@ kcs_change_corr ${mode}
 
 kcs_debug "running connect"
 
+channels=$(grep ^n_chans ${CORR_CONFIG} 2> /dev/null | cut -f2 -d= | tr -d ' ' )
+
+kcs_debug "extracted channel count is ${channels}"
+
 while ! kcpcmd -k -m -t 120 connect ; do
   kcs_check_timeout ${limit}
   kcs_corr_log
@@ -30,6 +34,10 @@ done
 kcs_info "running initialise"
 if kcpcmd -k -m -t 120 initialise 2 ; then
   kcs_corr_log
+
+  echo "#sensor-list channels number\_of\_channels none integer 0 65536"
+  echo "#sensor-status $(date +%s)000 1 channels nominal ${channels}"
+
   exit 0
 fi
 

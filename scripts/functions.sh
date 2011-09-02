@@ -65,6 +65,8 @@ kcs_change_corr()
 
   kcs_debug "restarting corr"
   ${CORR_INIT_SCRIPT} start
+
+  sleep 1
 }
 
 kcs_arg_check () {
@@ -72,6 +74,18 @@ kcs_arg_check () {
     kcs_error "insufficient parameters"
     return 1
   fi
+}
+
+kcs_report_sensor () {
+
+  # name description type units value 
+  if [ $# -lt 5 ] ; then 
+    kcs_error "sensor report needs more values [status]"
+    return 1
+  fi
+
+  echo "#sensor-list $1 $(echo $2 | sed -e 's/ /\\_/g') $4 $3"
+  echo "#sensor-status $(date +%s)000 1 $1 ${6:-unknown} ${5}"
 }
 
 kcs_corr_log () {

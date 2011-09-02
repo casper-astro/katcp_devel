@@ -243,7 +243,7 @@ int main(int argc, char **argv)
 {
   char *app, *server, *match, *parm, *tmp, *cmd, *extra;
   int i, j, c, fd;
-  int verbose, result, status, base, run, info, reply, display, max, prefix, timeout, fmt, pos, flags, munge;
+  int verbose, result, status, base, run, info, reply, display, max, prefix, timeout, fmt, pos, flags, munge, show;
   struct katcl_line *l, *k;
   fd_set fsr, fsw;
   struct timeval tv;
@@ -264,6 +264,7 @@ int main(int argc, char **argv)
   pos = (-1);
   k = NULL;
   munge = 0;
+  show = 1;
 
   while (i < argc) {
     if (argv[i][0] == '-') {
@@ -290,6 +291,10 @@ int main(int argc, char **argv)
           break;
         case 'r' : 
           reply = 1 - reply;
+          j++;
+          break;
+        case 'n' : 
+          show = 0;
           j++;
           break;
         case 'k' : 
@@ -524,6 +529,12 @@ int main(int argc, char **argv)
       	switch(cmd[0]){
           case KATCP_INFORM : 
             display = info;
+            if(show == 0){
+              if(!strcmp(KATCP_VERSION_CONNECT_INFORM, cmd)){
+                display = 0;
+              }
+            }
+
             break;
           case KATCP_REPLY : 
             display = reply;
