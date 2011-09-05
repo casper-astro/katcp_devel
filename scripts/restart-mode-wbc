@@ -40,7 +40,7 @@ if kcpcmd -k -m -t 120 initialise 2 ; then
   fi
 
   kcs_debug "extracted channel count is ${channels}"
-  echo "#sensor-status $(date +%s)000 1 channels nominal ${channels}"
+  echo "#sensor-status $(date +%s)000 1 .${mode}.channels nominal ${channels}"
 
   exit 0
 fi
