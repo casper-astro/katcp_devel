@@ -36,6 +36,15 @@ kcs_info () {
   echo "#log info $(date +%s)000 script $(echo $1 | sed -e 's/ /\\_/g')"
 }
 
+kcs_config_numeric () {
+  value = $(grep ^${1} ${CORR_CONFIG} 2> /dev/null | cut -f2 -d= | tr -d ' ' )
+  if [ -z "${channels}" ] ; then
+    kcs_error "unable to extract ${1} from ${CORR_CONFIG}"
+  fi
+
+  $1=${value}
+}
+
 kcs_change_corr()
 {
   kcs_debug "checking for running corr"
