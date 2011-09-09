@@ -95,6 +95,21 @@ struct katcp_dict *create_dict_katcp(char *key)
   return dt;
 }
 
+int update_dict_katcp(struct katcp_dict *dt, char *key, struct katcp_tobject *to)
+{
+  struct avl_node *n;
+
+  n = find_name_node_avltree(dt->d_avl, key);
+  if (n == NULL)
+    return -1;
+
+  destroy_tobject_katcp(n->n_data);
+
+  n->n_data = to;
+
+  return 0;
+}
+
 int add_dict_katcp(struct katcp_dict *dt, char *key, struct katcp_tobject *to)
 {  
   if (dt == NULL)
@@ -112,8 +127,10 @@ int add_type_dict_katcp(struct katcp_dict *dt, char *key, struct katcp_type *t, 
     return -1;
   
   if (add_dict_katcp(dt, key, to) < 0){
-    destroy_tobject_katcp(to);
-    return -1;
+    if (update_dict_katcp(dt, key, to) < 0){
+      destroy_tobject_katcp(to);
+      return -1;
+    }
   }
 
   return 0;
@@ -143,6 +160,7 @@ int add_named_dict_katcp(struct katcp_dispatch *d, struct katcp_dict *dt, char *
 
   return add_type_dict_katcp(dt, key, t, data);
 }
+
 
 void print_dict_type_katcp(struct katcp_dispatch *d, void *data)
 {
@@ -278,8 +296,9 @@ void *parse_dict_type_katcp(struct katcp_dispatch *d, char **str)
                   free(value);
                 return NULL;
               }
-              
+#ifdef DEBUG            
               fprintf(stderr, "dict KEY: (%s)\n", key);
+#endif
               
               state = STATE_VALUE;
               spos = j+1;
@@ -311,8 +330,9 @@ void *parse_dict_type_katcp(struct katcp_dispatch *d, char **str)
                   free(key);
                 return NULL;
               }
-
+#ifdef DEBUG
               fprintf(stderr, "dict VALUE: (%s)\n", value);
+#endif
                
               data = search_type_katcp(d, stringtype, value, value);
               if (data != NULL){

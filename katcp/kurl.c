@@ -143,18 +143,19 @@ char *kurl_string_with_path_id(struct katcp_url *ku, int id){
   return str;
 }
 
-struct katcp_url *create_kurl_from_string_katcp(char *url){
-  int i,j, state, spos, epos, len;
-  char c;
-  char *temp;
+struct katcp_url *create_kurl_from_string_katcp(char *url)
+{
+  int i, j, state, spos, epos, len, max;
+  char c, *temp;
   struct katcp_url *ku;
+
+  if(url == NULL){
+    return NULL;
+  }
 
 #ifdef DEBUG
   fprintf(stderr,"katcp_url about to parse: %s\n", url);
 #endif
-  if(url == NULL){
-    return NULL;
-  }
 
   ku = allocate_kurl_katcp();
   if(ku == NULL){
@@ -172,7 +173,8 @@ struct katcp_url *create_kurl_from_string_katcp(char *url){
   epos  = 0;
   len   = 0;
   temp  = NULL;
-  j=0;
+  j     = 0;
+  max   = strlen(url);
   
   for (i=0; state != S_END; ){
     
@@ -228,7 +230,7 @@ struct katcp_url *create_kurl_from_string_katcp(char *url){
             ku->u_cmd = malloc(sizeof(char)*len);
             ku->u_cmd = strncpy(ku->u_cmd,url+spos,len-1);
             ku->u_cmd[len-1] = '\0';
-            state = S_HASH;
+            state = (i+1 < max) ? S_HASH : S_END;
             spos = i+1;
             break;
         }
