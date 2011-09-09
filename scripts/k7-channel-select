@@ -22,4 +22,4 @@ fi
 
 kcs_debug "chansel with ${channel} ${mixed}"
 
-corr_nb_chansel.py -c ${channel } -m ${mixed} >& /dev/null
+corr_nb_chansel.py -c ${channel} -m ${mixed} >& /dev/null
