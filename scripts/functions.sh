@@ -44,7 +44,7 @@ kcs_config_numeric () {
 
   kcs_debug "${1} maps to ${value}"
 
-  declare $1=${value}
+  export $1=${value}
 }
 
 kcs_change_corr()
