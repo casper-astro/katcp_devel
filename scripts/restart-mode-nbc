@@ -30,8 +30,8 @@ if kcpcmd -k -m -t 120 initialise 2 ; then
 
   kcs_debug "extracted channel counts coarse=${n_chans}, fine=${coarse_chans}"
 
-  echo "#sensor-list .wbc.channels.coarse number\_of\_channels none integer 0 65536"
-  echo "#sensor-list .wbc.channels.fine number\_of\_channels none integer 0 65536"
+  echo "#sensor-list .nbc.channels.coarse number\_of\_channels none integer 0 65536"
+  echo "#sensor-list .nbc.channels.fine number\_of\_channels none integer 0 65536"
 
   echo "#sensor-status $(date +%s)000 1 .nbc.channels.coarse nominal ${coarse_chans}"
   echo "#sensor-status $(date +%s)000 1 .nbc.channels.fine nominal ${n_chans}"

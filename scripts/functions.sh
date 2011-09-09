@@ -37,12 +37,14 @@ kcs_info () {
 }
 
 kcs_config_numeric () {
-  value = $(grep ^${1} ${CORR_CONFIG} 2> /dev/null | cut -f2 -d= | tr -d ' ' )
-  if [ -z "${channels}" ] ; then
-    kcs_error "unable to extract ${1} from ${CORR_CONFIG}"
+  value=$(grep ^${1} ${CORR_CONFIG} 2> /dev/null | cut -f2 -d= | tr -d ' ' )
+  if [ -z "${value}" ] ; then
+    kcs_error "unable to locate ${1} in ${CORR_CONFIG}"
   fi
 
-  $1=${value}
+  kcs_debug "${1} maps to ${value}"
+
+  declare $1=${value}
 }
 
 kcs_change_corr()
