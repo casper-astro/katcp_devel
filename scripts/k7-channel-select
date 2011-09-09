@@ -20,4 +20,6 @@ if [ ${channel} -gt ${coarse_chans} ] ; then
   kcs_error "coarse channel count ${channel} out of range"
 fi
 
+kcs_debug "chansel with ${channe} ${mixed}"
+
 corr_nb_chansel.py -c ${channel } -m ${mixed} >& /dev/null
