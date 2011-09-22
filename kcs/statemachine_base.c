@@ -347,7 +347,7 @@ int get_values_dbase_katcp(struct katcp_dispatch *d, struct katcp_stack *stack, 
   struct katcp_dbase *db;
   struct katcp_tobject *temp;
   struct katcp_stack *values;
-  int count,i;
+  int count, i;
 
   db = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_DBASE);
   if (db == NULL)
@@ -360,7 +360,7 @@ int get_values_dbase_katcp(struct katcp_dispatch *d, struct katcp_stack *stack, 
     temp = index_stack_katcp(values, i);
     push_tobject_katcp(stack, copy_tobject_katcp(temp));
   }
-
+  
   return 0;
 }
 

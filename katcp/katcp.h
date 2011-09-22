@@ -83,6 +83,7 @@ struct katcp_url;
 #define KATCP_DICT_REQUEST    "?dict"
 #define KATCP_SET_REQUEST     "?set"
 #define KATCP_GET_REQUEST     "?get"
+#define KATCP_SEARCH_REQUEST  "?search"
 
 #define KATCP_LOG_INFORM               "#log"
 #define KATCP_DEVICE_CHANGED_INFORM    "#device-changed"
@@ -502,6 +503,8 @@ int version_list_cmd_katcp(struct katcp_dispatch *d, int argc);
 #define KATCP_TYPE_DICT         "dict"
 #define KATCP_TYPE_SCHEMA       "schema"
 #define KATCP_TYPE_STRING       "string"
+#define KATCP_TYPE_TAG          "tag"
+
 
 struct katcp_type;
 
@@ -562,7 +565,7 @@ int dbase_cmd_katcp(struct katcp_dispatch *d, int argc);
 #endif
 int get_dbase_cmd_katcp(struct katcp_dispatch *d, int argc);
 int set_dbase_cmd_katcp(struct katcp_dispatch *d, int argc);
-int store_kv_dbase_katcp(struct katcp_dispatch *d, char *key, char *schema, struct katcp_stack *values);
+int store_kv_dbase_katcp(struct katcp_dispatch *d, char *key, char *schema, struct katcp_stack *values, struct katcp_stack *tags);
 int set_dbase_katcp(struct katcp_dispatch *d, struct katcl_parse *p);
 struct katcl_parse *get_dbase_katcp(struct katcp_dispatch *d, struct katcl_parse *p);
 int get_value_count_dbase_katcp(struct katcp_dbase *db);
@@ -570,6 +573,14 @@ struct katcp_stack *get_value_stack_dbase_katcp(struct katcp_dbase *db);
 
 int dict_katcp(struct katcp_dispatch *d, struct katcl_parse *p);
 int dict_cmd_katcp(struct katcp_dispatch *d, int argc);
+
+
+/*katcp_tag*/
+struct katcp_tag;
+
+int tag_data_katcp(struct katcp_dispatch *d, struct katcp_tag *t, void *data, struct katcp_type *type);
+
+int search_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 #endif
 

@@ -283,7 +283,7 @@ void print_inorder_avltree(struct katcp_dispatch *d, struct avl_node *n, void (*
     c = pop_data_stack_katcp(s);
     if (c != NULL){
 
-#ifdef DEBUG
+#if DEBUG>2
       fprintf(stderr, "avl_tree: <%s>\n", c->n_key);
 #endif
       if (flags){
@@ -999,7 +999,7 @@ struct avl_node *find_name_node_avltree(struct avl_tree *t, char *key)
       cmp = strcmp(key, c->n_key);
 
       if (cmp == 0){
-#if DEBUG > 0
+#if DEBUG > 1
         fprintf(stderr,"avl_tree: FOUND %s (%p)\n",c->n_key, c);
 #endif
         return c;
@@ -1013,7 +1013,7 @@ struct avl_node *find_name_node_avltree(struct avl_tree *t, char *key)
 
   } /*while*/
 
-#if DEBUG > 0 
+#if DEBUG > 1 
   fprintf(stderr,"avl_tree: NOT FOUND %s\n", key);
 #endif
 

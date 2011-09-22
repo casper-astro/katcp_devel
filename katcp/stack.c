@@ -27,7 +27,10 @@ struct katcp_tobject *create_tobject_katcp(void *data, struct katcp_type *type, 
 {
   struct katcp_tobject *o;
 
+#if 0
   if (data == NULL && type == NULL)
+#endif
+  if (data == NULL)
     return NULL;
   
   o =  malloc(sizeof(struct katcp_tobject));

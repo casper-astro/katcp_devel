@@ -306,7 +306,7 @@ int store_data_type_katcp(struct katcp_dispatch *d, char *t_name, int dep, char 
   pos = binary_search_type_list_katcp(ts, size, t_name);
   
   if (pos < 0){
-#ifdef DEBUG
+#if DEBUG>1
     fprintf(stderr, "katcp_type: need to register new type for <%s> at %d which maps to %d\n", t_name, pos, (pos+1)*(-1)); 
 #endif
     /*pos returned from bsearch is pos to insert new type of searched name 
@@ -455,7 +455,8 @@ void *search_type_katcp(struct katcp_dispatch *d, struct katcp_type *t, char *ke
     }
   }
   else {
-#ifdef DEBUG
+#if 0
+    def DEBUG
     fprintf(stderr, "ktype: search found key: <%s> managing data at (%p)\n", key, data);
 #endif
     

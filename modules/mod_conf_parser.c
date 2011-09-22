@@ -144,7 +144,7 @@ int store_config_setting_mod(struct katcp_dispatch *d, char *setting, char *valu
     return -1;
   }
 
-  if (store_kv_dbase_katcp(d, setting, NULL, stack) < 0){
+  if (store_kv_dbase_katcp(d, setting, NULL, stack, NULL) < 0){
     destroy_stack_katcp(stack);
     return -1;
   }

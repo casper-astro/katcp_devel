@@ -167,7 +167,6 @@ int add_sensor_to_roach_kcs(struct katcp_dispatch *d, struct kcs_obj *ko);
 #define KATCP_TYPE_DOUBLE               "double"
 #define KATCP_TYPE_CHAR                 "char"
 #define KATCP_TYPE_ACTOR                "actor"
-#define KATCP_TYPE_TAG                  "tag"
 
 #define KATCP_OPERATION_STACK_PUSH      "push"
 #define KATCP_OPERATION_TAG_ACTOR       "tagactor"
@@ -252,22 +251,9 @@ int trigger_edge_process_kcs(struct katcp_dispatch *d, struct katcp_stack *stack
 
 int init_actor_tag_katcp(struct katcp_dispatch *d);
 
-struct katcp_tag {
-  char *t_name;
-  int t_level;
-
-  void *t_tobject_root;
-  int t_tobject_count;
-};
 struct katcp_actor;
 
-struct katcp_tag *create_tag_katcp(char *name, int level);
-void destroy_tag_katcp(void *data);
-void print_tag_katcp(struct katcp_dispatch *d, void *data);
-void *parse_tag_katcp(struct katcp_dispatch *d, char **str);
-int compare_tag_katcp(const void *m1, const void *m2);
 int deregister_tag_katcp(struct katcp_dispatch *d, char *name);
-int register_tag_katcp(struct katcp_dispatch *d, char *name, int level);
 int dump_tagsets_katcp(struct katcp_dispatch *d);
 
 struct katcp_actor {

@@ -131,13 +131,13 @@ int add_tail_queue_katcl(struct katcl_queue *q, struct katcl_parse *p)
     return -1;
   }
 
-#ifdef DEBUG
+#if DEBUG > 1
   fprintf(stderr, "add queue: adding %p with ref %u to queue %p of size %d\n", p, p->p_refs, q, q->q_count);
 #endif
 
   if(q->q_count >= q->q_size){
 
-#ifdef DEBUG
+#if DEBUG > 1
     fprintf(stderr, "size=%d, count=%d - increasing parse queue\n", q->q_size, q->q_count);
     if(q->q_size < q->q_count){
       fprintf(stderr, "add: warning: detected rapid size increase of parse queue, expect corruption\n");
@@ -235,7 +235,7 @@ struct katcl_parse *remove_index_queue_katcl(struct katcl_queue *q, unsigned int
     q->q_head = (q->q_head + 1) % q->q_size;
     q->q_count--;
 
-#ifdef DEBUG
+#if DEBUG > 1
     fprintf(stderr, "remove queue: releasing %p with ref %u\n", p, p->p_refs);
 #endif
 
@@ -250,7 +250,7 @@ struct katcl_parse *remove_index_queue_katcl(struct katcl_queue *q, unsigned int
       q->q_queue[q->q_head] = NULL;
       q->q_head = (q->q_head + 1) % q->q_size;
       q->q_count--;
-#ifdef DEBUG
+#if DEBUG > 1
       fprintf(stderr, "remove queue: releasing %p with ref %u\n", p, p->p_refs);
 #endif
       return p; /* WARNING: done here */
@@ -275,7 +275,7 @@ struct katcl_parse *remove_index_queue_katcl(struct katcl_queue *q, unsigned int
   q->q_queue[end] = NULL;
   q->q_count--;
 
-#ifdef DEBUG
+#if DEBUG > 1
   fprintf(stderr, "remove queue: releasing %p with ref %u\n", p, p->p_refs);
 #endif
 

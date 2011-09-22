@@ -140,14 +140,14 @@ void destroy_parse_katcl(struct katcl_parse *p)
 {
   sane_parse_katcl(p);
 
-#ifdef DEBUG
+#if DEBUG > 1
   fprintf(stderr, "destroy parse: %p with refs %d\n", p, p->p_refs);
 #endif
 
   p->p_refs--;
 
   if(p->p_refs <= 0){
-#ifdef DEBUG
+#if DEBUG > 1
     fprintf(stderr, "destroyed parse: %p: no more references\n", p);
 #endif
     p->p_magic = 0xdead;
@@ -225,6 +225,16 @@ static int before_add_parse_katcl(struct katcl_parse *p, unsigned int flags)
     p->p_state = KATCL_PARSE_DONE;
   }
 
+  return 0;
+}
+
+int finalize_parse_katcl(struct katcl_parse *p)
+{
+  if (p == NULL)
+    return -1;
+
+  p->p_state = KATCL_PARSE_DONE;
+  
   return 0;
 }
 
