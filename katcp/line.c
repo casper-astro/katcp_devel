@@ -907,7 +907,7 @@ int write_katcl(struct katcl_line *l)
         l->l_arg = 0;
         l->l_buffer[l->l_pending++] = '\n';
 
-#ifdef DEBUG
+#if DEBUG > 1
         fprintf(stderr, "write: wrote out parse %p (refs %d)\n", p, p->p_refs);
 #endif
 

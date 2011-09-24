@@ -18,7 +18,7 @@
 #define INOTIFY_ADD_WATCH_DIR         "add_watch_dir"
 #define KATCP_OP_IMPORT_DIR           "import_dir"
 
-#define DELIMS        "/ []()-_.&#@!%^*+="
+#define DELIMS        "/ []()-_.&#@!%^*+={}'\""
 #define NCOUNT        1000
 
 static struct katcp_stack *__tempstack;
@@ -26,7 +26,7 @@ static struct katcp_stack *__tempstack;
 static int see_file(const char *fpath, const struct stat *sb, int tflag, struct FTW *ftwbuf)
 {
   char *buffer, *token, *fnkey;
-  int i, err;
+  int i, err, j;
   struct katcl_parse *p;
   
   err = 0;
@@ -53,11 +53,14 @@ static int see_file(const char *fpath, const struct stat *sb, int tflag, struct 
     err += add_string_parse_katcl(p, KATCP_FLAG_STRING, "schema");
     err += add_string_parse_katcl(p, KATCP_FLAG_STRING, "location");
     //err += add_string_parse_katcl(p, KATCP_FLAG_STRING | KATCP_FLAG_LAST, fpath);
-    err += add_string_parse_katcl(p, KATCP_FLAG_STRING, fnkey);
+    //err += add_string_parse_katcl(p, KATCP_FLAG_STRING, fnkey);
     err += add_string_parse_katcl(p, KATCP_FLAG_STRING, fpath);
     err += add_string_parse_katcl(p, KATCP_FLAG_STRING, "tags");
 
     for (i=0; (token = strtok((i>0) ? NULL : buffer, DELIMS)) != NULL; i++){
+
+      for (j=0; token[j] != '\0'; j++)
+        token[j] = tolower(token[j]);
       
       err += add_string_parse_katcl(p, KATCP_FLAG_STRING, token);
 

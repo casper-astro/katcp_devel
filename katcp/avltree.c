@@ -1078,7 +1078,7 @@ void destroy_avltree(struct avl_tree *t, void (*d_free)(void *))
         c = c->n_right;
       } else {
         
-#ifdef DEBUG
+#if DEBUG >1
         fprintf(stderr,"avl_tree: del %s (%p) ", c->n_key, c->n_data);
 #endif
         dn = c;
@@ -1103,7 +1103,7 @@ void destroy_avltree(struct avl_tree *t, void (*d_free)(void *))
 
         free(dn);
 
-#ifdef DEBUG
+#if DEBUG >1
         fprintf(stderr,"avl_tree: done\n");
 #endif
       
@@ -1113,7 +1113,6 @@ void destroy_avltree(struct avl_tree *t, void (*d_free)(void *))
 
   if (t != NULL)
     free(t);
-  
 }
 
 char *gen_id_avltree(char *prefix)
@@ -1135,7 +1134,7 @@ char *gen_id_avltree(char *prefix)
       fprintf(stderr, "gen_id_avltree: done malloc %p for len: %d\n", id, len);
 #endif
     }
-    len = snprintf(id, len,"%s.%lu.%06lu", prefix,now.tv_sec, now.tv_usec);
+    len = snprintf(id, len,"%s.%lu.%06lu", prefix, now.tv_sec, now.tv_usec);
 #if 0
     def DEBUG
     fprintf(stderr, "gen_id_avltree: len: %d\n", len);

@@ -9,7 +9,7 @@
 void destroy_type_katcp(struct katcp_type *t)
 {
   if (t != NULL){
-#ifdef DEBUG
+#if DEBUG > 1
     fprintf(stderr, "katcp_type: destroy type <%s>\n", t->t_name);
 #endif
     if (t->t_name != NULL) { free(t->t_name); t->t_name = NULL; }
@@ -257,7 +257,7 @@ int store_data_at_type_katcp(struct katcp_dispatch *d, struct katcp_type *t, int
 
   if (t->t_tree == NULL){
     t->t_tree = create_avltree();
-#ifdef DEBUG
+#if DEBUG >1
     fprintf(stderr, "katcp_type: create avltree for type: <%s>\n", t->t_name);
 #endif
   }
@@ -278,7 +278,7 @@ int store_data_at_type_katcp(struct katcp_dispatch *d, struct katcp_type *t, int
     return -1;
   }
 
-#ifdef DEBUG
+#if DEBUG >1
   fprintf(stderr, "katcp_type: inserted {%s} for type tree: <%s>\n", d_name, t->t_name);
 #endif
 
@@ -500,7 +500,7 @@ void print_type_katcp(struct katcp_dispatch *d, struct katcp_type *t, int flags)
     //prepend_inform_katcp(d);
     append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, "#katcp type:");
     append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, t->t_name);
-#ifdef DEBUG
+#if DEBUG > 1
     fprintf(stderr, "katcp_type: type <%s> (%p) with tree (%p) print:(%p) free:(%p) copy:(%p) compare:(%p) parse:(%p)\n", t->t_name, t, t->t_tree, t->t_print, t->t_free, t->t_copy, t->t_compare, t->t_parse);
 #endif
     if (t->t_tree != NULL){
@@ -531,9 +531,6 @@ void print_types_katcp(struct katcp_dispatch *d)
 
   for (i=0; i<size; i++){
     t = ts[i];
-#ifdef DEBUG
-    fprintf(stderr, "katcp_type: [%d]\n",i);
-#endif
     print_type_katcp(d, t, 0);
     if (i+1 < size)
       append_string_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING | KATCP_FLAG_LAST, "#"); 

@@ -14,6 +14,9 @@
 
 #include <unistd.h>
 #include <search.h>
+#if 0
+#include <ctype.h>
+#endif
 
 #include "katcp.h"
 #include "katcl.h"
@@ -587,7 +590,7 @@ int tag_dbase_katcp(struct katcp_dispatch *d, struct katcp_dbase *db, struct kat
   while ((t = pop_data_type_stack_katcp(tags, tagtype)) != NULL){
     
     if (tag_data_katcp(d, t, db, dbtype) < 0){
-#ifdef DEBUG
+#if DEBUG > 1
       fprintf(stderr, "dbase: cannot tag db:<%s> with <%s>\n", db->d_key, t->t_name);
 #endif
     }
@@ -909,7 +912,7 @@ int dict_cmd_katcp(struct katcp_dispatch *d, int argc)
 struct katcp_tag *create_tag_katcp(char *name, int level)
 {
   struct katcp_tag *t;
-  
+
   t = malloc(sizeof(struct katcp_tag));
   if (t == NULL)
     return NULL;
@@ -920,6 +923,12 @@ struct katcp_tag *create_tag_katcp(char *name, int level)
     return NULL;
   }
 
+#if 0 
+  for (i=0; t->t_name[i] != '\0'; i++){
+    t->t_name[i] = tolower(t->t_name[i]);
+  }
+#endif
+  
   t->t_level = level;
   t->t_tobject_root = NULL;
   t->t_tobject_count = 0;
@@ -965,8 +974,8 @@ void print_tag_katcp(struct katcp_dispatch *d, void *data)
     return;
 
   append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, "#tag:");
-  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, t->t_name);
-  //append_args_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, "%s", t->t_memb_count);
+  append_string_katcp(d, KATCP_FLAG_STRING, t->t_name);
+  append_args_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, "%d", t->t_tobject_count);
   
 #if 0 
   def DEBUG
@@ -1042,9 +1051,11 @@ int tag_tobject_katcp(struct katcp_dispatch *d, struct katcp_tag *t, struct katc
 
   val = tsearch((void *) to, &(t->t_tobject_root), &compare_tobject_katcp);
   if (val == NULL || (*(struct katcp_tobject **) val != to)){
+#if 0
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "tag: error with tsearch for tag:<%s>", t->t_name);
 #ifdef DEBUG
     fprintf(stderr, "tag: error with tsearch for tag:<%s>\n", t->t_name);
+#endif
 #endif
     return -1;
   }
@@ -1136,6 +1147,7 @@ int search_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
 #ifdef DEBUG
       fprintf(stderr, "search: cannot find tag <%s>\n", tag);
 #endif
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "search tag %s doesn't exist", tag);
     }
 
   }
@@ -1193,7 +1205,7 @@ int search_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
         if (t->t_tobject_root != NULL)
           twalk(t->t_tobject_root, &__collect_from_tag);
         
-#ifdef DEBUG
+#if DEBUG >1
         fprintf(stderr,"i:%d t:(%p) [ ", i, t);
         for (j=0; j<dsize[i]; j++)
           fprintf(stderr,"(%p) ", (data[i][j])->o_data);
@@ -1208,7 +1220,6 @@ int search_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
   bzero(di, sizeof(int) * count);
 
   run  = 1;
-  //j    = 0;
   min  = NULL;
   seen = 0;
   to = NULL;
@@ -1217,7 +1228,7 @@ int search_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
     
     for(i=0; i<count; i++){
       
-#ifdef DEBUG
+#if DEBUG>1
       fprintf(stderr, "i:%d ", i);
 #endif
 
@@ -1228,12 +1239,12 @@ int search_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
           min = (data[i][di[i]])->o_data;
           to = data[i][di[i]];
           seen = 1;
-#ifdef DEBUG
+#if DEBUG >1
           fprintf(stderr, "NULL setting t:(%p) min:(%p) ", t, min);
 #endif
         } else if (min == (data[i][di[i]])->o_data && t != index_data_stack_katcp(tags, i)) {
           seen++;
-#ifdef DEBUG
+#if DEBUG >1
           fprintf(stderr, "seen: %d ", seen);
 #endif
         } else if (min < (data[i][di[i]])->o_data) {
@@ -1241,24 +1252,24 @@ int search_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
           min = (data[i][di[i]])->o_data;
           to = data[i][di[i]];
           seen = 1;
-#ifdef DEBUG
+#if DEBUG >1
           fprintf(stderr, "NEW MIN setting t:(%p) min:(%p) ", t, min);
 #endif
         } else if (min > (data[i][di[i]])->o_data){
           (di[i])++;
-#ifdef DEBUG
+#if DEBUG >1
           fprintf(stderr, "di[%d] %d ", i, di[i]);
 #endif
         } else if (t == index_data_stack_katcp(tags, i)){
-#ifdef DEBUG
-          fprintf(stderr, "original");
+#if DEBUG >1
+          fprintf(stderr, "original ");
 #endif
           if (seen >= count){
-#ifdef DEBUG
+#if DEBUG >1
             fprintf(stderr, "FOUND match\n");
 #endif
             if (push_tobject_katcp(ans, copy_tobject_katcp(to)) < 0){
-#ifdef DEBUG  
+#if DEBUG >1  
               fprintf(stderr, "search: error could not push an answer onto stack\n");
 #endif
             }
@@ -1267,7 +1278,7 @@ int search_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
             min = NULL;
             seen = 0;
             (di[i])++;
-#ifdef DEBUG
+#if DEBUG >1
             fprintf(stderr, "reset all and di[%d] %d ", i, di[i]);
 #endif
           }
@@ -1278,12 +1289,12 @@ int search_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
       
       } else {
         run = 0;
-#ifdef DEBUG
+#if DEBUG >1
         fprintf(stderr, "the end");
 #endif
       }
 
-#ifdef DEBUG
+#if DEBUG >1
       fprintf(stderr, "\n");
 #endif
 
@@ -1300,9 +1311,9 @@ int search_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
 
   sub_time_katcp(&delta, &te, &ts); 
 
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "search took %4.5fms", (float)(delta.tv_sec * 1000) + (float)(delta.tv_usec / 1000));
-
   print_stack_katcp(d, ans);
+
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "search took %lu%06lu\xC2\xB5s", delta.tv_sec, delta.tv_usec);
   
   if (dsize)
     free(dsize);

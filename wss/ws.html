@@ -1,0 +1,49 @@
+<html>
+  <head>
+    <title>
+      (.)(.)
+    </title>
+    <script language="javascript" type="text/javascript">
+      
+      var sock;
+      
+      function katcp_websocket(msg){
+        
+        this.socket = new WebSocket("ws://localhost:6969");
+        
+        this.socket.onmessage = this.onmessage;
+        this.socket.onopen = this.onopen;
+        this.socket.onclose = this.onclose;
+        this.socket.onerror = this.onerror;
+
+        console.log(msg);
+      }
+
+      katcp_websocket.prototype.onmessage = function(e){
+        console.log("Received message");
+        console.log(e);
+      }
+      katcp_websocket.prototype.onopen = function(e){
+        console.log("Connection open");
+        console.log(e);
+      }
+      katcp_websocket.prototype.onclose = function(e){
+        console.log("Connection close");
+        console.log(e);
+      }
+      katcp_websocket.prototype.onerror = function(e){
+        console.log("Error");
+        console.log(e);
+      }
+
+
+
+    </script>
+
+
+  </head>
+
+  <body onload="new katcp_websocket('katcp websocket')">
+
+  </body>
+</html>
