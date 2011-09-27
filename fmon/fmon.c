@@ -1254,7 +1254,7 @@ int detect_fmon(struct fmon_state *f)
   if(word > FMON_MAX_BOARDS){
     log_message_katcl(f->f_report, KATCP_LEVEL_WARN, f->f_server, "rather large board id %d reported by roach %s", word, f->f_server);
   } else {
-    log_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_server, "roach %s claims board%d", f->f_server, word);
+    log_message_katcl(f->f_report, KATCP_LEVEL_DEBUG, f->f_server, "roach %s claims board%d", f->f_server, word);
   }
 
   f->f_board = word;
