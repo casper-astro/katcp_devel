@@ -1328,7 +1328,7 @@ int detect_fmon(struct fmon_state *f)
     }
   }
 
-  log_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_server, "ignoring board id 0 as roach not initalised");
+  log_message_katcl(f->f_report, KATCP_LEVEL_DEBUG, f->f_server, "ignoring board id 0 as roach not initalised");
 
   f->f_board = (-1); /* board id is just 0 because it is unset */
 
