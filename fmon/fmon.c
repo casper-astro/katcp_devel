@@ -1297,7 +1297,7 @@ int detect_fmon(struct fmon_state *f)
     }
   }
 
-  log_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_server, "board contains %d fengines and %d xengines", f->f_fs, f->f_xs);
+  log_message_katcl(f->f_report, KATCP_LEVEL_DEBUG, f->f_server, "board contains %d fengines and %d xengines", f->f_fs, f->f_xs);
 
   if(f->f_board > 0){
     f->f_prior = f->f_board;
