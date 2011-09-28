@@ -9,7 +9,7 @@
       
       function katcp_websocket(msg){
         
-        this.socket = new WebSocket("ws://localhost:6969");
+        this.socket = new WebSocket("wss://localhost:6969");
         
         this.socket.onmessage = this.onmessage;
         this.socket.onopen = this.onopen;

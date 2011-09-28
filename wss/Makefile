@@ -7,7 +7,7 @@ INC = -I$(KATCP)
 LIB = -lssl
 
 EXE = wss
-SRC = wss.c
+SRC = server.c wss.c
 
 # CFLAGS += -DSTANDALONE
 # CFLAGS += -DDEBUG

@@ -1,264 +1,44 @@
-/***
- *  CWSS - A C WevSocket Server
- *
- *    Writen by: A Barta 
- *
- *    use this to connect a browser websocket client 
- *    stream stdin via JSON to the client
- *
- * */
-
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
-#include <sysexits.h>
-#include <signal.h>
 
 #include <time.h>
 #include <sys/stat.h>
 
-#include <openssl/evp.h>
+#include <openssl/ssl.h>
 
-/**
- * Client Object
- *  conn_state - connection state
- *    0: connected not upgraded
- *    1: connected and upgraded to websocket status
- *  fd - client file descriptor 
- *  data - char string of websocket connection header
- */
-struct client {
-  int fd;
-  int conn_state;
-  char * data;
-  int data_len;
+#include "server.h"
 
-  uint8_t *send_buffer;
-  int sb_len;
-};
+#define WSGUID "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 
-/**
- * Server Object
- *  fd - server listen socket
- *  insocks - sockets ready for reading
- *  outsocks - sockets ready for writing
- *  highsock - largest fd number for select
- *  conncount - count of client connections
- *  clients - array of client objects
- */
-struct server {
-  int fd; 
-  
-  fd_set insocks;
-  fd_set outsocks;
-  
-  int highsock;
-  
-  int conncount;
-  struct client **clients;
-  int up_ccount;
-
-  uint8_t *data;
-  int data_len;
-};
-
-/*Main select loop variable*/
-static volatile int run = 1;
-
-/**
- * Signal handler callback
- */
-void handle(int signum) 
+int capture_client_data_ws(struct ws_client *c)
 {
-  run = 0;
-}
+#if 0 
+  int i;
 
-/**
- *  setup_server function
- *
- *    Create the listening server on port
- */
-int setup_server(struct server *s, int port)
-{
-  struct sockaddr_in sa;
-  int backlog, reuse_addr;
+  def DEBUG
+  for (i=0; i<len; i++)
+    fprintf(stderr,"[%d] byte: %d 0x%02X %c\n", cfd, i, buf[i], buf[i]);
+#endif
   
-  reuse_addr   = 1;
-  backlog      = 10;
-  s->conncount = 0;
-  s->clients   = NULL;
-  s->data      = NULL;
-  s->data_len  = 0;
-  s->up_ccount = 0;
-
-  s->fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
-  if (s->fd < 0){
-#ifdef DEBUG
-    fprintf(stderr,"Cannot Create Socket\n");
-#endif
-    return -1;
-  }
-
-  memset(&sa, 0, sizeof(struct sockaddr_in));
-
-  /*fix time wait problems*/
-  setsockopt(s->fd, SOL_SOCKET, SO_REUSEADDR, &reuse_addr, sizeof(reuse_addr));
-
-  sa.sin_family       = AF_INET;
-  sa.sin_port         = htons(port);
-  sa.sin_addr.s_addr  = INADDR_ANY;
-
-  if (bind(s->fd, (const struct sockaddr *) &sa, sizeof(struct sockaddr_in)) < 0){
-#ifdef DEBUG
-    fprintf(stderr,"Could not Bind on Port: %d\n", port);
-#endif
-    return -1;
-  }
-
-  if (listen(s->fd, backlog) < 0) {
-#ifdef DEBUG
-    fprintf(stderr,"Error Listen Failed\n");  
-#endif
-    return -1;
-  }
-
-  s->highsock = s->fd;
-
-#ifdef DEBUG
-  fprintf(stderr,"Server PID: %d running on port: %d\n", getpid(), port);
+#if 0 
+  def DEBUG
+  fprintf(stderr, "%s\n", buf);
 #endif
 
   return 0;
 }
 
-/**
- *  build_socket_set function
- *    
- *     First function called during the run loop
- *     builds the file descriptor set and resets
- *     the highsock value to the highest used file 
- *     descriptor
- */
-void build_socket_set(struct server *s)
+
+int main(int argc, char *argv[]) 
 {
-  int i;
-
-  if (s == NULL)
-    return;
-
-  FD_ZERO(&s->insocks);
-  FD_SET(s->fd, &s->insocks);
-  FD_SET(STDIN_FILENO, &s->insocks);
-  
-  for (i=0; i<s->conncount; i++){
-    
-    if (s->clients[i]->fd > 0) {
-
-      FD_SET(s->clients[i]->fd, &s->insocks);
-      
-      if (s->clients[i]->fd > s->highsock)
-        s->highsock = s->clients[i]->fd;
-
-    }
-
-  }
-
+  return register_client_handler_server(&capture_client_data_ws, 6969);
 }
-  
-/**
- *  handle_new_client function
- *
- *    called when a new client connects to the server
- *    init connect state of the client to 0
- */
-int handle_new_client(struct server *s)
-{
-  struct sockaddr_in ca;
-  socklen_t len;
-  struct client *c;
-  int cfd, i;
+ 
 
-  if (s == NULL)
-    return -1;
-
-  len = sizeof(struct sockaddr_in);
-
-  cfd = accept(s->fd, (struct sockaddr *) &ca, &len);
-  if (cfd < 0) { 
-#ifdef DEBUG
-    fprintf(stderr,"Error while trying to accept new client: %s\n",strerror(errno)); 
-#endif
-    return -1; 
-  }
-
-  
-  c = malloc(sizeof(struct client));
-  if (c == NULL)
-    return -1;
-  
-  //fprintf(stderr,"Created new Client Struct: %p\n",c);
-
-  c->fd          = cfd;
-  c->conn_state  = 0;
-  c->data        = NULL;
-  c->data_len    = 0;
-  c->send_buffer = NULL;
-  c->sb_len      = 0;
-  
-  s->clients = realloc(s->clients, sizeof(struct client*) * (s->conncount+1));
-  if (s->clients == NULL){
-    free(c);
-    return -1;
-  }
-
-  s->clients[s->conncount] = c;
-  
-  s->conncount++;
-
-#ifdef DEBUG
-  for (i=0; i<s->conncount; i++) {
-    fprintf(stderr,"%d[fd:%d cs:%d] ", i, s->clients[i]->fd, s->clients[i]->conn_state);
-  }
-  fprintf(stderr,"\n");
-#endif
-  
-  return 0;  
-}
-
-/**
- *  disconnect_client function
- *    
- *    used to cleanly disconnect one client and swap it
- *    and the last client to manage the memory correctly 
- */
-void disconnect_client(struct server *s, int i)
-{
-  shutdown(s->clients[i]->fd, SHUT_RDWR);     
-  close(s->clients[i]->fd);
-
-  free(s->clients[i]->data);
-  
-  if (s->clients[i]->send_buffer != NULL)
-    free(s->clients[i]->send_buffer);
-
-  if (s->clients[i]->conn_state)
-    s->up_ccount--;
-#ifdef DEBUG
-  fprintf(stderr,"fd: %d client has been disconnected\n",s->clients[i]->fd);
-#endif
-  free(s->clients[i]);
-  
-  s->clients[i] = s->clients[s->conncount-1];
-  s->conncount--;
-  
-  s->clients = realloc(s->clients,sizeof(struct client*) * s->conncount);
-}
+#if 0
 
 int send_403_err(struct server *s, struct client *c)
 {
@@ -534,52 +314,6 @@ int upgrade_connection(struct server *s,struct client *c, char *buf, int bytes){
 }
 
 /**
- *  get_client_data function
- *
- *    receive comms from the client, check the conn_state variable
- *    and call upgrade_connection if the conn state is still 0
- */
-int get_client_data(struct server *s, int i)
-{  
-  uint8_t readbuffer[READBUFFERSIZE];
-  int recv_bytes, j;
-
-  memset(readbuffer, 0, READBUFFERSIZE);
-  recv_bytes = read(s->clients[i]->fd,readbuffer,READBUFFERSIZE);
-
-  if (recv_bytes == 0) /*client disconnection*/{
-#ifdef DEBUG
-    fprintf(stderr,"A client is leaving\n");
-#endif
-    disconnect_client(s,i);
-    return 0;
-  }
-  else {
-
-    if (s->clients[i]->conn_state > 0) {
-      /*when the client sends data and it has built a connection*/
-#ifdef DEBUG
-      fprintf(stderr,"connection is upgraded! got data: (bytes:%d)\n", recv_bytes);
-      for (j=0;j<recv_bytes;j++)
-        fprintf(stderr,"byte: %d 0x%02X %c\n",j,readbuffer[j],readbuffer[j]);
-#endif
-
-    }
-    else {
-      /*the client has just connected and sent websocket http header*/
-      //fprintf(stderr,"bytes read: %d\n",recv_bytes);
-      s->clients[i]->conn_state = upgrade_connection(s, s->clients[i], (char *) readbuffer, recv_bytes);
-      if (s->clients[i]->conn_state){
-        s->up_ccount++;
-      }
-    }
-
-    return 0;
-  }
-}
-
-
-/**
  *  get_server_broadcast function
  *    
  *    read data from the servers stdin buffer
@@ -733,81 +467,6 @@ int send_to_client(struct server *s, int i)
 }
 
 /**
- *  read_socks function
- *    
- *    called after select returns in the run loop
- *    check the server listen socket, if set call
- *    handle_new_clinet
- *    otherwise check the client file descriptors for
- *    which one is set
- */
-int read_socks(struct server *s) 
-{
-  int i;
-
-  /*check the server listen fd for a new connection*/
-  if (FD_ISSET(s->fd, &s->insocks)) {
-#ifdef DEBUG
-    fprintf(stderr,"New incomming connection\n");
-#endif
-    if (handle_new_client(s) < 0) { 
-      return -1; 
-    }
-  }
-
-  /*check if there is data waiting to go to the clients*/
-  for (i=0; i < s->conncount; i++) {
-    if (FD_ISSET(s->clients[i]->fd, &s->outsocks)) {
-      return send_to_client(s, i);
-    }
-  }
-
-  /*check the server stdin file descriptor*/
-  if (FD_ISSET(STDIN_FILENO, &s->insocks)) {
-    return get_server_broadcast(STDIN_FILENO, s);
-  }
-  
-  /*check for data on the line from connected clients*/
-  for (i=0; i<s->conncount; i++){
-    /*once a client is connected*/
-    if (FD_ISSET(s->clients[i]->fd, &s->insocks)) {
-      return get_client_data(s, i);
-    }
-  }
-  return 0;
-}
-
-/**
- *  run_loop function
- *
- *    this function contains the main loop which calls 
- *    select which blocks untill there is some action on the
- *    file descriptors
- */
-int run_loop(struct server *s)
-{
-  while (run) {
-
-    build_socket_set(s);  
-
-    if (select(s->highsock + 1, &s->insocks, &s->outsocks, (fd_set *) NULL, NULL) < 0) { 
-#ifdef DEBUG
-      fprintf(stderr,"wss: select encountered an error: %s\n", strerror(errno)); 
-#endif
-      return -1; 
-    }
-    else {
-      if (read_socks(s) < 0) { 
-        return -1; 
-      }
-    }
-
-  }
-
-  return 0;
-}
-
-/**
  *  disconnect_all_conn function
  *
  *    this function is used to clean up the active connections 
@@ -849,51 +508,4 @@ void disconnect_all_conn(struct server *s)
   close(s->fd);
 }
 
-/**
- *  main function
- *
- *    sets up signal handlers
- *    creates server object
- */
-int main(int argc, char *argv[]) 
-{
-  struct server *s;
-  struct sigaction sag;
-  
-  struct sigaction sa = {
-    .sa_handler = SIG_IGN
-  }; 
-
-  sigfillset(&(sag.sa_mask));
-  sag.sa_flags = 0;
-  sag.sa_handler = handle;
-
-  sigaction(SIGINT, &sag, NULL);
-  sigaction(SIGTERM, &sag, NULL);
-  sigaction(SIGCHLD, &sa, NULL);
-
-  s = malloc(sizeof(struct server));
-  if (s == NULL)
-    exit(1);
-  
-  if (setup_server(s, 6969) < 0){
-    free(s);
-    exit(1);
-  }
-
-  if (run_loop(s) < 0){ 
-    free(s);
-    exit(1);
-  }
-  
-  disconnect_all_conn(s); 
-
-  if (s != NULL)
-    free(s);
-
-#ifdef DEBUG
-  fprintf(stderr,"wss: Server exiting cleanly ;)\n");
 #endif
-
-  return 0;
-}
