@@ -497,6 +497,17 @@ int print_versions_katcp(struct katcp_dispatch *d, int initial);
 int version_cmd_katcp(struct katcp_dispatch *d, int argc);
 int version_list_cmd_katcp(struct katcp_dispatch *d, int argc);
 
+/* arbitrary function callbacks */
+
+#define KATCP_ARB_READ  0x1
+#define KATCP_ARB_WRITE 0x2
+#define KATCP_ARB_BOTH  (KATCP_ARB_READ | KATCP_ARB_WRITE)
+
+struct katcp_arb *find_arb_katcp(struct katcp_dispatch *d, char *name);
+struct katcp_arb *create_arb_katcp(struct katcp_dispatch *d, char *name, int fd, unsigned int mode, int (*run)(struct katcp_dispatch *d, struct katcp_arb *a, unsigned int mode), void *data);
+void mode_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a, unsigned int mode);
+void *data_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a);
+
 /*katcp_type functions*/
 
 #define KATCP_DEP_BASE          0

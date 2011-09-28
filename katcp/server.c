@@ -485,6 +485,7 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
     }
 
     load_jobs_katcp(dl);
+    load_arb_katcp(dl);
 
     if(load_shared_katcp(dl) < 0){ /* want to shut down */
       run = (-1);
@@ -558,6 +559,7 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
     run_shared_katcp(dl);
     run_jobs_katcp(dl);
     run_notices_katcp(dl);
+    run_arb_katcp(dl);
 
     if(FD_ISSET(s->s_lfd, &(s->s_read))){
       if(s->s_used < s->s_count){
