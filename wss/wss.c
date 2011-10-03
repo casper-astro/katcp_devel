@@ -11,7 +11,41 @@
 
 #include "server.h"
 
-#define WSGUID "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+#define WSCLIENT  "Sec-WebSocket-Key:"
+#define WSGUID    "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+#define PORT      6969
+#define SPACE     ' '
+
+int parse_http_proto_ws(struct ws_client *c)
+{
+  unsigned char *line, *key;
+
+  while ((line = readline_client_ws(c)) != NULL){
+    
+#ifdef DEBUG
+    fprintf(stderr, "wss: line [%s]\n", line);
+#endif
+  
+    if (strstr((const char*)line, WSCLIENT) != NULL) {
+      
+      key = (unsigned char *)strchr((const char*)line, SPACE);
+      if (key != NULL){
+#ifdef DEBUG
+        fprintf(stderr, "wss: Client KEY <%s>\n", key);
+#endif
+      }
+
+    }
+
+  }
+   
+  return 0;
+}
+int parse_websocket_proto_ws(struct ws_client *c)
+{
+  
+  return 0;
+}
 
 int capture_client_data_ws(struct ws_client *c)
 {
@@ -23,18 +57,32 @@ int capture_client_data_ws(struct ws_client *c)
     fprintf(stderr,"[%d] byte: %d 0x%02X %c\n", cfd, i, buf[i], buf[i]);
 #endif
   
-#if 0 
-  def DEBUG
-  fprintf(stderr, "%s\n", buf);
+  switch(c->c_state){
+    case C_STATE_NEW:
+#ifdef DEBUG
+      fprintf(stderr, "wss: parse http\n");
+#endif
+      return parse_http_proto_ws(c);
+
+    case C_STATE_UPGRADED:
+#ifdef DEBUG
+      fprintf(stderr, "wss: parse websocket\n");
+#endif
+      return parse_websocket_proto_ws(c);
+  }
+
+#if 0
+def DEBUG
+  fprintf(stderr, "[%s]", c->c_rb);
 #endif
 
-  return 0;
+  return -1;
 }
 
 
 int main(int argc, char *argv[]) 
 {
-  return register_client_handler_server(&capture_client_data_ws, 6969);
+  return register_client_handler_server(&capture_client_data_ws, PORT);
 }
  
 

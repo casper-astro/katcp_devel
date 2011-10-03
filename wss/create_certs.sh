@@ -6,7 +6,7 @@ KEY=$CERTDIR/server.key
 CSR=$CERTDIR/server.csr
 CRT=$CERTDIR/server.crt
 
-set -e
+set -xe
 
 openssl genrsa -out $KEY 4096
 

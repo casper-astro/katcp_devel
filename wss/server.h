@@ -3,6 +3,13 @@
 
 #include <openssl/ssl.h>
 
+#define TLS_CERT  "./certs/server.crt"
+#define TLS_KEY   "./certs/server.key"
+
+#define C_STATE_NEW       0
+#define C_STATE_UPGRADED  1
+
+
 struct ws_client {
   int c_fd;
 
@@ -10,9 +17,8 @@ struct ws_client {
   int c_rb_len;
 
   SSL *c_ssl;
-#if 0
   int c_state;
-
+#if 0
   uint8_t *c_sb;
   int c_sb_len;
 #endif
@@ -46,5 +52,5 @@ struct ws_server {
 
 int register_client_handler_server(int (*client_data_fn)(struct ws_client *c), int port);
 
-
+unsigned char *readline_client_ws(struct ws_client *c);
 #endif

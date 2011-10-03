@@ -10,9 +10,15 @@
 #include <sysexits.h>
 #include <signal.h>
 
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#include <openssl/conf.h>
+#include <openssl/engine.h>
+
 #include "server.h"
 
-#define READBUFFERSIZE 4096
+#define HTTP_EOL             "\r\n"
+#define READBUFFERSIZE        4096
 
 static volatile int run = 1;
 
@@ -42,6 +48,7 @@ struct ws_server *create_server_ws(int (*cdfn)(struct ws_client *c))
   s->s_c_count = 0;
   s->s_br_count= 0;
   s->s_cdfn    = cdfn;
+  s->s_tlsctx  = NULL;
 #if 0
   s->s_up_count= 0;
   s->s_sb      = NULL;
@@ -50,7 +57,7 @@ struct ws_server *create_server_ws(int (*cdfn)(struct ws_client *c))
   return s;
 }
 
-struct ws_client *create_client_ws(int fd)
+struct ws_client *create_client_ws(int fd, SSL *ssl)
 {
   struct ws_client *c;
   
@@ -61,8 +68,9 @@ struct ws_client *create_client_ws(int fd)
   c->c_fd    = fd;
   c->c_rb    = NULL;
   c->c_rb_len= 0;
+  c->c_ssl   = ssl;
+  c->c_state = C_STATE_NEW;
 #if 0
-  c->c_state = 0;
   c->c_sb    = NULL;
   c->c_sb_len= 0;
 #endif
@@ -74,6 +82,12 @@ void destroy_client_ws(struct ws_client *c)
   if (c){
     if (c->c_rb)
       free(c->c_rb);
+    if (c->c_ssl){
+#ifdef DEBUG
+      fprintf(stderr, "wss: SSL about to free client\n");
+#endif
+      SSL_free(c->c_ssl);
+    }
 #if 0
     if (c->c_sb)
       free(c->c_sb);
@@ -114,7 +128,7 @@ int add_new_client_ws(struct ws_server *s, struct ws_client *c)
 
   s->s_c[s->s_c_count] = c;
   s->s_c_count++;
-  
+
   return 0;
 }
 
@@ -152,6 +166,10 @@ int register_signals_ws()
   err += sigaction(SIGINT, &sa, NULL);
   err += sigaction(SIGTERM, &sa, NULL);
   
+  sa.sa_handler = SIG_IGN;
+
+  err += sigaction(SIGPIPE, &sa, NULL);
+
   sigemptyset(&sigmask);
   sigaddset(&sigmask, SIGINT);
   sigaddset(&sigmask, SIGTERM);
@@ -245,6 +263,7 @@ int handle_new_client_ws(struct ws_server *s)
   socklen_t len;
   struct ws_client *c;
   int cfd;
+  SSL *ssl;
 
   if (s == NULL)
     return -1;
@@ -259,10 +278,26 @@ int handle_new_client_ws(struct ws_server *s)
     return -1; 
   }
   
-  c = create_client_ws(cfd);
+  ssl = SSL_new(s->s_tlsctx);
+  if (ssl == NULL){ 
+#ifdef DEBUG
+    fprintf(stderr, "wss: SSL error: %s\n", ERR_error_string(ERR_get_error(), NULL));
+#endif
+    return -1;
+  }
+
+#ifdef DEBUG
+  fprintf(stderr, "wss: client fd: %d ssl (%p)\n",cfd ,ssl); 
+#endif
+
+  SSL_set_fd(ssl, cfd);
+
+  SSL_accept(ssl);
+
+  c = create_client_ws(cfd, ssl);
   if (c == NULL)
     return -1;
-  
+
   if (add_new_client_ws(s, c) < 0){
     destroy_client_ws(c);
     return -1;
@@ -273,21 +308,37 @@ int handle_new_client_ws(struct ws_server *s)
 
 int disconnect_client_ws(struct ws_server *s, struct ws_client *c)
 {
-  if (s == NULL || c == NULL)
+  if (s == NULL || c == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "wss: error disconnect client s:(%p) c:(%p)\n", s, c);
+#endif
     return -1;
+  }
 
   if (del_client_ws(s, c) < 0){
 #ifdef DEBUG
     fprintf(stderr, "wss: error del_client_ws\n");
 #endif
-    return -1;
+    //return -1;
   }
 
+
+  if (!SSL_shutdown(c->c_ssl)){
+#ifdef DEBUG
+    //fprintf(stderr, "wss: SSL error: %s\n", ERR_error_string(ERR_get_error(), NULL));
+    fprintf(stderr, "wss: sll not shutdown do again\n");
+#endif
+    shutdown(c->c_fd, SHUT_RDWR);
+    SSL_shutdown(c->c_ssl);
+  }
+#if 0
   if (shutdown(c->c_fd, SHUT_RDWR) < 0){
 #ifdef DEBUG
     fprintf(stderr, "wss: error client shutdown: %s\n", strerror(errno));
 #endif
-  }     
+  }
+#endif
+
   if (close(c->c_fd) < 0){
 #ifdef DEBUG
     fprintf(stderr, "wss: error shutdown: %s\n", strerror(errno));
@@ -303,38 +354,63 @@ int disconnect_client_ws(struct ws_server *s, struct ws_client *c)
   return 0;
 }
 
+#if 0
+void SSL_free_comp_methods(void)
+{
+  if (ssl_comp_methods == NULL)
+    return;
+  CRYPTO_w_lock(CRYPTO_LOCK_SSL);
+  if (ssl_comp_methods != NULL)
+  {
+    sk_SSL_COMP_pop_free(ssl_comp_methods,CRYPTO_free);
+    ssl_comp_methods = NULL;
+  }
+  CRYPTO_w_unlock(CRYPTO_LOCK_SSL);
+}
+#endif
+
 void shutdown_server_ws(struct ws_server *s)
 {
   struct ws_client *c;
 
   if (s){
-    
-    if (shutdown(s->s_fd, SHUT_RDWR) < 0){
-#ifdef DEBUG
-      fprintf(stderr, "wss: error server shutdown: %s\n", strerror(errno));
-#endif
-    }
-    if (close(s->s_fd) < 0){
-#ifdef DEBUG
-      fprintf(stderr, "wss: error server shutdown: %s\n", strerror(errno));
-#endif
-    }
-
     while (s->s_c_count > 0){
-      
       c = s->s_c[0];
-
       if (disconnect_client_ws(s, c) < 0){
 #ifdef DEBUG
         fprintf(stderr, "wss: error server disconnect client\n");
 #endif
       }
-
     }
     
-    destroy_server_ws(s);
+    if (s->s_tlsctx){
+      SSL_CTX_free(s->s_tlsctx);
+    }
 
+    if (shutdown(s->s_fd, SHUT_RDWR) < 0){
+#ifdef DEBUG
+      fprintf(stderr, "wss: error server shutdown: %s\n", strerror(errno));
+#endif
+    }
+
+    if (close(s->s_fd) < 0){
+#ifdef DEBUG
+      fprintf(stderr, "wss: error server shutdown: %s\n", strerror(errno));
+#endif
+    }
+    destroy_server_ws(s);
   }
+  
+  COMP_zlib_cleanup();
+  ERR_remove_state(0);
+  ENGINE_cleanup();
+  CONF_modules_unload(1);
+  ERR_free_strings();
+  EVP_cleanup();
+  CRYPTO_cleanup_all_ex_data();
+#if 0
+  SSL_free_comp_methods();
+#endif
 
 #ifdef DEBUG
   fprintf(stderr, "wss: server shutdown complete\n");
@@ -343,18 +419,48 @@ void shutdown_server_ws(struct ws_server *s)
 
 int populate_client_data_ws(struct ws_client *c, unsigned char *buf, int n)
 {
-  if (c == NULL)
+  if (c == NULL || buf == NULL)
     return -1;
-  
-  c->c_rb = realloc(c->c_rb, sizeof(unsigned char*) * (c->c_rb_len + n));
+ 
+  c->c_rb     = buf;
+  c->c_rb_len = n;
+
+#if 0
+  c->c_rb = realloc(c->c_rb, sizeof(unsigned char*) * (c->c_rb_len + n + 1));
   if (c->c_rb == NULL)
     return -1;
-    
+
   strncpy((char *)c->c_rb + c->c_rb_len, (char *) buf, n);
 
   c->c_rb_len += n;
 
+  c->c_rb[c->c_rb_len] = '\0';
+#endif
+
   return 0;
+}
+
+unsigned char *readline_client_ws(struct ws_client *c)
+{
+  unsigned char *start, *end;
+  
+  if (c == NULL || c->c_rb == NULL)
+    return NULL;
+
+  start = c->c_rb;
+  end   = (unsigned char *) strstr((const char *)c->c_rb, HTTP_EOL);
+  
+  if (end != NULL){
+    c->c_rb = end + 2;
+    *end = '\0';
+  } else {
+    c->c_rb = NULL;
+#ifdef DEBUG
+    fprintf(stderr, "wss: readline found end of data\n");
+#endif
+  }
+ 
+  return start;
 }
 
 int get_client_data_ws(struct ws_server *s, struct ws_client *c)
@@ -366,15 +472,24 @@ int get_client_data_ws(struct ws_server *s, struct ws_client *c)
     return -1;
 
   memset(readbuffer, 0, READBUFFERSIZE);
+#if 0
   recv_bytes = read(c->c_fd, readbuffer, READBUFFERSIZE);
+#endif
+
+  recv_bytes = SSL_read(c->c_ssl, readbuffer, READBUFFERSIZE);
 
   s->s_br_count += recv_bytes;
   
   if (recv_bytes < 0){
-#ifdef DEBUG
+#if 0
+    def DEBUG
     fprintf(stderr, "wss: read error %s\n", strerror(errno)); 
 #endif
-    return -1;
+#ifdef DEBUG
+    fprintf(stderr, "wss: read_error SSL error: %s\n", ERR_error_string(ERR_get_error(), NULL));
+#endif
+
+    return disconnect_client_ws(s, c);
   } else if (recv_bytes == 0){
 #ifdef DEBUG
     fprintf(stderr,"wss: client is leaving\n");
@@ -475,6 +590,10 @@ int run_loop_ws(struct ws_server *s)
 
     if (pselect(s->s_hi + 1, &s->s_in, &s->s_out, (fd_set *) NULL, NULL, &empty_mask) < 0) { 
       switch(errno){
+        case EPIPE:
+#ifdef DEBUG
+          fprintf(stderr, "wss: EPIPE: %s\n", strerror(errno));
+#endif
         case EINTR:
         case EAGAIN:
           break;
@@ -486,11 +605,76 @@ int run_loop_ws(struct ws_server *s)
       }
     }
     else {
-      if (read_socks_ws(s) < 0) 
-        return -1; 
+      if (read_socks_ws(s) < 0) {
+        //return -1; 
+#ifdef DEBUG
+        fprintf(stderr, "wss: error in read_socks_ws\n");
+#endif
+      }
     }
 
   }
+
+  return 0;
+}
+
+int setup_tls_ws(struct ws_server *s)
+{
+  SSL_CTX *tlsctx;
+
+  if (s == NULL)
+    return -1;
+  
+  SSL_library_init();
+  SSL_load_error_strings();
+/*
+  if (ERR_peek_error() != 0){
+#ifdef DEBUG
+    fprintf(stderr, "wss: SSL error: %s\n", ERR_error_string(ERR_get_error(), NULL));
+#endif
+    return -1;
+  }
+*/
+
+  tlsctx = SSL_CTX_new(TLSv1_server_method());
+  if (tlsctx == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "wss: SSL error: %s\n", ERR_error_string(ERR_get_error(), NULL));
+#endif
+    return -1;
+  }
+
+#ifdef DEBUG
+  fprintf(stderr, "wss: tlsctx (%p)\n", tlsctx);
+#endif
+
+  SSL_CTX_set_options(tlsctx, SSL_OP_SINGLE_DH_USE);
+/*  if (ERR_peek_error() != 0){
+#ifdef DEBUG
+    fprintf(stderr, "wss: SSL error: %s\n", ERR_error_string(ERR_get_error(), NULL));
+#endif
+    return -1;
+  }*/
+
+  if (!SSL_CTX_use_certificate_file(tlsctx, TLS_CERT, SSL_FILETYPE_PEM)){
+#ifdef DEBUG
+    fprintf(stderr, "wss: SSL error: %s\n", ERR_error_string(ERR_get_error(), NULL));
+#endif
+    SSL_CTX_free(tlsctx);
+    return -1;
+  }
+
+  if (!SSL_CTX_use_PrivateKey_file(tlsctx, TLS_KEY, SSL_FILETYPE_PEM)) {
+#ifdef DEBUG
+    fprintf(stderr, "wss: SSL error: %s\n", ERR_error_string(ERR_get_error(), NULL));
+#endif
+    SSL_CTX_free(tlsctx);
+    return -1;
+  }
+
+  //SSL_CTX_set_session_cache_mode(tlsctx, SSL_SESS_CACHE_OFF);
+  
+  s->s_tlsctx = tlsctx;
 
   return 0;
 }
@@ -509,20 +693,31 @@ int register_client_handler_server(int (*client_data_fn)(struct ws_client *c), i
   s = create_server_ws(client_data_fn);
   if (s == NULL){
 #ifdef DEBUG
-    fprintf(stderr, "wss: error could not create_server_ws\n");
+    fprintf(stderr, "wss: error could not create server\n");
 #endif
+    return -1;
+  }
+
+  if (setup_tls_ws(s) < 0){
+#ifdef DEBUG
+    fprintf(stderr,"wss: error in tls setup\n");
+#endif
+    shutdown_server_ws(s);
     return -1;
   }
 
   if (startup_server(s, port) < 0){
 #ifdef DEBUG
-    fprintf(stderr,"wss: error in startup_server\n");
+    fprintf(stderr,"wss: error in startup\n");
 #endif
     shutdown_server_ws(s);
     return -1;
   }
 
   if (run_loop_ws(s) < 0){ 
+#ifdef DEBUG
+    fprintf(stderr,"wss: error during run\n");
+#endif
     shutdown_server_ws(s);
     return -1;
   }
