@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,27 +17,115 @@
 #define PORT      6969
 #define SPACE     ' '
 
+int generate_upgrade_response_ws(struct ws_client *c, char *key)
+{
+  unsigned char   md_value[EVP_MAX_MD_SIZE];
+  unsigned int    md_len;
+  EVP_MD_CTX      mdctx;
+  BIO             *bmem, *b64;
+  BUF_MEM         *bptr;
+  char            skey[512], temp[100];
+  int             len;
+
+  char srvhdr[] = { "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: " };
+
+  if (c == NULL || key == NULL)
+    return -1;
+  
+  len = snprintf(skey, 512, "%s%s", key, WSGUID);
+  if (len < 0)
+    return -1;
+
+  bzero(temp, 100);
+
+  EVP_DigestInit(&mdctx, EVP_sha1());
+  EVP_DigestUpdate(&mdctx, skey, len);
+  EVP_DigestFinal_ex(&mdctx, md_value, &md_len);
+  EVP_MD_CTX_cleanup(&mdctx);
+  
+  b64  = BIO_new(BIO_f_base64());
+  if (b64 == NULL){
+    return -1;
+  }
+
+  bmem = BIO_new(BIO_s_mem());
+  if (bmem == NULL){
+    BIO_free_all(b64);
+    return -1;
+  }
+
+  b64  = BIO_push(b64, bmem);
+  if (BIO_write(b64, md_value, md_len) < 0){
+#ifdef DEBUG
+    fprintf(stderr, "wss: BIO write fail\n");
+#endif
+    BIO_free_all(b64);
+    return -1;
+  }
+  if (BIO_flush(b64) < 0){
+    BIO_free_all(b64);
+    return -1;
+  }
+  BIO_get_mem_ptr(b64, &bptr);
+  
+  memcpy(temp, bptr->data, bptr->length - 1);
+
+  BIO_free_all(b64);
+
+#if 0 
+def DEBUG
+  for (i=0; i < md_len; i++) 
+    fprintf(stderr , "%02x", md_value[i]);
+  fprintf(stderr, "\n");
+  fprintf(stderr, "wss: server key: <%s> len: %d temp: <%s>\n", skey, len, temp); 
+#endif
+
+  len = snprintf(skey, 512, "%s%s\r\n\r\n", srvhdr, temp);
+  if (len < 0)
+    return -1;
+
+#ifdef DEBUG
+  fprintf(stderr, "wss: srvhdr:[%s]\n", skey);
+#endif
+
+  if (write_to_client_ws(c, skey, len * sizeof(char)) < 0){
+#ifdef DEBUG
+    fprintf(stderr, "wss: error write_to_client\n");
+#endif
+    return -1;
+  }
+  
+#ifdef DEBUG
+  fprintf(stderr, "wss: upgrade response generated and dispatched\n");
+#endif
+
+  return 0;
+}
+
 int parse_http_proto_ws(struct ws_client *c)
 {
-  unsigned char *line, *key;
+  unsigned char *line;
+  char *key;
 
   while ((line = readline_client_ws(c)) != NULL){
-    
 #ifdef DEBUG
     fprintf(stderr, "wss: line [%s]\n", line);
 #endif
-  
     if (strstr((const char*)line, WSCLIENT) != NULL) {
-      
-      key = (unsigned char *)strchr((const char*)line, SPACE);
+      key = strchr((const char*)line, SPACE);
       if (key != NULL){
-#ifdef DEBUG
-        fprintf(stderr, "wss: Client KEY <%s>\n", key);
+        key++;
+#if 0 
+        def DEBUG
+        fprintf(stderr, "wss: client KEY <%s>\n", key);
 #endif
+        if (generate_upgrade_response_ws(c, key) < 0){
+#ifdef DEBUG
+          fprintf(stderr, "wss: error unable to generate response for client %d\n", c->c_fd);
+#endif
+        }
       }
-
     }
-
   }
    
   return 0;

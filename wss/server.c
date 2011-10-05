@@ -70,10 +70,9 @@ struct ws_client *create_client_ws(int fd, SSL *ssl)
   c->c_rb_len= 0;
   c->c_ssl   = ssl;
   c->c_state = C_STATE_NEW;
-#if 0
   c->c_sb    = NULL;
   c->c_sb_len= 0;
-#endif
+
   return c;
 }
 
@@ -88,10 +87,11 @@ void destroy_client_ws(struct ws_client *c)
 #endif
       SSL_free(c->c_ssl);
     }
-#if 0
-    if (c->c_sb)
+#if 1
+    if (c->c_sb != NULL)
       free(c->c_sb);
 #endif
+
     free(c);
   }
 }
@@ -232,30 +232,6 @@ int startup_server(struct ws_server *s, int port)
   return 0;
 }
 
-void build_socket_set_ws(struct ws_server *s)
-{
-  int i, fd;
-
-  if (s == NULL)
-    return;
-
-  FD_ZERO(&s->s_in);
-  FD_SET(s->s_fd, &s->s_in);
-  
-  //FD_SET(STDIN_FILENO, &s->insocks);
-  for (i=0; i<s->s_c_count; i++){
-    if (s->s_c[i] != NULL){
-      
-      fd = s->s_c[i]->c_fd;
-
-      if (fd > 0) {
-        FD_SET(fd, &s->s_in);
-        if (fd > s->s_hi)
-          s->s_hi = fd;
-      }
-    }
-  }
-}
 
 int handle_new_client_ws(struct ws_server *s)
 {
@@ -455,9 +431,6 @@ unsigned char *readline_client_ws(struct ws_client *c)
     *end = '\0';
   } else {
     c->c_rb = NULL;
-#ifdef DEBUG
-    fprintf(stderr, "wss: readline found end of data\n");
-#endif
   }
  
   return start;
@@ -535,7 +508,45 @@ int get_client_data_ws(struct ws_server *s, struct ws_client *c)
   return 0;
 }
 
-int read_socks_ws(struct ws_server *s) 
+int send_client_data_ws(struct ws_server *s, struct ws_client *c)
+{
+  int b_wrote;
+
+  if (s == NULL || c == NULL)
+    return -1;
+  
+  b_wrote = SSL_write(c->c_ssl, c->c_sb, c->c_sb_len);
+
+#ifdef DEBUG
+  fprintf(stderr, "wss: [%d] b_wrote:%d c_sb_len:%d\n", c->c_fd, b_wrote, c->c_sb_len);
+#endif
+
+  if (b_wrote <= 0){
+#ifdef DEBUG
+    fprintf(stderr, "wss: error ssl_write < 0\n");
+#endif
+    //return -1;
+  } else if (b_wrote == c->c_sb_len){
+
+    //free(c->c_sb);
+    c->c_sb_len = 0;
+    //c->c_sb = NULL;
+
+  } else if (b_wrote < c->c_sb_len) {
+    c->c_sb_len -= b_wrote;
+    
+    memmove(c->c_sb, c->c_sb + b_wrote, c->c_sb_len);
+
+    c->c_sb = realloc(c->c_sb, c->c_sb_len);
+    if (c->c_sb == NULL)
+      return -1;
+  }
+  
+  return 0;
+}
+
+
+int socks_io_ws(struct ws_server *s) 
 {
   struct ws_client *c;
   int i;
@@ -548,16 +559,33 @@ int read_socks_ws(struct ws_server *s)
 #ifdef DEBUG
     fprintf(stderr,"wss: new incomming connection\n");
 #endif
-    return handle_new_client_ws(s);
+    if (handle_new_client_ws(s) < 0){
+#ifdef DEBUG
+      fprintf(stderr,"wss: error handle new clientn\n");
+#endif
+    }
   }
 
-  /*check for data on the line from connected clients*/
   for (i=0; i<s->s_c_count; i++){
     c = s->s_c[i];
     if (c != NULL){
-      if (FD_ISSET(c->c_fd, &s->s_in)) {
-        return get_client_data_ws(s, c);
+
+      if (FD_ISSET(c->c_fd, &s->s_out)){
+        if (send_client_data_ws(s, c) < 0){
+#ifdef DEBUG
+          fprintf(stderr, "wss: get client data error\n");
+#endif
+        }
       }
+
+      if (FD_ISSET(c->c_fd, &s->s_in)) {
+        if (get_client_data_ws(s, c) < 0){
+#ifdef DEBUG
+          fprintf(stderr, "wss: get client data error\n");
+#endif
+        }
+      } 
+        
     }
   }
 
@@ -575,7 +603,46 @@ int read_socks_ws(struct ws_server *s)
   }
   
 #endif
-  return -1;
+  return 0;
+}
+
+void build_socket_set_ws(struct ws_server *s)
+{
+  struct ws_client *c;
+  int i, fd;
+
+  if (s == NULL)
+    return;
+
+  FD_ZERO(&s->s_in);
+  FD_ZERO(&s->s_out);
+  FD_SET(s->s_fd, &s->s_in);
+  
+  //FD_SET(STDIN_FILENO, &s->insocks);
+  for (i=0; i<s->s_c_count; i++){
+    
+    c = s->s_c[i];
+
+    if (c != NULL){
+      
+      fd = c->c_fd;
+      
+      if (fd > 0) {
+        FD_SET(fd, &s->s_in);
+
+        if (fd > s->s_hi)
+          s->s_hi = fd;
+        
+        if (c->c_sb_len > 0){
+#ifdef DEBUG
+          fprintf(stderr, "wss: must send to [%d] %dbytes\n", c->c_fd, c->c_sb_len);
+#endif
+          FD_SET(fd, &s->s_out);
+        }
+
+      }
+    }
+  }
 }
 
 int run_loop_ws(struct ws_server *s)
@@ -605,7 +672,7 @@ int run_loop_ws(struct ws_server *s)
       }
     }
     else {
-      if (read_socks_ws(s) < 0) {
+      if (socks_io_ws(s) < 0) {
         //return -1; 
 #ifdef DEBUG
         fprintf(stderr, "wss: error in read_socks_ws\n");
@@ -730,3 +797,21 @@ int register_client_handler_server(int (*client_data_fn)(struct ws_client *c), i
 
   return 0;
 }
+
+int write_to_client_ws(struct ws_client *c, void *buf, int n)
+{
+  if (c == NULL || buf == NULL)
+    return -1;
+  
+  c->c_sb = realloc(c->c_sb, c->c_sb_len + n);
+  if (c->c_sb == NULL)
+    return -1;
+
+  memcpy(c->c_sb + c->c_sb_len, buf, n);
+
+  c->c_sb_len += n;
+
+  return n;
+}
+
+

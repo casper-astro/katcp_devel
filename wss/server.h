@@ -18,10 +18,9 @@ struct ws_client {
 
   SSL *c_ssl;
   int c_state;
-#if 0
-  uint8_t *c_sb;
+
+  void *c_sb;
   int c_sb_len;
-#endif
 };
 
 struct ws_server {
@@ -53,4 +52,6 @@ struct ws_server {
 int register_client_handler_server(int (*client_data_fn)(struct ws_client *c), int port);
 
 unsigned char *readline_client_ws(struct ws_client *c);
+
+int write_to_client_ws(struct ws_client *c, void *buf, int n);
 #endif
