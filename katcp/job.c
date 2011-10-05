@@ -680,12 +680,25 @@ struct katcp_job *create_job_katcp(struct katcp_dispatch *d, struct katcp_url *n
     if(match_inform_job_katcp(dl, j, KATCP_LOG_INFORM, &relay_log_job_katcp, NULL) < 0){
       log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to register log relay for job %s", j->j_url->u_str ? j->j_url->u_str : "<anonymous>");
     }
+
+    /* WARNING: will slurp up any and every new-style version message. We might have to suppress some of that, possibly using special option to kcpcmd ... */
+
     if(match_inform_job_katcp(dl, j, KATCP_VERSION_CONNECT_INFORM, &hold_version_job_katcp, NULL) < 0){
       log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to register version recorder for job %s", j->j_url->u_str ? j->j_url->u_str : "<anonymous>");
     }
     if(match_inform_job_katcp(dl, j, KATCP_VERSION_LIST_INFORM, &hold_version_job_katcp, NULL) < 0){
       log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to register version recorder for job %s", j->j_url->u_str ? j->j_url->u_str : "<anonymous>");
     }
+
+    if(match_inform_job_katcp(dl, j, KATCP_SENSOR_LIST_INFORM, &match_sensor_list_katcp, NULL) < 0){
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to match sensor-list on job %s", j->j_url->u_str ? j->j_url->u_str : "<anonymous>");
+    }
+
+    if(match_inform_job_katcp(dl, j, KATCP_SENSOR_STATUS_INFORM, &match_sensor_status_katcp, NULL) < 0){
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to match sensor-status on job %s", j->j_url->u_str ? j->j_url->u_str : "<anonymous>");
+    }
+
+
   } 
 
   /* WARNING: do line clone last, so that fd isn't closed on failure */
@@ -1512,7 +1525,9 @@ int run_jobs_katcp(struct katcp_dispatch *d)
           fprintf(stderr, "job: read from job returns %d\n", result);
 #endif
           if(result < 0){
-            log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to read from subordinate task");
+            code = error_katcl(j->j_line);
+
+            log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to read from subordinate task: %s", code ? strerror(code) : "no error recorded");
             j->j_state = JOB_STATE_DONE;
             j->j_code = KATCP_RESULT_FAIL;
           }
@@ -2276,7 +2291,9 @@ int job_cmd_katcp(struct katcp_dispatch *d, int argc)
         return KATCP_RESULT_FAIL;
       }
 
+#if 0 /* now sensors are always matched */
       job_match_sensor_katcp(d, j);
+#endif
 
       return KATCP_RESULT_OK;
 

@@ -753,7 +753,7 @@ int mode_resume_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *da
   struct katcl_parse *p;
   char *actual, *code;
 
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "resuming after mode change");
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "resuming after mode change");
 
   p = get_parse_notice_katcp(d, n);
   if(p){
@@ -1399,7 +1399,7 @@ struct katcp_notice *prepare_dynamic_mode_katcp(struct katcp_dispatch *d, char *
     return NULL;
   }
 
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "preparing transition from mode %u to %u using command %s", from, to, dm->d_cmd);
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "preparing transition from mode %u to %u using command %s", from, to, dm->d_cmd);
 
   halt = create_notice_katcp(d, NULL, 0);
   if(halt == NULL){

@@ -344,7 +344,10 @@ int register_double_sensor_katcp(struct katcp_dispatch *d, char *name, char *des
 
 #endif
 
+#if 0
 int job_match_sensor_katcp(struct katcp_dispatch *d, struct katcp_job *j);
+#endif
+
 int job_enable_sensor_katcp(struct katcp_dispatch *d, struct katcp_job *j);
 int job_suspend_sensor_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *data);
 

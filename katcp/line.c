@@ -244,8 +244,13 @@ int read_katcl(struct katcl_line *l)
   rr = read(l->l_fd, p->p_buffer + p->p_have, p->p_size - p->p_have);
   if(rr < 0){
     switch(errno){
-      case EAGAIN :
-      case EINTR  :
+      case ECONNRESET : 
+#ifdef DEBUG
+        fprintf(stderr, "read: connect reset\n");
+#endif
+        return 1;
+      case EAGAIN     :
+      case EINTR      :
         return 0; /* more to be read */
       default : /* serious error */
         l->l_error = errno;

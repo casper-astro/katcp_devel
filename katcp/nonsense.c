@@ -893,10 +893,10 @@ int event_check_discrete_katcp(struct katcp_nonsense *ns)
   ds = sn->s_more;
   dn = ns->n_more;
 
-  log_message_katcp(dx, KATCP_LEVEL_TRACE, NULL, "discrete event check had %u now %u", dn->dn_previous, ds->ds_current);
-
   result = status_check_katcp(ns); /* WARNING: status_check has the side effect of updating status */
   
+  log_message_katcp(dx, KATCP_LEVEL_TRACE, NULL, "discrete event check had %u now %u, status check=%d", dn->dn_previous, ds->ds_current, result);
+
   if(dn->dn_previous == ds->ds_current){
     return result;
   }
@@ -3803,6 +3803,7 @@ int match_sensor_status_katcp(struct katcp_dispatch *d, struct katcp_notice *n, 
   return 1;
 }
 
+#if 0
 int job_match_sensor_katcp(struct katcp_dispatch *d, struct katcp_job *j)
 {
   struct katcp_dispatch *dl;
@@ -3828,6 +3829,7 @@ int job_match_sensor_katcp(struct katcp_dispatch *d, struct katcp_job *j)
 
   return result;
 }
+#endif
 
 int job_enable_sensor_katcp(struct katcp_dispatch *d, struct katcp_job *j)
 {
@@ -3940,7 +3942,7 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
 #endif
   struct katcl_parse *p;
   int i, j, got, code;
-  char *name, *type, *label, *value, *description, *units;
+  char *name, *type, *label, *value, *description, *units, *status;
 
   s = d->d_shared;
 
@@ -4010,9 +4012,11 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
       return KATCP_RESULT_FAIL;
     }
 
+#if 0
     if(job_match_sensor_katcp(d, jb) < 0){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to match sensor inform messages for job %s", name);
     }
+#endif
 
     dl = template_shared_katcp(d);
     if(dl == NULL){
@@ -4118,13 +4122,26 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
 
     label = arg_string_katcp(d, 2);
     value = arg_string_katcp(d, 3);
+    status = arg_string_katcp(d, 4);
 
     if((label == NULL) || (value == NULL)){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "create needs a name and value");
       return KATCP_RESULT_FAIL;
     }
 
-    a = find_acquire_katcp(d, label);
+    if(status){
+      code = status_code_sensor_katcl(status);
+    } else {
+      code = KATCP_STATUS_UNKNOWN;
+    }
+
+    sn = find_sensor_katcp(d, name);
+    if(sn == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to locate sensor %s", label);
+      return KATCP_RESULT_FAIL;
+    }
+
+    a = sn->s_acquire;
     if(a == NULL){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to locate acquire for sensor %s", label);
       return KATCP_RESULT_FAIL;
@@ -4150,7 +4167,7 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
         propagate_acquire_katcp(d, a);
 
         log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "updated integer sensor %s to new value %d", label, ia->ia_current);
-        return KATCP_RESULT_OK;
+        break;
 
 #ifdef KATCP_USE_FLOATS
       case KATCP_SENSOR_FLOAT :
@@ -4162,10 +4179,9 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
         doa = a->a_more;
         doa->da_current = atof(value);
 
-        propagate_acquire_katcp(d, a);
 
         log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "updated double sensor %s to new value %e", label, doa->da_current);
-        return KATCP_RESULT_OK;
+        break;
 #endif
 
       case KATCP_SENSOR_DISCRETE :
@@ -4177,6 +4193,11 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to update sensor %s of unsupported type %d\n", label, a->a_type);
         return KATCP_RESULT_FAIL;
     }
+
+    set_status_sensor_katcp(sn, code);
+    propagate_acquire_katcp(d, a);
+
+    return KATCP_RESULT_OK;
 
   } else {
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unknown sensor operation %s", name);

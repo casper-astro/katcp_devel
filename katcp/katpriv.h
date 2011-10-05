@@ -547,6 +547,9 @@ int sensor_sampling_cmd_katcp(struct katcp_dispatch *d, int argc);
 int sensor_dump_cmd_katcp(struct katcp_dispatch *d, int argc);
 int sensor_cmd_katcp(struct katcp_dispatch *d, int argc);
 
+int match_sensor_status_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *data);
+int match_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *data);
+
 /* misc */
 
 char *code_to_name_katcm(int code);
