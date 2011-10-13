@@ -127,10 +127,6 @@ struct katcp_dispatch *setup_katcp(int fd)
     return NULL;
   }
 
-  register_flag_mode_katcp(d, "?setenv",  "sets/clears an enviroment variable (?setenv [label [value]]", &setenv_cmd_katcp, KATCP_CMD_HIDDEN, 0);
-  register_flag_mode_katcp(d, "?chdir",   "change directory (?chdir directory)", &chdir_cmd_katcp, KATCP_CMD_HIDDEN, 0);
-  register_flag_mode_katcp(d, "?forget",  "deregister a command (?forget command)", &forget_cmd_katcp, KATCP_CMD_HIDDEN, 0);
-
   register_katcp(d, "?halt",              "shuts the system down (?halt)", &halt_cmd_katcp);
   register_katcp(d, "?restart",           "restarts the system (?restart)", &restart_cmd_katcp);
   register_katcp(d, "?help",              "displays this help (?help [command])", &help_cmd_katcp);
@@ -142,6 +138,7 @@ struct katcp_dispatch *setup_katcp(int fd)
   register_katcp(d, "?sensor-sampling",   "configure sensor (?sensor-sampling sensor [strategy [parameter]])", &sensor_sampling_cmd_katcp);
   register_katcp(d, "?sensor-value",      "query a sensor (?sensor-value sensor)", &sensor_value_cmd_katcp);
 
+  register_katcp(d, "?version-list",      "list versions (?version-list)", &version_list_cmd_katcp);
 
   return d;
 }
@@ -1037,96 +1034,6 @@ struct katcl_parse *ready_katcp(struct katcp_dispatch *d)
 }
 
 /**************************************************************/
-
-int forget_cmd_katcp(struct katcp_dispatch *d, int argc)
-{
-  char *match;
-
-  if(d->d_shared == NULL){
-    return KATCP_RESULT_FAIL;
-  }
-
-  if(argc < 2){
-    extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
-    return KATCP_RESULT_OWN;
-  }
-
-  match = arg_string_katcp(d, 1);
-  if(match == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a command to forget");
-    return KATCP_RESULT_FAIL;
-  }
-
-  if(deregister_command_katcp(d, match) < 0){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to deregister command");
-    return KATCP_RESULT_FAIL;
-  }
-
-  return KATCP_RESULT_OK;
-}
-
-int chdir_cmd_katcp(struct katcp_dispatch *d, int argc)
-{
-  char *dir;
-
-  if(d->d_shared == NULL){
-    return KATCP_RESULT_FAIL;
-  }
-
-  if(argc < 2){
-    extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
-    return KATCP_RESULT_OWN;
-  }
-
-  dir = arg_string_katcp(d, 1);
-  if(dir == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to retrive directory argument");
-    return KATCP_RESULT_FAIL;
-  }
-
-  if(chdir(dir) < 0){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to change to %s %s", dir, strerror(errno));
-    return KATCP_RESULT_FAIL;
-  }
-
-  return KATCP_RESULT_OK;
-}
-
-int setenv_cmd_katcp(struct katcp_dispatch *d, int argc)
-{
-  char *label, *value;
-
-  if(d->d_shared == NULL){
-    return KATCP_RESULT_FAIL;
-  }
-
-  if(argc < 2){
-    extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
-    return KATCP_RESULT_OWN;
-  }
-
-  label = arg_string_katcp(d, 1);
-  if(argc == 2){
-    if(unsetenv(label) < 0){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to clear variable %s : %s", label, strerror(errno));
-      return KATCP_RESULT_FAIL;
-    }
-    return KATCP_RESULT_OK;
-  }
-
-  value = arg_string_katcp(d, 2);
-  if(value == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire value for variable %s", label);
-    return KATCP_RESULT_FAIL;
-  }
-
-  if(setenv(label, value, 1) < 0){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to set variable %s : %s", label, strerror(errno));
-    return KATCP_RESULT_FAIL;
-  }
-
-  return KATCP_RESULT_OK;
-}
 
 int help_cmd_katcp(struct katcp_dispatch *d, int argc)
 {

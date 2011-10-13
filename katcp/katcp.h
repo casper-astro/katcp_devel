@@ -38,6 +38,7 @@ struct katcp_url;
 #define KATCP_RESULT_PAUSE     3    /* stop, do not parse more until resumed */
 #define KATCP_RESULT_YIELD     2    /* allow others to run, then run again */
 #define KATCP_RESULT_OWN       1
+/* return codes actually seen on the wire have to have a value <= 0 */
 #define KATCP_RESULT_OK        0
 #define KATCP_RESULT_FAIL    (-1)
 #define KATCP_RESULT_INVALID (-2)

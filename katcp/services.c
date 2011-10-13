@@ -1,5 +1,6 @@
 /* (c) 2010,2011 SKA SA */
 /* Released under the GNU GPLv3 - see COPYING */
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -9,7 +10,6 @@
 #include "katcl.h"
 #include "katpriv.h"
 #include "netc.h"
-
 
 int startup_services_katcp(struct katcp_dispatch *d)
 {
