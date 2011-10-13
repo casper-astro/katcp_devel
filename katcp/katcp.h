@@ -33,6 +33,7 @@ struct katcp_url;
 #define KATCP_OK      "ok"
 #define KATCP_FAIL    "fail"
 #define KATCP_INVALID "invalid"
+#define KATCP_PARTIAL "partial"
 
 #define KATCP_RESULT_PAUSE     3    /* stop, do not parse more until resumed */
 #define KATCP_RESULT_YIELD     2    /* allow others to run, then run again */
@@ -40,6 +41,7 @@ struct katcp_url;
 #define KATCP_RESULT_OK        0
 #define KATCP_RESULT_FAIL    (-1)
 #define KATCP_RESULT_INVALID (-2)
+#define KATCP_RESULT_PARTIAL (-3)
 
 #define KATCP_LEVEL_TRACE    0
 #define KATCP_LEVEL_DEBUG    1
@@ -503,8 +505,11 @@ int version_list_cmd_katcp(struct katcp_dispatch *d, int argc);
 #define KATCP_ARB_WRITE 0x2
 #define KATCP_ARB_BOTH  (KATCP_ARB_READ | KATCP_ARB_WRITE)
 
-struct katcp_arb *find_arb_katcp(struct katcp_dispatch *d, char *name);
 struct katcp_arb *create_arb_katcp(struct katcp_dispatch *d, char *name, int fd, unsigned int mode, int (*run)(struct katcp_dispatch *d, struct katcp_arb *a, unsigned int mode), void *data);
+int unlink_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a);
+
+struct katcp_arb *find_arb_katcp(struct katcp_dispatch *d, char *name);
+
 void mode_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a, unsigned int mode);
 void *data_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a);
 

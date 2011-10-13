@@ -689,6 +689,7 @@ int log_map_katcp(struct katcp_dispatch *d, char *prefix, struct katcp_map *km);
 
 void load_arb_katcp(struct katcp_dispatch *d);
 int run_arb_katcp(struct katcp_dispatch *d);
+int arb_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 /*katcp_type*/
 void destroy_type_katcp(struct katcp_type *t);
