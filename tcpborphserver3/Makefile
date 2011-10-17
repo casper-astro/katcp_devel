@@ -6,6 +6,8 @@ INC = -I$(KATCP)
 LIB = -L$(KATCP) -lkatcp -ldl
 CFLAGS += -fPIC
 
+CFLAGS += -DDEBUG
+
 SERVER = tcpborphserver3
 SRC = main.c raw.c
 
@@ -24,4 +26,7 @@ clean:
 
 install: all
 	$(INSTALL) $(SERVER) $(PREFIX)/sbin
+
+test-bof: bof.c 
+	$(CC) $(CFLAGS) -DSTANDALONE -o $@ $^ -I../katcp
 
