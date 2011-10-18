@@ -13,11 +13,37 @@ struct bof_state
 {
   int b_fd;
   int b_xinu;
-  unsigned long b_size;
+  unsigned long b_file_size;
+
+  unsigned long b_bit_offset;
+  unsigned long b_bit_size;
+
+  unsigned long b_reg_offset;
+  unsigned long b_reg_count;
 };
 
 #define flip16(a)     ((0xff & ((a) >> 8)) | (0xff00 & ((a) << 8)))
 #define flip32(a)     ((0xff & ((a) >> 24)) | (0xff00 & ((a) >> 8)) | (0xff0000 & ((a) << 8)) | (0xff000000 & ((a) << 24)))
+
+void flip_hwrhdr_bof(struct hwrhdr *hh)
+{
+  hh->flag       = flip32(hh->flag);
+  hh->addr.class = flip16(hh->addr.class);
+  hh->addr.addr  = flip16(hh->addr.addr);
+  hh->pl_off     = flip32(hh->pl_off);
+  hh->pl_len     = flip32(hh->pl_len);
+  hh->nr_symbol  = flip32(hh->nr_symbol);
+  hh->strtab_off = flip32(hh->strtab_off);
+  hh->next_hwr   = flip32(hh->next_hwr);
+}
+
+void flip_ioreg_bof(struct bofioreg *br)
+{
+  br->name = flip16(br->name);
+  br->mode = flip16(br->mode);
+  br->loc  = flip32(br->loc);
+  br->len  = flip32(br->len);
+}
 
 void flip_bofhdr_bof(struct bofhdr *bh)
 {
@@ -30,7 +56,28 @@ void flip_bofhdr_bof(struct bofhdr *bh)
   bh->b_ekver      = flip32(bh->b_ekver);
 }
 
-int check_header_bof(struct bof_state *bs, struct bofhdr *bh)
+int check_hwrhdr_bof(struct bof_state *bs, struct hwrhdr *hh)
+{
+
+  if(bs->b_xinu){
+    flip_hwrhdr_bof(hh);
+  }
+
+  bs->b_bit_offset = hh->pl_off;
+  bs->b_bit_size = hh->pl_len;
+
+  /* bs->b_reg_offset; */
+  bs->b_reg_count = hh->nr_symbol;
+
+#ifdef DEBUG
+  fprintf(stderr, "payload offset at 0x%x, length %u\n", hh->pl_off, hh->pl_len);
+  fprintf(stderr, "nr symbol %d, strtab offset 0x%x\n", hh->nr_symbol, hh->strtab_off);
+#endif
+
+  return 0;
+}
+
+int check_bofhdr_bof(struct bof_state *bs, struct bofhdr *bh)
 {
   char magic[4] = { 0x19, 'B', 'O', 'F' };
   uint32_t check;
@@ -81,6 +128,13 @@ int check_header_bof(struct bof_state *bs, struct bofhdr *bh)
     bs->b_xinu = 0;
   }
 
+  if(bh->b_hwoff >= bs->b_file_size){
+#ifdef DEBUG
+    fprintf(stderr, "bof: unreasonably large hardware offset at 0x%x\n", bh->b_hwoff);
+#endif
+    return -1;
+  }
+
   return 0;
 }
 
@@ -96,7 +150,7 @@ void close_bof(struct bof_state *bs)
   }
 
   bs->b_xinu = 0;
-  bs->b_size = 0;
+  bs->b_file_size = 0;
 
   free(bs);
 }
@@ -107,6 +161,7 @@ struct bof_state *open_bof(char *name)
   int rr;
   struct stat st;
   struct bofhdr bh;
+  struct hwrhdr hh;
 
   bs = malloc(sizeof(struct bof_state));
   if(bs == NULL){
@@ -115,7 +170,7 @@ struct bof_state *open_bof(char *name)
 
   bs->b_fd = (-1);
   bs->b_xinu = 0;
-  bs->b_size = 0;
+  bs->b_file_size = 0;
 
   bs->b_fd = open(name, O_RDONLY);
   if(bs->b_fd < 0){
@@ -135,10 +190,9 @@ struct bof_state *open_bof(char *name)
     return NULL;
   }
 
-  bs->b_size = st.st_size;
+  bs->b_file_size = st.st_size;
 
   rr = read(bs->b_fd, &bh, sizeof(struct bofhdr));
-
   if(rr != sizeof(struct bofhdr)){
 #ifdef DEBUG
   fprintf(stderr, "bof: unable to read header of %d bytes\n", sizeof(struct bofhdr));
@@ -147,7 +201,7 @@ struct bof_state *open_bof(char *name)
     return NULL;
   }
 
-  if(check_header_bof(bs, &bh) < 0){
+  if(check_bofhdr_bof(bs, &bh) < 0){
     close_bof(bs);
     return NULL;
   }
@@ -155,6 +209,34 @@ struct bof_state *open_bof(char *name)
 #ifdef DEBUG
   fprintf(stderr, "bof: hwofset is 0x%x, elfoff is 0x%x\n", bh.b_hwoff, bh.b_elfoff);
 #endif
+
+  if(lseek(bs->b_fd, bh.b_hwoff, SEEK_SET) != bh.b_hwoff){
+#ifdef DEBUG
+    fprintf(stderr, "bof: unable to seek to location 0x%x\n", bh.b_hwoff);
+#endif
+    return NULL;
+  }
+
+  rr = read(bs->b_fd, &hh, sizeof(struct hwrhdr));
+  if(rr != sizeof(struct hwrhdr)){
+#ifdef DEBUG
+    fprintf(stderr, "bof: unable to read hardware header of %d bytes\n", sizeof(struct hwrhdr));
+#endif
+    close_bof(bs);
+    return NULL;
+  }
+
+  if(check_hwrhdr_bof(bs, &hh)){
+#ifdef DEBUG
+    fprintf(stderr, "bof: malformed hardware header\n");
+#endif
+    close_bof(bs);
+    return NULL;
+  }
+
+#ifdef DEBUG
+#endif
+
 
   return bs;
 }
