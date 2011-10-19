@@ -50,7 +50,7 @@ int main(int argc, char **argv)
   mode = TBS_MODE_RAW_NAME;
   init = NULL;
   lfile = TBS_LOGFILE;
-  foreground = TBS_FOREGROUND;
+  foreground = 0;
 
   i = 1;
   j = 1;

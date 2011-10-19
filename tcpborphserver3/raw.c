@@ -7,6 +7,7 @@
 #include <avltree.h>
 
 #include "tcpborphserver3.h"
+#include "loadbof.h"
 
 int enter_raw_tbs(struct katcp_dispatch *d, struct katcp_notice *n, char *flags, unsigned int from)
 {
@@ -23,6 +24,11 @@ int read_cmd(struct katcp_dispatch *d, int argc)
 
   tr = get_mode_katcp(d, TBS_MODE_RAW);
   if(tr == NULL){
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(tr->r_fpga_up <= 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "fpga not programmed");
     return KATCP_RESULT_FAIL;
   }
 
@@ -48,24 +54,6 @@ int read_cmd(struct katcp_dispatch *d, int argc)
   return KATCP_RESULT_FAIL;
 }
 
-int progdev_cmd(struct katcp_dispatch *d, int argc)
-{
-  char *file;
-
-  if(argc > 1){
-    file = arg_string_katcp(d, 1);
-    if(file == NULL){
-      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "unable to acquire file name to program");
-      return KATCP_RESULT_FAIL;
-    }
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "attempting to program %s", file);
-  } else {
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "attempting to empty fpga");
-  }
-
-  return KATCP_RESULT_FAIL;
-}
-
 void free_entry(void *data)
 {
   struct tbs_entry *te;
@@ -76,6 +64,64 @@ void free_entry(void *data)
   if(te){
     free(te);
   }
+}
+
+int progdev_cmd(struct katcp_dispatch *d, int argc)
+{
+  char *file;
+  struct bof_state *bs;
+  struct tbs_raw *tr;
+
+  tr = get_mode_katcp(d, TBS_MODE_RAW);
+  if(tr == NULL){
+    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "unable to acquire state");
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(argc <= 1){
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "attempting to empty fpga");
+
+    tr->r_fpga_up = 0;
+
+
+    destroy_avltree(tr->r_registers, &free_entry);
+    tr->r_registers = NULL;
+
+    /* TODO */
+
+    tr->r_registers = create_avltree();
+    if(tr->r_registers == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to re-create empty lookup structure");
+      return KATCP_RESULT_FAIL;
+    }
+
+    return KATCP_RESULT_OK;
+  }
+
+  file = arg_string_katcp(d, 1);
+  if(file == NULL){
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "unable to acquire file name to program");
+    return KATCP_RESULT_FAIL;
+  }
+
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "attempting to program %s", file);
+  bs = open_bof(d, file);
+  if(bs == NULL){
+    return KATCP_RESULT_FAIL;
+  }
+
+  /* TODO: program bit file */
+
+  if(index_bof(d, bs) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to load register mapping of %s", file);
+    close_bof(d, bs);
+    return KATCP_RESULT_FAIL;
+  }
+
+  close_bof(d, bs);
+  tr->r_fpga_up = 1; /* WARNING: still a lie */
+
+  return KATCP_RESULT_OK;
 }
 
 int register_cmd(struct katcp_dispatch *d, int argc)

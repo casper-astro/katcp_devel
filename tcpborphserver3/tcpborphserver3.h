@@ -10,10 +10,8 @@
 #define TBS_MODE_RAW_NAME  "raw"
 
 #ifdef DEBUG
-#define TBS_FOREGROUND      1
 #define TBS_LOGFILE        "tcpborphserver3.log"
 #else
-#define TBS_FOREGROUND      0
 #define TBS_LOGFILE        "/var/log/tcpborphserver3.log"
 #endif
 
@@ -22,6 +20,7 @@ int setup_raw_tbs(struct katcp_dispatch *d);
 struct tbs_raw
 {
   struct avl_tree *r_registers;
+  int r_fpga_up;
 };
 
 struct tbs_entry

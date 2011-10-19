@@ -5,11 +5,11 @@ include ../Makefile.inc
 INC = -I$(KATCP)
 LIB = -L$(KATCP) -lkatcp -ldl
 CFLAGS += -fPIC
-
+CFLAGS += -ggdb
 CFLAGS += -DDEBUG
 
 SERVER = tcpborphserver3
-SRC = main.c raw.c
+SRC = main.c raw.c loadbof.c
 
 OBJ = $(patsubst %.c,%.o,$(SRC))
 all: $(SERVER)
