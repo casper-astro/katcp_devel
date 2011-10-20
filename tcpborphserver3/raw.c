@@ -111,6 +111,11 @@ int progdev_cmd(struct katcp_dispatch *d, int argc)
   }
 
   /* TODO: program bit file */
+  if(program_bof(d, bs, TBS_FPGA_CONFIG) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to program bit stream from %s to %s", file, TBS_FPGA_CONFIG);
+    close_bof(d, bs);
+    return KATCP_RESULT_FAIL;
+  }
 
   if(index_bof(d, bs) < 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to load register mapping of %s", file);

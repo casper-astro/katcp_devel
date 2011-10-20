@@ -324,6 +324,88 @@ struct bof_state *open_bof(struct katcp_dispatch *d, char *name)
   return bs;
 }
 
+int program_bof(struct katcp_dispatch *d, struct bof_state *bs, char *device)
+{
+#define BUFFER 4096
+  int dfd, rr, wr, can, need, have;
+  char buffer[BUFFER];
+
+  if(lseek(bs->b_fd, bs->b_bit_offset, SEEK_SET) != (bs->b_bit_offset)){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "seek to bit data at 0x%lx failed", bs->b_bit_offset);
+    return -1;
+  }
+
+#ifdef DEBUG
+  dfd = open(device, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+#else
+  dfd = open(device, O_WRONLY);
+#endif
+  if(dfd < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to open %s: %s", device, strerror(errno));
+    return -1;
+  }
+
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "attempting to program bitstream of %u bytes to device %s", bs->b_bit_size, device);
+
+  need = bs->b_bit_size;
+  do{
+    can = (need > BUFFER) ? BUFFER : need;
+    rr = read(bs->b_fd, buffer, can);
+    switch(rr){
+      case -1 :
+        switch(errno){
+          case EAGAIN :
+          case EINTR  :
+            continue; /* WARNING */
+          default :
+            log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "read from bof file failed: %s", strerror(errno));
+            close(dfd);
+            return -1;
+        }
+        break;
+      case  0 :
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "encountered EOF in bof file with %d bytes still to load", need);
+        close(dfd);
+        return -1;
+      default : 
+        need -= rr;
+        have = 0;
+        do{
+          wr = write(dfd, buffer + have, rr - have);
+          switch(wr){
+            case -1 :
+              switch(errno){
+                case EAGAIN :
+                case EINTR  :
+                  break;
+                default :
+                  log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "write to fpga failed: %s", strerror(errno));
+                  close(dfd);
+                  return -1;
+              }
+              break;
+            case 0 :
+              log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "write to fpga failed: %s", strerror(errno));
+              close(dfd);
+              return -1;
+            default : 
+              have += wr;
+              break;
+          }
+        } while(have < rr);
+        break;
+    }
+  } while(need > 0);
+
+  if(close(dfd) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to program fpga with %d bytes", need);
+    return -1;
+  }
+
+  return 0;
+#undef BUFFER
+}
+
 int index_bof(struct katcp_dispatch *d, struct bof_state *bs)
 {
   int rr;

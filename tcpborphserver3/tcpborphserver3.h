@@ -11,7 +11,9 @@
 
 #ifdef DEBUG
 #define TBS_LOGFILE        "tcpborphserver3.log"
+#define TBS_FPGA_CONFIG    "dev-fpga-config"
 #else
+#define TBS_FPGA_CONFIG    "/dev/fpga/config"
 #define TBS_LOGFILE        "/var/log/tcpborphserver3.log"
 #endif
 
