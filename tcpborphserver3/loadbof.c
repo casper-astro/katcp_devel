@@ -331,17 +331,18 @@ int program_bof(struct katcp_dispatch *d, struct bof_state *bs, char *device)
   char buffer[BUFFER];
 
   if(lseek(bs->b_fd, bs->b_bit_offset, SEEK_SET) != (bs->b_bit_offset)){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "seek to bit data at 0x%lx failed", bs->b_bit_offset);
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "seek to bitstream start at 0x%lx failed", bs->b_bit_offset);
     return -1;
   }
 
-#ifdef DEBUG
-  dfd = open(device, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
-#else
+#ifdef __PPC__
   dfd = open(device, O_WRONLY);
+#else
+  /* for debugging, simply write out the bitstream */
+  dfd = open(device, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
 #endif
   if(dfd < 0){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to open %s: %s", device, strerror(errno));
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to open device %s: %s", device, strerror(errno));
     return -1;
   }
 
@@ -364,7 +365,7 @@ int program_bof(struct katcp_dispatch *d, struct bof_state *bs, char *device)
         }
         break;
       case  0 :
-        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "encountered EOF in bof file with %d bytes still to load", need);
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "encountered EOF in bitstream with %d bytes still to load", need);
         close(dfd);
         return -1;
       default : 

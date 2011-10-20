@@ -11,10 +11,14 @@
 
 #ifdef DEBUG
 #define TBS_LOGFILE        "tcpborphserver3.log"
-#define TBS_FPGA_CONFIG    "dev-fpga-config"
 #else
-#define TBS_FPGA_CONFIG    "/dev/fpga/config"
 #define TBS_LOGFILE        "/var/log/tcpborphserver3.log"
+#endif
+
+#ifdef __PPC__
+#define TBS_FPGA_CONFIG    "/dev/roach/config"
+#else
+#define TBS_FPGA_CONFIG    "dev-roach-config"
 #endif
 
 int setup_raw_tbs(struct katcp_dispatch *d);
