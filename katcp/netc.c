@@ -29,7 +29,7 @@ int net_connect(char *name, int port, int flags)
   struct hostent *he;
   struct sockaddr_in sa;
 #ifndef SOCK_NONBLOCK
-  long flags;
+  long opts;
 #endif
 
   p = NETC_DEFAULT_PORT;
@@ -83,9 +83,9 @@ int net_connect(char *name, int port, int flags)
     fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
 #else
     fd = socket(AF_INET, SOCK_STREAM, 0);
-    flags = fcntl(fd, F_GETFL, NULL);
-    if(flags >= 0){
-      flags = fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+    opts = fcntl(fd, F_GETFL, NULL);
+    if(opts >= 0){
+      opts = fcntl(fd, F_SETFL, opts | O_NONBLOCK);
     }
 #endif
   } else {
