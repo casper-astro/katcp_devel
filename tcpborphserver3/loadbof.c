@@ -126,7 +126,6 @@ int check_bofhdr_bof(struct katcp_dispatch *d, struct bof_state *bs, struct bofh
   if(memcmp(magic, bh->ident, 4)){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "bad magic in file bof header");
     return -1;
-    return -1;
   }
 
   disk = bh->ident[BI_ENDIAN];
@@ -459,13 +458,27 @@ int index_bof(struct katcp_dispatch *d, struct bof_state *bs)
     te->e_len_base = br.len;
     te->e_len_offset = 0;
 
-    /* TODO: and what about the mode ? */
+    switch(br.mode){
+      case IORM_READ : 
+        te->e_mode = TBS_READABLE;
+        break;
+      case IORM_WRITE : 
+        te->e_mode = TBS_WRITABLE;
+        break;
+      case IORM_READWRITE : 
+        te->e_mode = TBS_WRABLE;
+        break;
+      default :
+        log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unsupported access mode %d for register %s", br.mode, name);
+        te->e_mode = 0;
+        break;
+    }
 
-     if(store_named_node_avltree(tr->r_registers, name, te) < 0){
-       log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to store definition of register %s", name);
-       free(te);
-       return -1;
-     }
+    if(store_named_node_avltree(tr->r_registers, name, te) < 0){
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to store definition of register %s", name);
+      free(te);
+      return -1;
+    }
   }
 
   return 0;

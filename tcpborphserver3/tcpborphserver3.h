@@ -26,16 +26,25 @@ int setup_raw_tbs(struct katcp_dispatch *d);
 struct tbs_raw
 {
   struct avl_tree *r_registers;
+
   int r_fpga_up;
+
+  unsigned int *r_map;
+  unsigned long r_map_size;
 };
+
+#define TBS_READABLE   1
+#define TBS_WRITABLE   2
+#define TBS_WRABLE     3
 
 struct tbs_entry
 {
   unsigned int e_pos_base;
-  unsigned char e_pos_offset;
-
-  unsigned char e_len_offset;
   unsigned int e_len_base;
+
+  unsigned char e_pos_offset;
+  unsigned char e_len_offset;
+  unsigned char e_mode;
 };
 
 #endif

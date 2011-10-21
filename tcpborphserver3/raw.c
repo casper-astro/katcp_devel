@@ -9,12 +9,21 @@
 #include "tcpborphserver3.h"
 #include "loadbof.h"
 
-int enter_raw_tbs(struct katcp_dispatch *d, struct katcp_notice *n, char *flags, unsigned int from)
-{
-  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "now running in raw mode");
+/*********************************************************************/
 
-  return 0;
+void free_entry(void *data)
+{
+  struct tbs_entry *te;
+
+  te = data;
+
+  /* TODO: maybe add magic field to check we are deleting the correct thing */
+  if(te){
+    free(te);
+  }
 }
+
+/*********************************************************************/
 
 int read_cmd(struct katcp_dispatch *d, int argc)
 {
@@ -49,21 +58,14 @@ int read_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
+  if(!(te->e_mode & TBS_READABLE)){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register %s is not marked readable");
+    return KATCP_RESULT_FAIL;
+  }
+
   log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "attempting to read from %u:%u", te->e_pos_base, te->e_pos_offset);
 
   return KATCP_RESULT_FAIL;
-}
-
-void free_entry(void *data)
-{
-  struct tbs_entry *te;
-
-  te = data;
-
-  /* TODO: maybe add magic field to check we are deleting the correct thing */
-  if(te){
-    free(te);
-  }
 }
 
 int progdev_cmd(struct katcp_dispatch *d, int argc)
@@ -136,7 +138,6 @@ int register_cmd(struct katcp_dispatch *d, int argc)
   unsigned int mod, div;
   struct tbs_raw *tr;
 
-
   tr = get_mode_katcp(d, TBS_MODE_RAW);
   if(tr == NULL){
     return KATCP_RESULT_FAIL;
@@ -208,6 +209,8 @@ int register_cmd(struct katcp_dispatch *d, int argc)
   entry.e_len_base += div;
   entry.e_len_offset = mod;
 
+  entry.e_mode = TBS_WRABLE;
+
   if((entry.e_len_base == 0) && (entry.e_len_offset == 0)){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "size of register %s malformed", name);
     return KATCP_RESULT_FAIL;
@@ -234,6 +237,8 @@ int register_cmd(struct katcp_dispatch *d, int argc)
   return KATCP_RESULT_OK;
 }
 
+/*********************************************************************/
+
 void destroy_raw_tbs(struct katcp_dispatch *d, struct tbs_raw *tr)
 {
   if(tr == NULL){
@@ -256,6 +261,13 @@ void release_raw_tbs(struct katcp_dispatch *d, unsigned int mode)
   if(tr){
     destroy_raw_tbs(d, tr);
   }
+}
+
+int enter_raw_tbs(struct katcp_dispatch *d, struct katcp_notice *n, char *flags, unsigned int from)
+{
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "now running in raw mode");
+
+  return 0;
 }
 
 int setup_raw_tbs(struct katcp_dispatch *d)
