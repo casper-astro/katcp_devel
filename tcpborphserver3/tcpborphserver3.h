@@ -16,21 +16,27 @@
 #endif
 
 #ifdef __PPC__
-#define TBS_FPGA_CONFIG    "/dev/roach/config"
+#define TBS_FPGA_CONFIG    "/dev/roach/mem"
 #else
 #define TBS_FPGA_CONFIG    "dev-roach-config"
+#define TBS_FPGA_MEM       "dev-roach-mem"
 #endif
 
 int setup_raw_tbs(struct katcp_dispatch *d);
 
+#define TBS_FRGA_DOWN        0
+#define TBS_FPGA_PROGRAMED   1
+#define TBS_FPGA_MAPPED      2
+
 struct tbs_raw
 {
   struct avl_tree *r_registers;
-
-  int r_fpga_up;
+  int r_fpga;
 
   unsigned int *r_map;
-  unsigned long r_map_size;
+  unsigned int r_map_size;
+
+  unsigned int r_top_register;
 };
 
 #define TBS_READABLE   1

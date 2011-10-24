@@ -414,6 +414,7 @@ int index_bof(struct katcp_dispatch *d, struct bof_state *bs)
   /* WARNING: no longer a generic program, depends on *_raw */
   struct tbs_raw *tr;
   struct tbs_entry *te;
+  unsigned int top;
   char *name;
 
   tr = get_mode_katcp(d, TBS_MODE_RAW);
@@ -458,6 +459,11 @@ int index_bof(struct katcp_dispatch *d, struct bof_state *bs)
     te->e_len_base = br.len;
     te->e_len_offset = 0;
 
+    top = br.loc + br.len;
+    if(tr->r_top_register < top){
+      tr->r_top_register = top;
+    }
+
     switch(br.mode){
       case IORM_READ : 
         te->e_mode = TBS_READABLE;
@@ -480,6 +486,8 @@ int index_bof(struct katcp_dispatch *d, struct bof_state *bs)
       return -1;
     }
   }
+
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "address range needs to be at least %u", tr->r_top_register);
 
   return 0;
 }

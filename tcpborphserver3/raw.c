@@ -2,12 +2,22 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
+
+#include <sys/mman.h>
 
 #include <katcp.h>
 #include <avltree.h>
 
 #include "tcpborphserver3.h"
 #include "loadbof.h"
+
+/*********************************************************************/
+
+int map_raw_tbs(struct katcp_dispatch *d);
+int unmap_raw_tbs(struct katcp_dispatch *d);
 
 /*********************************************************************/
 
@@ -36,7 +46,7 @@ int read_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
-  if(tr->r_fpga_up <= 0){
+  if(tr->r_fpga != TBS_FPGA_MAPPED){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "fpga not programmed");
     return KATCP_RESULT_FAIL;
   }
@@ -83,13 +93,17 @@ int progdev_cmd(struct katcp_dispatch *d, int argc)
   if(argc <= 1){
     log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "attempting to empty fpga");
 
-    tr->r_fpga_up = 0;
+    if(tr->r_fpga == TBS_FPGA_MAPPED){
+      unmap_raw_tbs(d);
+      tr->r_fpga = TBS_FPGA_PROGRAMED;
+    }
 
+    if(tr->r_fpga == TBS_FPGA_PROGRAMED){
+      /* TODO: actually unprogram FPGA */
+    }
 
     destroy_avltree(tr->r_registers, &free_entry);
     tr->r_registers = NULL;
-
-    /* TODO */
 
     tr->r_registers = create_avltree();
     if(tr->r_registers == NULL){
@@ -112,12 +126,12 @@ int progdev_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
-  /* TODO: program bit file */
   if(program_bof(d, bs, TBS_FPGA_CONFIG) < 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to program bit stream from %s to %s", file, TBS_FPGA_CONFIG);
     close_bof(d, bs);
     return KATCP_RESULT_FAIL;
   }
+  tr->r_fpga = TBS_FPGA_PROGRAMED;
 
   if(index_bof(d, bs) < 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to load register mapping of %s", file);
@@ -125,9 +139,12 @@ int progdev_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
-  close_bof(d, bs);
-  tr->r_fpga_up = 1; /* WARNING: still a lie */
+  if(map_raw_tbs(d) < 0){
+    close_bof(d, bs);
+    return KATCP_RESULT_FAIL;
+  }
 
+  close_bof(d, bs);
   return KATCP_RESULT_OK;
 }
 
@@ -239,6 +256,81 @@ int register_cmd(struct katcp_dispatch *d, int argc)
 
 /*********************************************************************/
 
+int unmap_raw_tbs(struct katcp_dispatch *d)
+{
+  struct tbs_raw *tr;
+
+  tr = get_mode_katcp(d, TBS_MODE_RAW);
+  if(tr == NULL){
+    return -1;
+  }
+
+  if(tr->r_fpga != TBS_FPGA_MAPPED){
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "nothing mapped");
+    return 0;
+  }
+
+  munmap(tr->r_map, tr->r_map_size);
+  tr->r_fpga = TBS_FPGA_PROGRAMED;
+
+  tr->r_map_size = 0;
+  tr->r_map = NULL;
+
+  return 0;
+}
+
+int map_raw_tbs(struct katcp_dispatch *d)
+{
+  struct tbs_raw *tr;
+  unsigned int power;
+  int fd;
+
+  tr = get_mode_katcp(d, TBS_MODE_RAW);
+  if(tr == NULL){
+    return -1;
+  }
+
+  if(tr->r_fpga == TBS_FPGA_MAPPED){
+    unmap_raw_tbs(d);
+  }
+
+  if(tr->r_top_register <= 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no registes defined");
+    return -1;
+  }
+
+  power = 4096;
+  while(power < tr->r_top_register){
+    power *= 2;
+  }
+
+  tr->r_map_size = power;
+  if(tr->r_map_size > 0x08000000){ 
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "requesting to map a rather large area of 0x%x", tr->r_map_size);
+  }
+
+  fd = open(TBS_FPGA_MEM, O_RDWR);
+  if(fd < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to open file %s: %s", TBS_FPGA_MEM, strerror(errno));
+    return -1;
+  }
+
+  tr->r_map = mmap(NULL, tr->r_map_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+
+  if(tr->r_map == MAP_FAILED){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to map file %s: %s", TBS_FPGA_MEM, strerror(errno));
+    close(fd);
+    return -1;
+  }
+
+  close(fd); /* TODO: maybe retain file descriptor ? */
+  tr->r_fpga = TBS_FPGA_MAPPED;
+
+  return 0;
+}
+
+/*********************************************************************/
+
 void destroy_raw_tbs(struct katcp_dispatch *d, struct tbs_raw *tr)
 {
   if(tr == NULL){
@@ -248,6 +340,12 @@ void destroy_raw_tbs(struct katcp_dispatch *d, struct tbs_raw *tr)
   if(tr->r_registers){
     destroy_avltree(tr->r_registers, &free_entry);
     tr->r_registers = NULL;
+  }
+
+  if(tr->r_fpga == TBS_FPGA_MAPPED){
+    /* TODO */
+
+    tr->r_fpga = TBS_FPGA_PROGRAMED;
   }
 
   free(tr);
@@ -281,6 +379,13 @@ int setup_raw_tbs(struct katcp_dispatch *d)
   }
 
   tr->r_registers = NULL;
+  tr->r_fpga = TBS_FRGA_DOWN;
+
+  tr->r_map = NULL;
+  tr->r_map_size = 0;
+
+  tr->r_top_register = 0;
+
   /* clear out further structure elements */
 
   /* allocate structure elements */
