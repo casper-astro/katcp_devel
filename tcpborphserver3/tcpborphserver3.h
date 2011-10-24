@@ -16,7 +16,8 @@
 #endif
 
 #ifdef __PPC__
-#define TBS_FPGA_CONFIG    "/dev/roach/mem"
+#define TBS_FPGA_CONFIG    "/dev/roach/config"
+#define TBS_FPGA_MEM       "/dev/roach/mem"
 #else
 #define TBS_FPGA_CONFIG    "dev-roach-config"
 #define TBS_FPGA_MEM       "dev-roach-mem"
