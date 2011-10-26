@@ -41,7 +41,8 @@ int word_read_cmd(struct katcp_dispatch *d, int argc)
   struct tbs_raw *tr;
   struct tbs_entry *te;
   char *name;
-  uint32_t value;
+  uint32_t value, prev, current;
+  unsigned int length, start, i, j, shift, flags;
 
   tr = get_mode_katcp(d, TBS_MODE_RAW);
   if(tr == NULL){
@@ -75,18 +76,69 @@ int word_read_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
-  if((te->e_pos_base + 4) >= tr->r_map_size){
+  start = 0;
+  if(argc > 2){
+    start = arg_unsigned_long_katcp(d, 2);
+  }
+
+  length = 1;
+  if(argc > 3){
+    length = arg_unsigned_long_katcp(d, 3);
+  }
+
+  if((te->e_pos_base + ((start + length) * 4)) >= tr->r_map_size){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register %s is outside mapped range", name);
     return KATCP_RESULT_FAIL;
   }
 
-  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "attempting to read from %u, ignoring offset", te->e_pos_base);
+  if(((start + length) * 4) > te->e_len_base){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "read request extends beyond end of register %s", name);
+    return KATCP_RESULT_FAIL;
+  }
 
-  value = *((uint32_t *)(tr->r_map + te->e_pos_base));
+  if(length <= 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "zero read request length on register %s", name);
+    return KATCP_RESULT_FAIL;
+  }
 
   prepend_reply_katcp(d);
   append_string_katcp(d, KATCP_FLAG_STRING, KATCP_OK);
+  flags = KATCP_FLAG_XLONG;
+
+  j = te->e_pos_base + (start * 4);
+  shift = te->e_pos_offset;
+
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "attempting to read %d words from fpga at 0x%x", length, j);
+
+  /* WARNING: scary logic, attempts to support reading of non-word, non-byte aligned registers, but in word amounts (!) */
+
+  if(shift > 0){
+    current = *((uint32_t *)(tr->r_map + j));
+    prev = (current << shift);
+    j += 4;
+  } else {
+    shift = 32;
+    prev = 0;
+  }
+
+  for(i = 0; i < length; i++){
+    current = *((uint32_t *)(tr->r_map + j));
+    /* WARNING: masking would be wise here, just in case sign extension happens */
+    value = (current >> (32 - shift)) | prev;
+
+    prev = (current << shift);
+    j += 4;
+    if(i + 1 >= length){
+      flags |= KATCP_FLAG_LAST;
+    }
+
+    append_hex_long_katcp(d, flags, value);
+  }
+
+#if 0
+  value = *((uint32_t *)(tr->r_map + te->e_pos_base));
   append_hex_long_katcp(d, KATCP_FLAG_LAST | KATCP_FLAG_XLONG, value);
+#endif
 
   return KATCP_RESULT_OWN;
 }
