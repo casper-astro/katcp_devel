@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <stdint.h>
 
 #include <sys/mman.h>
 
@@ -35,11 +36,12 @@ void free_entry(void *data)
 
 /*********************************************************************/
 
-int read_cmd(struct katcp_dispatch *d, int argc)
+int word_read_cmd(struct katcp_dispatch *d, int argc)
 {
   struct tbs_raw *tr;
   struct tbs_entry *te;
   char *name;
+  uint32_t value;
 
   tr = get_mode_katcp(d, TBS_MODE_RAW);
   if(tr == NULL){
@@ -69,13 +71,24 @@ int read_cmd(struct katcp_dispatch *d, int argc)
   }
 
   if(!(te->e_mode & TBS_READABLE)){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register %s is not marked readable");
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register %s is not marked readable", name);
     return KATCP_RESULT_FAIL;
   }
 
-  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "attempting to read from %u:%u", te->e_pos_base, te->e_pos_offset);
+  if((te->e_pos_base + 4) >= tr->r_map_size){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register %s is outside mapped range", name);
+    return KATCP_RESULT_FAIL;
+  }
 
-  return KATCP_RESULT_FAIL;
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "attempting to read from %u, ignoring offset", te->e_pos_base);
+
+  value = *((uint32_t *)(tr->r_map + te->e_pos_base));
+
+  prepend_reply_katcp(d);
+  append_string_katcp(d, KATCP_FLAG_STRING, KATCP_OK);
+  append_hex_long_katcp(d, KATCP_FLAG_LAST | KATCP_FLAG_XLONG, value);
+
+  return KATCP_RESULT_OWN;
 }
 
 int progdev_cmd(struct katcp_dispatch *d, int argc)
@@ -403,7 +416,7 @@ int setup_raw_tbs(struct katcp_dispatch *d)
 
   result += register_flag_mode_katcp(d, "?progdev", "program the fpga (?progdev [filename])", &progdev_cmd, 0, TBS_MODE_RAW);
   result += register_flag_mode_katcp(d, "?register", "name a memory location (?register name position bit-offset length)", &register_cmd, 0, TBS_MODE_RAW);
-  result += register_flag_mode_katcp(d, "?read",     "read data from a defined register (?read name TODO)", &read_cmd, 0, TBS_MODE_RAW);
+  result += register_flag_mode_katcp(d, "?wordread",     "read data from a defined register (?wordread name TODO)", &word_read_cmd, 0, TBS_MODE_RAW);
 
   return 0;
 }
