@@ -89,7 +89,11 @@ int main(int argc, char **argv)
   detach = 0;
   truncate = 0;
 
-  server = NULL;
+  server = getenv("KATCP_SERVER");
+  if(server == NULL){
+    server = "localhost";
+  }
+
   output = NULL;
   level = NULL;
 
