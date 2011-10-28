@@ -47,6 +47,7 @@ int word_write_cmd(struct katcp_dispatch *d, int argc)
 
   tr = get_mode_katcp(d, TBS_MODE_RAW);
   if(tr == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire raw mode state");
     return KATCP_RESULT_FAIL;
   }
 
@@ -72,7 +73,7 @@ int word_write_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
-  if(!(te->e_mode & TBS_READABLE)){
+  if(!(te->e_mode & TBS_WRITABLE)){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register %s is not marked readable", name);
     return KATCP_RESULT_FAIL;
   }
@@ -117,7 +118,7 @@ int word_write_cmd(struct katcp_dispatch *d, int argc)
     *((uint32_t *)(tr->r_map + j)) = update;
   }
 
-  return KATCP_RESULT_FAIL;
+  return KATCP_RESULT_OK;
 }
 
 int word_read_cmd(struct katcp_dispatch *d, int argc)
@@ -176,7 +177,7 @@ int word_read_cmd(struct katcp_dispatch *d, int argc)
   }
 
   if(((start + length) * 4) > te->e_len_base){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "read request extends beyond end of register %s", name);
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "read request @%u+%u extends beyond end of register %s", start * 4, length * 4, name);
     return KATCP_RESULT_FAIL;
   }
 
