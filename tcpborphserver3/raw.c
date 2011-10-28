@@ -36,6 +36,90 @@ void free_entry(void *data)
 
 /*********************************************************************/
 
+int word_write_cmd(struct katcp_dispatch *d, int argc)
+{
+  struct tbs_raw *tr;
+  struct tbs_entry *te;
+
+  unsigned int i, start, shift, j;
+  uint32_t value, prev, update, current;
+  char *name;
+
+  tr = get_mode_katcp(d, TBS_MODE_RAW);
+  if(tr == NULL){
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(tr->r_fpga != TBS_FPGA_MAPPED){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "fpga not programmed");
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(argc <= 3){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a register to read, followed by offset and one or more values");
+    return KATCP_RESULT_INVALID;
+  }
+
+  name = arg_string_katcp(d, 1);
+  if(name == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register name inaccessible");
+    return KATCP_RESULT_FAIL;
+  }
+
+  te = find_data_avltree(tr->r_registers, name);
+  if(te == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register %s not defined", name);
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(!(te->e_mode & TBS_READABLE)){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register %s is not marked readable", name);
+    return KATCP_RESULT_FAIL;
+  }
+
+  start = arg_unsigned_long_katcp(d, 2);
+  start *= 4;
+
+  if(te->e_len_base < start){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "write offset %u overruns register %s", start, name);
+    return KATCP_RESULT_FAIL;
+  }
+
+  shift = te->e_pos_offset;
+  j = te->e_pos_base + start;
+  if(shift > 0){
+    current = *((uint32_t *)(tr->r_map + j));
+    prev = current & (0xffffffff << (32 - shift));
+  } else {
+    prev = 0;
+  }
+
+  for(i = 3; i < argc; i++){
+    if(arg_null_katcp(d, i)){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "parameter %u is null", i);
+      return KATCP_RESULT_FAIL;
+    }
+
+    value = arg_unsigned_long_katcp(d, i);
+    update = prev | (value >> shift);
+
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "writing 0x%x to position 0x%x", update, j);
+    *((uint32_t *)(tr->r_map + j)) = update;
+
+    prev = value << (32 - shift);
+    j += 4;
+  }
+
+  if(shift > 0){
+    current = (*((uint32_t *)(tr->r_map + j))) & (0xffffffff >> shift);
+    update = prev | current;
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "writing final, partial 0x%x to position 0x%x", update, j);
+    *((uint32_t *)(tr->r_map + j)) = update;
+  }
+
+  return KATCP_RESULT_FAIL;
+}
+
 int word_read_cmd(struct katcp_dispatch *d, int argc)
 {
   struct tbs_raw *tr;
