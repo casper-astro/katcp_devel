@@ -552,7 +552,8 @@ int setup_raw_tbs(struct katcp_dispatch *d)
 
   result += register_flag_mode_katcp(d, "?progdev", "program the fpga (?progdev [filename])", &progdev_cmd, 0, TBS_MODE_RAW);
   result += register_flag_mode_katcp(d, "?register", "name a memory location (?register name position bit-offset length)", &register_cmd, 0, TBS_MODE_RAW);
-  result += register_flag_mode_katcp(d, "?wordread",     "read data from a defined register (?wordread name TODO)", &word_read_cmd, 0, TBS_MODE_RAW);
+  result += register_flag_mode_katcp(d, "?wordread",     "read data from a named register (?wordread name index count)", &word_read_cmd, 0, TBS_MODE_RAW);
+  result += register_flag_mode_katcp(d, "?wordwrite",    "write data to a named register (?wordwrite name index value+)", &word_write_cmd, 0, TBS_MODE_RAW);
 
   return 0;
 }
