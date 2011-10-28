@@ -81,8 +81,8 @@ int word_write_cmd(struct katcp_dispatch *d, int argc)
   start = arg_unsigned_long_katcp(d, 2);
   start *= 4;
 
-  if(te->e_len_base < start){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "write offset %u overruns register %s", start, name);
+  if(te->e_len_base < start + ((argc - 2) * 4) ){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "write offset %u + %d words overruns register %s of size %u.%u", start, argc - 2, name, te->e_len_base, te->e_len_offset);
     return KATCP_RESULT_FAIL;
   }
 
