@@ -256,16 +256,17 @@ int word_read_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
-  prepend_reply_katcp(d);
-  append_string_katcp(d, KATCP_FLAG_STRING, KATCP_OK);
-  flags = KATCP_FLAG_XLONG;
-
   j = te->e_pos_base + (start * 4);
   shift = te->e_pos_offset;
 
   log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "attempting to read %d words from fpga at 0x%x", length, j);
 
   /* WARNING: scary logic, attempts to support reading of non-word, non-byte aligned registers, but in word amounts (!) */
+
+  /* defer io for as long as possible, no log messages feasible after we do prepend reply */
+  prepend_reply_katcp(d);
+  append_string_katcp(d, KATCP_FLAG_STRING, KATCP_OK);
+  flags = KATCP_FLAG_XLONG;
 
   if(shift > 0){
     current = *((uint32_t *)(tr->r_map + j));
