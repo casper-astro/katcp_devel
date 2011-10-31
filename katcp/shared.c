@@ -664,7 +664,7 @@ int ended_shared_katcp(struct katcp_dispatch *d)
 
 /*******************************************************************/
 
-int allocate_shared_katcp(struct katcp_dispatch *d, unsigned int count)
+int allocate_clients_shared_katcp(struct katcp_dispatch *d, unsigned int count)
 {
   int i;
   struct katcp_shared *s;

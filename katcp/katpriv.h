@@ -540,7 +540,7 @@ int cmp_time_katcp(struct timeval *alpha, struct timeval *beta);
 int startup_shared_katcp(struct katcp_dispatch *d);
 void shutdown_shared_katcp(struct katcp_dispatch *d);
 int listen_shared_katcp(struct katcp_dispatch *d, char *host, int port);
-int allocate_shared_katcp(struct katcp_dispatch *d, unsigned int count);
+int allocate_clients_shared_katcp(struct katcp_dispatch *d, unsigned int count);
 int link_shared_katcp(struct katcp_dispatch *d, struct katcp_dispatch *cd);
 
 int load_shared_katcp(struct katcp_dispatch *d);

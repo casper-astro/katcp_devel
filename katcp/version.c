@@ -253,6 +253,7 @@ int print_versions_katcp(struct katcp_dispatch *d, int initial)
   struct katcp_version *v;
   struct katcp_shared *s;
   char *prefix;
+  int count;
 
   s = d->d_shared;
   if(s == NULL){
@@ -272,6 +273,8 @@ int print_versions_katcp(struct katcp_dispatch *d, int initial)
   }
 
 
+  count = 0;
+
   for(i = 0; i < s->s_amount; i++){
     v = s->s_versions[i];
 
@@ -287,6 +290,7 @@ int print_versions_katcp(struct katcp_dispatch *d, int initial)
             append_string_katcp(d,   KATCP_FLAG_FIRST | KATCP_FLAG_STRING, KATCP_BUILD_STATE_INFORM);
             append_string_katcp(d,   KATCP_FLAG_LAST  | KATCP_FLAG_STRING, v->v_build);
           }
+          count++;
           break;
       }
     }
@@ -306,12 +310,13 @@ int print_versions_katcp(struct katcp_dispatch *d, int initial)
             append_string_katcp(d,                    KATCP_FLAG_STRING, v->v_value);
             append_string_katcp(d, KATCP_FLAG_LAST  | KATCP_FLAG_STRING, v->v_build);
           }
+          count++;
         }
         break;
     }
   }
 
-  return 0;
+  return count;
 }
 
 int add_kernel_version_katcp(struct katcp_dispatch *d)
@@ -348,7 +353,7 @@ int add_code_version_katcp(struct katcp_dispatch *d)
 #endif
 #endif
 
-  if(s->s_size > 1){
+  if(s->s_count > 1){
     snprintf(buffer, BUFFER, "%s-%c", KATCP_PROTOCOL_VERSION, 'M');
   } else {
     strncpy(buffer, KATCP_PROTOCOL_VERSION, BUFFER - 1);
@@ -394,14 +399,23 @@ int has_code_version_katcp(struct katcp_dispatch *d, char *label, char *value)
 int version_list_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   struct katcp_shared *s;
+  int count;
 
   s = d->d_shared;
   if(s == NULL){
     return KATCP_RESULT_FAIL;
   }
 
-  print_versions_katcp(d, KATCP_PRINT_VERSION_LIST);
-  return KATCP_RESULT_OK;
+  count = print_versions_katcp(d, KATCP_PRINT_VERSION_LIST);
+  if(count < 0){
+    return KATCP_RESULT_FAIL;
+  }
+
+  prepend_reply_katcp(d);
+  append_string_katcp(d, KATCP_FLAG_STRING, KATCP_OK);
+  append_unsigned_long_katcp(d, KATCP_FLAG_ULONG | KATCP_FLAG_LAST, count);
+
+  return KATCP_RESULT_OWN;
 }
 
 int version_cmd_katcp(struct katcp_dispatch *d, int argc)

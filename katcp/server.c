@@ -696,16 +696,16 @@ int run_pipe_server_katcp(struct katcp_dispatch *dl, char *file, int pfd)
     return terminate_katcp(dl, KATCP_EXIT_ABORT);
   }
 
+  /* in case we are given a script file, we need two slots */
+  need = file ? 2 : 1;
+  if(allocate_clients_shared_katcp(dl, need) < need){
+    return terminate_katcp(dl, KATCP_EXIT_ABORT);
+  }
+
   if(prepare_core_loop_katcp(dl) < 0){
     return terminate_katcp(dl, KATCP_EXIT_ABORT);
   }
   
-  /* in case we are given a script file, we need two slots */
-  need = file ? 2 : 1;
-  if(allocate_shared_katcp(dl, need) < need){
-    return terminate_katcp(dl, KATCP_EXIT_ABORT);
-  }
-
   if(file){
     fd = pipe_from_file_katcp(dl, file);
     if(fd < 0){
@@ -734,6 +734,13 @@ int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, ch
     return terminate_katcp(dl, KATCP_EXIT_ABORT);
   }
 
+  if(allocate_clients_shared_katcp(dl, count) <= 0){
+#ifdef DEBUG
+    fprintf(stderr, "allocation of %d clients failed\n", count);
+#endif
+    return terminate_katcp(dl, KATCP_EXIT_ABORT);
+  }
+
   if(prepare_core_loop_katcp(dl) < 0){
 #ifdef DEBUG
     fprintf(stderr, "server: need a natural number of clients, not %d\n", count);
@@ -746,13 +753,6 @@ int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, ch
     fprintf(stderr, "multi: more than one client, registering client list\n");
 #endif
     register_katcp(dl, "?client-list", "displays client list (?client-list)", &client_list_cmd_katcp);
-  }
-
-  if(allocate_shared_katcp(dl, count) <= 0){
-#ifdef DEBUG
-    fprintf(stderr, "allocation of %d clients failed\n", count);
-#endif
-    return terminate_katcp(dl, KATCP_EXIT_ABORT);
   }
 
   if(file){
