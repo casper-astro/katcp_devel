@@ -6,8 +6,11 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <stdint.h>
+#include <dirent.h>
+#include <fcntl.h>
 
 #include <sys/mman.h>
+#include <sys/stat.h>
 
 #include <katcp.h>
 #include <avltree.h>
@@ -35,6 +38,73 @@ void free_entry(void *data)
 }
 
 /*********************************************************************/
+
+int display_dir_cmd(struct katcp_dispatch *d, char *directory)
+{
+  DIR *dr;
+  struct dirent *de;
+  char *label;
+  unsigned long count;
+
+  label = arg_string_katcp(d, 0);
+  if(label == NULL){
+    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "internal logic failure");
+    return KATCP_RESULT_FAIL;
+  }
+
+  dr = opendir(directory);
+  if(dr == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to open %s: %s", directory, strerror(errno));
+    extra_response_katcp(d, KATCP_RESULT_FAIL, "io");
+    return KATCP_RESULT_OWN;
+  }
+
+  count = 0;
+
+  while((de = readdir(dr)) != NULL){
+    if(de->d_name[0] != '.'){ /* ignore hidden files */
+      prepend_inform_katcp(d);
+      append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, de->d_name);
+#if 0
+      send_katcp(d,
+          KATCP_FLAG_FIRST | KATCP_FLAG_STRING | KATCP_FLAG_MORE, "#", 
+          KATCP_FLAG_STRING, label + 1,
+          KATCP_FLAG_LAST | KATCP_FLAG_STRING, de->d_name);
+#endif
+      count++;
+    }
+  }
+
+  closedir(dr);
+
+  prepend_reply_katcp(d);
+
+  append_string_katcp(d, KATCP_FLAG_STRING, KATCP_OK);
+  append_unsigned_long_katcp(d, KATCP_FLAG_ULONG | KATCP_FLAG_LAST, count);
+
+#if 0
+  send_katcp(d,
+      KATCP_FLAG_FIRST | KATCP_FLAG_STRING | KATCP_FLAG_MORE, "!", 
+      KATCP_FLAG_STRING, label + 1,
+      KATCP_FLAG_STRING, KATCP_OK, 
+      KATCP_FLAG_LAST | KATCP_FLAG_ULONG, count);
+#endif
+
+  return KATCP_RESULT_OWN;
+}
+
+int listbof_cmd(struct katcp_dispatch *d, int argc)
+{
+  struct tbs_raw *tr;
+
+  tr = get_current_mode_katcp(d);
+  if(tr == NULL){
+    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "unable to get raw state");
+    return KATCP_RESULT_FAIL;
+  }
+
+  return display_dir_cmd(d, tr->r_bof_dir);
+}
 
 int word_write_cmd(struct katcp_dispatch *d, int argc)
 {
@@ -250,6 +320,10 @@ int progdev_cmd(struct katcp_dispatch *d, int argc)
 
     if(tr->r_fpga == TBS_FPGA_PROGRAMED){
       /* TODO: actually unprogram FPGA */
+    }
+
+    if(tr->r_image){
+      free(tr->r_image);
     }
 
     destroy_avltree(tr->r_registers, &free_entry);
@@ -498,6 +572,11 @@ void destroy_raw_tbs(struct katcp_dispatch *d, struct tbs_raw *tr)
     tr->r_fpga = TBS_FPGA_PROGRAMED;
   }
 
+  if(tr->r_image){
+    free(tr->r_image);
+    tr->r_image = NULL;
+  }
+
   free(tr);
 }
 
@@ -518,7 +597,42 @@ int enter_raw_tbs(struct katcp_dispatch *d, struct katcp_notice *n, char *flags,
   return 0;
 }
 
-int setup_raw_tbs(struct katcp_dispatch *d)
+int make_bofdir_tbs(struct katcp_dispatch *d, struct tbs_raw *tr, char *bofdir)
+{
+  struct stat st;
+  int i;
+  char *list[] = { "/bof", "/boffiles", "." };
+
+  if(tr->r_bof_dir){
+    free(tr->r_bof_dir);
+    tr->r_bof_dir = NULL;
+  }
+
+  /* use what we have been told */
+  if(bofdir){
+    tr->r_bof_dir = strdup(bofdir);
+    if(tr->r_bof_dir == NULL){
+      return -1;
+    }
+  } 
+
+  /* try and guess */
+
+  for(i = 0; list[i]; i++){
+    if(stat(list[i], &st) == 0){
+      if(S_ISDIR(st.st_mode)){
+        tr->r_bof_dir = strdup(list[i]);
+        if(tr->r_bof_dir){
+          return 0;
+        }
+      }
+    }
+  }
+
+  return -1;
+}
+
+int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir)
 {
   struct tbs_raw *tr;
   int result;
@@ -534,6 +648,9 @@ int setup_raw_tbs(struct katcp_dispatch *d)
   tr->r_map = NULL;
   tr->r_map_size = 0;
 
+  tr->r_image = NULL;
+  tr->r_bof_dir = NULL;
+
   tr->r_top_register = 0;
 
   /* clear out further structure elements */
@@ -541,6 +658,11 @@ int setup_raw_tbs(struct katcp_dispatch *d)
   /* allocate structure elements */
   tr->r_registers = create_avltree();
   if(tr->r_registers == NULL){
+    destroy_raw_tbs(d, tr);
+    return -1;
+  }
+
+  if(make_bofdir_tbs(d, tr, bofdir) < 0){
     destroy_raw_tbs(d, tr);
     return -1;
   }
@@ -555,6 +677,7 @@ int setup_raw_tbs(struct katcp_dispatch *d)
   result += register_flag_mode_katcp(d, "?register", "name a memory location (?register name position bit-offset length)", &register_cmd, 0, TBS_MODE_RAW);
   result += register_flag_mode_katcp(d, "?wordread",     "read data from a named register (?wordread name index count)", &word_read_cmd, 0, TBS_MODE_RAW);
   result += register_flag_mode_katcp(d, "?wordwrite",    "write data to a named register (?wordwrite name index value+)", &word_write_cmd, 0, TBS_MODE_RAW);
+  result += register_flag_mode_katcp(d, "?listbof",      "display available bof files (?listbof)", &listbof_cmd, 0, TBS_MODE_RAW);
 
   return 0;
 }

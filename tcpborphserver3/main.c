@@ -35,6 +35,7 @@ void usage(char *app)
   printf("-p network-port  network port to listen on\n");
   printf("-l log-file      log file name\n");
   printf("-f               run in foreground (default is background)\n");
+  printf("-b dir           directory containing bof files\n");
 
 }
 
@@ -43,7 +44,7 @@ int main(int argc, char **argv)
   struct katcp_dispatch *d;
   int status;
   int i, j, c, foreground, lfd;
-  char *port, *scripts, *mode, *init, *lfile;
+  char *port, *scripts, *mode, *init, *lfile, *bofdir;
   time_t now;
 
   port = "7147";
@@ -51,6 +52,7 @@ int main(int argc, char **argv)
   init = NULL;
   lfile = TBS_LOGFILE;
   foreground = 0;
+  bofdir = NULL;
 
   i = 1;
   j = 1;
@@ -76,6 +78,7 @@ int main(int argc, char **argv)
 
         case 'l' :
         case 'm' :
+        case 'b' :
         case 's' :
         case 'p' :
         case 'i' :
@@ -88,6 +91,9 @@ int main(int argc, char **argv)
             fprintf(stderr, "%s: option -%c requires a parameter\n", argv[0], c);
           }
           switch(c){
+            case 'b' :
+              bofdir = argv[i] + j;
+              break;
             case 's' :
               scripts = argv[i] + j;
               break;
@@ -133,7 +139,7 @@ int main(int argc, char **argv)
     return 1;
   }
 
-  if(setup_raw_tbs(d) < 0){
+  if(setup_raw_tbs(d, bofdir) < 0){
     fprintf(stderr, "%s: unable to initialise logic for raw mode\n", argv[0]);
     return 1;
   }

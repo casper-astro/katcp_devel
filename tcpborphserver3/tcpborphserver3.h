@@ -23,7 +23,7 @@
 #define TBS_FPGA_MEM       "dev-roach-mem"
 #endif
 
-int setup_raw_tbs(struct katcp_dispatch *d);
+int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir);
 
 #define TBS_FRGA_DOWN        0
 #define TBS_FPGA_PROGRAMED   1
@@ -37,6 +37,8 @@ struct tbs_raw
   void *r_map;
   unsigned int r_map_size;
 
+  char *r_image;
+  char *r_bof_dir;
   unsigned int r_top_register;
 };
 
