@@ -188,7 +188,7 @@ int word_write_cmd(struct katcp_dispatch *d, int argc)
     *((uint32_t *)(tr->r_map + j)) = update;
   }
 
-  msync(te->e_pos_base + start, te->e_len_base, MS_INVALIDATE | MS_SYNC);
+  msync(tr->r_map + te->e_pos_base + start, te->e_len_base, MS_INVALIDATE | MS_SYNC);
 
   return KATCP_RESULT_OK;
 }
