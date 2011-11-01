@@ -1,14 +1,16 @@
+#define _GNU_SOURCE
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <signal.h>
+#include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
 #include <sysexits.h>
-#include <signal.h>
 
 #include <openssl/ssl.h>
 #include <openssl/err.h>
@@ -65,13 +67,14 @@ struct ws_client *create_client_ws(int fd, SSL *ssl)
   if (c == NULL)
     return NULL;
   
-  c->c_fd    = fd;
-  c->c_rb    = NULL;
-  c->c_rb_len= 0;
-  c->c_ssl   = ssl;
-  c->c_state = C_STATE_NEW;
-  c->c_sb    = NULL;
-  c->c_sb_len= 0;
+  c->c_fd       = fd;
+  c->c_rb       = NULL;
+  c->c_rb_len   = 0;
+  c->c_rb_last  = NULL;
+  c->c_ssl      = ssl;
+  c->c_state    = C_STATE_NEW;
+  c->c_sb       = NULL;
+  c->c_sb_len   = 0;
 
   return c;
 }
@@ -79,8 +82,14 @@ struct ws_client *create_client_ws(int fd, SSL *ssl)
 void destroy_client_ws(struct ws_client *c)
 {
   if (c){
+#if 1
     if (c->c_rb)
       free(c->c_rb);
+    if (c->c_rb_last != NULL){
+      free(c->c_rb_last);
+      c->c_rb_last = NULL;
+    }
+#endif
     if (c->c_ssl){
 #ifdef DEBUG
       fprintf(stderr, "wss: SSL about to free client\n");
@@ -182,39 +191,64 @@ int register_signals_ws()
 }
 
 
-int startup_server(struct ws_server *s, int port)
+int startup_server(struct ws_server *s, char *port)
 {
-  struct sockaddr_in sa;
+  struct addrinfo hints;
+  struct addrinfo *res, *rp;
   int backlog, reuse_addr;
 
-  if (s == NULL || port == 0)
+  if (s == NULL || port == NULL)
     return -1;
 
-  backlog      = 10;
-  reuse_addr   = 1;
+  memset(&hints, 0, sizeof(struct addrinfo));
+  hints.ai_family     = AF_UNSPEC;
+  hints.ai_socktype   = SOCK_STREAM;
+  hints.ai_flags      = AI_PASSIVE;
   
-  s->s_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+  if ((reuse_addr = getaddrinfo(NULL, port, &hints, &res)) != 0) {
+#ifdef DEBUG
+    fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(reuse_addr));
+#endif
+    return -1;
+  }
+
+  for (rp = res; rp != NULL; rp = rp->ai_next) {
+    if (rp->ai_family == AF_INET6)
+      break;
+  }
+
+  rp = (rp == NULL) ? res : rp;
+
+  s->s_fd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
   if (s->s_fd < 0){
 #ifdef DEBUG
     fprintf(stderr,"wss: error socket\n");
 #endif
+    freeaddrinfo(res);
     return -1;
   }
 
-  memset(&sa, 0, sizeof(struct sockaddr_in));
+  reuse_addr   = 1;
 
   setsockopt(s->s_fd, SOL_SOCKET, SO_REUSEADDR, &reuse_addr, sizeof(reuse_addr));
 
+  if (bind(s->s_fd, rp->ai_addr, rp->ai_addrlen) < 0){
+#ifdef DEBUG
+    fprintf(stderr,"wss: error bind on port: %s\n", port);
+#endif
+    freeaddrinfo(res);
+    return -1;
+  }
+
+  freeaddrinfo(res);
+
+  backlog      = 10;
+#if 0
+  memset(&sa, 0, sizeof(struct sockaddr_in));
   sa.sin_family       = AF_INET;
   sa.sin_port         = htons(port);
   sa.sin_addr.s_addr  = INADDR_ANY;
-
-  if (bind(s->s_fd, (const struct sockaddr *) &sa, sizeof(struct sockaddr_in)) < 0){
-#ifdef DEBUG
-    fprintf(stderr,"wss: error bind on port: %d\n", port);
 #endif
-    return -1;
-  }
 
   if (listen(s->s_fd, backlog) < 0) {
 #ifdef DEBUG
@@ -226,12 +260,11 @@ int startup_server(struct ws_server *s, int port)
   s->s_hi = s->s_fd;
 
 #ifdef DEBUG
-  fprintf(stderr,"wss: server pid: %d running on port: %d\n", getpid(), port);
+  fprintf(stderr,"wss: server pid: %d running on port: %s\n", getpid(), port);
 #endif
 
   return 0;
 }
-
 
 int handle_new_client_ws(struct ws_server *s)
 {
@@ -289,6 +322,20 @@ int disconnect_client_ws(struct ws_server *s, struct ws_client *c)
     fprintf(stderr, "wss: error disconnect client s:(%p) c:(%p)\n", s, c);
 #endif
     return -1;
+  }
+
+  switch(c->c_state){
+    case C_STATE_UPGRADED:
+      
+#ifdef DEBUG
+      fprintf(stderr, "wss: client is upgraded should send shutdown frame\n");
+#endif
+
+      break;
+    
+    case C_STATE_NEW:
+    default:
+      break; 
   }
 
   if (del_client_ws(s, c) < 0){
@@ -395,22 +442,41 @@ void shutdown_server_ws(struct ws_server *s)
 
 int populate_client_data_ws(struct ws_client *c, unsigned char *buf, int n)
 {
+  uint32_t size; 
+
   if (c == NULL || buf == NULL)
     return -1;
- 
-  c->c_rb     = buf;
-  c->c_rb_len = n;
+
+  size = n * sizeof(unsigned char);
+  
+#ifdef DEBUG
+  fprintf(stderr, "wss: current rb_len: %d size of data: %d\n", c->c_rb_len, size);
+#endif
 
 #if 0
-  c->c_rb = realloc(c->c_rb, sizeof(unsigned char*) * (c->c_rb_len + n + 1));
+  c->c_rb     = buf;
+  c->c_rb_len = n;
+#endif
+
+  c->c_rb = realloc(c->c_rb, c->c_rb_len + size + 1);
+
+#if 0 
+  def DEBUG 
+  fprintf(stderr, "wss: c->c_rb: (%p) sizeof: %d\n", c->c_rb, sizeof(c->c_rb));
+#endif
+
   if (c->c_rb == NULL)
     return -1;
 
-  strncpy((char *)c->c_rb + c->c_rb_len, (char *) buf, n);
+  memcpy(c->c_rb + c->c_rb_len, buf, size);
 
-  c->c_rb_len += n;
+  c->c_rb_len += size;
 
-  c->c_rb[c->c_rb_len] = '\0';
+  memset(c->c_rb + c->c_rb_len, '\0', sizeof(char));
+
+#if 0 
+  def DEBUG
+  fprintf(stderr, "wss: len: %d\n%s\n", c->c_rb_len, (char *)c->c_rb);
 #endif
 
   return 0;
@@ -418,22 +484,99 @@ int populate_client_data_ws(struct ws_client *c, unsigned char *buf, int n)
 
 unsigned char *readline_client_ws(struct ws_client *c)
 {
-  unsigned char *start, *end;
-  
+  char *temp;
+  void *end;
+
   if (c == NULL || c->c_rb == NULL)
     return NULL;
 
-  start = c->c_rb;
-  end   = (unsigned char *) strstr((const char *)c->c_rb, HTTP_EOL);
-  
+  if (c->c_rb_last != NULL){
+    free(c->c_rb_last);
+    c->c_rb_last = NULL;
+  }
+
+#if 0
+  c->c_rb_last  = (unsigned char *) c->c_rb;
+  end           = (unsigned char *) strstr((const char *)c->c_rb, HTTP_EOL);
+#endif
+
+#if 0
+def DEBUG
+  fprintf(stderr, "wss: rb: (%p) rb_len: %d strlen(http): %d\n", c->c_rb, c->c_rb_len, strlen(HTTP_EOL));
+#endif
+
+  end = memmem(c->c_rb, c->c_rb_len, HTTP_EOL, strlen(HTTP_EOL));
+
+  //c->c_rb_len  -= end - (void *)c->c_rb_last;
+
   if (end != NULL){
-    c->c_rb = end + 2;
-    *end = '\0';
+    
+    memset(end, '\0', sizeof(unsigned char)*strlen(HTTP_EOL));
+
+    if (asprintf(&temp, "%s", (unsigned char*)c->c_rb) < 0){
+#ifdef DEBUG
+      fprintf(stderr, "wss: error asprintf\n");
+#endif
+      return NULL;
+    }
+
+    end += sizeof(unsigned char) * strlen(HTTP_EOL);
+    
+    c->c_rb_len = c->c_rb_len - (end - c->c_rb);
+    c->c_rb     = memmove(c->c_rb, end, c->c_rb_len);
+  
+    c->c_rb_last = (unsigned char*) temp;
+
   } else {
-    c->c_rb = NULL;
+#ifdef DEBUG
+    fprintf(stderr, "wss: readline end is NULL rb_len:%d\n", c->c_rb_len);
+#endif
+
   }
  
-  return start;
+  return c->c_rb_last;
+}
+
+void *readdata_client_ws(struct ws_client *c, unsigned int n)
+{
+  if (c == NULL || n <= 0)
+    return NULL;
+
+  if (n > c->c_rb_len){
+#ifdef DEBUG
+    fprintf(stderr, "wss: readdata trying to read more than %d\n", c->c_rb_len);
+#endif
+    return NULL;
+  }
+  
+  c->c_rb_last = realloc(c->c_rb_last, n);
+  if (c->c_rb_last == NULL)
+    return NULL;
+  
+  memcpy(c->c_rb_last, c->c_rb, n);
+
+  memmove(c->c_rb, c->c_rb + n, c->c_rb_len - n);
+
+  c->c_rb_len -= n;
+  
+  return c->c_rb_last;
+}
+
+void dropdata_client_ws(struct ws_client *c)
+{
+  if (c == NULL)
+    return;
+
+  if (c->c_rb != NULL){
+    free(c->c_rb);
+    c->c_rb_len = 0;
+    c->c_rb = NULL;
+  }
+  
+  if (c->c_rb_last != NULL){
+    free(c->c_rb_last);
+    c->c_rb_last = NULL;
+  }
 }
 
 int get_client_data_ws(struct ws_server *s, struct ws_client *c)
@@ -468,8 +611,7 @@ int get_client_data_ws(struct ws_server *s, struct ws_client *c)
     fprintf(stderr,"wss: client is leaving\n");
 #endif
     return disconnect_client_ws(s, c);
-  }
-  else {
+  } else {
     
     if (populate_client_data_ws(c, readbuffer, recv_bytes) < 0){
 #ifdef DEBUG
@@ -482,26 +624,6 @@ int get_client_data_ws(struct ws_server *s, struct ws_client *c)
     
     if (rtn < 0)
       return -1;
-
-#if 0
-    if (s->clients[i]->conn_state > 0) {
-      /*when the client sends data and it has built a connection*/
-#ifdef DEBUG
-      fprintf(stderr,"connection is upgraded! got data: (bytes:%d)\n", recv_bytes);
-      for (j=0;j<recv_bytes;j++)
-        fprintf(stderr,"byte: %d 0x%02X %c\n",j,readbuffer[j],readbuffer[j]);
-#endif
-
-    }
-    else {
-      /*the client has just connected and sent websocket http header*/
-      //fprintf(stderr,"bytes read: %d\n",recv_bytes);
-      s->clients[i]->conn_state = upgrade_connection(s, s->clients[i], (char *) readbuffer, recv_bytes);
-      if (s->clients[i]->conn_state){
-        s->up_ccount++;
-      }
-    }
-#endif
 
   }
 
@@ -525,12 +647,10 @@ int send_client_data_ws(struct ws_server *s, struct ws_client *c)
 #ifdef DEBUG
     fprintf(stderr, "wss: error ssl_write < 0\n");
 #endif
-    //return -1;
+    return -1;
   } else if (b_wrote == c->c_sb_len){
 
-    //free(c->c_sb);
     c->c_sb_len = 0;
-    //c->c_sb = NULL;
 
   } else if (b_wrote < c->c_sb_len) {
     c->c_sb_len -= b_wrote;
@@ -573,7 +693,7 @@ int socks_io_ws(struct ws_server *s)
       if (FD_ISSET(c->c_fd, &s->s_out)){
         if (send_client_data_ws(s, c) < 0){
 #ifdef DEBUG
-          fprintf(stderr, "wss: get client data error\n");
+          fprintf(stderr, "wss: send client data error\n");
 #endif
         }
       }
@@ -589,20 +709,6 @@ int socks_io_ws(struct ws_server *s)
     }
   }
 
-#if 0
-  /*check if there is data waiting to go to the clients*/
-  for (i=0; i < s->conncount; i++) {
-    if (FD_ISSET(s->clients[i]->fd, &s->outsocks)) {
-      return send_to_client(s, i);
-    }
-  }
-
-  /*check the server stdin file descriptor*/
-  if (FD_ISSET(STDIN_FILENO, &s->insocks)) {
-    return get_server_broadcast(STDIN_FILENO, s);
-  }
-  
-#endif
   return 0;
 }
 
@@ -746,7 +852,7 @@ int setup_tls_ws(struct ws_server *s)
   return 0;
 }
 
-int register_client_handler_server(int (*client_data_fn)(struct ws_client *c), int port)
+int register_client_handler_server(int (*client_data_fn)(struct ws_client *c), char *port)
 {
   struct ws_server *s;
   
@@ -814,4 +920,13 @@ int write_to_client_ws(struct ws_client *c, void *buf, int n)
   return n;
 }
 
+int upgrade_client_ws(struct ws_client *c)
+{
+  if (c == NULL)
+    return -1;
+  
+  c->c_state = C_STATE_UPGRADED;
+
+  return 0;
+}
 

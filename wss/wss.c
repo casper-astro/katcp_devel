@@ -12,10 +12,13 @@
 
 #include "server.h"
 
-#define WSCLIENT  "Sec-WebSocket-Key:"
-#define WSGUID    "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
-#define PORT      6969
-#define SPACE     ' '
+#define PORT          "6969"
+
+#define WSSECKEY      "Sec-WebSocket-Key: "
+#define WSSECPROTO    "Sec-WebSocket-Protocol: "
+#define WSPROTO       "katcp"
+#define WSGUID        "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+#define SRVHDR        "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Protocol: katcp\r\nSec-WebSocket-Accept: "
 
 int generate_upgrade_response_ws(struct ws_client *c, char *key)
 {
@@ -27,7 +30,7 @@ int generate_upgrade_response_ws(struct ws_client *c, char *key)
   char            skey[512], temp[100];
   int             len;
 
-  char srvhdr[] = { "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: " };
+//  char srvhdr[] = {  };
 
   if (c == NULL || key == NULL)
     return -1;
@@ -80,7 +83,7 @@ def DEBUG
   fprintf(stderr, "wss: server key: <%s> len: %d temp: <%s>\n", skey, len, temp); 
 #endif
 
-  len = snprintf(skey, 512, "%s%s\r\n\r\n", srvhdr, temp);
+  len = snprintf(skey, 512, "%s%s\r\n\r\n", SRVHDR, temp);
   if (len < 0)
     return -1;
 
@@ -104,47 +107,168 @@ def DEBUG
 
 int parse_http_proto_ws(struct ws_client *c)
 {
-  unsigned char *line;
-  char *key;
+  char *line, *key, *proto;
 
-  while ((line = readline_client_ws(c)) != NULL){
+  key   = NULL;
+  proto = NULL;
+
+  while ((line = (char*)readline_client_ws(c)) != NULL){
 #ifdef DEBUG
     fprintf(stderr, "wss: line [%s]\n", line);
 #endif
-    if (strstr((const char*)line, WSCLIENT) != NULL) {
-      key = strchr((const char*)line, SPACE);
-      if (key != NULL){
-        key++;
-#if 0 
-        def DEBUG
-        fprintf(stderr, "wss: client KEY <%s>\n", key);
-#endif
-        if (generate_upgrade_response_ws(c, key) < 0){
-#ifdef DEBUG
-          fprintf(stderr, "wss: error unable to generate response for client %d\n", c->c_fd);
-#endif
-        }
-      }
+    if (strstr((const char*)line, WSSECKEY) != NULL) {
+      key = strdup(line + strlen(WSSECKEY));
+    } else if (strstr((const char*)line, WSSECPROTO) != NULL) {
+      proto = strdup(line + strlen(WSSECPROTO));
     }
+  }
+
+#ifdef DEBUG 
+  fprintf(stderr, "wss: client PROTO: <%s> KEY <%s>\n", proto, key);
+#endif
+  
+  if (key != NULL && proto != NULL && strncmp(proto, WSPROTO, strlen(WSPROTO)) == 0){
+   
+   if (proto != NULL){
+     free(proto);
+     proto = NULL;
+   }
+
+   if (generate_upgrade_response_ws(c, key) < 0){
+#ifdef DEBUG
+      fprintf(stderr, "wss: error unable to generate response for client %d\n", c->c_fd);
+#endif
+      if (key != NULL){
+        free(key);
+        key = NULL;
+      }
+      return -1;
+    }
+    
+    if (key != NULL) {
+      free(key);
+      key = NULL;
+    }
+    
+    if (upgrade_client_ws(c) < 0){
+#ifdef DEBUG
+      fprintf(stderr, "wss: client [%d] status not upgraded\n", c->c_fd);
+#endif
+      return -1;
+    }
+#ifdef DEBUG
+    fprintf(stderr, "wss: client [%d] status upgraded\n", c->c_fd);
+#endif
+  } else {
+#ifdef DEBUG
+    fprintf(stderr, "wss: error websocket protocol mismatch\n");
+#endif
+    if (proto != NULL){
+      free(proto);
+      proto = NULL;
+    }
+    if (key != NULL){
+      free(key);
+      key = NULL;
+    }
+    return -1;
+  }
+
+  if (proto != NULL){
+    free(proto);
+    proto = NULL;
+  }
+  if (key != NULL){
+    free(key);
+    key = NULL;
   }
    
   return 0;
 }
+
 int parse_websocket_proto_ws(struct ws_client *c)
 {
+  int i, len, opcode, shift;
+  uint8_t hdr;
+  uint8_t msk[4];
+  uint64_t payload;
+  unsigned char *data;
+
+  if (c == NULL || c->c_rb == NULL)
+    return -1;
   
+  shift = 0;
+  len = sizeof(hdr);
+  hdr = *((uint8_t *) readdata_client_ws(c, len));
+#ifdef DEBUG
+  fprintf(stderr, "wss: HDR: 0x%0x\n", hdr);
+#endif
+
+  if (hdr & WSF_FIN){
+#ifdef DEBUG
+    fprintf(stderr, "wss: FIN SET\n");
+#endif
+  }
+  
+  opcode = hdr & WSF_OPCODE;
+
+  hdr = *((uint8_t *) readdata_client_ws(c, len));
+#ifdef DEBUG
+  fprintf(stderr, "wss: HDR: 0x%0x\n", hdr);
+#endif
+
+  if (hdr & WSF_MASK){
+#ifdef DEBUG
+    fprintf(stderr, "wss: MASK SET\n");
+#endif
+  }
+
+  payload = hdr & WSF_PAYLOAD;
+   
+#if 0
+  switch (payload){
+    case WSF_PAYLOAD_16:
+#ifdef DEBUG
+      fprintf(stderr, "wss: Extended Payload is 16bits\n");
+#endif
+      payload = *((uint32_t *) readdata_client_ws(c, sizeof(uint16_t)));    
+      break;
+
+    case WSF_PAYLOAD_32:
+#ifdef DEBUG
+      fprintf(stderr, "wss: Extended Payload is 32bits\n");
+#endif
+      payload = *((uint32_t *) readdata_client_ws(c, sizeof(uint32_t)));    
+      break;
+  }
+#endif 
+
+  len = sizeof(uint8_t);
+  msk[0] = *((uint8_t *) readdata_client_ws(c, len));
+  msk[1] = *((uint8_t *) readdata_client_ws(c, len));
+  msk[2] = *((uint8_t *) readdata_client_ws(c, len));
+  msk[3] = *((uint8_t *) readdata_client_ws(c, len));
+
+#ifdef DEBUG
+  fprintf(stderr, "wss: OPCODE 0x%x PAYLOAD: 0x%x MASKKEY: 0x%x\n", opcode, payload, msk);
+#endif
+
+  data = (unsigned char *) c->c_rb;
+  for(i=0; i<c->c_rb_len; i++)
+    data[i] ^= msk[i % 4];
+    
+#ifdef DEBUG
+  for(i=0; i<c->c_rb_len; i++)
+    fprintf(stderr,"byte %d 0x%0x %c\n", i, data[i], data[i]);
+#endif
+
+  dropdata_client_ws(c);
+
   return 0;
 }
 
 int capture_client_data_ws(struct ws_client *c)
 {
-#if 0 
-  int i;
-
-  def DEBUG
-  for (i=0; i<len; i++)
-    fprintf(stderr,"[%d] byte: %d 0x%02X %c\n", cfd, i, buf[i], buf[i]);
-#endif
   
   switch(c->c_state){
     case C_STATE_NEW:
@@ -159,11 +283,6 @@ int capture_client_data_ws(struct ws_client *c)
 #endif
       return parse_websocket_proto_ws(c);
   }
-
-#if 0
-def DEBUG
-  fprintf(stderr, "[%s]", c->c_rb);
-#endif
 
   return -1;
 }

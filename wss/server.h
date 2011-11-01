@@ -1,6 +1,7 @@
 #ifndef _SERVER_H
 #define _SERVER_h
 
+#include <stdint.h>
 #include <openssl/ssl.h>
 
 #define TLS_CERT  "./certs/server.crt"
@@ -9,11 +10,29 @@
 #define C_STATE_NEW       0
 #define C_STATE_UPGRADED  1
 
+struct ws_frame {
+#define WSF_FIN         0x80
+#define WSF_OPCODE      0x0f
+#define WSF_MASK        0x80
+#define WSF_PAYLOAD     0x7f
+#define WSF_PAYLOAD_16  0x7e
+#define WSF_PAYLOAD_32  0x7f
+  u_short   f_hdr;
+
+  uint32_t  f_mask_key;
+  
+  void      *f_data;
+
+} __attribute__((packed));
 
 struct ws_client {
   int c_fd;
 
+#if 0
   unsigned char *c_rb;
+#endif
+  unsigned char *c_rb_last;
+  void *c_rb;
   int c_rb_len;
 
   SSL *c_ssl;
@@ -49,9 +68,14 @@ struct ws_server {
 };
 
 
-int register_client_handler_server(int (*client_data_fn)(struct ws_client *c), int port);
+int register_client_handler_server(int (*client_data_fn)(struct ws_client *c), char *port);
 
 unsigned char *readline_client_ws(struct ws_client *c);
+void *readdata_client_ws(struct ws_client *c, unsigned int n);
+void dropdata_client_ws(struct ws_client *c);
 
 int write_to_client_ws(struct ws_client *c, void *buf, int n);
+
+int upgrade_client_ws(struct ws_client *c);
+
 #endif

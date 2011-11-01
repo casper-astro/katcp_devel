@@ -5,16 +5,23 @@
     </title>
     <script language="javascript" type="text/javascript">
       
-      var sock;
+      var ks;
       
       function katcp_websocket(msg){
         
-        this.socket = new WebSocket("wss://localhost:6969");
+        this.socket = new WebSocket("wss://ip6-localhost:6969", "katcp");
+        //this.socket = new WebSocket("ws://localhost:7681");
         
         this.socket.onmessage = this.onmessage;
         this.socket.onopen = this.onopen;
         this.socket.onclose = this.onclose;
         this.socket.onerror = this.onerror;
+
+        this.send = function(msg)
+        {
+          this.socket.send(msg);
+          console.log(this.socket);
+        };
 
         console.log(msg);
       }
@@ -26,6 +33,7 @@
       katcp_websocket.prototype.onopen = function(e){
         console.log("Connection open");
         console.log(e);
+        console.log(this);
       }
       katcp_websocket.prototype.onclose = function(e){
         console.log("Connection close");
@@ -37,13 +45,16 @@
       }
 
 
+      ks = new katcp_websocket('katcp websocket');
+
+
 
     </script>
 
 
   </head>
 
-  <body onload="new katcp_websocket('katcp websocket')">
+  <body>
 
   </body>
 </html>
