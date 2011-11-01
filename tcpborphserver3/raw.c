@@ -304,11 +304,185 @@ int word_read_cmd(struct katcp_dispatch *d, int argc)
   return KATCP_RESULT_OWN;
 }
 
+int read_cmd(struct katcp_dispatch *d, int argc)
+{
+  struct tbs_raw *tr;
+  struct tbs_entry *te;
+  char *name, *field, *end;
+  uint32_t value, prev, current;
+  unsigned int want_base, start_base, start_offset, i, j, shift, flags, offset, limit, pos, byte_len, byte_pos, bit_pos, bit_len;
+  unsigned char *ptr, *buffer;
+
+  tr = get_mode_katcp(d, TBS_MODE_RAW);
+  if(tr == NULL){
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(tr->r_fpga != TBS_FPGA_MAPPED){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "fpga not programmed");
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(argc <= 1){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a register to read, followed by optional offset and count");
+    return KATCP_RESULT_INVALID;
+  }
+
+  name = arg_string_katcp(d, 1);
+  if(name == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register name inaccessible");
+    return KATCP_RESULT_FAIL;
+  }
+
+  te = find_data_avltree(tr->r_registers, name);
+  if(te == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register %s not defined", name);
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(!(te->e_mode & TBS_READABLE)){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register %s is not marked readable", name);
+    return KATCP_RESULT_FAIL;
+  }
+
+  start_base = 0;
+  if(argc > 2){
+    field = arg_string_katcp(d, 2);
+    if(field == NULL){
+      return KATCP_RESULT_FAIL;
+    }
+    if(field[0] != '.'){
+      start_base = strtoul(field, &end, 0);
+      if(end[0] == '.'){
+        field = end;
+      }
+    } else {
+      start_base = 0;
+    }
+    if(field[0] == '.'){
+      start_offset = atoi(field + 1);
+    } else {
+      start_offset = 0;
+    }
+  } else {
+    start_base = 1;
+    start_offset = 0;
+  }
+
+  want_base = 1;
+  if(argc > 3){
+    want_base = arg_unsigned_long_katcp(d, 3);
+    if(want_base <= 0){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "zero read request want_base on register %s", name);
+      return KATCP_RESULT_FAIL;
+    }
+  }
+
+  if(((te->e_pos_offset % 8) == 0) || ((te->e_len_offset % 8) == 0)){
+    /* FAST: no bit offsets to deal with => no shifts => no alloc, no copy */
+
+    byte_pos = te->e_pos_base + (te->e_pos_offset / 8);
+    byte_len = te->e_len_base + (te->e_len_offset / 8);
+
+    /* check within mmap area, could happen earlier */
+    if((byte_pos + byte_len) >= tr->r_map_size){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register %s is outside mapped range", name);
+      return KATCP_RESULT_FAIL;
+    }
+
+    /* check within name abstraction */
+    if((start_base + want_base) >= byte_len){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "read request @%u+%u extends beyond end of register %s", start_base, want_base, name);
+      return KATCP_RESULT_FAIL;
+    }
+
+    prepend_reply_katcp(d);
+    append_string_katcp(d, KATCP_FLAG_STRING, KATCP_OK);
+    
+    append_buffer_katcp(d, KATCP_FLAG_BUFFER | KATCP_FLAG_LAST, tr->r_map + byte_pos + start_base, want_base);
+
+    return KATCP_RESULT_OWN;
+  }
+
+  /* complicated case... bit ops */
+
+  /* check within mmap area */
+  limit = te->e_pos_base + te->e_len_base + (te->e_pos_offset + te->e_len_offset + 7) / 8;
+  if(limit >= tr->r_map_size){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register %s is outside mapped range", name);
+    return KATCP_RESULT_FAIL;
+  }
+
+  /* check within name */
+  if((start_base + want_base) > limit){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "read request @%u+%u extends beyond end of register %s", start_base, want_base, name);
+    return KATCP_RESULT_FAIL;
+  }
+
+#if 0
+  j = te->e_pos_base + start_base + (te->e_pos_offset / 8);
+
+  if((te->e_pos_base + start_base + want_base) >= tr->r_map_size){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register %s is outside mapped range", name);
+    return KATCP_RESULT_FAIL;
+  }
+
+  j = te->e_pos_base + start_base;
+
+  shift = te->e_pos_offset;
+
+  
+
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "attempting to read %d bytes from fpga at 0x%x", want_base, j);
+
+  /* WARNING: scary logic, attempts to support reading of non-word, non-byte aligned registers, but in word amounts (!) */
+
+  /* defer io for as long as possible, no log messages feasible after we do prepend reply */
+  prepend_reply_katcp(d);
+  append_string_katcp(d, KATCP_FLAG_STRING, KATCP_OK);
+  flags = KATCP_FLAG_XLONG;
+
+
+
+  if(shift > 0){
+    current = *((uint32_t *)(tr->r_map + j));
+    prev = (current << shift);
+    j += 4;
+  } else {
+    shift = 32;
+    prev = 0;
+  }
+
+  for(i = 0; i < want_base; i++){
+    current = *((uint32_t *)(tr->r_map + j));
+    /* WARNING: masking would be wise here, just in case sign extension happens */
+    value = (current >> (32 - shift)) | prev;
+
+    prev = (current << shift);
+    j += 4;
+    if(i + 1 >= want_base){
+      flags |= KATCP_FLAG_LAST;
+    }
+
+    append_hex_long_katcp(d, flags, value);
+  }
+
+#if 0
+  value = *((uint32_t *)(tr->r_map + te->e_pos_base));
+  append_hex_long_katcp(d, KATCP_FLAG_LAST | KATCP_FLAG_XLONG, value);
+#endif
+#endif
+
+  return KATCP_RESULT_OWN;
+}
+
 int progdev_cmd(struct katcp_dispatch *d, int argc)
 {
   char *file;
   struct bof_state *bs;
   struct tbs_raw *tr;
+  char *buffer;
+  int len;
 
   tr = get_mode_katcp(d, TBS_MODE_RAW);
   if(tr == NULL){
@@ -346,12 +520,29 @@ int progdev_cmd(struct katcp_dispatch *d, int argc)
 
   file = arg_string_katcp(d, 1);
   if(file == NULL){
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "unable to acquire file name to program");
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire file name to program");
     return KATCP_RESULT_FAIL;
   }
 
+  if(strchr(file, '/') != NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "file name %s may not contain a path component", file);
+    return KATCP_RESULT_FAIL;
+  }
+
+  len = strlen(file) + 1 + strlen(tr->r_bof_dir) + 1;
+  buffer = malloc(len);
+  if(buffer == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate %d bytes", len);
+    return KATCP_RESULT_FAIL;
+  }
+
+  snprintf(buffer, len, "%s/%s", tr->r_bof_dir, file);
+  buffer[len - 1] = '\0';
+
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "attempting to program %s", file);
-  bs = open_bof(d, file);
+
+  bs = open_bof(d, buffer);
+  free(buffer);
   if(bs == NULL){
     return KATCP_RESULT_FAIL;
   }
