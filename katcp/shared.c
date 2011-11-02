@@ -410,7 +410,10 @@ static void release_clone(struct katcp_dispatch *d)
 {
   struct katcp_dispatch *dt;
   struct katcp_shared *s;
-  int fd, i, it;
+  int i, it;
+#if 0
+  int fd;
+#endif
 
   s = d->d_shared;
   if(s == NULL){
@@ -432,7 +435,9 @@ static void release_clone(struct katcp_dispatch *d)
   }
 #endif
 
+#if 0
   fd = fileno_katcl(d->d_line);
+#endif
 
   reset_katcp(d, -1);
 
@@ -664,7 +669,7 @@ int ended_shared_katcp(struct katcp_dispatch *d)
 
 /*******************************************************************/
 
-int allocate_shared_katcp(struct katcp_dispatch *d, unsigned int count)
+int allocate_clients_shared_katcp(struct katcp_dispatch *d, unsigned int count)
 {
   int i;
   struct katcp_shared *s;

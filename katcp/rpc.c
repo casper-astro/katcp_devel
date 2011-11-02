@@ -17,11 +17,16 @@
 
 struct katcl_line *create_name_rpc_katcl(char *name)
 {
+  return create_extended_rpc_katcl(name, 0);
+}
+
+struct katcl_line *create_extended_rpc_katcl(char *name, int flags)
+{
   int fd;
   struct katcl_line *l;
 
   if(name){
-    fd = net_connect(name, 0, 0);
+    fd = net_connect(name, 0, flags);
     if(fd < 0){
 #if 0
       fprintf(stderr, "connect: unable to contact %s: %s\n", name, strerror(errno));

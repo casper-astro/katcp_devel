@@ -8,12 +8,12 @@
 #include "katcp.h"
 #include "katpriv.h"
 
-static char *misc_result_table[] = { KATCP_OK, KATCP_FAIL, KATCP_INVALID, NULL };
+static char *misc_result_table[] = { KATCP_OK, KATCP_FAIL, KATCP_INVALID, KATCP_PARTIAL, NULL };
 
 char *code_to_name_katcm(int code)
 {
 #ifdef DEBUG
-  if((code > 0) || (code < -2)){
+  if((KATCP_RESULT_OK > 0) || (code < KATCP_RESULT_PARTIAL)){
     return NULL;
   }
 #endif

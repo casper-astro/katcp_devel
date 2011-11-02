@@ -206,10 +206,8 @@ void destroy_basic_kcs(struct katcp_dispatch *d, unsigned int mode)
   free(kb);
 }
 
-
-
-int parser_cmd(struct katcp_dispatch *d, int argc){
-
+int parser_cmd(struct katcp_dispatch *d, int argc)
+{
   char *p_cmd;
 
   if (argc == 1){
@@ -271,8 +269,8 @@ int parser_cmd(struct katcp_dispatch *d, int argc){
   return KATCP_RESULT_FAIL;
 }
 
-
-int k7_resume_job(struct katcp_dispatch *d, struct katcp_notice *n){
+int k7_resume_job(struct katcp_dispatch *d, struct katcp_notice *n)
+{
   struct katcl_parse *p;
   char *ptr;
 
@@ -298,7 +296,8 @@ int k7_resume_job(struct katcp_dispatch *d, struct katcp_notice *n){
 }
 
 /*
-int k7_snap_shot_cmd(struct katcp_dispatch *d, int argc){
+int k7_snap_shot_cmd(struct katcp_dispatch *d, int argc)
+{
 #define JOBLABEL "localhost"
   struct katcp_job *j;
   struct katcl_parse *p;

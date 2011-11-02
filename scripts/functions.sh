@@ -76,18 +76,6 @@ kcs_arg_check () {
   fi
 }
 
-kcs_report_sensor () {
-
-  # name description type units value 
-  if [ $# -lt 5 ] ; then 
-    kcs_error "sensor report needs more values [status]"
-    return 1
-  fi
-
-  echo "#sensor-list $1 $(echo $2 | sed -e 's/ /\\_/g') $4 $3"
-  echo "#sensor-status $(date +%s)000 1 $1 ${6:-unknown} ${5}"
-}
-
 kcs_corr_log () {
   kcs_debug "retrieving correlator logs"
   if kcpcmd -k -m get-log ; then
@@ -96,3 +84,67 @@ kcs_corr_log () {
   kcs_debug "finished getting correlator logs"
   return 0
 }
+
+kcs_config_numeric () {
+  value=$(grep ^${1} ${CORR_CONFIG} 2> /dev/null | cut -f2 -d= | tr -d ' ' )
+  if [ -z "${value}" ] ; then
+    kcs_error "unable to locate ${1} in ${CORR_CONFIG}"
+  fi
+
+  kcs_debug "${1} maps to ${value}"
+
+  export $1=${value}
+}
+
+kcs_mode_sensors () {
+  if [ -n "${1}" ] ;  then
+    matching_mode=${1}
+  else
+    kcs_error "mode sensors needs to be invoked with sensor parameter"
+  fi
+
+  sensor_suffixes=("number\_of\_channels none integer 0 65536" "number\_of\_chanels none integer 0 65536" "number\_of\_channels none integer 0 65536")
+  sensor_names=(".nbc.channels.coarse" ".nbc.channels.fine" ".wbc.channels")
+  sensor_keys=(coarse_chans n_chans n_chans)
+
+  i=0
+  while [ $i -lt ${#sensor_names[*]} ] ; do 
+
+    sensor_name=${sensor_names[$i]}
+    sensor_key=${sensor_keys[$i]}
+    sensor_suffix=${sensor_suffixes[$i]}
+
+    if [ "${sensor_name:0:1}" = "." ] ; then
+      relative=${sensor_name:1}
+      mode=${relative%%.*}
+    else 
+      mode=${sensor_name%%.*}
+    fi
+
+    config=${CORR_CONFIG}-${mode}
+
+    kcs_debug "attempting to locate $sensor_key in ${config} (mode ${mode}) for ${sensor_name}"
+
+    if [ -e ${config} ] ; then
+      sensor_value=$(grep ^${sensor_key} ${config} 2> /dev/null | cut -f2 -d= | tr -d ' ' )
+      if [ -z "${sensor_value}" ] ; then
+        kcs_error "unable to locate ${sensor_key} in mode ${mode}"
+      else 
+        
+        if [ "${mode}" = "${matching_mode}" ] ; then
+          status="nominal"
+        else
+          status="unknown"
+        fi
+
+        echo "#sensor-list ${sensor_name} ${sensor_suffix}"
+        echo "#sensor-status $(date +%s)000 1 ${sensor_name} ${status} ${sensor_value}"
+      fi
+    else
+      kcs_warn "no config for ${sensor_name} in mode ${mode}" 
+    fi
+
+    i=$[i+1]
+  done
+}
+

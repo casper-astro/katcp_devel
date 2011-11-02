@@ -8,20 +8,11 @@ timeout=150
 
 limit=$[now+timeout]
 
-mode=${0##*-}
+kcs_debug "changing mode to wideband"
 
-if [ -z "${mode}" ] ; then
-  kcs_error "no valid mode supplied for mode change"
-fi
-
-kcs_debug "changing mode to $mode"
-
-kcs_change_corr ${mode}
-
-echo "#sensor-list .${mode}.channels number\_of\_channels none integer 0 65536"
+kcs_change_corr wbc
 
 kcs_debug "running connect"
-
 
 while ! kcpcmd -k -m -t 120 connect ; do
   kcs_check_timeout ${limit}
@@ -33,15 +24,7 @@ done
 kcs_info "running initialise"
 if kcpcmd -k -m -t 120 initialise 2 ; then
   kcs_corr_log
-
-  channels=$(grep ^n_chans ${CORR_CONFIG} 2> /dev/null | cut -f2 -d= | tr -d ' ' )
-  if [ -z "${channels}" ] ; then
-    kcs_error "unable to extract number of channels from ${CORR_CONFIG}"
-  fi
-
-  kcs_debug "extracted channel count is ${channels}"
-  echo "#sensor-status $(date +%s)000 1 .${mode}.channels nominal ${channels}"
-
+  kcs_mode_sensors wbc
   exit 0
 fi
 

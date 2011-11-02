@@ -1526,7 +1526,9 @@ void destroy_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a)
     (*(a->a_release))(d, a);
     a->a_release = NULL;
   }
+
   a->a_local = NULL;
+
   for(i = 0; i < a->a_count; i++){
     s = a->a_sensors[i];
     if(s){
@@ -4045,11 +4047,17 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
     log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "initialised sensor tracking for subordinate %s", jb->j_url->u_str);
     return KATCP_RESULT_OK;
 
-  } else if(!strcmp(name, "forget")){
+  } else if(!strcmp(name, "destroy")){
     label = arg_string_katcp(d, 2);
 
     if(label == NULL){
       log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "need a sensor name to forget");
+      return KATCP_RESULT_FAIL;
+    }
+
+    /* WARNING: a rather special case, s_mode_sensor would need to be NULL'ed, but it is needed */
+    if(!strcmp(label, "mode")){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "refusing to destroy mode sensor");
       return KATCP_RESULT_FAIL;
     }
 
@@ -4059,13 +4067,17 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
       return KATCP_RESULT_FAIL;
     }
 
-    if(sn->s_acquire){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "refusing to terminate sensor which has acquire at %p", sn->s_acquire);
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "located sensor %s with %u subscribers, acqure %p and status %d", sn->s_name, sn->s_refs, sn->s_acquire, sn->s_status);
+
+    if(sn->s_refs > 0){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "refusing to terminate sensor which has %u subscribers", sn->s_refs);
       return KATCP_RESULT_FAIL;
     }
 
+    destroy_sensor_katcp(d, sn);
 
-    return KATCP_RESULT_FAIL;
+    return KATCP_RESULT_OK;
+
   } else if(!strcmp(name, "create")){
     label = arg_string_katcp(d, 2);
     type = arg_string_katcp(d, 3);

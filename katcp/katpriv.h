@@ -382,6 +382,15 @@ struct katcp_notice{
 #endif
 };
 
+struct katcp_arb{
+  char *a_name;
+  int a_fd;
+
+  unsigned int a_mode;
+  int (*a_run)(struct katcp_dispatch *d, struct katcp_arb *a, unsigned int mode);
+  void *a_data;
+};
+
 struct katcp_shared{
   unsigned int s_magic;
   struct katcp_entry *s_vector;
@@ -416,6 +425,9 @@ struct katcp_shared{
 
   struct katcp_time **s_queue;
   unsigned int s_length;
+
+  struct katcp_arb **s_extras;
+  unsigned int s_total;
 
   struct katcp_notice **s_notices;
   unsigned int s_pending;
@@ -528,7 +540,7 @@ int cmp_time_katcp(struct timeval *alpha, struct timeval *beta);
 int startup_shared_katcp(struct katcp_dispatch *d);
 void shutdown_shared_katcp(struct katcp_dispatch *d);
 int listen_shared_katcp(struct katcp_dispatch *d, char *host, int port);
-int allocate_shared_katcp(struct katcp_dispatch *d, unsigned int count);
+int allocate_clients_shared_katcp(struct katcp_dispatch *d, unsigned int count);
 int link_shared_katcp(struct katcp_dispatch *d, struct katcp_dispatch *cd);
 
 int load_shared_katcp(struct katcp_dispatch *d);
@@ -674,6 +686,12 @@ struct katcp_trap *find_map_katcp(struct katcp_map *km, char *name);
 int remove_map_katcp(struct katcp_dispatch *d, struct katcp_map *km, char *name, struct katcl_parse *p);
 int add_map_katcp(struct katcp_dispatch *d, struct katcp_map *km, char *name, struct katcp_notice *n);
 int log_map_katcp(struct katcp_dispatch *d, char *prefix, struct katcp_map *km);
+
+/* arbitrary filedescriptor callback support */
+
+void load_arb_katcp(struct katcp_dispatch *d);
+int run_arb_katcp(struct katcp_dispatch *d);
+int arb_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 /*katcp_type*/
 void destroy_type_katcp(struct katcp_type *t);

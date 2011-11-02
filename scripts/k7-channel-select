@@ -1,0 +1,25 @@
+#!/bin/bash
+
+set -e 
+source functions.sh
+
+kcs_arg_check $# 1
+
+channel=$1
+mixed=0
+
+if [ $# -ge 2 ] ; then
+  if [ "$2" = "mixed" ] ; then
+    mixed=1
+  fi
+fi
+
+kcs_config_numeric coarse_chans
+
+if [ ${channel} -gt ${coarse_chans} ] ; then
+  kcs_error "coarse channel count ${channel} out of range"
+fi
+
+kcs_debug "chansel with ${channel} ${mixed}"
+
+corr_nb_chansel.py -c ${channel} -m ${mixed} >& /dev/null

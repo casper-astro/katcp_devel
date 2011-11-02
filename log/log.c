@@ -26,7 +26,20 @@ static volatile int log_reload = 0;
 
 void usage(char *app)
 {
-  printf("usage: %s [-l level] [-o logfile] [-a reconnect-attempts] [-d] [-t] [-s server:port]\n", app);
+  printf("usage: %s [-v] [-h] [-l level] [-o logfile] [-a reconnect-attempts] [-d] [-t] [-s server:port]\n", app);
+  printf("-v              be more verbose\n");
+  printf("-h              this help\n");
+  printf("-l level        select a log level (trace, debug, info, warn, ... to log at)\n");
+  printf("-o logfile      write log messages to the specified log file instead of stdout\n");
+  printf("-d              run in the background\n");
+  printf("-f              run in the foreground\n");
+  printf("-t              truncate the logfile when opening it\n");
+  printf("-s server:port  connect to the specified server rather than localhost:7147\n");
+  printf("-a attempts     make the given number attempts to connect to the server before giving up\n");
+  printf("signals: HUP USR1 USR2\n");
+  printf(" HUP            re-open the logfile (if -o is given)\n");
+  printf(" USR1           change log level one level more detailed (eg from DEBUG to TRACE)\n");
+  printf(" USR2           change log level one level less detailed (eg from INFO to WARN)\n");
 }
 
 static void handle_signal(int signal)
@@ -76,7 +89,11 @@ int main(int argc, char **argv)
   detach = 0;
   truncate = 0;
 
-  server = NULL;
+  server = getenv("KATCP_SERVER");
+  if(server == NULL){
+    server = "localhost";
+  }
+
   output = NULL;
   level = NULL;
 

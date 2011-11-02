@@ -1,0 +1,8 @@
+#!/bin/bash
+
+set -e
+source functions.sh
+
+kcs_mode_sensors ready
+
+

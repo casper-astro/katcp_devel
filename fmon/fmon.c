@@ -1254,7 +1254,7 @@ int detect_fmon(struct fmon_state *f)
   if(word > FMON_MAX_BOARDS){
     log_message_katcl(f->f_report, KATCP_LEVEL_WARN, f->f_server, "rather large board id %d reported by roach %s", word, f->f_server);
   } else {
-    log_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_server, "roach %s claims board%d", f->f_server, word);
+    log_message_katcl(f->f_report, KATCP_LEVEL_DEBUG, f->f_server, "roach %s claims board%d", f->f_server, word);
   }
 
   f->f_board = word;
@@ -1297,7 +1297,7 @@ int detect_fmon(struct fmon_state *f)
     }
   }
 
-  log_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_server, "board contains %d fengines and %d xengines", f->f_fs, f->f_xs);
+  log_message_katcl(f->f_report, KATCP_LEVEL_DEBUG, f->f_server, "board contains %d fengines and %d xengines", f->f_fs, f->f_xs);
 
   if(f->f_board > 0){
     f->f_prior = f->f_board;
@@ -1328,7 +1328,7 @@ int detect_fmon(struct fmon_state *f)
     }
   }
 
-  log_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_server, "ignoring board id 0 as roach not initalised");
+  log_message_katcl(f->f_report, KATCP_LEVEL_DEBUG, f->f_server, "ignoring board id 0 as roach not initalised");
 
   f->f_board = (-1); /* board id is just 0 because it is unset */
 

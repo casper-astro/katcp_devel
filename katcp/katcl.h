@@ -88,6 +88,8 @@ int status_code_sensor_katcl(char *name);
 #define KATCL_RPC_LOG_KATCP  0x2
 
 struct katcl_line *create_name_rpc_katcl(char *name);
+struct katcl_line *create_extended_rpc_katcl(char *name, int flags);
+
 void destroy_rpc_katcl(struct katcl_line *l);
 
 int complete_rpc_katcl(struct katcl_line *l, unsigned int flags, struct timeval *until);

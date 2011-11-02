@@ -1041,11 +1041,10 @@ int run_notices_katcp(struct katcp_dispatch *d)
   struct katcp_shared *s;
   struct katcp_notice *n;
   struct katcp_invoke *v;
-  int i, k, remove, result, test, limit;
+  int i, k, result, test, limit;
 
   s = d->d_shared;
   i = 0;
-  remove = 0;
 
   s->s_woken = 0;
 

@@ -313,6 +313,96 @@ void perforate_client_server_katcp(struct katcp_dispatch *dl)
   }
 }
 
+int forget_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  char *match;
+
+  if(d->d_shared == NULL){
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(argc < 2){
+    extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
+    return KATCP_RESULT_OWN;
+  }
+
+  match = arg_string_katcp(d, 1);
+  if(match == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a command to forget");
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(deregister_command_katcp(d, match) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to deregister command");
+    return KATCP_RESULT_FAIL;
+  }
+
+  return KATCP_RESULT_OK;
+}
+
+int chdir_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  char *dir;
+
+  if(d->d_shared == NULL){
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(argc < 2){
+    extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
+    return KATCP_RESULT_OWN;
+  }
+
+  dir = arg_string_katcp(d, 1);
+  if(dir == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to retrive directory argument");
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(chdir(dir) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to change to %s %s", dir, strerror(errno));
+    return KATCP_RESULT_FAIL;
+  }
+
+  return KATCP_RESULT_OK;
+}
+
+int setenv_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  char *label, *value;
+
+  if(d->d_shared == NULL){
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(argc < 2){
+    extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
+    return KATCP_RESULT_OWN;
+  }
+
+  label = arg_string_katcp(d, 1);
+  if(argc == 2){
+    if(unsetenv(label) < 0){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to clear variable %s : %s", label, strerror(errno));
+      return KATCP_RESULT_FAIL;
+    }
+    return KATCP_RESULT_OK;
+  }
+
+  value = arg_string_katcp(d, 2);
+  if(value == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire value for variable %s", label);
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(setenv(label, value, 1) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to set variable %s : %s", label, strerror(errno));
+    return KATCP_RESULT_FAIL;
+  }
+
+  return KATCP_RESULT_OK;
+}
+
 int system_info_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
 #define BUFFER 64
@@ -419,17 +509,21 @@ int prepare_core_loop_katcp(struct katcp_dispatch *dl)
   add_kernel_version_katcp(dl);
 
   /* extra commands, not really part of the standard */
+  register_flag_mode_katcp(dl, "?setenv",  "sets/clears an enviroment variable (?setenv [label [value]]", &setenv_cmd_katcp, KATCP_CMD_HIDDEN, 0);
+  register_flag_mode_katcp(dl, "?chdir",   "change directory (?chdir directory)", &chdir_cmd_katcp, KATCP_CMD_HIDDEN, 0);
+  register_flag_mode_katcp(dl, "?forget",  "deregister a command (?forget command)", &forget_cmd_katcp, KATCP_CMD_HIDDEN, 0);
+
   register_flag_mode_katcp(dl, "?system-info",  "report server information (?system-info)", &system_info_cmd_katcp, 0, 0);
 
   register_flag_mode_katcp(dl, "?dispatch","dispatch operations (?dispatch [list])", &dispatch_cmd_katcp, 0, 0);
   register_flag_mode_katcp(dl, "?notice",  "notice operations (?notice [list|watch|wake])", &notice_cmd_katcp, 0, 0);
   register_flag_mode_katcp(dl, "?job",     "job operations (?job [list|process notice-name exec://executable-file|network notice-name katcp://net-host:remote-port|watchdog job-name|match job-name inform-message|stop job-name])", &job_cmd_katcp, 0, 0);
   register_flag_mode_katcp(dl, "?define",  "runtime definitions (?define [mode name]", &define_cmd_katcp, 0, 0);
+  register_flag_mode_katcp(dl, "?arb",     "arbitrary callback manipulation (?arb [list]", &arb_cmd_katcp, 0, 0);
 
   register_flag_mode_katcp(dl, "?process", "register a process command (?process executable help-string [mode]", &register_subprocess_cmd_katcp, 0, 0);
   register_flag_mode_katcp(dl, "?sensor",  "sensor operations (?sensor [list|create|relay job-name])", &sensor_cmd_katcp, 0, 0);
   register_flag_mode_katcp(dl, "?version", "version operations (?sensor [add module version [mode]|remove module])", &version_cmd_katcp, 0, 0);
-  register_flag_mode_katcp(dl, "?version-list", "list versions (?version-list)", &version_list_cmd_katcp, 0, 0);
 
   time(&(s->s_start));
 
@@ -485,6 +579,7 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
     }
 
     load_jobs_katcp(dl);
+    load_arb_katcp(dl);
 
     if(load_shared_katcp(dl) < 0){ /* want to shut down */
       run = (-1);
@@ -558,6 +653,7 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
     run_shared_katcp(dl);
     run_jobs_katcp(dl);
     run_notices_katcp(dl);
+    run_arb_katcp(dl);
 
     if(FD_ISSET(s->s_lfd, &(s->s_read))){
       if(s->s_used < s->s_count){
@@ -600,16 +696,16 @@ int run_pipe_server_katcp(struct katcp_dispatch *dl, char *file, int pfd)
     return terminate_katcp(dl, KATCP_EXIT_ABORT);
   }
 
+  /* in case we are given a script file, we need two slots */
+  need = file ? 2 : 1;
+  if(allocate_clients_shared_katcp(dl, need) < need){
+    return terminate_katcp(dl, KATCP_EXIT_ABORT);
+  }
+
   if(prepare_core_loop_katcp(dl) < 0){
     return terminate_katcp(dl, KATCP_EXIT_ABORT);
   }
   
-  /* in case we are given a script file, we need two slots */
-  need = file ? 2 : 1;
-  if(allocate_shared_katcp(dl, need) < need){
-    return terminate_katcp(dl, KATCP_EXIT_ABORT);
-  }
-
   if(file){
     fd = pipe_from_file_katcp(dl, file);
     if(fd < 0){
@@ -638,6 +734,13 @@ int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, ch
     return terminate_katcp(dl, KATCP_EXIT_ABORT);
   }
 
+  if(allocate_clients_shared_katcp(dl, count) <= 0){
+#ifdef DEBUG
+    fprintf(stderr, "allocation of %d clients failed\n", count);
+#endif
+    return terminate_katcp(dl, KATCP_EXIT_ABORT);
+  }
+
   if(prepare_core_loop_katcp(dl) < 0){
 #ifdef DEBUG
     fprintf(stderr, "server: need a natural number of clients, not %d\n", count);
@@ -650,13 +753,6 @@ int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, ch
     fprintf(stderr, "multi: more than one client, registering client list\n");
 #endif
     register_katcp(dl, "?client-list", "displays client list (?client-list)", &client_list_cmd_katcp);
-  }
-
-  if(allocate_shared_katcp(dl, count) <= 0){
-#ifdef DEBUG
-    fprintf(stderr, "allocation of %d clients failed\n", count);
-#endif
-    return terminate_katcp(dl, KATCP_EXIT_ABORT);
   }
 
   if(file){
