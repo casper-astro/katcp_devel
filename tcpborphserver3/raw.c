@@ -373,15 +373,15 @@ int read_cmd(struct katcp_dispatch *d, int argc)
     if(field == NULL){
       return KATCP_RESULT_FAIL;
     }
-    if(field[0] != '.'){
+    if(field[0] != ':'){
       start_base = strtoul(field, &end, 0);
-      if(end[0] == '.'){
+      if(end[0] == ':'){
         field = end;
       }
     } else {
       start_base = 0;
     }
-    if(field[0] == '.'){
+    if(field[0] == ':'){
       start_offset = atoi(field + 1);
     } else {
       start_offset = 0;
@@ -397,15 +397,15 @@ int read_cmd(struct katcp_dispatch *d, int argc)
     if(field == NULL){
       return KATCP_RESULT_FAIL;
     }
-    if(field[0] != '.'){
+    if(field[0] != ':'){
       want_base = strtoul(field, &end, 0);
-      if(end[0] == '.'){
+      if(end[0] == ':'){
         field = end;
       }
     } else {
       want_base = 0;
     }
-    if(field[0] == '.'){
+    if(field[0] == ':'){
       want_offset = atoi(field + 1);
     } else {
       want_offset = 0;
