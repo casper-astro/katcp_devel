@@ -93,6 +93,28 @@ int display_dir_cmd(struct katcp_dispatch *d, char *directory)
   return KATCP_RESULT_OWN;
 }
 
+int listdev_cmd(struct katcp_dispatch *d, int argc)
+{
+  struct tbs_raw *tr;
+
+  tr = get_current_mode_katcp(d);
+  if(tr == NULL){
+    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "unable to get raw state");
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(tr->r_fpga != TBS_FPGA_MAPPED){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "fpga not programmed");
+    return KATCP_RESULT_FAIL;
+  }
+
+  /* TODO: check if arg1 is "size" */
+
+  /* print all registers ... if the device is programmed */
+
+  return KATCP_RESULT_FAIL;
+}
+
 int listbof_cmd(struct katcp_dispatch *d, int argc)
 {
   struct tbs_raw *tr;
@@ -310,7 +332,7 @@ int read_cmd(struct katcp_dispatch *d, int argc)
   struct tbs_entry *te;
   char *name, *field, *end;
   uint32_t value, prev, current;
-  unsigned int want_base, start_base, start_offset, i, j, shift, flags, offset, limit, pos, byte_len, byte_pos, bit_pos, bit_len;
+  unsigned int want_base, want_offset, start_base, start_offset, i, j, shift, flags, offset, limit, pos, byte_len, byte_pos, bit_pos, bit_len;
   unsigned char *ptr, *buffer;
 
   tr = get_mode_katcp(d, TBS_MODE_RAW);
@@ -371,14 +393,41 @@ int read_cmd(struct katcp_dispatch *d, int argc)
 
   want_base = 1;
   if(argc > 3){
-    want_base = arg_unsigned_long_katcp(d, 3);
-    if(want_base <= 0){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "zero read request want_base on register %s", name);
+    field = arg_string_katcp(d, 2);
+    if(field == NULL){
       return KATCP_RESULT_FAIL;
+    }
+    if(field[0] != '.'){
+      want_base = strtoul(field, &end, 0);
+      if(end[0] == '.'){
+        field = end;
+      }
+    } else {
+      want_base = 0;
+    }
+    if(field[0] == '.'){
+      want_offset = atoi(field + 1);
+    } else {
+      want_offset = 0;
+    }
+    if((want_offset <= 0) && (want_base <= 0)){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "zero read request length on register %s", name);
+      return KATCP_RESULT_FAIL;
+    }
+  } else {
+    if((te->e_len_base + ((te->e_len_offset + 7) / 8)) <= 4){
+      want_base   = te->e_len_base;
+      want_offset = te->e_len_offset;
+    } else {
+      /* TODO: there might be better choices */
+      want_base   = 1;
+      want_offset = 0;
     }
   }
 
-  if(((te->e_pos_offset % 8) == 0) || ((te->e_len_offset % 8) == 0)){
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "read at %u.%u of %u.%u within %u.%u", start_base, start_offset, want_base, want_offset, te->e_pos_base, te->e_pos_offset);
+
+  if(((want_offset % 8) == 0) && ((te->e_pos_offset % 8) == 0) || ((te->e_len_offset % 8) == 0)){
     /* FAST: no bit offsets to deal with => no shifts => no alloc, no copy */
 
     byte_pos = te->e_pos_base + (te->e_pos_offset / 8);
@@ -490,32 +539,36 @@ int progdev_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
-  if(argc <= 1){
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "attempting to empty fpga");
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "attempting to empty fpga");
 
-    if(tr->r_fpga == TBS_FPGA_MAPPED){
-      unmap_raw_tbs(d);
-      tr->r_fpga = TBS_FPGA_PROGRAMED;
-    }
+  if(tr->r_fpga == TBS_FPGA_MAPPED){
+    unmap_raw_tbs(d);
+    tr->r_fpga = TBS_FPGA_PROGRAMED;
+  }
 
-    if(tr->r_fpga == TBS_FPGA_PROGRAMED){
-      /* TODO: actually unprogram FPGA */
-    }
+  if(tr->r_fpga == TBS_FPGA_PROGRAMED){
+    /* TODO: actually unprogram FPGA */
+  }
 
-    if(tr->r_image){
-      free(tr->r_image);
-    }
+  if(tr->r_image){
+    free(tr->r_image);
+    tr->r_image = NULL;
+  }
 
+  if(tr->r_registers){
     destroy_avltree(tr->r_registers, &free_entry);
     tr->r_registers = NULL;
+  }
 
-    tr->r_registers = create_avltree();
-    if(tr->r_registers == NULL){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to re-create empty lookup structure");
-      return KATCP_RESULT_FAIL;
-    }
 
+  if(argc <= 1){
     return KATCP_RESULT_OK;
+  }
+
+  tr->r_registers = create_avltree();
+  if(tr->r_registers == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to re-create empty lookup structure");
+    return KATCP_RESULT_FAIL;
   }
 
   file = arg_string_katcp(d, 1);
@@ -875,6 +928,7 @@ int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir)
   result += register_flag_mode_katcp(d, "?wordread",     "read data from a named register (?wordread name index count)", &word_read_cmd, 0, TBS_MODE_RAW);
   result += register_flag_mode_katcp(d, "?wordwrite",    "write data to a named register (?wordwrite name index value+)", &word_write_cmd, 0, TBS_MODE_RAW);
   result += register_flag_mode_katcp(d, "?listbof",      "display available bof files (?listbof)", &listbof_cmd, 0, TBS_MODE_RAW);
+  result += register_flag_mode_katcp(d, "?listdev",      "lists available registers (?listdev [size]", &listdev_cmd, 0, TBS_MODE_RAW);
 
   return 0;
 }
