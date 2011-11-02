@@ -28,7 +28,14 @@ void ws_handle(int signum)
 {
   run = 0;
 }
+#if 0
+struct ws_frame *crete_ws_frame(uint8_t hdr[], uint8_t msk[], uint64_t payload)
+{
+  struct ws_frame *f;
 
+  if (hdr == NULL || 
+}
+#endif
 struct ws_server *create_server_ws(int (*cdfn)(struct ws_client *c))
 {
   struct ws_server *s;
@@ -75,6 +82,7 @@ struct ws_client *create_client_ws(int fd, SSL *ssl)
   c->c_state    = C_STATE_NEW;
   c->c_sb       = NULL;
   c->c_sb_len   = 0;
+  c->c_frame    = NULL;
 
   return c;
 }
@@ -490,6 +498,9 @@ unsigned char *readline_client_ws(struct ws_client *c)
   if (c == NULL || c->c_rb == NULL)
     return NULL;
 
+  temp = NULL;
+  end = NULL;
+
   if (c->c_rb_last != NULL){
     free(c->c_rb_last);
     c->c_rb_last = NULL;
@@ -531,35 +542,54 @@ def DEBUG
 #ifdef DEBUG
     fprintf(stderr, "wss: readline end is NULL rb_len:%d\n", c->c_rb_len);
 #endif
+    
+    c->c_rb = realloc(c->c_rb, c->c_rb_len + 1);
+    if (c->c_rb == NULL)
+      return NULL;
+
+    memset(c->c_rb + c->c_rb_len, '\0', sizeof(unsigned char));
+
+    //c->c_rb_len++;
+
+    c->c_rb_last = (unsigned char *) c->c_rb;
+
+    c->c_rb = NULL;
+    c->c_rb_len = 0;
 
   }
  
   return c->c_rb_last;
 }
 
-void *readdata_client_ws(struct ws_client *c, unsigned int n)
+int readdata_client_ws(struct ws_client *c, void *dest, unsigned int n)
 {
-  if (c == NULL || n <= 0)
-    return NULL;
+  if (c == NULL || n <= 0 || c->c_rb_len <= 0)
+    return -1;
 
   if (n > c->c_rb_len){
 #ifdef DEBUG
     fprintf(stderr, "wss: readdata trying to read more than %d\n", c->c_rb_len);
 #endif
-    return NULL;
+    n = c->c_rb_len;
   }
-  
+
+#ifdef DEBUG
+  fprintf(stderr, "wss: readdata [%d]bytes\n", n);
+#endif
+#if 0 
   c->c_rb_last = realloc(c->c_rb_last, n);
   if (c->c_rb_last == NULL)
     return NULL;
-  
-  memcpy(c->c_rb_last, c->c_rb, n);
+#endif
+  memcpy(dest, c->c_rb, n);
 
   memmove(c->c_rb, c->c_rb + n, c->c_rb_len - n);
 
   c->c_rb_len -= n;
+
+  c->c_rb = realloc(c->c_rb, c->c_rb_len);
   
-  return c->c_rb_last;
+  return n;
 }
 
 void dropdata_client_ws(struct ws_client *c)

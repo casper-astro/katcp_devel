@@ -7,6 +7,8 @@
 
 #include <time.h>
 #include <sys/stat.h>
+#include <arpa/inet.h>
+#include <endian.h>
 
 #include <openssl/ssl.h>
 
@@ -189,7 +191,7 @@ int parse_http_proto_ws(struct ws_client *c)
 int parse_websocket_proto_ws(struct ws_client *c)
 {
   int i, len, opcode, shift;
-  uint8_t hdr;
+  uint8_t hdr[2];
   uint8_t msk[4];
   uint64_t payload;
   unsigned char *data;
@@ -199,55 +201,85 @@ int parse_websocket_proto_ws(struct ws_client *c)
   
   shift = 0;
   len = sizeof(hdr);
-  hdr = *((uint8_t *) readdata_client_ws(c, len));
+  //hdr = *((uint8_t *) readdata_client_ws(c, len));
+  if (readdata_client_ws(c, &hdr, len) < 0){
 #ifdef DEBUG
-  fprintf(stderr, "wss: HDR: 0x%0x\n", hdr);
+    fprintf(stderr, "wss: error readdata\n");
+#endif
+    return -1;
+  }
+
+#ifdef DEBUG
+  fprintf(stderr, "wss: HDR: 0x%x\n", (uint16_t)*hdr);
 #endif
 
-  if (hdr & WSF_FIN){
+  if (hdr[0] & WSF_FIN){
 #ifdef DEBUG
     fprintf(stderr, "wss: FIN SET\n");
 #endif
   }
   
-  opcode = hdr & WSF_OPCODE;
+  opcode = hdr[0] & WSF_OPCODE;
 
-  hdr = *((uint8_t *) readdata_client_ws(c, len));
-#ifdef DEBUG
-  fprintf(stderr, "wss: HDR: 0x%0x\n", hdr);
+#if 0 
+def DEBUG
+  fprintf(stderr, "wss: HDR: 0x%0x\n", hdr[1]);
 #endif
 
-  if (hdr & WSF_MASK){
+  if (hdr[1] & WSF_MASK){
 #ifdef DEBUG
     fprintf(stderr, "wss: MASK SET\n");
 #endif
   }
 
-  payload = hdr & WSF_PAYLOAD;
+  payload = hdr[1] & WSF_PAYLOAD;
    
-#if 0
+#if 1
   switch (payload){
     case WSF_PAYLOAD_16:
 #ifdef DEBUG
       fprintf(stderr, "wss: Extended Payload is 16bits\n");
 #endif
-      payload = *((uint32_t *) readdata_client_ws(c, sizeof(uint16_t)));    
+      //payload = ntohs(*((uint16_t *) readdata_client_ws(c, sizeof(uint16_t))));    
+      if (readdata_client_ws(c, &payload, sizeof(uint16_t)) < 0){
+#ifdef DEBUG
+        fprintf(stderr, "wss: error readdata\n");
+#endif
+        return -1;
+      }
+      payload = ntohs(payload);
       break;
 
-    case WSF_PAYLOAD_32:
+    case WSF_PAYLOAD_64:
 #ifdef DEBUG
-      fprintf(stderr, "wss: Extended Payload is 32bits\n");
+      fprintf(stderr, "wss: Extended Payload is 64bits\n");
 #endif
-      payload = *((uint32_t *) readdata_client_ws(c, sizeof(uint32_t)));    
+      //payload = be64toh(*((uint64_t *) readdata_client_ws(c, sizeof(uint64_t))));    
+      if (readdata_client_ws(c, &payload, sizeof(uint64_t)) < 0){
+#ifdef DEBUG
+        fprintf(stderr, "wss: error readdata\n");
+#endif
+        return -1;
+      }
+      payload = be64toh(payload);
       break;
   }
 #endif 
 
+#if 0
   len = sizeof(uint8_t);
   msk[0] = *((uint8_t *) readdata_client_ws(c, len));
   msk[1] = *((uint8_t *) readdata_client_ws(c, len));
   msk[2] = *((uint8_t *) readdata_client_ws(c, len));
   msk[3] = *((uint8_t *) readdata_client_ws(c, len));
+#endif
+
+  if (readdata_client_ws(c, msk, sizeof(msk)) < 0){
+#ifdef DEBUG
+    fprintf(stderr, "wss: error readdata\n");
+#endif
+    return -1;
+  }
 
 #ifdef DEBUG
   fprintf(stderr, "wss: OPCODE 0x%x PAYLOAD: 0x%x MASKKEY: 0x%x\n", opcode, payload, msk);
@@ -257,10 +289,13 @@ int parse_websocket_proto_ws(struct ws_client *c)
   for(i=0; i<c->c_rb_len; i++)
     data[i] ^= msk[i % 4];
     
-#ifdef DEBUG
+#if 0
+    def DEBUG
   for(i=0; i<c->c_rb_len; i++)
     fprintf(stderr,"byte %d 0x%0x %c\n", i, data[i], data[i]);
 #endif
+
+  fprintf(stdout, "%s\n", readline_client_ws(c));
 
   dropdata_client_ws(c);
 

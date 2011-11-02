@@ -10,20 +10,18 @@
 #define C_STATE_NEW       0
 #define C_STATE_UPGRADED  1
 
-struct ws_frame {
 #define WSF_FIN         0x80
 #define WSF_OPCODE      0x0f
 #define WSF_MASK        0x80
 #define WSF_PAYLOAD     0x7f
 #define WSF_PAYLOAD_16  0x7e
-#define WSF_PAYLOAD_32  0x7f
-  u_short   f_hdr;
+#define WSF_PAYLOAD_64  0x7f
 
-  uint32_t  f_mask_key;
-  
-  void      *f_data;
-
-} __attribute__((packed));
+struct ws_frame {
+  uint8_t hdr[2];
+  uint8_t msk[4];
+  uint64_t payload;
+};
 
 struct ws_client {
   int c_fd;
@@ -40,6 +38,8 @@ struct ws_client {
 
   void *c_sb;
   int c_sb_len;
+
+  struct ws_frame *c_frame;
 };
 
 struct ws_server {
@@ -71,7 +71,7 @@ struct ws_server {
 int register_client_handler_server(int (*client_data_fn)(struct ws_client *c), char *port);
 
 unsigned char *readline_client_ws(struct ws_client *c);
-void *readdata_client_ws(struct ws_client *c, unsigned int n);
+int readdata_client_ws(struct ws_client *c, void *dest, unsigned int n);
 void dropdata_client_ws(struct ws_client *c);
 
 int write_to_client_ws(struct ws_client *c, void *buf, int n);
