@@ -56,7 +56,7 @@ void print_entry_size(struct katcp_dispatch *d, char *key, void *data)
   if (te) {
     prepend_inform_katcp(d);
     append_string_katcp(d, KATCP_FLAG_STRING, key);
-    append_unsigned_long_katcp(d, KATCP_FLAG_ULONG | KATCP_FLAG_LAST, te->e_len_base);
+    append_args_katcp(d, KATCP_FLAG_ULONG | KATCP_FLAG_LAST, "%d:%d", te->e_len_base, te->e_len_offset);
   }
 }
 
