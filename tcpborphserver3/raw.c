@@ -37,6 +37,29 @@ void free_entry(void *data)
   }
 }
 
+void print_entry(struct katcp_dispatch *d, char *key, void *data)
+{
+  struct tbs_entry *te;
+
+  te = data;
+  if (te) {
+    prepend_inform_katcp(d);
+    append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, key);
+  }
+}
+
+void print_entry_size(struct katcp_dispatch *d, char *key, void *data)
+{
+  struct tbs_entry *te;
+
+  te = data;
+  if (te) {
+    prepend_inform_katcp(d);
+    append_string_katcp(d, KATCP_FLAG_STRING, key);
+    append_unsigned_long_katcp(d, KATCP_FLAG_ULONG | KATCP_FLAG_LAST, te->e_len_base);
+  }
+}
+
 /*********************************************************************/
 
 int display_dir_cmd(struct katcp_dispatch *d, char *directory)
@@ -96,6 +119,8 @@ int display_dir_cmd(struct katcp_dispatch *d, char *directory)
 int listdev_cmd(struct katcp_dispatch *d, int argc)
 {
   struct tbs_raw *tr;
+  char *a1;
+  void *call;
 
   tr = get_current_mode_katcp(d);
   if(tr == NULL){
@@ -111,6 +136,21 @@ int listdev_cmd(struct katcp_dispatch *d, int argc)
   /* TODO: check if arg1 is "size" */
 
   /* print all registers ... if the device is programmed */
+
+  call = &print_entry;
+
+  if (argc > 1) {
+    a1 = arg_string_katcp(d, 1);
+    if (strcmp(a1, "size") != 0){
+      return KATCP_RESULT_FAIL;
+    }
+    call = &print_entry_size;
+  }
+
+  if (tr->r_registers != NULL){
+    print_inorder_avltree(d, tr->r_registers->t_root, call, 0);
+    return KATCP_RESULT_OK;
+  }
 
   return KATCP_RESULT_FAIL;
 }

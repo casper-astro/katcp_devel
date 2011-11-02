@@ -149,7 +149,7 @@ void destroy_sm_state_kcs(void *data)
     free(s);
   }
 }
-void print_sm_state_kcs(struct katcp_dispatch *d, void *data)
+void print_sm_state_kcs(struct katcp_dispatch *d, char *key, void *data)
 {
   struct kcs_sm_state *s;
   int i;
@@ -325,7 +325,7 @@ int create_named_op_kcs(struct katcp_dispatch *d, char *state, char *op)
 
 
 /*Modules*****************************************************************************************************/
-void print_sm_mod_kcs(struct katcp_dispatch *d, void *data)
+void print_sm_mod_kcs(struct katcp_dispatch *d, char *key, void *data)
 {
   struct katcp_module *m;
   m = data;
@@ -660,6 +660,7 @@ int statemachine_process_kcs(struct katcp_dispatch *d, struct katcp_notice *n, v
   int rtn;
   char *ptr;
   
+  rtn = 0;
   t = data;
   if (t == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "cannot run sched with null task");

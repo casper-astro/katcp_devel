@@ -80,7 +80,7 @@ int update_node_data_avltree(struct avl_node *n, void *data)
   return 0;
 }
 
-void print_avltree(struct katcp_dispatch *d, struct avl_node *n, int depth, void (*fn_print)(struct katcp_dispatch *, void *))
+void print_avltree(struct katcp_dispatch *d, struct avl_node *n, int depth, void (*fn_print)(struct katcp_dispatch *, char *key, void *))
 {
 #if 1
 #define SPACER "  "
@@ -94,7 +94,7 @@ void print_avltree(struct katcp_dispatch *d, struct avl_node *n, int depth, void
 
   fprintf(stderr,"in %s (%p) bal %d p(%p) data: (%p)\n", n->n_key, n, n->n_balance, n->n_parent, n->n_data);
   if(fn_print != NULL)
-    (*fn_print)(d, n->n_data);
+    (*fn_print)(d, n->n_key, n->n_data);
 
   for (i=0; i<depth; i++)
     fprintf(stderr,SPACER);
@@ -228,7 +228,7 @@ void *walk_data_inorder_avltree(struct avl_node *n)
   return c->n_data;
 }
 
-void print_inorder_avltree(struct katcp_dispatch *d, struct avl_node *n, void (*fn_print)(struct katcp_dispatch *d, void *data), int flags)
+void print_inorder_avltree(struct katcp_dispatch *d, struct avl_node *n, void (*fn_print)(struct katcp_dispatch *d, char *key, void *data), int flags)
 {
   struct avl_node *c;
 #if 0
@@ -292,7 +292,7 @@ void print_inorder_avltree(struct katcp_dispatch *d, struct avl_node *n, void (*
       }
 
       if (fn_print != NULL)
-        (*fn_print)(d, c->n_data);
+        (*fn_print)(d, c->n_key, c->n_data);
 
       c = c->n_right;
 

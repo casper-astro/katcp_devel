@@ -21,7 +21,7 @@
 #define KATCP_TYPE_ROACH                      "roach"
 #define KATCP_TYPE_URL                        "url"
 
-void print_katcp_url_type_mod(struct katcp_dispatch *d, void *data)
+void print_katcp_url_type_mod(struct katcp_dispatch *d, char *key, void *data)
 {
   struct katcp_url *ku;
   ku = data;

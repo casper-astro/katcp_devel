@@ -10,6 +10,7 @@
 #include <errno.h>
 #include <string.h>
 #include <fcntl.h>
+#include <ctype.h>
 
 #include <katcp.h>
 #include <katpriv.h>

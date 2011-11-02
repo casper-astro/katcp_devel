@@ -25,7 +25,7 @@
 #include "avltree.h"
 
 
-void print_string_type_katcp(struct katcp_dispatch *d, void *data)
+void print_string_type_katcp(struct katcp_dispatch *d, char *key, void *data)
 {
   char *o;
   o = data;
@@ -167,7 +167,7 @@ int add_named_dict_katcp(struct katcp_dispatch *d, struct katcp_dict *dt, char *
 }
 
 
-void print_dict_type_katcp(struct katcp_dispatch *d, void *data)
+void print_dict_type_katcp(struct katcp_dispatch *d, char *key, void *data)
 {
   struct katcp_dict *dt;
   struct katcp_tobject *to;
@@ -197,7 +197,7 @@ void print_dict_type_katcp(struct katcp_dispatch *d, void *data)
         append_string_katcp(d, KATCP_FLAG_FIRST  | KATCP_FLAG_STRING, "#key:");
         append_args_katcp  (d, KATCP_FLAG_STRING | KATCP_FLAG_LAST , "%s", n->n_key);
       
-        (*(to->o_type->t_print))(d, to->o_data);
+        (*(to->o_type->t_print))(d, n->n_key, to->o_data);
 
       }
     }
@@ -434,7 +434,7 @@ char *getkey_dbase_type_katcp(void *data)
   return db->d_key;
 }
 
-void print_dbase_type_katcp(struct katcp_dispatch *d, void *data)
+void print_dbase_type_katcp(struct katcp_dispatch *d, char *key, void *data)
 {
   struct katcp_dbase *db;
   
@@ -966,7 +966,7 @@ int get_count_tag_katcp(struct katcp_tag *t)
   return t->t_tobject_count;
 }
 
-void print_tag_katcp(struct katcp_dispatch *d, void *data)
+void print_tag_katcp(struct katcp_dispatch *d, char *key, void *data)
 {
   struct katcp_tag *t;
   t = data;

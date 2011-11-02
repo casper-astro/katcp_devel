@@ -343,7 +343,7 @@ void print_tobject_katcp(struct katcp_dispatch *d, struct katcp_tobject *o)
   //fprintf(stderr, "stack obj: %s %p %p\n",t->t_name, t, t->t_print);
 #endif
   if ((t != NULL) && (t->t_print != NULL))
-    (*t->t_print)(d, o->o_data);
+    (*t->t_print)(d, "unnamed_tobject", o->o_data);
 }
 
 void print_stack_katcp(struct katcp_dispatch *d, struct katcp_stack *s)

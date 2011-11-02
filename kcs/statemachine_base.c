@@ -18,7 +18,7 @@
 #include "kcs.h"
 
 /*Statemachine Base********************************************************************************************/
-void print_integer_type_kcs(struct katcp_dispatch *d, void *data)
+void print_integer_type_kcs(struct katcp_dispatch *d, char *key, void *data)
 {
   int *o;
   o = data;

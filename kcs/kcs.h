@@ -269,7 +269,7 @@ struct katcp_actor {
 };
 
 struct katcp_actor *create_actor_type_katcp(struct katcp_dispatch *d, char *str, struct katcp_job *j, struct katcp_notice *n, void *data, char *datatype);
-void print_actor_type_katcp(struct katcp_dispatch *d, void *data);
+void print_actor_type_katcp(struct katcp_dispatch *d, char *key, void *data);
 void destroy_actor_type_katcp(void *data);
 int copy_actor_type_katcp(void *src, void *dest, int n);
 int compare_actor_type_katcp(const void *a, const void *b);

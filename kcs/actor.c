@@ -120,7 +120,7 @@ void walk_actor_tags(const void *nodep, const VISIT which, const int depth)
 }
 #endif
 
-void print_actor_type_katcp(struct katcp_dispatch *d, void *data)
+void print_actor_type_katcp(struct katcp_dispatch *d, char *key, void *data)
 {
   struct katcp_actor *a;
   a = data;
@@ -311,7 +311,7 @@ int deregister_tag_katcp(struct katcp_dispatch *d, char *name)
   return del_data_type_katcp(d, KATCP_TYPE_TAG, name);
 }
 
-void dump_tag_katcp(struct katcp_dispatch *d, void *data)
+void dump_tag_katcp(struct katcp_dispatch *d, char *key, void *data)
 {
   struct katcp_tag *t;
   struct katcp_tobject *to;
@@ -322,7 +322,7 @@ void dump_tag_katcp(struct katcp_dispatch *d, void *data)
   if (t == NULL)
     return;
 
-  print_tag_katcp(d, data);
+  print_tag_katcp(d, "unnamed_tag", data);
   
   if (populate_tobjs_katcp(t) < 0)
     return;
@@ -330,7 +330,7 @@ void dump_tag_katcp(struct katcp_dispatch *d, void *data)
   for (i=0; i<__tcount; i++){
     to = __tobjs[i];
     if (to != NULL || to->o_type != NULL || to->o_type->t_print != NULL) {
-      (*(to->o_type->t_print))(d, to->o_data);
+      (*(to->o_type->t_print))(d, "unnamed_tag", to->o_data);
     }
   }
 
@@ -886,15 +886,15 @@ int main(int argc, char *argv[])
   rtn += tag_named_actor_katcp(d, a4, "tag3");
   rtn += tag_named_actor_katcp(d, a4, "tag4");
   
-  print_actor_type_katcp(d, a1);
+  //print_actor_type_katcp(d, a1);
   rtn += unlink_tags_actor_katcp(d, a1); 
   destroy_actor_type_katcp(a1);
   a1 = NULL;
 
-  print_actor_type_katcp(d, a1);
-  print_actor_type_katcp(d, a2);
-  print_actor_type_katcp(d, a3);
-  print_actor_type_katcp(d, a4);
+  //print_actor_type_katcp(d, a1);
+  //print_actor_type_katcp(d, a2);
+  //print_actor_type_katcp(d, a3);
+  //print_actor_type_katcp(d, a4);
   
 #if 0 
   rtn += deregister_tag_katcp(d, "tag1");
