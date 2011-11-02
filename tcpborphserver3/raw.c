@@ -492,7 +492,6 @@ int read_cmd(struct katcp_dispatch *d, int argc)
   flags = KATCP_FLAG_XLONG;
 
 
-
   if(shift > 0){
     current = *((uint32_t *)(tr->r_map + j));
     prev = (current << shift);
