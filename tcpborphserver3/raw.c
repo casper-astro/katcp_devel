@@ -407,6 +407,8 @@ int read_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
+  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "read on %s invoked with %d args", name, argc);
+
   /* normalise, could have been specified in words, with 32 bits in offset */
   pos_base   = te->e_pos_base + (te->e_pos_offset / 8);
   pos_offset = te->e_pos_offset % 8;
@@ -437,7 +439,7 @@ int read_cmd(struct katcp_dispatch *d, int argc)
       start_offset = 0;
     }
   } else {
-    start_base = 1;
+    start_base = 0;
     start_offset = 0;
   }
 
@@ -453,9 +455,11 @@ int read_cmd(struct katcp_dispatch *d, int argc)
   combined_base   = pos_base + start_base + (pos_offset + start_offset) / 8;
   combined_offset = (pos_offset + start_offset) % 8;
 
+  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "read request for %s at 0x%x:%u, combined 0x%x:%u", name, start_base, start_offset, combined_base, combined_offset);
+
   want_base = 1;
   if(argc > 3){
-    field = arg_string_katcp(d, 2);
+    field = arg_string_katcp(d, 3);
     if(field == NULL){
       return KATCP_RESULT_FAIL;
     }
@@ -503,7 +507,7 @@ int read_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
-  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "reading %s (%u:%u) starting at %u:%u amount %u.%u", pos_base, pos_offset, start_base, start_offset, want_base, want_offset);
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "reading %s (%u:%u) starting at %u:%u amount %u.%u", name, pos_base, pos_offset, start_base, start_offset, want_base, want_offset);
 
   if((combined_offset == 0) && (want_offset == 0)){ 
     /* FAST: no bit offset (start at byte, read complete bytes) => no shifts => no alloc, no copy */
