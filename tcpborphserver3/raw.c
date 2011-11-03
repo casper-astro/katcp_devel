@@ -372,7 +372,7 @@ int read_cmd(struct katcp_dispatch *d, int argc)
   struct tbs_entry *te;
   char *name, *field, *end;
   uint32_t value, prev, current;
-  unsigned int want_base, want_offset, start_base, start_offset, i, j, shift, flags, offset, limit, pos, byte_len, byte_pos, bit_pos, bit_len;
+  unsigned int want_base, want_offset, start_base, start_offset, i, j, shift, flags, offset, limit, pos, byte_len, byte_pos, combined_base, combined_offset, pos_base, pos_offset, len_base, len_offset;
   unsigned char *ptr, *buffer;
 
   tr = get_mode_katcp(d, TBS_MODE_RAW);
@@ -407,6 +407,16 @@ int read_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
+  /* normalise, could have been specified in words, with 32 bits in offset */
+  pos_base   = te->e_pos_base + (te->e_pos_offset / 8);
+  pos_offset = te->e_pos_offset % 8;
+
+  len_base   = te->e_len_base + (te->e_len_offset / 8);
+  len_offset = te->e_len_offset % 8;
+
+  /* offensive programming */
+  te = NULL;
+
   start_base = 0;
   if(argc > 2){
     field = arg_string_katcp(d, 2);
@@ -430,6 +440,18 @@ int read_cmd(struct katcp_dispatch *d, int argc)
     start_base = 1;
     start_offset = 0;
   }
+
+  start_base = start_base + (start_offset / 8);
+  start_offset = start_offset % 8;
+
+  /* extra paranoia check within name abstraction, needed to catch wild wrapping if really large start position is used in later calculations */
+  if((start_base + (start_offset + 7) / 8) > (len_base + (len_offset + 7) / 8)){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "read request starts after end of register %s", name);
+    return KATCP_RESULT_FAIL;
+  }
+
+  combined_base   = pos_base + start_base + (pos_offset + start_offset) / 8;
+  combined_offset = (pos_offset + start_offset) % 8;
 
   want_base = 1;
   if(argc > 3){
@@ -455,9 +477,10 @@ int read_cmd(struct katcp_dispatch *d, int argc)
       return KATCP_RESULT_FAIL;
     }
   } else {
-    if((te->e_len_base + ((te->e_len_offset + 7) / 8)) <= 4){
-      want_base   = te->e_len_base;
-      want_offset = te->e_len_offset;
+    if(((len_base * 8) + len_offset) <= 32){
+      /* WARNING: not ideal, relies on subsequent normalisation and range checks */
+      want_base   = 0;
+      want_offset = ((len_base * 8) + len_offset) - ((start_base * 8) + start_offset);
     } else {
       /* TODO: there might be better choices */
       want_base   = 1;
@@ -465,46 +488,39 @@ int read_cmd(struct katcp_dispatch *d, int argc)
     }
   }
 
-  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "read at %u.%u of %u.%u within %u.%u", start_base, start_offset, want_base, want_offset, te->e_pos_base, te->e_pos_offset);
+  want_base   = want_base + (want_offset / 8);
+  want_offset = want_offset % 8;
 
-  if(((want_offset % 8) == 0) && ((te->e_pos_offset % 8) == 0) || ((te->e_len_offset % 8) == 0)){
-    /* FAST: no bit offsets to deal with => no shifts => no alloc, no copy */
+  /* check within mmap area, could happen earlier */
+  if((pos_base + len_base + ((pos_offset + len_offset + 7) / 8)) >= tr->r_map_size){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register %s extends beyond end of mapped area of size 0x%x", tr->r_map_size);
+    return KATCP_RESULT_FAIL;
+  }
 
-    byte_pos = te->e_pos_base + (te->e_pos_offset / 8);
-    byte_len = te->e_len_base + (te->e_len_offset / 8);
+  /* check within name abstraction */
+  if((((start_base + want_base) * 8) + start_offset + want_offset) > ((len_base * 8) + len_offset)){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "read request of %u bits starting within %u bits of register %s overruns size of %u bits", want_base * 8 + want_offset, start_base * 8 + start_offset, name, len_base * 8 + len_offset);
+    return KATCP_RESULT_FAIL;
+  }
 
-    /* check within mmap area, could happen earlier */
-    if((byte_pos + byte_len) >= tr->r_map_size){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register %s is outside mapped range", name);
-      return KATCP_RESULT_FAIL;
-    }
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "reading %s (%u:%u) starting at %u:%u amount %u.%u", pos_base, pos_offset, start_base, start_offset, want_base, want_offset);
 
-    /* check within name abstraction */
-    if((start_base + want_base) >= byte_len){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "read request @%u+%u extends beyond end of register %s", start_base, want_base, name);
-      return KATCP_RESULT_FAIL;
-    }
+  if((combined_offset == 0) && (want_offset == 0)){ 
+    /* FAST: no bit offset (start at byte, read complete bytes) => no shifts => no alloc, no copy */
 
     prepend_reply_katcp(d);
     append_string_katcp(d, KATCP_FLAG_STRING, KATCP_OK);
     
-    append_buffer_katcp(d, KATCP_FLAG_BUFFER | KATCP_FLAG_LAST, tr->r_map + byte_pos + start_base, want_base);
+    append_buffer_katcp(d, KATCP_FLAG_BUFFER | KATCP_FLAG_LAST, tr->r_map + combined_base, want_base);
 
+    /* END easy case */
     return KATCP_RESULT_OWN;
   }
 
   /* complicated case... bit ops */
-
-  /* check within mmap area */
-  limit = te->e_pos_base + te->e_len_base + (te->e_pos_offset + te->e_len_offset + 7) / 8;
-  if(limit >= tr->r_map_size){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register %s is outside mapped range", name);
-    return KATCP_RESULT_FAIL;
-  }
-
-  /* check within name */
-  if((start_base + want_base) > limit){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "read request @%u+%u extends beyond end of register %s", start_base, want_base, name);
+  buffer = malloc(want_base + 2);
+  if(buffer == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate %u bytes to extract register %s", want_base + 2, name);
     return KATCP_RESULT_FAIL;
   }
 
@@ -519,8 +535,6 @@ int read_cmd(struct katcp_dispatch *d, int argc)
   j = te->e_pos_base + start_base;
 
   shift = te->e_pos_offset;
-
-  
 
   log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "attempting to read %d bytes from fpga at 0x%x", want_base, j);
 
