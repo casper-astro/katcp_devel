@@ -11,7 +11,7 @@ mixed=0
 kcs_config_numeric coarse_chans
 kcs_config_numeric adc_clk
 
-if [ $[freq*2] -gt ${adc_clk} ; then
+if [ $[freq*2] -gt ${adc_clk} ] ; then
   freq=${adc_clk/2}
 fi
 
