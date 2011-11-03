@@ -529,22 +529,6 @@ int read_cmd(struct katcp_dispatch *d, int argc)
   }
 
 #if 0
-  j = te->e_pos_base + start_base + (te->e_pos_offset / 8);
-
-  if((te->e_pos_base + start_base + want_base) >= tr->r_map_size){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register %s is outside mapped range", name);
-    return KATCP_RESULT_FAIL;
-  }
-
-  j = te->e_pos_base + start_base;
-
-  shift = te->e_pos_offset;
-
-  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "attempting to read %d bytes from fpga at 0x%x", want_base, j);
-
-  /* WARNING: scary logic, attempts to support reading of non-word, non-byte aligned registers, but in word amounts (!) */
-
-  /* defer io for as long as possible, no log messages feasible after we do prepend reply */
   prepend_reply_katcp(d);
   append_string_katcp(d, KATCP_FLAG_STRING, KATCP_OK);
   flags = KATCP_FLAG_XLONG;
@@ -578,6 +562,8 @@ int read_cmd(struct katcp_dispatch *d, int argc)
   append_hex_long_katcp(d, KATCP_FLAG_LAST | KATCP_FLAG_XLONG, value);
 #endif
 #endif
+
+  free(buffer);
 
   return KATCP_RESULT_OWN;
 }
