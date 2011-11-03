@@ -29,7 +29,7 @@ fi
 kcs_debug "chansel with ${channel} ${mixed}"
 
 if corr_nb_chansel.py -c ${channel} -m ${mixed} >& /dev/null ; then 
-  echo "return ok ${channel}"
+  echo "return ok $[channel*bw/coarse_chans]"
   exit 0
 fi
 
