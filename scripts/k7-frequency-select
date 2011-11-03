@@ -17,7 +17,10 @@ if [ "${freq}" -gt "${bw}" ] ; then
   freq=${bw}
 fi
 
-channel=$(echo ${freq}/${bw} | bc -l | cut -f1 -d.)
+channel=$(echo ${coarse_chans}*${freq}/${bw} | bc -l | cut -f1 -d.)
+if [ -z ${channel} ] ; then
+  channel=0
+fi
 
 if [ ${channel} -gt ${coarse_chans} ] ; then
   kcs_error "logic problem, coarse channel ${channel} out of range"
