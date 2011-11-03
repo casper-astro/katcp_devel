@@ -11,11 +11,13 @@ mixed=0
 kcs_config_numeric coarse_chans
 kcs_config_numeric adc_clk
 
-if [ $[freq*2] -gt ${adc_clk} ] ; then
-  freq=${adc_clk/2}
+bw=$[adc_clk/2]
+
+if [ "${freq}" -gt "${bw}" ] ; then
+  freq=${bw}
 fi
 
-channel=$(echo 2*${freq}/${adc_clk} | bc -l | cut -f1 -d.)
+channel=$(echo ${freq}/${bw} | bc -l | cut -f1 -d.)
 
 if [ ${channel} -gt ${coarse_chans} ] ; then
   kcs_error "logic problem, coarse channel ${channel} out of range"
