@@ -19,7 +19,7 @@
 ?process ?k7-snap-shot retrieve\_a\_processing\_pipeline\_data\_block\_(?k7-snap-shot\_[adc\_board-input|quant\_[count]])
 ?process ?k7-adc-snap-shot retrieve\_an\_adc\_snapshot\_(?k7-adc-snap-shot\_[pps|now]\_threshold\_input+)
 ?process ?k7-gain sets\_the\_digital\_gain\_(?k7-gain\_board-input\_values)
-?process ?k7-channel-select select\_a\_channel\_for\_fine\_channelisation\_(?k7-channel\_select\_channel\_[mixed]) nbc
+?process ?k7-frequency-select select\_a\_frequency\_for\_fine\_channelisation\_(?k7-frequency-select\_center-frequency nbc
 ?process ?xport start
 ?xport start
 ?mode ready
