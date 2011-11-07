@@ -382,6 +382,15 @@ unsigned long arg_unsigned_long_katcl(struct katcl_line *l, unsigned int index)
   return get_unsigned_long_parse_katcl(l->l_ready, index);
 }
 
+int arg_byte_bit_katcl(struct katcl_line *l, unsigned int index, struct katcl_byte_bit *b)
+{
+  if(l->l_ready == NULL){
+    return 0;
+  }
+
+  return get_byte_bit_parse_katcl(l->l_ready, index, b);
+}
+
 #ifdef KATCP_USE_FLOATS
 double arg_double_katcl(struct katcl_line *l, unsigned int index)
 {
