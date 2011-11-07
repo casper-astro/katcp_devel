@@ -24,6 +24,8 @@
 
 /***************************************************************************/
 
+struct katcl_byte_bit;
+
 struct katcl_larg{
   unsigned int a_begin;
   unsigned int a_end;
@@ -74,11 +76,6 @@ struct katcl_line{
 
   int l_error;
   int l_sendable;
-};
-
-struct katcl_byte_bit{
-  unsigned long b_byte;
-  unsigned char b_bit;
 };
 
 /******************************************************************************/

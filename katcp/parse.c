@@ -7,6 +7,7 @@
 #include <errno.h>
 
 #include "katpriv.h"
+#include "katcl.h"
 #include "katcp.h"
 
 #define PARSE_MAGIC 0xff7f1273

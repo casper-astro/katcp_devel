@@ -8,7 +8,11 @@
 struct katcl_larg;
 struct katcl_line;
 struct katcl_parse;
-struct katcl_byte_bit;
+
+struct katcl_byte_bit{
+  unsigned long b_byte;
+  unsigned char b_bit;
+};
 
 struct katcl_line *create_katcl(int fd);
 void destroy_katcl(struct katcl_line *l, int mode);
