@@ -274,7 +274,8 @@ int write_cmd(struct katcp_dispatch *d, int argc)
 {
   struct tbs_raw *tr;
   struct tbs_entry *te;
-
+  
+  unsigned long start;
   uint32_t value;
   char *name;
 
@@ -314,7 +315,6 @@ int write_cmd(struct katcp_dispatch *d, int argc)
   start = arg_unsigned_long_katcp(d, 2);
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "value %lu", start);
-  
   
   return KATCP_RESULT_OK;
 }
