@@ -75,6 +75,32 @@ void print_entry_detail(struct katcp_dispatch *d, char *key, void *data)
 
 /*********************************************************************/
 
+static void byte_normalise(struct katcl_byte_bit *bb)
+{
+  struct katcl_byte_bit tmp;
+
+  tmp.b_byte = bb->b_byte;
+  tmp.b_bit  = bb->b_bit;
+
+  bb->b_byte = tmp.b_byte + (tmp.b_bit / 8);
+  bb->b_bit  = tmp.b_bit % 8;
+}
+
+static void word_normalise(struct katcl_byte_bit *bb)
+{
+  struct katcl_byte_bit tmp;
+
+  byte_normalise(bb);
+
+  tmp.b_byte = bb->b_byte;
+  tmp.b_bit  = bb->b_bit;
+
+  bb->b_byte = (tmp.b_byte / 4) * 4;
+  bb->b_bit  = ((tmp.b_byte % 4) * 4) + bb->b_bit;
+}
+
+/*********************************************************************/
+
 int display_dir_cmd(struct katcp_dispatch *d, char *directory)
 {
   DIR *dr;
@@ -487,6 +513,7 @@ int read_cmd(struct katcp_dispatch *d, int argc)
     if(arg_byte_bit_katcp(d, 2, &bb) < 0){
       return KATCP_RESULT_FAIL;
     }
+    byte_normalise(&bb);
     start_base   = bb.b_byte;
     start_offset = bb.b_bit;
   } else {
@@ -494,8 +521,10 @@ int read_cmd(struct katcp_dispatch *d, int argc)
     start_offset = 0;
   }
 
+#if 0
   start_base = start_base + (start_offset / 8);
   start_offset = start_offset % 8;
+#endif
 
   /* extra paranoia check within name abstraction, needed to catch wild wrapping if really large start position is used in later calculations */
   if((start_base + (start_offset + 7) / 8) > (len_base + (len_offset + 7) / 8)){
@@ -513,26 +542,32 @@ int read_cmd(struct katcp_dispatch *d, int argc)
     if(arg_byte_bit_katcp(d, 3, &bb) < 0){
       return KATCP_RESULT_FAIL;
     }
-    want_base   = bb.b_byte;
-    want_offset = bb.b_bit;
-    if((want_offset <= 0) && (want_base <= 0)){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "zero read request length on register %s", name);
-      return KATCP_RESULT_FAIL;
-    }
+    byte_normalise(&bb);
   } else {
     if(((len_base * 8) + len_offset) <= 32){
-      /* WARNING: not ideal, relies on subsequent normalisation and range checks */
-      want_base   = 0;
-      want_offset = ((len_base * 8) + len_offset) - ((start_base * 8) + start_offset);
+      /* WARNING: relies on subsequent normalisation and range checks */
+      bb.b_byte = 0;
+      bb.b_bit  = ((len_base * 8) + len_offset) - ((start_base * 8) + start_offset);
     } else {
       /* TODO: there might be better choices */
-      want_base   = 1;
-      want_offset = 0;
+      bb.b_byte  = 1;
+      bb._bit    = 0;
     }
   }
 
+#if 0
   want_base   = want_base + (want_offset / 8);
   want_offset = want_offset % 8;
+#endif
+  byte_normalise(&bb);
+
+  want_base   = bb.b_byte;
+  want_offset = bb.b_bit;
+  if((want_offset <= 0) && (want_base <= 0)){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "zero read request length on register %s", name);
+    return KATCP_RESULT_FAIL;
+  }
+
 
   /* check within mmap area, could happen earlier */
   if((pos_base + len_base + ((pos_offset + len_offset + 7) / 8)) >= tr->r_map_size){
@@ -565,6 +600,11 @@ int read_cmd(struct katcp_dispatch *d, int argc)
   if(buffer == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate %u bytes to extract register %s", want_base + 2, name);
     return KATCP_RESULT_FAIL;
+  }
+
+  if(combined_offset > 0){
+
+
   }
 
 #if 0

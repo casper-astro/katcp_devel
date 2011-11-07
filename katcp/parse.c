@@ -790,8 +790,10 @@ int get_byte_bit_parse_katcl(struct katcl_parse *p, unsigned int index, struct k
     extra = 0;
   }
 
+#if 0 /* insufficient, use normalisation functions elsewhere */
   b->b_byte += (extra / 32) * 4;
   b->b_bit   = extra % 32;
+#endif
 
   return 0;
 }
