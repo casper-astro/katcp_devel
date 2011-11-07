@@ -270,8 +270,9 @@ int print_versions_katcp(struct katcp_dispatch *d, int initial)
     case KATCP_PRINT_VERSION :
       prefix = KATCP_VERSION_INFORM;
       break;
+    default :
+      return -1;
   }
-
 
   count = 0;
 

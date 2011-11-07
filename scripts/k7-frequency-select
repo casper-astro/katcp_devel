@@ -6,29 +6,38 @@ source functions.sh
 kcs_arg_check $# 1
 
 freq=$1
-mixed=0
+mix_count=2
 
 kcs_config_numeric coarse_chans
 kcs_config_numeric adc_clk
 
 bw=$[adc_clk/2]
 
-if [ "${freq}" -gt "${bw}" ] ; then
+if [ "${freq}" -ge "${bw}" ] ; then
+  kcs_warn "clamping requested center frequency to ${bw}"
   freq=${bw}
 fi
 
-channel=$(echo ${coarse_chans}*${freq}/${bw} | bc -l | cut -f1 -d.)
+full=$(echo ${coarse_chans}*${freq}/${bw} | bc -l | sed -e 's/^\./0./' )
+
+channel=$(echo ${full} | cut -f1 -d.)
 if [ -z ${channel} ] ; then
   channel=0
+fi
+
+fraction=$(echo ${full} | cut -f2 -d. | sed -e 's/^/0./' )
+mixer=$(echo ${fraction}*${mix_count} | bc -l | sed -e 's/^\./0./' | cut -f1 -d. )
+if [ -z ${mixer} ] ; then
+  mixer=0
 fi
 
 if [ ${channel} -gt ${coarse_chans} ] ; then
   kcs_error "logic problem, coarse channel ${channel} out of range"
 fi
 
-kcs_debug "chansel with ${channel} ${mixed}"
+kcs_debug "chansel with ${channel} ${mixer}"
 
-if corr_nb_chansel.py -c ${channel} -m ${mixed} >& /dev/null ; then 
+if corr_nb_chansel.py -c ${channel} -m ${mixer} >& /dev/null ; then 
   actual=$[channel*bw/coarse_chans]
   echo "#sensor-list .nbc.frequency.current current\_selected\_center\_frequency Hz integer 0 1000000000"
   echo "#sensor-status $(date +%s)000 1 .nbc.frequency.current nominal ${actual}"

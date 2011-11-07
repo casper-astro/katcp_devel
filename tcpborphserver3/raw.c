@@ -274,7 +274,7 @@ int write_cmd(struct katcp_dispatch *d, int argc)
 {
   struct tbs_raw *tr;
   struct tbs_entry *te;
-
+  unsigned int start;
   uint32_t value;
   char *name;
 
@@ -1032,7 +1032,7 @@ int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir)
   result += register_flag_mode_katcp(d, "?wordread",     "read data from a named register (?wordread name word-offset:bit-offset word-count)", &word_read_cmd, 0, TBS_MODE_RAW);
   result += register_flag_mode_katcp(d, "?read",     "read data from a named register (?read name byte-offset:bit-offset byte-length:bit-length)", &read_cmd, 0, TBS_MODE_RAW);
   result += register_flag_mode_katcp(d, "?wordwrite",    "write data to a named register (?wordwrite name index value+)", &word_write_cmd, 0, TBS_MODE_RAW);
-  result += register_flag_mode_katcp(d, "?write",    "write data to a named register (?write name byte-offset:bit-offset bit-length value+)", &write_cmd, 0, TBS_MODE_RAW);
+  result += register_flag_mode_katcp(d, "?write",    "write data to a named register (?write name byte-offset:bit-offset value byte-length:bit-length)", &write_cmd, 0, TBS_MODE_RAW);
   result += register_flag_mode_katcp(d, "?listbof",      "display available bof files (?listbof)", &listbof_cmd, 0, TBS_MODE_RAW);
   result += register_flag_mode_katcp(d, "?listdev",      "lists available registers (?listdev [size|detail]", &listdev_cmd, 0, TBS_MODE_RAW);
 
