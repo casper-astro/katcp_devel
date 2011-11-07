@@ -546,7 +546,7 @@ int read_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
-  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "reading %s (%u:%u) starting at %u:%u amount %u.%u", name, pos_base, pos_offset, start_base, start_offset, want_base, want_offset);
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "reading %s (%u:%u) starting at %u:%u amount %u:%u", name, pos_base, pos_offset, start_base, start_offset, want_base, want_offset);
 
   if((combined_offset == 0) && (want_offset == 0)){ 
     /* FAST: no bit offset (start at byte, read complete bytes) => no shifts => no alloc, no copy */
