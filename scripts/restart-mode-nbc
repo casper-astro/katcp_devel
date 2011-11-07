@@ -24,6 +24,8 @@ done
 kcs_info "running initialise"
 if kcpcmd -k -m -t 120 initialise 2 ; then
   kcs_corr_log
+  echo "#sensor-list .nbc.frequency.current current\_selected\_center\_frequency Hz integer 0 1000000000"
+  echo "#sensor-status $(date +%s)000 1 .nbc.frequency.current unknown 0"
   kcs_mode_sensors nbc
   exit 0
 fi

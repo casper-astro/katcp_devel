@@ -760,6 +760,41 @@ long get_signed_long_parse_katcl(struct katcl_parse *p, unsigned int index)
   return value;
 }
 
+int get_byte_bit_parse_katcl(struct katcl_parse *p, unsigned int index, struct katcl_byte_bit *b)
+{
+  char *string, *end;
+  unsigned int extra;
+
+  if(b == NULL){
+    return -1;
+  }
+
+  string = get_string_parse_katcl(p, index);
+  if(string == NULL){
+    return -1;
+  }
+
+  if(string[0] != ':'){
+    b->b_byte = strtoul(string, &end, 0);
+    if(end[0] == ':'){
+      string = end;
+    }
+  } else {
+    b->b_byte = 0;
+  }
+
+  if(string[0] == ':'){
+    extra = strtoul(string + 1, NULL, 0);
+  } else {
+    extra = 0;
+  }
+
+  b->b_byte += (extra / 32) * 4;
+  b->b_bit   = extra % 32;
+
+  return 0;
+}
+
 #ifdef KATCP_USE_FLOATS
 double get_double_parse_katcl(struct katcl_parse *p, unsigned int index)
 {

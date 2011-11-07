@@ -8,6 +8,7 @@
 struct katcl_larg;
 struct katcl_line;
 struct katcl_parse;
+struct katcl_byte_bit;
 
 struct katcl_line *create_katcl(int fd);
 void destroy_katcl(struct katcl_line *l, int mode);
@@ -28,6 +29,7 @@ int arg_null_katcl(struct katcl_line *l, unsigned int index);
 char *arg_string_katcl(struct katcl_line *l, unsigned int index);
 char *arg_copy_string_katcl(struct katcl_line *l, unsigned int index);
 unsigned long arg_unsigned_long_katcl(struct katcl_line *l, unsigned int index);
+int arg_byte_bit_katcl(struct katcl_line *l, unsigned int index, struct katcl_byte_bit *b);
 unsigned int arg_buffer_katcl(struct katcl_line *l, unsigned int index, void *buffer, unsigned int size);
 #ifdef KATCP_USE_FLOATS
 double arg_double_katcl(struct katcl_line *l, unsigned int index);
