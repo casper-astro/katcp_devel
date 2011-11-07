@@ -60,6 +60,18 @@ void print_entry_size(struct katcp_dispatch *d, char *key, void *data)
   }
 }
 
+void print_entry_detail(struct katcp_dispatch *d, char *key, void *data)
+{
+  struct tbs_entry *te;
+
+  te = data;
+  if (te) {
+    prepend_inform_katcp(d);
+    append_string_katcp(d, KATCP_FLAG_STRING, key);
+    append_args_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, "0x%x:%d", te->e_pos_base, te->e_pos_offset);
+  }
+}
+
 /*********************************************************************/
 
 int display_dir_cmd(struct katcp_dispatch *d, char *directory)
@@ -133,18 +145,18 @@ int listdev_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
-  /* TODO: check if arg1 is "size" */
-
-  /* print all registers ... if the device is programmed */
-
   call = &print_entry;
 
   if (argc > 1) {
     a1 = arg_string_katcp(d, 1);
-    if (strcmp(a1, "size") != 0){
+    if (strcmp(a1, "size") == 0){
+      call = &print_entry_size;
+    } else if (strcmp(a1, "detail") == 0){
+      call = &print_entry_detail;
+    } else {
+      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "unable to get raw state");
       return KATCP_RESULT_FAIL;
     }
-    call = &print_entry_size;
   }
 
   if (tr->r_registers != NULL){
@@ -206,7 +218,7 @@ int word_write_cmd(struct katcp_dispatch *d, int argc)
   }
 
   if(!(te->e_mode & TBS_WRITABLE)){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register %s is not marked readable", name);
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register %s is not marked writeable", name);
     return KATCP_RESULT_FAIL;
   }
 
@@ -255,6 +267,55 @@ int word_write_cmd(struct katcp_dispatch *d, int argc)
 #endif
   msync(tr->r_map, tr->r_map_size, MS_SYNC);
 
+  return KATCP_RESULT_OK;
+}
+
+int write_cmd(struct katcp_dispatch *d, int argc)
+{
+  struct tbs_raw *tr;
+  struct tbs_entry *te;
+
+  uint32_t value;
+  char *name;
+
+  tr = get_mode_katcp(d, TBS_MODE_RAW);
+  if(tr == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire raw mode state");
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(tr->r_fpga != TBS_FPGA_MAPPED){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "fpga not programmed");
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(argc <= 3){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a register to read, followed by offset and one or more values");
+    return KATCP_RESULT_INVALID;
+  }
+
+  name = arg_string_katcp(d, 1);
+  if(name == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register name inaccessible");
+    return KATCP_RESULT_FAIL;
+  }
+
+  te = find_data_avltree(tr->r_registers, name);
+  if(te == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register %s not defined", name);
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(!(te->e_mode & TBS_WRITABLE)){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register %s is not marked writeable", name);
+    return KATCP_RESULT_FAIL;
+  }
+
+  start = arg_unsigned_long_katcp(d, 2);
+
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "value %lu", start);
+  
+  
   return KATCP_RESULT_OK;
 }
 
@@ -971,8 +1032,9 @@ int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir)
   result += register_flag_mode_katcp(d, "?wordread",     "read data from a named register (?wordread name word-offset:bit-offset word-count)", &word_read_cmd, 0, TBS_MODE_RAW);
   result += register_flag_mode_katcp(d, "?read",     "read data from a named register (?read name byte-offset:bit-offset byte-length:bit-length)", &read_cmd, 0, TBS_MODE_RAW);
   result += register_flag_mode_katcp(d, "?wordwrite",    "write data to a named register (?wordwrite name index value+)", &word_write_cmd, 0, TBS_MODE_RAW);
+  result += register_flag_mode_katcp(d, "?write",    "write data to a named register (?write name byte-offset:bit-offset bit-length value+)", &write_cmd, 0, TBS_MODE_RAW);
   result += register_flag_mode_katcp(d, "?listbof",      "display available bof files (?listbof)", &listbof_cmd, 0, TBS_MODE_RAW);
-  result += register_flag_mode_katcp(d, "?listdev",      "lists available registers (?listdev [size]", &listdev_cmd, 0, TBS_MODE_RAW);
+  result += register_flag_mode_katcp(d, "?listdev",      "lists available registers (?listdev [size|detail]", &listdev_cmd, 0, TBS_MODE_RAW);
 
   return 0;
 }
