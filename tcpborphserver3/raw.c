@@ -13,6 +13,7 @@
 #include <sys/stat.h>
 
 #include <katcp.h>
+#include <katcl.h>
 #include <avltree.h>
 
 #include "tcpborphserver3.h"
@@ -430,6 +431,7 @@ int word_read_cmd(struct katcp_dispatch *d, int argc)
 
 int read_cmd(struct katcp_dispatch *d, int argc)
 {
+  struct katcl_byte_bit bb;
   struct tbs_raw *tr;
   struct tbs_entry *te;
   char *name, *field, *end;
@@ -483,25 +485,13 @@ int read_cmd(struct katcp_dispatch *d, int argc)
 
   start_base = 0;
   if(argc > 2){
-    field = arg_string_katcp(d, 2);
-    if(field == NULL){
+    if(arg_byte_bit_katcp(d, 2, &bb) < 0){
       return KATCP_RESULT_FAIL;
     }
-    if(field[0] != ':'){
-      start_base = strtoul(field, &end, 0);
-      if(end[0] == ':'){
-        field = end;
-      }
-    } else {
-      start_base = 0;
-    }
-    if(field[0] == ':'){
-      start_offset = atoi(field + 1);
-    } else {
-      start_offset = 0;
-    }
+    start_base   = bb.b_byte;
+    start_offset = bb.b_bit;
   } else {
-    start_base = 0;
+    start_base   = 0;
     start_offset = 0;
   }
 
@@ -521,23 +511,11 @@ int read_cmd(struct katcp_dispatch *d, int argc)
 
   want_base = 1;
   if(argc > 3){
-    field = arg_string_katcp(d, 3);
-    if(field == NULL){
+    if(arg_byte_bit_katcp(d, 3, &bb) < 0){
       return KATCP_RESULT_FAIL;
     }
-    if(field[0] != ':'){
-      want_base = strtoul(field, &end, 0);
-      if(end[0] == ':'){
-        field = end;
-      }
-    } else {
-      want_base = 0;
-    }
-    if(field[0] == ':'){
-      want_offset = atoi(field + 1);
-    } else {
-      want_offset = 0;
-    }
+    want_base   = bb.b_byte;
+    want_offset = bb.b_bit;
     if((want_offset <= 0) && (want_base <= 0)){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "zero read request length on register %s", name);
       return KATCP_RESULT_FAIL;
@@ -569,7 +547,7 @@ int read_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
-  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "reading %s (%u:%u) starting at %u:%u amount %u.%u", name, pos_base, pos_offset, start_base, start_offset, want_base, want_offset);
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "reading %s (%u:%u) starting at %u:%u amount %u:%u", name, pos_base, pos_offset, start_base, start_offset, want_base, want_offset);
 
   if((combined_offset == 0) && (want_offset == 0)){ 
     /* FAST: no bit offset (start at byte, read complete bytes) => no shifts => no alloc, no copy */
