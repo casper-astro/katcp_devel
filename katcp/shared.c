@@ -180,6 +180,9 @@ int startup_shared_katcp(struct katcp_dispatch *d)
   s->s_queue = NULL;
   s->s_length = 0;
 
+  s->s_extras = NULL;
+  s->s_total = 0;
+
   s->s_notices = NULL;
   s->s_pending = 0;
   s->s_woken = 0;
