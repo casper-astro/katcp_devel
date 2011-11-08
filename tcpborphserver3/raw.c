@@ -275,9 +275,10 @@ int write_cmd(struct katcp_dispatch *d, int argc)
 {
   struct tbs_raw *tr;
   struct tbs_entry *te;
-  struct katcp_byte_bit b;
 
-  unsigned long start;
+  struct katcl_byte_bit off, len;
+  unsigned long val;
+
   uint32_t value;
   char *name;
 
@@ -292,7 +293,7 @@ int write_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
-  if(argc <= 3){
+  if(argc <= 4){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a register to read, followed by offset and one or more values");
     return KATCP_RESULT_INVALID;
   }
@@ -313,10 +314,24 @@ int write_cmd(struct katcp_dispatch *d, int argc)
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register %s is not marked writeable", name);
     return KATCP_RESULT_FAIL;
   }
+  
+  if (arg_byte_bit_katcp(d, 2, &off) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "expect offset in byte:bit format");
+    return KATCP_RESULT_FAIL;
+  }
 
+  val = arg_unsigned_long_katcp(d, 3);
+
+  if (arg_byte_bit_katcp(d, 4, &len) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "expect width in byte:bit format");
+    return KATCP_RESULT_FAIL;
+  }
   
-  
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "value %lu", start);
+  //log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "value %lu", start);
+
+#ifdef DEBUG
+  fprintf(stderr, "raw write: offset (0x%x:%d)\tvalue %d\tlen(0x%x:%d)\n", off.b_byte, off.b_bit, val, len.b_byte, len.b_bit); 
+#endif
   
   return KATCP_RESULT_OK;
 }
