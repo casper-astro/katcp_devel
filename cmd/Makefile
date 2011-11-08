@@ -2,6 +2,8 @@ KATCP ?= ../katcp
 
 include ../Makefile.inc
 
+CFLAGS := $(filter-out -DDEBUG,$(CFLAGS))
+
 INC = -I$(KATCP)
 LIB = -L$(KATCP) -lkatcp
 
