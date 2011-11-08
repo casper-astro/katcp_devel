@@ -139,13 +139,13 @@ kcs_mode_sensors () {
       sensor_status=${temp}
     fi
 
-    # try to look up a value in file, clobbering what is set statically here 
+    # try to look up a value in file, clobbering what is set statically above
     if [ -e ${config} ] ; then
       if [ -n "${sensor_key}" ] ; then
         temp=$(grep ^${sensor_key} ${config} 2> /dev/null | cut -f2 -d= | tr -d ' ' )
         if [ -n "${temp}" ] ; then
           sensor_value=${temp}
-        else 
+        fi
       fi
     fi
 
