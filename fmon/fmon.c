@@ -1355,6 +1355,7 @@ int update_sensor_status_fmon(struct fmon_state *f, struct fmon_sensor *s, unsig
 int update_sensor_fmon(struct fmon_state *f, struct fmon_sensor *s, int value, unsigned int status)
 {
   int change;
+  char *str;
 
   change = 0;
 
@@ -1368,6 +1369,16 @@ int update_sensor_fmon(struct fmon_state *f, struct fmon_sensor *s, int value, u
   }
 
   if(value != s->s_value){
+    switch(value){
+      case KATCP_STATUS_ERROR : 
+      case KATCP_STATUS_WARN  : 
+        str = name_status_sensor_katcl(value);
+        if(str == NULL){
+          str = "broken";
+        }
+        log_message_katcl(f->f_report, KATCP_LEVEL_DEBUG, f->f_server, "sensor %s now has status %s", s->s_name, str);
+      break;
+    }
     s->s_value = value;
     change++;
   }
