@@ -459,9 +459,8 @@ int read_cmd(struct katcp_dispatch *d, int argc)
   struct katcl_byte_bit bb;
   struct tbs_raw *tr;
   struct tbs_entry *te;
-  char *name, *field, *end;
-  uint32_t value;
-  unsigned int want_base, want_offset, start_base, start_offset, i, j, shift, flags, offset, limit, pos, byte_len, byte_pos, combined_base, combined_offset, pos_base, pos_offset, len_base, len_offset, consider, tail, grab_base, grab_offset;
+  char *name;
+  unsigned int want_base, want_offset, start_base, start_offset, i, j, shift, combined_base, combined_offset, pos_base, pos_offset, len_base, len_offset, grab_base, grab_offset;
   unsigned char *ptr, *buffer, prev, current, mask, tail_mask;
 
   tr = get_mode_katcp(d, TBS_MODE_RAW);
@@ -589,7 +588,6 @@ int read_cmd(struct katcp_dispatch *d, int argc)
 
     prepend_reply_katcp(d);
     append_string_katcp(d, KATCP_FLAG_STRING, KATCP_OK);
-    
     append_buffer_katcp(d, KATCP_FLAG_BUFFER | KATCP_FLAG_LAST, ptr + combined_base, want_base);
 
     /* END easy case */
@@ -616,7 +614,6 @@ int read_cmd(struct katcp_dispatch *d, int argc)
 
     prepend_reply_katcp(d);
     append_string_katcp(d, KATCP_FLAG_STRING, KATCP_OK);
-    
     append_buffer_katcp(d, KATCP_FLAG_BUFFER | KATCP_FLAG_LAST, buffer, want_base + 1);
 
     free(buffer);
@@ -629,6 +626,8 @@ int read_cmd(struct katcp_dispatch *d, int argc)
     abort();
   }
 #endif
+
+  /* COMPLEX: start at bit offset, read arb bytes and bits => alloc, shift => copy */
 
   shift = combined_offset;
   grab_base = want_base;
@@ -645,58 +644,32 @@ int read_cmd(struct katcp_dispatch *d, int argc)
   prev = (ptr[j]) << shift;
   j++;
 
-  for(i = 0; i < grab_base; i++){
+  i = 0;
+
+  while(i < grab_base){
     current = ptr[j];
 
     buffer[i] = prev | (mask & (current >> (8 - shift)));
     prev = current << shift;
 
+    i++;
     j++;
   }
 
   if(grab_offset){
-    current = ptr[j];
     tail_mask = 0xff << (8 - grab_offset);
-
-    buffer[i] = (prev | (mask & (current >> (8 - shift)))) & tail_mask;
+    if(grab_base > 0){
+      current = ptr[j];
+      buffer[i] = (prev | (mask & (current >> (8 - shift)))) & tail_mask;
+    } else {
+      buffer[i] = prev & tail_mask;
+    }
+    i++;
   }
 
-  /* HARD: start within byte => alloc, shift */
-
-#if 0
   prepend_reply_katcp(d);
   append_string_katcp(d, KATCP_FLAG_STRING, KATCP_OK);
-  flags = KATCP_FLAG_XLONG;
-
-
-  if(shift > 0){
-    current = *((uint32_t *)(tr->r_map + j));
-    prev = (current << shift);
-    j += 4;
-  } else {
-    shift = 32;
-    prev = 0;
-  }
-
-  for(i = 0; i < want_base; i++){
-    current = *((uint32_t *)(tr->r_map + j));
-    /* WARNING: masking would be wise here, just in case sign extension happens */
-    value = (current >> (32 - shift)) | prev;
-
-    prev = (current << shift);
-    j += 4;
-    if(i + 1 >= want_base){
-      flags |= KATCP_FLAG_LAST;
-    }
-
-    append_hex_long_katcp(d, flags, value);
-  }
-
-#if 0
-  value = *((uint32_t *)(tr->r_map + te->e_pos_base));
-  append_hex_long_katcp(d, KATCP_FLAG_LAST | KATCP_FLAG_XLONG, value);
-#endif
-#endif
+  append_buffer_katcp(d, KATCP_FLAG_BUFFER | KATCP_FLAG_LAST, buffer, i);
 
   free(buffer);
 

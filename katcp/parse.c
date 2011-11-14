@@ -764,7 +764,9 @@ long get_signed_long_parse_katcl(struct katcl_parse *p, unsigned int index)
 int get_byte_bit_parse_katcl(struct katcl_parse *p, unsigned int index, struct katcl_byte_bit *b)
 {
   char *string, *end;
+#if 0
   unsigned int extra;
+#endif
 
   if(b == NULL){
     return -1;
@@ -785,10 +787,12 @@ int get_byte_bit_parse_katcl(struct katcl_parse *p, unsigned int index, struct k
   }
 
   if(string[0] == ':'){
-    extra = strtoul(string + 1, NULL, 0);
+    b->b_bit = strtoul(string + 1, NULL, 0);
   } else {
-    extra = 0;
+    b->b_bit = 0;
   }
+
+  /* WARNING: relies on other code to make sure bit is within reasonable range */
 
 #if 0 /* insufficient, use normalisation functions elsewhere */
   b->b_byte += (extra / 32) * 4;
