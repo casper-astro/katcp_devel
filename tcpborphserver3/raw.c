@@ -460,9 +460,9 @@ int read_cmd(struct katcp_dispatch *d, int argc)
   struct tbs_raw *tr;
   struct tbs_entry *te;
   char *name, *field, *end;
-  uint32_t value, prev, current;
-  unsigned int want_base, want_offset, start_base, start_offset, i, j, shift, flags, offset, limit, pos, byte_len, byte_pos, combined_base, combined_offset, pos_base, pos_offset, len_base, len_offset;
-  unsigned char *ptr, *buffer;
+  uint32_t value;
+  unsigned int want_base, want_offset, start_base, start_offset, i, j, shift, flags, offset, limit, pos, byte_len, byte_pos, combined_base, combined_offset, pos_base, pos_offset, len_base, len_offset, consider, tail, grab_base, grab_offset;
+  unsigned char *ptr, *buffer, prev, current, mask, tail_mask;
 
   tr = get_mode_katcp(d, TBS_MODE_RAW);
   if(tr == NULL){
@@ -551,7 +551,7 @@ int read_cmd(struct katcp_dispatch *d, int argc)
     } else {
       /* TODO: there might be better choices */
       bb.b_byte  = 1;
-      bb._bit    = 0;
+      bb.b_bit   = 0;
     }
   }
 
@@ -568,7 +568,6 @@ int read_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
-
   /* check within mmap area, could happen earlier */
   if((pos_base + len_base + ((pos_offset + len_offset + 7) / 8)) >= tr->r_map_size){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register %s extends beyond end of mapped area of size 0x%x", tr->r_map_size);
@@ -583,13 +582,15 @@ int read_cmd(struct katcp_dispatch *d, int argc)
 
   log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "reading %s (%u:%u) starting at %u:%u amount %u:%u", name, pos_base, pos_offset, start_base, start_offset, want_base, want_offset);
 
+  ptr = tr->r_map;
+
   if((combined_offset == 0) && (want_offset == 0)){ 
     /* FAST: no bit offset (start at byte, read complete bytes) => no shifts => no alloc, no copy */
 
     prepend_reply_katcp(d);
     append_string_katcp(d, KATCP_FLAG_STRING, KATCP_OK);
     
-    append_buffer_katcp(d, KATCP_FLAG_BUFFER | KATCP_FLAG_LAST, tr->r_map + combined_base, want_base);
+    append_buffer_katcp(d, KATCP_FLAG_BUFFER | KATCP_FLAG_LAST, ptr + combined_base, want_base);
 
     /* END easy case */
     return KATCP_RESULT_OWN;
@@ -602,10 +603,65 @@ int read_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
-  if(combined_offset > 0){
+  if(combined_offset == 0){ 
+    /* MEDIUM: start at byte, read incomplete bytes => alloc, copy and clear but no shift  */
+#ifdef DEBUG
+    if((want_offset == 0) || (want_offset >= 8)){
+      fprintf(stderr, "logic problem: want offset %u unreasonable\n", want_offset);
+      abort();
+    }
+#endif
+    memcpy(buffer, ptr + combined_base, want_base + 1);
+    buffer[want_base] = buffer[want_base] & (0xff << (8 - want_offset));
 
+    prepend_reply_katcp(d);
+    append_string_katcp(d, KATCP_FLAG_STRING, KATCP_OK);
+    
+    append_buffer_katcp(d, KATCP_FLAG_BUFFER | KATCP_FLAG_LAST, buffer, want_base + 1);
 
+    free(buffer);
+    return KATCP_RESULT_OK;
   }
+
+#ifdef DEBUG
+  if(combined_offset <= 0){
+    fprintf(stderr, "raw: logic problem: expected to handle the complicated stage\n");
+    abort();
+  }
+#endif
+
+  shift = combined_offset;
+  grab_base = want_base;
+  grab_offset = combined_offset + want_offset;
+
+  if(grab_offset > 8){
+    grab_offset -= 8;
+    grab_base++;
+  }
+
+  mask = ~(0xff << shift);
+  j = combined_base;
+
+  prev = (ptr[j]) << shift;
+  j++;
+
+  for(i = 0; i < grab_base; i++){
+    current = ptr[j];
+
+    buffer[i] = prev | (mask & (current >> (8 - shift)));
+    prev = current << shift;
+
+    j++;
+  }
+
+  if(grab_offset){
+    current = ptr[j];
+    tail_mask = 0xff << (8 - grab_offset);
+
+    buffer[i] = (prev | (mask & (current >> (8 - shift)))) & tail_mask;
+  }
+
+  /* HARD: start within byte => alloc, shift */
 
 #if 0
   prepend_reply_katcp(d);
@@ -681,7 +737,6 @@ int progdev_cmd(struct katcp_dispatch *d, int argc)
     destroy_avltree(tr->r_registers, &free_entry);
     tr->r_registers = NULL;
   }
-
 
   if(argc <= 1){
     return KATCP_RESULT_OK;
