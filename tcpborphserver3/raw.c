@@ -584,6 +584,7 @@ int read_cmd(struct katcp_dispatch *d, int argc)
   ptr = tr->r_map;
 
   if((combined_offset == 0) && (want_offset == 0)){ 
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "fast read, start at %u, read %u complete bytes", combined_base, want_base);
     /* FAST: no bit offset (start at byte, read complete bytes) => no shifts => no alloc, no copy */
 
     prepend_reply_katcp(d);
@@ -602,6 +603,7 @@ int read_cmd(struct katcp_dispatch *d, int argc)
   }
 
   if(combined_offset == 0){ 
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "medium read, start at %u, read %u complete bytes and %u bits", combined_base, want_base, want_offset);
     /* MEDIUM: start at byte, read incomplete bytes => alloc, copy and clear but no shift  */
 #ifdef DEBUG
     if((want_offset == 0) || (want_offset >= 8)){
@@ -646,6 +648,8 @@ int read_cmd(struct katcp_dispatch *d, int argc)
 
   i = 0;
 
+  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "complex read, partial first byte shifted is now 0x%02x (shift %u, mask 0x%02x)", prev, shift, mask);
+
   while(i < grab_base){
     current = ptr[j];
 
@@ -656,14 +660,18 @@ int read_cmd(struct katcp_dispatch *d, int argc)
     j++;
   }
 
-  if(grab_offset){
-    tail_mask = 0xff << (8 - grab_offset);
+  if(want_offset){
+    tail_mask = 0xff << (8 - want_offset);
+
     if(grab_base > 0){
       current = ptr[j];
       buffer[i] = (prev | (mask & (current >> (8 - shift)))) & tail_mask;
     } else {
       buffer[i] = prev & tail_mask;
     }
+
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "complex read, final byte (%u) needs mask 0x%02x, prev is 0x%02x, result is 0x%02x", i, tail_mask, prev, buffer[i]);
+
     i++;
   }
 
