@@ -119,6 +119,7 @@ int import_dir_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct k
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "cannot ?set");
     }
 
+    /*TODO: this could be included into the parse logic*/
     destroy_parse_katcl(p);
   
   }

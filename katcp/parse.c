@@ -770,6 +770,9 @@ int get_byte_bit_parse_katcl(struct katcl_parse *p, unsigned int index, struct k
     return -1;
   }
 
+  b->b_bit = 0;
+  b->b_byte = 0;
+
   string = get_string_parse_katcl(p, index);
   if(string == NULL){
     return -1;
@@ -790,7 +793,7 @@ int get_byte_bit_parse_katcl(struct katcl_parse *p, unsigned int index, struct k
     extra = 0;
   }
 
-#if 0 /* insufficient, use normalisation functions elsewhere */
+#if 1 /* insufficient, use normalisation functions elsewhere */
   b->b_byte += (extra / 32) * 4;
   b->b_bit   = extra % 32;
 #endif
@@ -866,7 +869,7 @@ static int stash_remainder_parse_katcl(struct katcl_parse *p, char *buffer, unsi
 
   sane_parse_katcl(p);
 
-#ifdef DEBUG
+#if DEBUG>2
   fprintf(stderr, "stashing %u bytes starting with <%c...> for next line\n", len, buffer[0]);
 #endif
   
@@ -933,7 +936,7 @@ int parse_katcl(struct katcl_line *l) /* transform buffer -> args */
   struct katcl_parse *p;
 
   p = l->l_next;
-#ifdef DEBUG
+#if DEBUG>2
   if(p == NULL){
     fprintf(stderr, "logic failure: expected a valid next entry in parse\n");
     abort();

@@ -244,6 +244,7 @@ void *parse_dict_type_katcp(struct katcp_dispatch *d, char **str)
   state = STATE_START;
   c = TOKEN_START_DICT;
   ipos = 0;
+  spos = 0;
   len = 0;
   key = NULL;
   value = NULL;
@@ -578,8 +579,15 @@ int tag_dbase_katcp(struct katcp_dispatch *d, struct katcp_dbase *db, struct kat
   struct katcp_tag *t;
   struct katcp_type *tagtype, *dbtype;
   
-  if (db == NULL || tags == NULL)
+  if (db == NULL )//|| tags == NULL)
     return -1;
+
+  if (tags == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "dbase: tags are null skipping\n");
+#endif
+    return 0;
+  }
 
   tagtype = find_name_type_katcp(d, KATCP_TYPE_TAG);
   dbtype  = find_name_type_katcp(d, KATCP_TYPE_DBASE); 
@@ -1122,12 +1130,14 @@ int search_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
   struct katcp_stack *tags, *ans; 
   struct katcp_type *tagtype;
   char *tag;
-  int i, j, count, *dsize, *di, run, seen;
+  int i, count, *dsize, *di, run, seen;
   struct katcp_tobject ***data, *to;
   struct katcp_tag *t;
   struct timeval ts, te, delta;
   void *min;
   
+  t = NULL;
+
   gettimeofday(&ts, NULL);
   
   count = get_count_parse_katcl(p);

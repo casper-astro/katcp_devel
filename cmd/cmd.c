@@ -265,6 +265,7 @@ int main(int argc, char **argv)
   k = NULL;
   munge = 0;
   show = 1;
+  parm = NULL;
 
   while (i < argc) {
     if (argv[i][0] == '-') {

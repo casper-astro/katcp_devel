@@ -303,8 +303,9 @@ int write_cmd(struct katcp_dispatch *d, int argc)
   struct tbs_entry *te;
 
   struct katcl_byte_bit off, len;
-  unsigned long val;
 
+  unsigned char *buffer, start_bit;
+  int blen, start_byte, i;
   uint32_t value;
   char *name;
 
@@ -346,18 +347,59 @@ int write_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
-  val = arg_unsigned_long_katcp(d, 3);
+  blen = arg_buffer_katcp(d, 3, NULL, 0); 
+  if (blen < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "cannot read buffer");
+    return KATCP_RESULT_FAIL;
+  }
+
+  buffer = malloc(sizeof(unsigned char) * blen);
+  if (buffer == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "raw: write cmd cannot allocate buffer\n");
+#endif
+    return KATCP_RESULT_FAIL;
+  }
+
+  blen = arg_buffer_katcp(d, 3, buffer, blen);
+  if (blen < 0){
+    if (buffer != NULL)
+      free(buffer);
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "cannot read buffer");
+    return KATCP_RESULT_FAIL;
+  }
 
   if (arg_byte_bit_katcp(d, 4, &len) < 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "expect width in byte:bit format");
+    if (buffer != NULL)
+      free(buffer);
     return KATCP_RESULT_FAIL;
   }
   
   //log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "value %lu", start);
 
+  if (off.b_bit > 7)
+    byte_normalise(&off);
+  
+  start_byte = te->e_pos_base   + off.b_byte;
+  start_bit  = te->e_pos_offset + off.b_bit;
+  
+
+  
+  prepend_inform_katcp(d);
+  append_string_katcp(d, KATCP_FLAG_STRING, "write");
+  append_buffer_katcp(d, KATCP_FLAG_BUFFER | KATCP_FLAG_LAST, buffer, blen);
+  
 #ifdef DEBUG
-  fprintf(stderr, "raw write: offset (0x%x:%d)\tvalue %d\tlen(0x%x:%d)\n", off.b_byte, off.b_bit, val, len.b_byte, len.b_bit); 
+  for (i=0; i<blen; i++){
+    fprintf(stderr, "byte [%d] %c 0x%x\n", i, buffer[i], buffer[i]);
+  }
+  fprintf(stderr, "raw write: offset (0x%x:%d)\tlen(0x%x:%d)\n", off.b_byte, off.b_bit, len.b_byte, len.b_bit); 
+  fprintf(stderr, "raw write: start_byte: 0x%x start_bit: %d\n", start_byte, start_bit);
 #endif
+  
+  if (buffer != NULL)
+    free(buffer);
   
   return KATCP_RESULT_OK;
 }
@@ -567,7 +609,7 @@ int read_cmd(struct katcp_dispatch *d, int argc)
     } else {
       /* TODO: there might be better choices */
       bb.b_byte  = 1;
-      bb._bit    = 0;
+      bb.b_bit    = 0;
     }
   }
 
@@ -963,6 +1005,11 @@ void destroy_raw_tbs(struct katcp_dispatch *d, struct tbs_raw *tr)
   if(tr->r_image){
     free(tr->r_image);
     tr->r_image = NULL;
+  }
+ 
+  if (tr->r_bof_dir != NULL){
+    free(tr->r_bof_dir);
+    tr->r_bof_dir = NULL;
   }
 
   free(tr);
