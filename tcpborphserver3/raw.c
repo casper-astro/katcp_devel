@@ -304,9 +304,8 @@ int write_cmd(struct katcp_dispatch *d, int argc)
 
   struct katcl_byte_bit off, len;
 
-  unsigned char *buffer, start_bit;
-  int blen, start_byte, i;
-  uint32_t value;
+  unsigned char *buffer, start_offset;
+  unsigned int blen, start_base, i, size_have, start, want_len;
   char *name;
 
   tr = get_mode_katcp(d, TBS_MODE_RAW);
@@ -320,7 +319,7 @@ int write_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
-  if(argc <= 4){
+  if(argc <= 3){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a register to read, followed by offset and one or more values");
     return KATCP_RESULT_INVALID;
   }
@@ -368,22 +367,47 @@ int write_cmd(struct katcp_dispatch *d, int argc)
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "cannot read buffer");
     return KATCP_RESULT_FAIL;
   }
+  
+  size_have     = te->e_len_base * 8 + te->e_len_offset;
 
+  start_base    = te->e_pos_base   + off.b_byte;
+  start_offset  = te->e_pos_offset + off.b_bit;
+  
+  start         = off.b_byte * 8 + off.b_bit;
+
+
+  /*TODO: allow length to default to size of buffer*/
   if (arg_byte_bit_katcp(d, 4, &len) < 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "expect width in byte:bit format");
+
+    len.b_byte = 0;
+    len.b_bit = size_have - start;
+    byte_normalise(&len);
+  } 
+
+  //log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "value %lu", start);
+
+  /*
+  if (off.b_bit > 7)
+    byte_normalise(&off);
+
+  if (len.b_bit > 7)
+    byte_normalise(&len);
+  */
+
+  want_len = len.b_byte * 8 + len.b_bit;
+
+  /*length check*/
+#ifdef DEBUG
+  fprintf(stderr, "size_have: %d start:%d size_now:%d want_len:%d\n", size_have, start, size_have - start, want_len);
+#endif
+
+  if ((size_have - start) < want_len){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "trying to write past the end of the register %s", name);
     if (buffer != NULL)
       free(buffer);
     return KATCP_RESULT_FAIL;
   }
-  
-  //log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "value %lu", start);
-
-  if (off.b_bit > 7)
-    byte_normalise(&off);
-  
-  start_byte = te->e_pos_base   + off.b_byte;
-  start_bit  = te->e_pos_offset + off.b_bit;
-  
 
   
   prepend_inform_katcp(d);
@@ -394,8 +418,8 @@ int write_cmd(struct katcp_dispatch *d, int argc)
   for (i=0; i<blen; i++){
     fprintf(stderr, "byte [%d] %c 0x%x\n", i, buffer[i], buffer[i]);
   }
-  fprintf(stderr, "raw write: offset (0x%x:%d)\tlen(0x%x:%d)\n", off.b_byte, off.b_bit, len.b_byte, len.b_bit); 
-  fprintf(stderr, "raw write: start_byte: 0x%x start_bit: %d\n", start_byte, start_bit);
+  fprintf(stderr, "raw write: offset (0x%lx:%d)\tlen(0x%lx:%d)\n", off.b_byte, off.b_bit, len.b_byte, len.b_bit); 
+  fprintf(stderr, "raw write: start_byte: 0x%x start_bit: %d\n", start_base, start_offset);
 #endif
   
   if (buffer != NULL)
