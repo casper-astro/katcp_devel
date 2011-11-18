@@ -408,6 +408,7 @@ int write_cmd(struct katcp_dispatch *d, int argc)
       free(buffer);
     return KATCP_RESULT_FAIL;
   }
+  
 
   
   prepend_inform_katcp(d);
