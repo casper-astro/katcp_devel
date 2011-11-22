@@ -128,26 +128,103 @@ int parse_csv_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct ka
 
 int store_config_setting_mod(struct katcp_dispatch *d, char *setting, char *value)
 {
-  struct katcp_stack *stack;
+  struct katcp_stack *stack, *stack2;
+  struct katcl_parse *p;
+  char *val;
+  int err;
 
   stack = create_stack_katcp();
   if (stack == NULL)
     return -1;
+
+  stack2 = create_stack_katcp();
+  if (stack2 == NULL){
+    destroy_stack_katcp(stack);
+    return -1;
+  }
+
+  p = create_parse_katcl();
+  if (p == NULL){
+#ifdef DEBUG
+    fprintf(stderr,"mod: could not create parse\n");
+#endif
+    destroy_stack_katcp(stack);
+    destroy_stack_katcp(stack2);
+    return -1;
+  }
   
   if (push_named_stack_katcp(d, stack, value, KATCP_TYPE_STRING) < 0){
+#ifdef DEBUG
+    fprintf(stderr,"mod: store config cannot push_named_stack\n");
+#endif
     destroy_stack_katcp(stack);
+    destroy_stack_katcp(stack2);
+    destroy_parse_katcl(p);
     return -1;
   } 
 
   if (parse_csv_mod(d, stack, NULL) < 0){
+#ifdef DEBUG
+    fprintf(stderr,"mod: store config cannot parse_csv\n");
+#endif
     destroy_stack_katcp(stack);
+    destroy_stack_katcp(stack2);
+    destroy_parse_katcl(p);
+    return -1;
+  }
+ 
+  /*setting and values*/
+  err  = add_string_parse_katcl(p, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, KATCP_SET_REQUEST);
+  err += add_string_parse_katcl(p, KATCP_FLAG_STRING, setting);
+  while ((val = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_STRING)) != NULL) {
+    err += add_string_parse_katcl(p, KATCP_FLAG_STRING, val);  
+    push_named_stack_katcp(d, stack2, val, KATCP_TYPE_STRING);
+  }
+
+  err += add_string_parse_katcl(p, KATCP_FLAG_STRING, "tags");
+
+  /*all as tags*/
+  err += add_string_parse_katcl(p, KATCP_FLAG_STRING, setting);
+  while ((val = pop_data_expecting_stack_katcp(d, stack2, KATCP_TYPE_STRING)) != NULL) {
+    err += add_string_parse_katcl(p, KATCP_FLAG_STRING, val);  
+  }
+
+  err += finalize_parse_katcl(p);
+  
+  if (err < 0){
+#ifdef DEBUG
+    fprintf(stderr, "mod: error building parse\n");
+#endif
+    destroy_stack_katcp(stack);
+    destroy_stack_katcp(stack2);
+    destroy_parse_katcl(p);
     return -1;
   }
 
+  if (set_dbase_katcp(d, p) < 0) {
+#ifdef DEBUG
+    fprintf(stderr, "mod: cannot set_dbase_katcp\n");
+#endif
+    destroy_parse_katcl(p); 
+    destroy_stack_katcp(stack);
+    destroy_stack_katcp(stack2);
+    return -1;
+  }
+
+  destroy_parse_katcl(p); 
+  destroy_stack_katcp(stack);
+  destroy_stack_katcp(stack2);
+
+
+#if 0
   if (store_kv_dbase_katcp(d, setting, NULL, stack, NULL) < 0){
+#ifdef DEBUG
+    fprintf(stderr,"mod: store config cannot store_kv_dbase\n");
+#endif
     destroy_stack_katcp(stack);
     return -1;
   }
+#endif
 
   return 0;
 }
@@ -281,7 +358,7 @@ int start_config_parser_mod(struct katcp_dispatch *d, char *file)
           log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "config parser cannot parse malformed config around line[%d,%d]", rcount, i-(i/rcount));
           run = 0;
         }
-        setting = strndup(buffer + pos + 1, i - pos - 2);
+        setting = strndup(buffer + pos, i - pos - 2);
         setting = rm_whitespace_mod(setting);
 #ifdef DEBUG
         fprintf(stderr, "%d: SETTING: {%s} ", rcount, setting);  

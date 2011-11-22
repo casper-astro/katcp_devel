@@ -293,7 +293,7 @@ void clear_katcl(struct katcl_line *l) /* discard a full line */
 int have_katcl(struct katcl_line *l)
 {
   if(ready_katcl(l)){
-#ifdef DEBUG
+#if DEBUG>2
     fprintf(stderr, "clearing data buffer\n");
 #endif
     clear_katcl(l);
@@ -986,7 +986,7 @@ int flushing_katcl(struct katcl_line *l)
 
   result = size_queue_katcl(l->l_queue);
 
-#if DEBUG
+#if DEBUG>2
   fprintf(stderr, "flushing: is empty returns %d\n", result);
 #endif
 

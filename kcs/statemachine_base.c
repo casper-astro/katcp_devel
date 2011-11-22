@@ -124,6 +124,8 @@ struct kcs_sm_op *pushstack_setup_statemachine_kcs(struct katcp_dispatch *d, str
   void *ptemp, *stemp;
   int num, i;
 
+  stemp = NULL;
+
   type = arg_string_katcp(d, 4);
 
   if (type == NULL || s == NULL)

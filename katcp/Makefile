@@ -11,6 +11,8 @@ INC = -I.
 LIB = libkatcp.a
 SHARED = libkatcp.so
 
+#CFLAGS := $(filter-out -DDEBUG,$(CFLAGS))
+
 CFLAGS += -fPIC 
 CFLAGS += -DVERSION=\"$(VERSION)\"
 CFLAGS += -DBUILD=\"$(BUILD)\"
