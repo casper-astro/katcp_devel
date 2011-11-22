@@ -228,7 +228,7 @@ int word_write_cmd(struct katcp_dispatch *d, int argc)
   }
 
   if(argc <= 3){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a register to read, followed by offset and one or more values");
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a register to write, followed by offset and one or more values");
     return KATCP_RESULT_INVALID;
   }
 
@@ -304,9 +304,9 @@ int write_cmd(struct katcp_dispatch *d, int argc)
 
   struct katcl_byte_bit off, len;
 
-  unsigned char *buffer, start_offset;
+  unsigned char *buffer;
   unsigned int blen, start_base, i, size_have, start, want_len;
-  uint8_t current, prev, value, update;
+  uint8_t start_offset, current, prev, value, update;
 
   char *name;
 
@@ -417,12 +417,12 @@ int write_cmd(struct katcp_dispatch *d, int argc)
 
   if (start_offset > 0){
     current = *((uint8_t *)(tr->r_map + start_base));
-    prev    = current & (0xffffffff << (32 - start_offset));
+    prev    = current & (0xff << (8 - start_offset));
   } else {
     prev    = 0;
   }
 
-  for (i=0; i<blen; i++){
+  for (i=0; i<len.b_byte; i++){
 
     value = buffer[i];
     update = prev | (value >> start_offset);
@@ -430,12 +430,12 @@ int write_cmd(struct katcp_dispatch *d, int argc)
     log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "writing 0x%x to position 0x%x", update, start_base);
     *((uint8_t *)(tr->r_map + start_base)) = update;
     
-    prev = value << (32 - start_offset);
-    start_base += 4;
+    prev = value << (8 - start_offset);
+    start_base += 1;
   }
 
-  if (start_offset > 0){
-    current = (*((uint8_t *)(tr->r_map + start_base))) & (0xffffffff >> start_offset);
+  if (len.b_bit > 0){
+    current = (*((uint8_t *)(tr->r_map + start_base))) & (0xff >> len.b_bit);
     update = prev | current;
     log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "writing final, partial 0x%x to position 0x%x", update, start_base);
     *((uint8_t *)(tr->r_map + start_base)) = update;
