@@ -306,6 +306,8 @@ int write_cmd(struct katcp_dispatch *d, int argc)
 
   unsigned char *buffer, start_offset;
   unsigned int blen, start_base, i, size_have, start, want_len;
+  uint8_t current, prev, value, update;
+
   char *name;
 
   tr = get_mode_katcp(d, TBS_MODE_RAW);
@@ -369,31 +371,17 @@ int write_cmd(struct katcp_dispatch *d, int argc)
   }
   
   size_have     = te->e_len_base * 8 + te->e_len_offset;
-
-  start_base    = te->e_pos_base   + off.b_byte;
-  start_offset  = te->e_pos_offset + off.b_bit;
-  
   start         = off.b_byte * 8 + off.b_bit;
-
 
   /*TODO: allow length to default to size of buffer*/
   if (arg_byte_bit_katcp(d, 4, &len) < 0){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "expect width in byte:bit format");
-
     len.b_byte = 0;
-    len.b_bit = size_have - start;
+    len.b_bit  = size_have - start;
     byte_normalise(&len);
+#ifdef DEBUG
+    fprintf(stderr, "no length specified using remaining %d:%d", len.b_byte, len.b_bit);
+#endif
   } 
-
-  //log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "value %lu", start);
-
-  /*
-  if (off.b_bit > 7)
-    byte_normalise(&off);
-
-  if (len.b_bit > 7)
-    byte_normalise(&len);
-  */
 
   want_len = len.b_byte * 8 + len.b_bit;
 
@@ -409,20 +397,92 @@ int write_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
   
+  off.b_byte += te->e_pos_base;
+  off.b_bit  += te->e_pos_offset;
+  
+  byte_normalise(&off);
 
+  start_base   = off.b_byte;
+  start_offset = off.b_bit;
   
-  prepend_inform_katcp(d);
-  append_string_katcp(d, KATCP_FLAG_STRING, "write");
-  append_buffer_katcp(d, KATCP_FLAG_BUFFER | KATCP_FLAG_LAST, buffer, blen);
-  
+#if 0
+  start_base    = te->e_pos_base   + off.b_byte;
+  start_offset  = te->e_pos_offset + off.b_bit;
+#endif
+
 #ifdef DEBUG
-  for (i=0; i<blen; i++){
-    fprintf(stderr, "byte [%d] %c 0x%x\n", i, buffer[i], buffer[i]);
-  }
   fprintf(stderr, "raw write: offset (0x%lx:%d)\tlen(0x%lx:%d)\n", off.b_byte, off.b_bit, len.b_byte, len.b_bit); 
   fprintf(stderr, "raw write: start_byte: 0x%x start_bit: %d\n", start_base, start_offset);
 #endif
+
+  if (start_offset > 0){
+    current = *((uint8_t *)(tr->r_map + start_base));
+    prev    = current & (0xffffffff << (32 - start_offset));
+  } else {
+    prev    = 0;
+  }
+
+  for (i=0; i<blen; i++){
+
+    value = buffer[i];
+    update = prev | (value >> start_offset);
+
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "writing 0x%x to position 0x%x", update, start_base);
+    *((uint8_t *)(tr->r_map + start_base)) = update;
+    
+    prev = value << (32 - start_offset);
+    start_base += 4;
+  }
+
+  if (start_offset > 0){
+    current = (*((uint8_t *)(tr->r_map + start_base))) & (0xffffffff >> start_offset);
+    update = prev | current;
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "writing final, partial 0x%x to position 0x%x", update, start_base);
+    *((uint8_t *)(tr->r_map + start_base)) = update;
+  }
+
+  msync(tr->r_map, tr->r_map_size, MS_SYNC);
+#if 0
+/**************************************************************************************************************/  
+  shift = te->e_pos_offset;
+  j = te->e_pos_base + start;
+  if(shift > 0){
+    current = *((uint32_t *)(tr->r_map + j));
+    prev = current & (0xffffffff << (32 - shift));
+  } else {
+    prev = 0;
+  }
   
+  for(i = 3; i < argc; i++){
+    if(arg_null_katcp(d, i)){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "parameter %u is null", i);
+      return KATCP_RESULT_FAIL;
+    }
+
+    value = arg_unsigned_long_katcp(d, i);
+    update = prev | (value >> shift);
+
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "writing 0x%x to position 0x%x", update, j);
+    *((uint32_t *)(tr->r_map + j)) = update;
+
+    prev = value << (32 - shift);
+    j += 4;
+  }
+
+  if(shift > 0){
+    current = (*((uint32_t *)(tr->r_map + j))) & (0xffffffff >> shift);
+    update = prev | current;
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "writing final, partial 0x%x to position 0x%x", update, j);
+    *((uint32_t *)(tr->r_map + j)) = update;
+  }
+
+#if 0
+  msync(tr->r_map + te->e_pos_base + start, te->e_len_base, MS_INVALIDATE | MS_SYNC);
+#endif
+  msync(tr->r_map, tr->r_map_size, MS_SYNC);
+ /*****************************************************************************************************************/  
+#endif  
+
   if (buffer != NULL)
     free(buffer);
   
