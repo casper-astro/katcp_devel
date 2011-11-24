@@ -379,7 +379,7 @@ int write_cmd(struct katcp_dispatch *d, int argc)
     len.b_bit  = size_have - start;
     byte_normalise(&len);
 #ifdef DEBUG
-    fprintf(stderr, "no length specified using remaining %d:%d", len.b_byte, len.b_bit);
+    fprintf(stderr, "no length specified using remaining %d:%d\n", len.b_byte, len.b_bit);
 #endif
   } 
 
@@ -411,8 +411,7 @@ int write_cmd(struct katcp_dispatch *d, int argc)
 #endif
 
 #ifdef DEBUG
-  fprintf(stderr, "raw write: offset (0x%lx:%d)\tlen(0x%lx:%d)\n", off.b_byte, off.b_bit, len.b_byte, len.b_bit); 
-  fprintf(stderr, "raw write: start_byte: 0x%x start_bit: %d\n", start_base, start_offset);
+  fprintf(stderr, "raw write: have blen: %d register start offset (0x%lx:%d) len(0x%lx:%d)\n", blen,  off.b_byte, off.b_bit, len.b_byte, len.b_bit); 
 #endif
 
   if (start_offset > 0){
@@ -422,8 +421,10 @@ int write_cmd(struct katcp_dispatch *d, int argc)
     prev    = 0;
   }
 
-  for (i=0; i<len.b_byte; i++){
-
+  for (i=0; i<blen && i<len.b_byte; i++){
+#ifdef DEBUG
+    fprintf(stderr, "raw write: %d\n", i);
+#endif
     value = buffer[i];
     update = prev | (value >> start_offset);
 
@@ -434,7 +435,22 @@ int write_cmd(struct katcp_dispatch *d, int argc)
     start_base += 1;
   }
 
-  if (start_offset > 0){
+  if (len.b_bit > 0 && blen > len.b_byte){
+#ifdef DEBUG
+    fprintf(stderr, "raw write: %d\n", i);
+#endif
+    value = buffer[i] & (0xff << (8 - len.b_bit));
+    update = prev | (value >> start_offset);
+
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "writing partial len 0x%x to position 0x%x", update, start_base);
+    *((uint8_t *)(tr->r_map + start_base)) = update;
+    
+    prev = value << (8 - start_offset);
+    start_base += 1;
+  }
+
+  /*TODO this needs fixing*/
+  if (start_offset > 0 && (start_base < te->e_pos_base + te->e_len_base)){
     current = (*((uint8_t *)(tr->r_map + start_base))) & (0xff >> start_offset);
     update = prev | current;
     log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "writing final, partial 0x%x to position 0x%x", update, start_base);
@@ -442,46 +458,6 @@ int write_cmd(struct katcp_dispatch *d, int argc)
   }
 
   msync(tr->r_map, tr->r_map_size, MS_SYNC);
-#if 0
-/**************************************************************************************************************/  
-  shift = te->e_pos_offset;
-  j = te->e_pos_base + start;
-  if(shift > 0){
-    current = *((uint32_t *)(tr->r_map + j));
-    prev = current & (0xffffffff << (32 - shift));
-  } else {
-    prev = 0;
-  }
-  
-  for(i = 3; i < argc; i++){
-    if(arg_null_katcp(d, i)){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "parameter %u is null", i);
-      return KATCP_RESULT_FAIL;
-    }
-
-    value = arg_unsigned_long_katcp(d, i);
-    update = prev | (value >> shift);
-
-    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "writing 0x%x to position 0x%x", update, j);
-    *((uint32_t *)(tr->r_map + j)) = update;
-
-    prev = value << (32 - shift);
-    j += 4;
-  }
-
-  if(shift > 0){
-    current = (*((uint32_t *)(tr->r_map + j))) & (0xffffffff >> shift);
-    update = prev | current;
-    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "writing final, partial 0x%x to position 0x%x", update, j);
-    *((uint32_t *)(tr->r_map + j)) = update;
-  }
-
-#if 0
-  msync(tr->r_map + te->e_pos_base + start, te->e_len_base, MS_INVALIDATE | MS_SYNC);
-#endif
-  msync(tr->r_map, tr->r_map_size, MS_SYNC);
- /*****************************************************************************************************************/  
-#endif  
 
   if (buffer != NULL)
     free(buffer);
