@@ -434,8 +434,8 @@ int write_cmd(struct katcp_dispatch *d, int argc)
     start_base += 1;
   }
 
-  if (len.b_bit > 0){
-    current = (*((uint8_t *)(tr->r_map + start_base))) & (0xff >> len.b_bit);
+  if (start_offset > 0){
+    current = (*((uint8_t *)(tr->r_map + start_base))) & (0xff >> start_offset);
     update = prev | current;
     log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "writing final, partial 0x%x to position 0x%x", update, start_base);
     *((uint8_t *)(tr->r_map + start_base)) = update;
