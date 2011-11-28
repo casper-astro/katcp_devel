@@ -43,6 +43,7 @@ void usage(char *app)
   printf("-r                 toggle printing of reply messages\n");
   printf("-i                 toggle printing of inform messages\n");
   printf("-m                 munge replies into log messages (requires -k)\n");
+  printf("-n                 suppress version information emitted on connect\n");
 
   printf("return codes:\n");
   printf("0     command completed successfully\n");
@@ -532,6 +533,12 @@ int main(int argc, char **argv)
             display = info;
             if(show == 0){
               if(!strcmp(KATCP_VERSION_CONNECT_INFORM, cmd)){
+                display = 0;
+              }
+              if(!strcmp(KATCP_VERSION_INFORM, cmd)){
+                display = 0;
+              }
+              if(!strcmp(KATCP_BUILD_STATE_INFORM, cmd)){
                 display = 0;
               }
             }

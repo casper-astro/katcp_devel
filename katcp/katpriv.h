@@ -398,6 +398,7 @@ struct katcp_arb{
 struct katcp_shared{
   unsigned int s_magic;
   struct katcp_entry *s_vector;
+  unsigned int s_default; /* default log level */
   unsigned int s_size;
 #if 0
   unsigned int s_modal;
