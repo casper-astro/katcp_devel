@@ -379,7 +379,7 @@ int write_cmd(struct katcp_dispatch *d, int argc)
     len.b_bit  = size_have - start;
     byte_normalise(&len);
 #ifdef DEBUG
-    fprintf(stderr, "no length specified using remaining %d:%d\n", len.b_byte, len.b_bit);
+    fprintf(stderr, "no length specified using remaining %lu:%d\n", len.b_byte, len.b_bit);
 #endif
   } 
 
