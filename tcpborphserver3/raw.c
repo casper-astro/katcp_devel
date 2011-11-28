@@ -379,7 +379,7 @@ int write_cmd(struct katcp_dispatch *d, int argc)
     len.b_bit  = size_have - start;
     byte_normalise(&len);
 #ifdef DEBUG
-    fprintf(stderr, "no length specified using remaining %d:%d\n", len.b_byte, len.b_bit);
+    fprintf(stderr, "no length specified using remaining %lu:%d\n", len.b_byte, len.b_bit);
 #endif
   } 
 
@@ -439,6 +439,7 @@ int write_cmd(struct katcp_dispatch *d, int argc)
 #ifdef DEBUG
     fprintf(stderr, "raw write: %d\n", i);
 #endif
+    current = *((uint8_t *)(tr->r_map + start_base));
     value = buffer[i] & (0xff << (8 - len.b_bit));
     update = prev | (value >> start_offset);
 
@@ -447,8 +448,10 @@ int write_cmd(struct katcp_dispatch *d, int argc)
     
     prev = value << (8 - start_offset);
     start_base += 1;
-  }
+  } 
+  
 
+  
   /*TODO this needs fixing*/
   if (start_offset > 0 && (start_base < te->e_pos_base + te->e_len_base)){
     current = (*((uint8_t *)(tr->r_map + start_base))) & (0xff >> start_offset);
