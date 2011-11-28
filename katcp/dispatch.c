@@ -31,6 +31,7 @@ int help_cmd_katcp(struct katcp_dispatch *d, int argc);
 int halt_cmd_katcp(struct katcp_dispatch *d, int argc);
 int restart_cmd_katcp(struct katcp_dispatch *d, int argc);
 int log_level_cmd_katcp(struct katcp_dispatch *d, int argc);
+int log_default_cmd_katcp(struct katcp_dispatch *d, int argc);
 int log_record_cmd_katcp(struct katcp_dispatch *d, int argc);
 int watchdog_cmd_katcp(struct katcp_dispatch *d, int argc);
 
@@ -131,6 +132,7 @@ struct katcp_dispatch *setup_katcp(int fd)
   register_katcp(d, "?restart",           "restarts the system (?restart)", &restart_cmd_katcp);
   register_katcp(d, "?help",              "displays this help (?help [command])", &help_cmd_katcp);
   register_katcp(d, "?log-level",         "sets the minimum reported log priority (?log-level [priority])", &log_level_cmd_katcp);
+  register_katcp(d, "?log-default",       "sets the minimum reported log priority for all new connections (?log-default [priority])", &log_default_cmd_katcp);
   register_katcp(d, "?log-record",        "generate a log entry (?log-record [priority] message)", &log_record_cmd_katcp);
   register_katcp(d, "?watchdog",          "pings the system (?watchdog)", &watchdog_cmd_katcp);
 
@@ -177,13 +179,21 @@ struct katcp_dispatch *startup_version_katcp(char *subsystem, int major, int min
 struct katcp_dispatch *clone_katcp(struct katcp_dispatch *cd)
 {
   struct katcp_dispatch *d;
+  struct katcp_shared *s;
 
   d = setup_internal_katcp(-1);
   if(d == NULL){
     return NULL;
   }
 
-  d->d_level = cd->d_level;
+  /* WARNING: intricate: no longer an exact clone of given item... but using default seems more appropriate */
+  s = d->d_shared;
+  if(s){
+    d->d_level = s->s_default;
+  } else {
+    d->d_level = cd->d_level;
+  }
+
   /* d_ready */
   /* d_run */
   /* d_exit */
@@ -996,6 +1006,8 @@ int running_katcp(struct katcp_dispatch *d)
 
 void reset_katcp(struct katcp_dispatch *d, int fd)
 {
+  struct katcp_shared *s;
+
   if(d == NULL){
     return;
   }
@@ -1013,7 +1025,13 @@ void reset_katcp(struct katcp_dispatch *d, int fd)
   d->d_exit = KATCP_EXIT_ABORT; /* assume the worst */
   d->d_pause = 0;
 
-  d->d_level = KATCP_LEVEL_INFO; /* back to default */
+  s = d->d_shared;
+  if(s == NULL){
+    d->d_level = KATCP_LEVEL_INFO; /* fallback, should not happen */
+  } else {
+    d->d_level = s->s_default;
+  }
+
 
   if(d->d_line){
     exchange_katcl(d->d_line, fd);
@@ -1148,10 +1166,16 @@ int log_level_katcp(struct katcp_dispatch *d, unsigned int level)
   return d->d_level;
 }
 
-int log_level_cmd_katcp(struct katcp_dispatch *d, int argc)
+int log_level_generic_katcp(struct katcp_dispatch *d, int argc, int global)
 {
   int ok, code;
   char *requested, *got;
+  struct katcp_shared *s;
+
+  s = d->d_shared;
+  if(s == NULL){
+    return KATCP_RESULT_FAIL;
+  }
 
   if(argc > 1){
     ok = 0;
@@ -1160,12 +1184,20 @@ int log_level_cmd_katcp(struct katcp_dispatch *d, int argc)
     if(requested){
       if(!strcmp(requested, "all")){
         ok = 1;
-        d->d_level = KATCP_LEVEL_TRACE;
+        if(global){
+          s->s_default = KATCP_LEVEL_TRACE;
+        } else {
+          d->d_level = KATCP_LEVEL_TRACE;
+        }
       }
       code = log_to_code_katcl(requested);
       if(code >= 0){
         ok = 1;
-        d->d_level = code;
+        if(global){
+          s->s_default = code;
+        } else {
+          d->d_level = code;
+        }
       }
     }
   } else {
@@ -1173,7 +1205,7 @@ int log_level_cmd_katcp(struct katcp_dispatch *d, int argc)
     requested = NULL;
   }
 
-  got = log_to_string_katcl(d->d_level);
+  got = log_to_string_katcl(global ? s->s_default : d->d_level);
   if(got == NULL){
     ok = 0;
   }
@@ -1199,6 +1231,16 @@ int log_level_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
 
   return KATCP_RESULT_OWN;
+}
+
+int log_level_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  return log_level_generic_katcp(d, argc, 0);
+}
+
+int log_default_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  return log_level_generic_katcp(d, argc, 1);
 }
 
 int log_record_cmd_katcp(struct katcp_dispatch *d, int argc)

@@ -144,6 +144,7 @@ int startup_shared_katcp(struct katcp_dispatch *d)
   }
 
   s->s_magic = SHARED_MAGIC;
+  s->s_default = KATCP_LEVEL_INFO;
 
   s->s_vector = NULL;
 
