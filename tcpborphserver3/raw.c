@@ -302,7 +302,7 @@ int write_cmd(struct katcp_dispatch *d, int argc)
   struct tbs_raw *tr;
   struct tbs_entry *te;
 
-  struct katcl_byte_bit off, len;
+  struct katcl_byte_bit off, len, temp;
 
   unsigned char *buffer;
   unsigned int blen, start_base, i, size_have, start, want_len;
@@ -390,7 +390,7 @@ int write_cmd(struct katcp_dispatch *d, int argc)
   fprintf(stderr, "size_have: %d start:%d size_now:%d want_len:%d\n", size_have, start, size_have - start, want_len);
 #endif
 
-  if ((size_have - start) < want_len){
+  if (start > size_have || (size_have - start) < want_len){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "trying to write past the end of the register %s", name);
     if (buffer != NULL)
       free(buffer);
@@ -422,13 +422,13 @@ int write_cmd(struct katcp_dispatch *d, int argc)
   }
 
   for (i=0; i<blen && i<len.b_byte; i++){
-#ifdef DEBUG
-    fprintf(stderr, "raw write: %d\n", i);
-#endif
     value = buffer[i];
     update = prev | (value >> start_offset);
 
     log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "writing 0x%x to position 0x%x", update, start_base);
+#ifdef DEBUG
+    fprintf(stderr, "raw write: [%d] got 0x%x write 0x%x\n", i, buffer[i], update);
+#endif
     *((uint8_t *)(tr->r_map + start_base)) = update;
     
     prev = value << (8 - start_offset);
@@ -436,19 +436,60 @@ int write_cmd(struct katcp_dispatch *d, int argc)
   }
 
   if (len.b_bit > 0 && blen > len.b_byte){
-#ifdef DEBUG
-    fprintf(stderr, "raw write: %d\n", i);
-#endif
+    current = *((uint8_t *)(tr->r_map + start_base));
     value = buffer[i] & (0xff << (8 - len.b_bit));
-    update = prev | (value >> start_offset);
+    update = prev | (value >> start_offset) | (current & (0xff >> (start_offset + len.b_bit)));
 
     log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "writing partial len 0x%x to position 0x%x", update, start_base);
+#ifdef DEBUG
+    fprintf(stderr, "raw write: [%d] got 0x%x write 0x%x\n", i, buffer[i], update);
+#endif
     *((uint8_t *)(tr->r_map + start_base)) = update;
-    
-    prev = value << (8 - start_offset);
-    start_base += 1;
+    if (start_offset > 0){
+#ifdef DEBUG
+      fprintf(stderr, "raw partial with start_offset some new data might need to go to next byte\n");
+#endif
+      temp.b_byte = 0;
+      temp.b_bit  = start_offset + len.b_bit;
+      byte_normalise(&temp);
+
+      if (temp.b_byte > 0 && temp.b_bit > 0){
+        prev = value << (8 - temp.b_bit);
+        start_base += 1;
+        if (start_base < te->e_pos_base + te->e_len_base){
+          current = (*((uint8_t *)(tr->r_map + start_base))) & (0xff >> temp.b_bit);
+          update = prev | current;
+          log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "writing final, partial 0x%x to position 0x%x", update, start_base);
+          *((uint8_t *)(tr->r_map + start_base)) = update;
+        } else {
+#ifdef DEBUG
+          fprintf(stderr, "raw partial would have overrun register boundary\n");
+#endif
+        }
+      } else {
+#ifdef DEBUG
+        fprintf(stderr, "raw partial doesn't run into next byte\n");
+#endif
+      }
+    }
+  } else if (start_offset > 0 && (start_base < te->e_pos_base + te->e_len_base)){
+    current = (*((uint8_t *)(tr->r_map + start_base))) & (0xff >> start_offset);
+    update = prev | current;
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "writing final, partial 0x%x to position 0x%x", update, start_base);
+#ifdef DEBUG
+    fprintf(stderr, "raw write: final write 0x%x\n", update);
+#endif
+    *((uint8_t *)(tr->r_map + start_base)) = update;
+  } else {
+#ifdef DEBUG
+    fprintf(stderr, "raw partial FATAL doesn't know what to do\n");
+#endif
   }
 
+
+   
+  /*HERE is the problem*/
+#if 0  
   /*TODO this needs fixing*/
   if (start_offset > 0 && (start_base < te->e_pos_base + te->e_len_base)){
     current = (*((uint8_t *)(tr->r_map + start_base))) & (0xff >> start_offset);
@@ -456,6 +497,7 @@ int write_cmd(struct katcp_dispatch *d, int argc)
     log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "writing final, partial 0x%x to position 0x%x", update, start_base);
     *((uint8_t *)(tr->r_map + start_base)) = update;
   }
+#endif
 
   msync(tr->r_map, tr->r_map_size, MS_SYNC);
 
