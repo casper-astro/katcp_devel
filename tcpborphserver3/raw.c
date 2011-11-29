@@ -404,11 +404,6 @@ int write_cmd(struct katcp_dispatch *d, int argc)
 
   start_base   = off.b_byte;
   start_offset = off.b_bit;
-  
-#if 0
-  start_base    = te->e_pos_base   + off.b_byte;
-  start_offset  = te->e_pos_offset + off.b_bit;
-#endif
 
 #ifdef DEBUG
   fprintf(stderr, "raw write: have blen: %d register start offset (0x%lx:%d) len(0x%lx:%d)\n", blen,  off.b_byte, off.b_bit, len.b_byte, len.b_bit); 
@@ -422,6 +417,7 @@ int write_cmd(struct katcp_dispatch *d, int argc)
   }
 
   for (i=0; i<blen && i<len.b_byte; i++){
+
     value = buffer[i];
     update = prev | (value >> start_offset);
 
@@ -429,6 +425,7 @@ int write_cmd(struct katcp_dispatch *d, int argc)
 #ifdef DEBUG
     fprintf(stderr, "raw write: [%d] got 0x%x write 0x%x\n", i, buffer[i], update);
 #endif
+
     *((uint8_t *)(tr->r_map + start_base)) = update;
     
     prev = value << (8 - start_offset);
@@ -436,6 +433,7 @@ int write_cmd(struct katcp_dispatch *d, int argc)
   }
 
   if (len.b_bit > 0 && blen > len.b_byte){
+
     current = *((uint8_t *)(tr->r_map + start_base));
     value = buffer[i] & (0xff << (8 - len.b_bit));
     update = prev | (value >> start_offset) | (current & (0xff >> (start_offset + len.b_bit)));
@@ -444,11 +442,15 @@ int write_cmd(struct katcp_dispatch *d, int argc)
 #ifdef DEBUG
     fprintf(stderr, "raw write: [%d] got 0x%x write 0x%x\n", i, buffer[i], update);
 #endif
+
     *((uint8_t *)(tr->r_map + start_base)) = update;
+
     if (start_offset > 0){
+
 #ifdef DEBUG
       fprintf(stderr, "raw partial with start_offset some new data might need to go to next byte\n");
 #endif
+
       temp.b_byte = 0;
       temp.b_bit  = start_offset + len.b_bit;
       byte_normalise(&temp);
@@ -461,43 +463,33 @@ int write_cmd(struct katcp_dispatch *d, int argc)
           update = prev | current;
           log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "writing final, partial 0x%x to position 0x%x", update, start_base);
           *((uint8_t *)(tr->r_map + start_base)) = update;
-        } else {
-#ifdef DEBUG
-          fprintf(stderr, "raw partial would have overrun register boundary\n");
-#endif
-        }
-      } else {
-#ifdef DEBUG
-        fprintf(stderr, "raw partial doesn't run into next byte\n");
-#endif
-      }
+        } 
+      } 
     }
   } else if (start_offset > 0 && (start_base < te->e_pos_base + te->e_len_base)){
+
     current = (*((uint8_t *)(tr->r_map + start_base))) & (0xff >> start_offset);
     update = prev | current;
+
     log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "writing final, partial 0x%x to position 0x%x", update, start_base);
 #ifdef DEBUG
     fprintf(stderr, "raw write: final write 0x%x\n", update);
 #endif
+
     *((uint8_t *)(tr->r_map + start_base)) = update;
+
   } else {
+
 #ifdef DEBUG
     fprintf(stderr, "raw partial FATAL doesn't know what to do\n");
 #endif
-  }
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "raw partial FATAL doesn't know what to do");
 
+    if (buffer != NULL)
+      free(buffer);
 
-   
-  /*HERE is the problem*/
-#if 0  
-  /*TODO this needs fixing*/
-  if (start_offset > 0 && (start_base < te->e_pos_base + te->e_len_base)){
-    current = (*((uint8_t *)(tr->r_map + start_base))) & (0xff >> start_offset);
-    update = prev | current;
-    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "writing final, partial 0x%x to position 0x%x", update, start_base);
-    *((uint8_t *)(tr->r_map + start_base)) = update;
+    return KATCP_RESULT_FAIL;
   }
-#endif
 
   msync(tr->r_map, tr->r_map_size, MS_SYNC);
 
@@ -780,7 +772,7 @@ int read_cmd(struct katcp_dispatch *d, int argc)
     append_buffer_katcp(d, KATCP_FLAG_BUFFER | KATCP_FLAG_LAST, buffer, want_base + 1);
 
     free(buffer);
-    return KATCP_RESULT_OK;
+    return KATCP_RESULT_OWN;
   }
 
 #ifdef DEBUG
@@ -815,6 +807,7 @@ int read_cmd(struct katcp_dispatch *d, int argc)
     current = ptr[j];
 
     buffer[i] = prev | (mask & (current >> (8 - shift)));
+  
     prev = current << shift;
 
     i++;
