@@ -478,7 +478,9 @@ int write_cmd(struct katcp_dispatch *d, int argc)
 
     *((uint8_t *)(tr->r_map + start_base)) = update;
 
-  } else {
+  } 
+  #if 0
+  else {
 
 #ifdef DEBUG
     fprintf(stderr, "raw partial FATAL doesn't know what to do\n");
@@ -490,6 +492,7 @@ int write_cmd(struct katcp_dispatch *d, int argc)
 
     return KATCP_RESULT_FAIL;
   }
+#endif
 
   msync(tr->r_map, tr->r_map_size, MS_SYNC);
 

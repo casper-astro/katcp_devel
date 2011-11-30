@@ -706,9 +706,18 @@ int relay_reply_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data
 #ifdef DEBUG
     fprintf(stderr, "resume: parameter %d is %s\n", 1, ptr);
 #endif
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "relay katcp reply: %s", ptr);
+    
+    if (strcmp(ptr, "fail") == 0){
+      release_sm_notice_actor_katcp(d, a, p);
+      return -1;
+    }
+
   } else {
     ptr = NULL;
   }
+
+
 
 /*
   prepend_reply_katcp(d);
@@ -729,7 +738,9 @@ int relay_katcp_statemachine_kcs(struct katcp_dispatch *d, struct katcp_notice *
   char *str, *buffer;
   int count, i, len, flags;
   
+#if 0
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "edge relaykatcp START");
+#endif
 
   stack = data;
   if (stack == NULL)
@@ -816,8 +827,10 @@ int relay_katcp_statemachine_kcs(struct katcp_dispatch *d, struct katcp_notice *
   destroy_stack_katcp(argstack);
   
   push_named_stack_katcp(d, stack, a, KATCP_TYPE_ACTOR);
-  
+
+#if 0 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "edge relaykatcp command down stream and pushed actor back onto the stack");
+#endif
   
   return EDGE_WAIT; 
 }

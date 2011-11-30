@@ -658,7 +658,7 @@ int statemachine_process_kcs(struct katcp_dispatch *d, struct katcp_notice *n, v
   struct kcs_sched_task *t;
   struct katcl_parse *p;
   int rtn;
-  char *ptr;
+  char *ptr, *name;
   
   rtn = 0;
   t = data;
@@ -669,6 +669,9 @@ int statemachine_process_kcs(struct katcp_dispatch *d, struct katcp_notice *n, v
 #if 0
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "running sched notice with task state: %d", t->t_state);
 #endif 
+
+  name = (n->n_name == NULL) ? "<anonymous>" : n->n_name;
+
   switch (t->t_state){
     case TASK_STATE_RUN_OPS:
 #ifdef DEBUG
@@ -730,29 +733,30 @@ int statemachine_process_kcs(struct katcp_dispatch *d, struct katcp_notice *n, v
 
     case TASK_STATE_CLEAN_UP:
 #ifdef DEBUG
-      fprintf(stderr, "statemachine: process about to cleanup\n");
+      fprintf(stderr, "statemachine: process about to cleanup %s\n", name);
 #endif
-      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "printing task stack and cleaning up");
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "printing task stack and cleaning up %s", name);
       print_task_stack_kcs(d, t);
      
       if (t->t_flags & PROCESS_MASTER){
-        log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "statemachine master process ending");
+        log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "statemachine master process ending %s", name);
         prepend_reply_katcp(d);
         if (t->t_rtn < 0){
           append_string_katcp(d, KATCP_FLAG_STRING, "fail");  
-          append_signed_long_katcp(d, KATCP_FLAG_SLONG | KATCP_FLAG_LAST, t->t_rtn);  
+          append_string_katcp(d, KATCP_FLAG_STRING, name);
+          append_signed_long_katcp(d, KATCP_FLAG_SLONG | KATCP_FLAG_LAST, t->t_rtn);
         } else {
           append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, "ok");  
         }
         resume_katcp(d);
       } else if (t->t_flags & PROCESS_SLAVE){
-        log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "statemachine slave process ending");
+        log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "statemachine slave process ending %s", name);
       }
 
       destroy_sched_task_kcs(t);
 
 #ifdef DEBUG
-      fprintf(stderr, "**********[end statemachine run]**********\n");
+      fprintf(stderr, "**********[end statemachine (%s) run]**********\n", name);
 #endif
       return 0;
   }
@@ -853,6 +857,8 @@ int statemachine_stopall_kcs(struct katcp_dispatch *d)
   n_count = 0;
 
   n_count = find_prefix_notices_katcp(d, "sm", n_set, n_count);
+
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "stopall found: %d machines", n_count);
   
   if (n_count <= 0)
     return KATCP_RESULT_FAIL;
@@ -987,6 +993,19 @@ int statemachine_print_oplist_kcs(struct katcp_dispatch *d)
   return KATCP_RESULT_OK;
 }
 
+int statemachine_print_edgelist_kcs(struct katcp_dispatch *d)
+{
+  struct katcp_type *t;
+
+  t = find_name_type_katcp(d, KATCP_TYPE_EDGE);
+  if (t == NULL)
+    return KATCP_RESULT_FAIL;
+
+  print_type_katcp(d, t, 1); 
+
+  return KATCP_RESULT_OK;
+}
+
 int statemachine_greeting_kcs(struct katcp_dispatch *d)
 {
   prepend_inform_katcp(d);
@@ -1003,6 +1022,8 @@ int statemachine_greeting_kcs(struct katcp_dispatch *d)
   append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST, "ds (print the entire datastore)");
   prepend_inform_katcp(d);
   append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST, "oplist (print op list)");
+  prepend_inform_katcp(d);
+  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST, "edgelist (print edge list)");
   prepend_inform_katcp(d);
   append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST, "stopall");
   prepend_inform_katcp(d);
@@ -1024,6 +1045,8 @@ int statemachine_cmd(struct katcp_dispatch *d, int argc)
         return statemachine_print_ds_kcs(d);
       if (strcmp(arg_string_katcp(d, 1), "oplist") == 0)
         return statemachine_print_oplist_kcs(d);
+      if (strcmp(arg_string_katcp(d, 1), "edgelist") == 0)
+        return statemachine_print_edgelist_kcs(d);
       if (strcmp(arg_string_katcp(d, 1), "stopall") == 0)
         return statemachine_stopall_kcs(d);
       if (strcmp(arg_string_katcp(d, 1), "tagsets") == 0)
