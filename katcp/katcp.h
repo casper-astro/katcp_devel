@@ -187,6 +187,8 @@ int flush_katcp(struct katcp_dispatch *d);
 int write_katcp(struct katcp_dispatch *d);
 void reset_katcp(struct katcp_dispatch *d, int fd);
 
+int load_from_file_katcp(struct katcp_dispatch *d, char *file);
+
 /******************* read arguments **************/
 
 int arg_request_katcp(struct katcp_dispatch *d);
@@ -542,6 +544,7 @@ void *search_type_katcp(struct katcp_dispatch *d, struct katcp_type *t, char *ke
 void *search_named_type_katcp(struct katcp_dispatch *d, char *type, char *key, void *data);
 int del_data_type_katcp(struct katcp_dispatch *d, char *type, char *key);
 void destroy_type_list_katcp(struct katcp_dispatch *d);
+void flush_type_katcp(struct katcp_type *t);
 void print_types_katcp(struct katcp_dispatch *d);
 void print_type_katcp(struct katcp_dispatch *d, struct katcp_type *t, int flags);
 

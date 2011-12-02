@@ -225,43 +225,6 @@ static int pipe_from_file_katcp(struct katcp_dispatch *dl, char *file)
       }
     }
 
-#if 0 
-    /* this logic to be replaced with something which actually parses
-     * requests, and only sends out one request at a time, waiting for replies to
-     * arrive */
-    rr = read(fd, buffer, READ_BUFFER);
-    if(rr <= 0){
-      if(rr < 0){
-        switch(errno){
-          case EAGAIN :
-          case EINTR  :
-            break;
-          default :
-            exit(EX_OSERR);
-            break;
-        }
-      } else {
-        exit(EX_OK);
-      }
-    } else {
-      hw = 0;
-      do{
-        wr = write(fds[0], buffer + hw, rr - hw);
-        if(wr < 0){
-          switch(errno){
-            case EAGAIN :
-            case EINTR  :
-              break;
-            default :
-              exit(EX_OSERR);
-              break;
-          }
-        } else {
-          hw += wr;
-        }
-      } while(hw < rr);
-    }
-#endif
   }
 
   exit(EX_OK);
@@ -775,5 +738,24 @@ int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, ch
   }
 
   return run_core_loop_katcp(dl);
+}
+
+int load_from_file_katcp(struct katcp_dispatch *d, char *file)
+{
+  int fd;
+
+  if(file){
+    fd = pipe_from_file_katcp(d, file);
+    if(fd < 0){
+#ifdef DEBUG
+      fprintf(stderr, "creation of pipe from file failed\n");
+#endif
+      return -1;
+    }
+    add_client_server_katcp(d, fd, file);
+    return 0;
+  }
+  
+  return -1;
 }
 

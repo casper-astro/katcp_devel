@@ -632,9 +632,6 @@ int add_node_avltree(struct avl_tree *t, struct avl_node *n)
     fprintf(stderr,"avl_tree: root node is %s\n", n->n_key);
 #endif
     t->t_root = n;
-#if DEBUG > 3
-    print_avltree(t->t_root, 0);
-#endif
     return 0;
   }
 
@@ -743,7 +740,6 @@ int add_node_avltree(struct avl_tree *t, struct avl_node *n)
   fprintf(stderr,"avl_tree: new root node is %s\n", c->n_key);
 #endif
 #if DEBUG > 3 
-  print_avltree(t->t_root, 0);
   check_balances_avltree(t->t_root, 0);
 #endif
   return 0;

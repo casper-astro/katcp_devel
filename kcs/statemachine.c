@@ -374,6 +374,20 @@ struct katcp_module *create_module_katcp()
   return m;
 }
 
+int statemachine_loadkcl_kcs(struct katcp_dispatch *d)
+{
+  char *file;
+
+  file = arg_string_katcp(d, 2);
+  if (file == NULL)
+    return KATCP_RESULT_FAIL;
+  
+  if (load_from_file_katcp(d, file) < 0)
+    return KATCP_RESULT_FAIL;
+  
+  return KATCP_RESULT_OK;
+}
+
 int statemachine_loadmod_kcs(struct katcp_dispatch *d)
 {
   char *mod, *err;
@@ -956,6 +970,26 @@ int statemachine_op_kcs(struct katcp_dispatch *d)
   return KATCP_RESULT_OK;
 }
 
+int statemachine_flush_kcs(struct katcp_dispatch *d)
+{
+  
+  struct katcp_type *t;
+
+  t = find_name_type_katcp(d, KATCP_TYPE_STATEMACHINE_STATE);
+
+  if (t == NULL)
+    return KATCP_RESULT_FAIL;
+
+  flush_type_katcp(t);
+  
+#if 0
+  if (dump_tagsets_katcp(d) < 0)
+    return KATCP_RESULT_FAIL;
+#endif
+  
+  return KATCP_RESULT_OK;
+}
+
 int statemachine_print_ds_kcs(struct katcp_dispatch *d)
 {
   print_types_katcp(d);
@@ -1009,6 +1043,8 @@ int statemachine_print_edgelist_kcs(struct katcp_dispatch *d)
 int statemachine_greeting_kcs(struct katcp_dispatch *d)
 {
   prepend_inform_katcp(d);
+  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST, "loadkcl [script file]");  
+  prepend_inform_katcp(d);
   append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST, "loadmod [so name]");  
   prepend_inform_katcp(d);
   append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST, "node [state name]");
@@ -1027,6 +1063,8 @@ int statemachine_greeting_kcs(struct katcp_dispatch *d)
   prepend_inform_katcp(d);
   append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST, "stopall");
   prepend_inform_katcp(d);
+  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST, "flush (remove defined statemachines)");
+  prepend_inform_katcp(d);
   append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST, "tagsets");
   prepend_inform_katcp(d);
   append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST, "dt [type] dump items in type tree");
@@ -1041,6 +1079,8 @@ int statemachine_cmd(struct katcp_dispatch *d, int argc)
       
       break;
     case 2:
+      if (strcmp(arg_string_katcp(d, 1), "flush") == 0)
+        return statemachine_flush_kcs(d);
       if (strcmp(arg_string_katcp(d, 1), "ds") == 0)
         return statemachine_print_ds_kcs(d);
       if (strcmp(arg_string_katcp(d, 1), "oplist") == 0)
@@ -1054,6 +1094,8 @@ int statemachine_cmd(struct katcp_dispatch *d, int argc)
       
       break;
     case 3:
+      if (strcmp(arg_string_katcp(d, 1), "loadkcl") == 0)
+        return statemachine_loadkcl_kcs(d);
       if (strcmp(arg_string_katcp(d, 1), "loadmod") == 0)
         return statemachine_loadmod_kcs(d);
       if (strcmp(arg_string_katcp(d, 1), "node") == 0)

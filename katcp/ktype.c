@@ -27,6 +27,16 @@ void destroy_type_katcp(struct katcp_type *t)
   }
 }
 
+void flush_type_katcp(struct katcp_type *t)
+{
+  if (t && t->t_tree && t->t_free) {
+#ifdef DEBUG
+    fprintf(stderr, "%s: about to destroy type tree\n", __func__);
+#endif
+    destroy_avltree(t->t_tree, t->t_free);
+  }
+}
+
 struct katcp_type *create_type_katcp()
 {
   struct katcp_type *t;
@@ -60,46 +70,23 @@ int binary_search_type_list_katcp(struct katcp_type **ts, int t_size, char *str)
     return -1;
   }
 
-#if 0
-def DEBUG
-  fprintf(stderr, "katcp_type: bsearch for <%s>\n", str);
-#endif
-  
   low = 0;
   high = t_size - 1;
   
   while (low <= high){
     mid = low + ((high-low) / 2);
-#if 0
-    fprintf(stderr, "katcp_type: set mid %d\n", mid);
-#endif
 
     t = ts[mid];
   
     cmp = strcmp(str, t->t_name);
     if (cmp == 0){
-#if 0
-      def DEBUG
-      fprintf(stderr, "katcp_type: found <%s> @ %d\n", str, mid);
-#endif
       return mid;
     } else if (cmp < 0){
       high = mid - 1;
-#if 0
-      fprintf(stderr, "katcp_type: set high to %d low is %d\n", high, low);
-#endif
     } else if (cmp > 0){ 
       low = mid + 1;
-#if 0
-      fprintf(stderr, "katcp_type: set low to %d high is %d\n", low, high);
-#endif
     }
   }
-
-#if 0
-def DEBUG
-  fprintf(stderr, "katcp_type: bsearch return:%d\n", (-1)*(low+1));
-#endif
 
   return (-1) * (low+1) ;
 }
