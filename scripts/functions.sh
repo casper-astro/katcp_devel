@@ -53,6 +53,9 @@ kcs_change_corr()
       if [ -h ${CORR_CONFIG} ] ; then
         kcs_debug "unlinking old configuration"
         rm -f ${CORR_CONFIG}
+      else 
+        kcs_error "refusing to clobber configuration ${CORR_CONFIG} - expected a symlink"
+        return 1
       fi
       kcs_debug "updating configuration to ${CORR_CONFIG}-${1}"
       ln -s ${CORR_CONFIG}-${1} ${CORR_CONFIG}

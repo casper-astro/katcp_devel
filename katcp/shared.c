@@ -1206,9 +1206,9 @@ int complete_mode_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *
   if(result == 0){
     if(s->s_vector[s->s_mode].e_name){ /* broadcast mode change */
       broadcast_inform_katcp(d, "#mode", s->s_vector[s->s_mode].e_name);
-      setenv("MODE", s->s_vector[s->s_mode].e_name, 1);
+      setenv("KATCP_MODE", s->s_vector[s->s_mode].e_name, 1);
     } else {
-      unsetenv("MODE");
+      unsetenv("KATCP_MODE");
     }
     if(s->s_mode_sensor){
       set_status_sensor_katcp(s->s_mode_sensor, s->s_vector[s->s_mode].e_status);
