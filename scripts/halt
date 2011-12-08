@@ -5,6 +5,6 @@ source functions.sh
 
 kcs_info "initiating halt"
 xport stop
-shutdown -h -t 10 "katcp halt from ${KATCP_CLIENT}. Use shutdown -c to cancel" < /dev/console >& /dev/console
+shutdown -h -t 10 now "katcp halt from ${KATCP_CLIENT}. Use shutdown -c to cancel" < /dev/console >& /dev/console
 
 exit 0

@@ -2,6 +2,7 @@
 ?chdir /usr/local/lib/kcs
 ?define mode ready restart-mode-ready warn
 ?define mode wbc restart-mode-wbc nominal
+?define mode wbc8k restart-mode-wbc8k nominal
 ?define mode nbc restart-mode-nbc nominal
 ?job process tmon exec://tmon
 ?forget ?halt

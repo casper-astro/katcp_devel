@@ -35,3 +35,4 @@ fi
 shift 2
 
 kcpcmd -r -k get-adc-snapshots ${pps} ${level} $* | sed -e 's/^\#get-adc-snapshots/#k7-adc-snap-shot/'
+#kcpcmd -r -k get-adc-snapshots ${pps} ${level} $* | sed -e 's/^\#get-adc-snapshots \([^ ]*\) [0-9]*/#k7-adc-snap-shot \1/'

@@ -49,18 +49,8 @@ kcs_change_corr()
 
     kcs_debug "attempting to set config file"
 
-    if [ -e ${CORR_CONFIG}-${1} ] ; then
-      if [ -h ${CORR_CONFIG} ] ; then
-        kcs_debug "unlinking old configuration"
-        rm -f ${CORR_CONFIG}
-      else 
-        kcs_error "refusing to clobber configuration ${CORR_CONFIG} - expected a symlink"
-        return 1
-      fi
-      kcs_debug "updating configuration to ${CORR_CONFIG}-${1}"
-      ln -s ${CORR_CONFIG}-${1} ${CORR_CONFIG}
-    else 
-      kcs_error "no $1 configuration for corr at $${CORR_CONFIG}-${1}"
+    if [ ! -e ${CORR_CONFIG}-${1} ] ; then
+      kcs_error "no $1 configuration for corr at ${CORR_CONFIG}-${1}"
       return 1
     fi
 
@@ -89,9 +79,9 @@ kcs_corr_log () {
 }
 
 kcs_config_numeric () {
-  value=$(grep ^${1} ${CORR_CONFIG} 2> /dev/null | cut -f2 -d= | tr -d ' ' )
+  value=$(grep ^${1} ${CORR_CONFIG}-${KATCP_MODE} 2> /dev/null | cut -f2 -d= | tr -d ' ' )
   if [ -z "${value}" ] ; then
-    kcs_error "unable to locate ${1} in ${CORR_CONFIG}"
+    kcs_error "unable to locate ${1} in ${CORR_CONFIG}-${KATCP_MODE}"
   fi
 
   kcs_debug "${1} maps to ${value}"
@@ -106,11 +96,11 @@ kcs_mode_sensors () {
     kcs_error "mode sensors needs to be invoked with sensor parameter"
   fi
 
-  sensor_suffixes=("number\_of\_channels none integer 0 65536" "number\_of\_chanels none integer 0 65536" "current\_selected\_center\_frequency Hz integer 0 1000000000" "number\_of\_channels none integer 0 65536")
-  sensor_names=(".nbc.channels.coarse" ".nbc.channels.fine" ".nbc.frequency.current" ".wbc.channels")
-  sensor_keys=(coarse_chans n_chans "" n_chans)
-  sensor_values=("" "" "0" "")
-  sensor_stata=("" "" "unknown" "")
+  sensor_suffixes=("number\_of\_channels none integer 0 65536" "number\_of\_chanels none integer 0 65536" "current\_selected\_center\_frequency Hz integer 0 1000000000" "number\_of\_channels none integer 0 65536" "number\_of\_channels none integer 0 65536")
+  sensor_names=(".nbc.channels.coarse" ".nbc.channels.fine" ".nbc.frequency.current" ".wbc.channels" ".wbc8k.channels")
+  sensor_keys=(coarse_chans n_chans "" n_chans n_chans)
+  sensor_values=("" "" "0" "" "")
+  sensor_stata=("" "" "unknown" "" "")
 
   i=0
   while [ $i -lt ${#sensor_names[*]} ] ; do 
