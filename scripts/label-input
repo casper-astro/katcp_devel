@@ -13,7 +13,8 @@ if [ $# -lt 1 ] ; then
   roaches=($(grep '^ *servers_f' ${CORR_CONFIG}-${KATCP_MODE} | cut -f2 -d= |  tr ',' ' '))
   i=0
   while [ ${i} -lt 16 ] ; do
-    echo "#label-input ${antennas[i]} $(kcs_index_to_input ${i}) ${roaches[i/2]}"
+    input=$(kcs_index_to_input ${i})
+    echo "#label-input ${antennas[i]:-${input}} $input ${roaches[i/2]}"
     i=$[i+1]
   done
 
