@@ -119,8 +119,8 @@ struct getap_state{
   int s_verbose;
   int s_testing;
 
-  unsigned int s_rxlen;
-  unsigned int s_txlen;
+  unsigned int s_rx_len;
+  unsigned int s_tx_len;
 
   unsigned char s_rxb[MAX_FRAME];
   unsigned char s_txb[MAX_FRAME];
@@ -224,11 +224,78 @@ int write_fpga_mac(struct getap_state *gs, unsigned int offset, const uint8_t *m
   return 0;
 }
 
-int transmit_fpga(struct getap_state *gs)
+static int transmit_frame_fpga(struct getap_state *gs)
+{
+  uint32_t buffer_sizes;
+  struct katcp_dispatch *d;
+  void *base;
+
+  base = gs->s_raw_mode->r_map + gs->s_register->e_pos_base;
+  d = gs->s_dispatch;
+
+  if(gs->s_tx_len <= MIN_FRAME){
+    if(gs->s_tx_len == 0){
+      /* nothing to do */
+      return 0;
+    }
+ 
+    /* pad out short packet */
+    memset(gs->s_txb + gs->s_tx_len, 0, MIN_FRAME - gs->s_tx_len);
+    gs->s_tx_len = MIN_FRAME;
+  }
+
+  if(gs->s_tx_len > MAX_FRAME){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "frame request %u exeeds limit %u", gs->s_tx_len, MAX_FRAME);
+    return -1;
+  }
+
+  buffer_sizes = *((uint32_t *)(base + GO_BUFFER_SIZES));
+#ifdef __PPC__
+  if((buffer_sizes & 0xffff0000) > 0){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "tx still busy (%d)", (buffer_sizes & 0xffff0000) >> 16);
+    return -1;
+  }
+#else
+  log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "in test mode we ignore %d words previously queued", (buffer_sizes & 0xffff0000) >> 16);
+#endif
+
+  memcpy(base + GO_TXBUFFER, gs->s_txb, gs->s_tx_len);
+
+  buffer_sizes = ((gs->s_tx_len + 7) / 8) << 16;
+  *((uint32_t *)(base + GO_BUFFER_SIZES)) = buffer_sizes;
+
+#if 0
+  fprintf(stderr, "txb: loaded %u bytes into TX buffer: \n",wr);
+  for (wr=0;wr<len;wr++){
+        fprintf(stderr, "%02X ",data[wr]);
+  }
+  fprintf(stderr,"\n");
+  if(lseek(gs->s_bfd, GO_TXBUFFER, SEEK_SET) != GO_TXBUFFER){
+    fprintf(stderr, "txb: unable to seek to 0x%x\n", GO_TXBUFFER);
+    return -1;
+  }
+  read(gs->s_bfd, gs->s_rxb, len);
+  fprintf(stderr, "txb: chk readback %uB frm TX buffer: \n",wr);
+  for (wr=0;wr<len;wr++){
+    fprintf(stderr, "%02X ",*((gs->s_rxb) + wr));
+  }
+  fprintf(stderr,"\n");
+#endif
+
+
+#ifdef DEBUG
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "sent %u words to fpga from tap device %s\n", buffer_sizes >> 16, gs->s_tap_name);
+#endif
+
+  /* buffer empty, next round */
+  gs->s_tx_len = 0;
+
+  return 1;
+}
+
+int transmit_ip_fpga(struct getap_state *gs)
 {
   uint8_t *mac;
-
-  /* only capable of transmitting IP traffic */
 
   mac = gs->s_arp[gs->s_txb[SIZE_FRAME_HEADER + IP_DEST4]];
 #ifdef DEBUG
@@ -236,15 +303,7 @@ int transmit_fpga(struct getap_state *gs)
 #endif
   memcpy(gs->s_txb, mac, MAC_SIZE);
 
-#if 0
-  if(send_fpga(gs, gs->s_txb, gs->s_txlen) < 0){
-    return -1;
-  }
-#endif
-
-  gs->s_txlen = 0;
-
-  return 1;
+  return transmit_frame_fpga(gs);
 }
 
 /* configure tap device *************************************************/
@@ -265,7 +324,7 @@ static int configure_tap(struct getap_state *gs)
   return 0;
 }
 
-int receice_io_tap(struct katcp_dispatch *d, struct getap_state *gs)
+int receive_io_tap(struct katcp_dispatch *d, struct getap_state *gs)
 {
 #ifdef DEBUG
   int i;
@@ -276,7 +335,7 @@ int receice_io_tap(struct katcp_dispatch *d, struct getap_state *gs)
   fprintf(stderr, "tap: got something to read from tap device\n");
 #endif
 
-  if(gs->s_txlen > 0){
+  if(gs->s_tx_len > 0){
     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "transmit buffer on device %s still in use", gs->s_tap_name);
     return 0;
   }
@@ -310,7 +369,7 @@ int receice_io_tap(struct katcp_dispatch *d, struct getap_state *gs)
   fprintf(stderr, "\n");
 #endif
 
-  gs->s_txlen = rr + SIZE_FRAME_HEADER;
+  gs->s_tx_len = rr + SIZE_FRAME_HEADER;
 
   return 1;
 }
@@ -330,11 +389,14 @@ int run_io_tap(struct katcp_dispatch *d, struct katcp_arb *a, unsigned int mode)
   }
 
   if(mode & KATCP_ARB_READ){
-    result = receice_io_tap(d, gs);
+    result = receive_io_tap(d, gs);
+    if(result > 0){
+      transmit_ip_fpga(gs);
+    }
   }
 
   if(mode & KATCP_ARB_WRITE){
-
+    /* TODO */
   }
 
   return 0;
