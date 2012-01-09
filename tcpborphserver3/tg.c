@@ -437,6 +437,12 @@ struct getap_state *create_getap(struct katcp_dispatch *d, unsigned int instance
 {
   struct getap_state *gs; 
 
+#ifdef DEBUG
+  fprintf(stderr, "attempting to set up tap device %s from register %s (ip=%s, mac=%s)\n", tap, name, ip, mac);
+#endif
+
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "attempting to set up tap device %s", tap);
+
   gs = malloc(sizeof(struct getap_state));
   if(gs == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate state for %s", name);
@@ -490,9 +496,6 @@ struct getap_state *create_getap(struct katcp_dispatch *d, unsigned int instance
     return NULL;
   }
 
-  strncpy(gs->s_tap_name, tap, NAME_BUFFER);
-  gs->s_tap_name[NAME_BUFFER - 1] = '\0';
-
   strncpy(gs->s_address_name, ip, IP_BUFFER);
   gs->s_address_name[IP_BUFFER - 1] = '\0';
 
@@ -510,7 +513,7 @@ struct getap_state *create_getap(struct katcp_dispatch *d, unsigned int instance
 
   gs->s_tap_fd = tap_open(gs->s_tap_name);
   if(gs->s_tap_fd < 0){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to create tap device");
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to create tap device %s", gs->s_tap_name);
     destroy_getap(d, gs);
     return NULL;
   }

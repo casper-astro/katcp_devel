@@ -976,6 +976,7 @@ int progdev_cmd(struct katcp_dispatch *d, int argc)
 
   bs = open_bof(d, buffer);
   free(buffer);
+  buffer = NULL;
   if(bs == NULL){
     return KATCP_RESULT_FAIL;
   }
