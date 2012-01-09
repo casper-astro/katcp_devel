@@ -178,7 +178,6 @@ struct fmon_state
 
   unsigned int f_amplitude_acc_len;
   double f_adc_scale_factor;
-  double f_rf_gain;
 };
 
 /*************************************************************************/
@@ -381,7 +380,6 @@ struct fmon_state *create_fmon(char *server, int verbose, unsigned int timeout, 
 
   f->f_amplitude_acc_len = 0x10000;
   f->f_adc_scale_factor = FMON_KATADC_SCALE;
-  f->f_rf_gain = 0.0;
 
   f->f_fs = 0;
   f->f_xs = 0;
