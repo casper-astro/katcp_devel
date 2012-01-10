@@ -18,6 +18,7 @@
 
 #include "tcpborphserver3.h"
 #include "loadbof.h"
+#include "tg.h"
 
 /*********************************************************************/
 
@@ -206,6 +207,66 @@ int listbof_cmd(struct katcp_dispatch *d, int argc)
 
   return display_dir_cmd(d, tr->r_bof_dir);
 }
+
+int delbof_cmd(struct katcp_dispatch *d, int argc)
+{
+  struct tbs_raw *tr;
+
+  char *name, *ptr;
+  int len, result;
+
+  tr = get_current_mode_katcp(d);
+  if(tr == NULL){
+    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "unable to get raw state");
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(argc <= 1){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a file to delete");
+    return KATCP_RESULT_INVALID;
+  }
+
+  name = arg_string_katcp(d, 1);
+  if(name == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire first parameter");
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(strchr(name, '/') || (name[0] == '.')){
+    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "client attempts to specify a path (%s)", name);
+    return KATCP_RESULT_FAIL;
+  }
+
+  len = strlen(name) + strlen(tr->r_bof_dir) + 1;
+  ptr = malloc(len + 1);
+  if(ptr == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate %d bytes", len + 1);
+    extra_response_katcp(d, KATCP_RESULT_FAIL, "allocation");
+    return KATCP_RESULT_OWN;
+  }
+
+  result = snprintf(ptr, len + 1, "%s/%s", tr->r_bof_dir, name);
+  if(result != len){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "major logic failure: expected %d from snprintf, got %d", len, result);
+    extra_response_katcp(d, KATCP_RESULT_FAIL, "internal");
+    free(ptr);
+    return KATCP_RESULT_OWN;
+  }
+
+  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "attempting to delete %s", ptr);
+  result = unlink(ptr);
+
+  if(result < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to delete %s: %s", name, strerror(errno));
+    free(ptr);
+    return KATCP_RESULT_FAIL;
+  }
+
+  free(ptr);
+
+  return KATCP_RESULT_OK;
+}
+
 
 int word_write_cmd(struct katcp_dispatch *d, int argc)
 {
@@ -911,6 +972,7 @@ int progdev_cmd(struct katcp_dispatch *d, int argc)
 
   bs = open_bof(d, buffer);
   free(buffer);
+  buffer = NULL;
   if(bs == NULL){
     return KATCP_RESULT_FAIL;
   }
@@ -1243,14 +1305,22 @@ int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir)
 
   result = 0;
 
-  result += register_flag_mode_katcp(d, "?progdev", "program the fpga (?progdev [filename])", &progdev_cmd, 0, TBS_MODE_RAW);
-  result += register_flag_mode_katcp(d, "?register", "name a memory location (?register name position bit-offset length)", &register_cmd, 0, TBS_MODE_RAW);
-  result += register_flag_mode_katcp(d, "?wordread",     "read data from a named register (?wordread name word-offset:bit-offset word-count)", &word_read_cmd, 0, TBS_MODE_RAW);
-  result += register_flag_mode_katcp(d, "?read",     "read data from a named register (?read name byte-offset:bit-offset byte-length:bit-length)", &read_cmd, 0, TBS_MODE_RAW);
-  result += register_flag_mode_katcp(d, "?wordwrite",    "write data to a named register (?wordwrite name index value+)", &word_write_cmd, 0, TBS_MODE_RAW);
+  result += register_flag_mode_katcp(d, "?register",     "name a memory location (?register name position bit-offset length)", &register_cmd, 0, TBS_MODE_RAW);
+
   result += register_flag_mode_katcp(d, "?write",    "write data to a named register (?write name byte-offset:bit-offset value byte-length:bit-length)", &write_cmd, 0, TBS_MODE_RAW);
-  result += register_flag_mode_katcp(d, "?listbof",      "display available bof files (?listbof)", &listbof_cmd, 0, TBS_MODE_RAW);
+  result += register_flag_mode_katcp(d, "?read",         "read data from a named register (?read name byte-offset:bit-offset byte-length:bit-length)", &read_cmd, 0, TBS_MODE_RAW);
+
+  result += register_flag_mode_katcp(d, "?wordwrite",    "write data to a named register (?wordwrite name index value+)", &word_write_cmd, 0, TBS_MODE_RAW);
+  result += register_flag_mode_katcp(d, "?wordread",     "read data from a named register (?wordread name word-offset:bit-offset word-count)", &word_read_cmd, 0, TBS_MODE_RAW);
+
+  result += register_flag_mode_katcp(d, "?progdev", "program the fpga (?progdev [filename])", &progdev_cmd, 0, TBS_MODE_RAW);
   result += register_flag_mode_katcp(d, "?listdev",      "lists available registers (?listdev [size|detail]", &listdev_cmd, 0, TBS_MODE_RAW);
+
+  result += register_flag_mode_katcp(d, "?listbof",      "display available bof files (?listbof)", &listbof_cmd, 0, TBS_MODE_RAW);
+  result += register_flag_mode_katcp(d, "?delbof",       "deletes a gateware image (?delbof image-file)", &delbof_cmd, 0, TBS_MODE_RAW);
+
+  result += register_flag_mode_katcp(d, "?tap-start",    "start a tap instance (?tap-start (?tap-start tap-device register-name ip-address [port [mac]])", &tap_start_cmd, 0, TBS_MODE_RAW);
+  result += register_flag_mode_katcp(d, "?tap-stop",     "deletes a tap instance (?tap-stop register-name)", &delbof_cmd, 0, TBS_MODE_RAW);
 
   return 0;
 }

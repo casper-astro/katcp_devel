@@ -1749,9 +1749,17 @@ struct katcp_job *process_relay_create_job_katcp(struct katcp_dispatch *d, struc
   int copies, len;
   struct katcl_line *xl;
   struct katcp_job *j;
+  char *client;
 
   if(socketpair(AF_UNIX, SOCK_STREAM, 0, fds) < 0){
     return NULL;
+  }
+
+  /* WARNING: if we every destroy logic in child after fork, client content needs to be duplicated */
+  if(d && (d->d_name[0] != '\0')){
+    client = d->d_name;
+  } else {
+    client = "unknown";
   }
 
   pid = fork();
@@ -1796,6 +1804,8 @@ struct katcp_job *process_relay_create_job_katcp(struct katcp_dispatch *d, struc
   }
 
   /* WARNING: now in child, do not call return, use exit */
+
+  setenv("KATCP_CLIENT", client, 1);
 
   xl = create_katcl(fds[0]);
 
