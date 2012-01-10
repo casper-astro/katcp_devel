@@ -231,6 +231,9 @@ static int transmit_frame_fpga(struct getap_state *gs)
   void *base;
 
   base = gs->s_raw_mode->r_map + gs->s_register->e_pos_base;
+#ifdef DEBUG
+  fprintf(stderr, "txf: base address is %p + 0x%x\n", gs->s_raw_mode->r_map, gs->s_register->e_pos_base);
+#endif
   d = gs->s_dispatch;
 
   if(gs->s_tx_len <= MIN_FRAME){
@@ -250,6 +253,10 @@ static int transmit_frame_fpga(struct getap_state *gs)
   }
 
   buffer_sizes = *((uint32_t *)(base + GO_BUFFER_SIZES));
+#ifdef DEBUG
+  fprintf(stderr, "txf: previous value in tx word count is %d", buffer_sizes >> 16);
+#endif
+
 #ifdef __PPC__
   if((buffer_sizes & 0xffff0000) > 0){
     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "tx still busy (%d)", (buffer_sizes & 0xffff0000) >> 16);
@@ -265,17 +272,17 @@ static int transmit_frame_fpga(struct getap_state *gs)
   *((uint32_t *)(base + GO_BUFFER_SIZES)) = buffer_sizes;
 
 #if 0
-  fprintf(stderr, "txb: loaded %u bytes into TX buffer: \n",wr);
+  fprintf(stderr, "txf: loaded %u bytes into TX buffer: \n",wr);
   for (wr=0;wr<len;wr++){
         fprintf(stderr, "%02X ",data[wr]);
   }
   fprintf(stderr,"\n");
   if(lseek(gs->s_bfd, GO_TXBUFFER, SEEK_SET) != GO_TXBUFFER){
-    fprintf(stderr, "txb: unable to seek to 0x%x\n", GO_TXBUFFER);
+    fprintf(stderr, "txf: unable to seek to 0x%x\n", GO_TXBUFFER);
     return -1;
   }
   read(gs->s_bfd, gs->s_rxb, len);
-  fprintf(stderr, "txb: chk readback %uB frm TX buffer: \n",wr);
+  fprintf(stderr, "txf: chk readback %uB frm TX buffer: \n",wr);
   for (wr=0;wr<len;wr++){
     fprintf(stderr, "%02X ",*((gs->s_rxb) + wr));
   }
@@ -299,7 +306,7 @@ int transmit_ip_fpga(struct getap_state *gs)
 
   mac = gs->s_arp[gs->s_txb[SIZE_FRAME_HEADER + IP_DEST4]];
 #ifdef DEBUG
-  fprintf(stderr, "txb: dst mac %x:%x:%x:%x:%x:%x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+  fprintf(stderr, "txf: looked up dst mac: %x:%x:%x:%x:%x:%x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 #endif
   memcpy(gs->s_txb, mac, MAC_SIZE);
 
@@ -324,7 +331,97 @@ static int configure_tap(struct getap_state *gs)
   return 0;
 }
 
-int receive_io_tap(struct katcp_dispatch *d, struct getap_state *gs)
+/************************************************************************/
+
+int receive_frame_fpga(struct getap_state *gs)
+{
+  /* 1 - useful data, 0 - false alarm, -1 problem */
+  uint32_t buffer_sizes;
+  int rr, result, len;
+  void *base;
+#ifdef DEBUG
+  int i;
+#endif
+
+  base = gs->s_raw_mode->r_map + gs->s_register->e_pos_base;
+#ifdef DEBUG
+  fprintf(stderr, "rxf: base address is %p + 0x%x\n", gs->s_raw_mode->r_map, gs->s_register->e_pos_base);
+#endif
+  d = gs->s_dispatch;
+
+  if(gs->s_rxlen > 0){
+    fprintf(stderr, "rxf: receive buffer (%u) not yet cleared\n", gs->s_rxlen);
+    return -1;
+  }
+
+  buffer_sizes = *((uint32_t *)(base + GO_BUFFER_SIZES));
+  len = (buffer_sizes & 0xffff) * 8;
+  if(len <= 0){
+#ifdef DEBUG
+    fprintf(stderr, "rxf: nothing to read: register 0x%x\n", buffer_sizes);
+#endif
+    return 0;
+  }
+
+#ifdef DEBUG
+  fprintf(stderr, "rxf: %d bytes to read\n", len);
+#endif
+
+  result = (-1);
+
+  if((len > SIZE_FRAME_HEADER) && (len < MAX_FRAME)){
+
+    memcpy(gs->s_rxb, base + GO_RXBUFFER, len);
+
+#ifdef DEBUG
+    fprintf(stderr, "rxf: data:");
+    for(i = 0; i < rr; i++){
+      fprintf(stderr, " %02x", gs->s_rxb[i]);
+    }
+    fprintf(stderr, "\n");
+#endif
+    if(gs->s_rxb[FRAME_TYPE1] == 0x08){
+      switch(gs->s_rxb[FRAME_TYPE2]){
+        case 0x00 : /* IP packet */
+          result = 1;
+          gs->s_rxlen = rr;
+          break;
+        case 0x06 : /* arp packet */
+          gs->s_rxlen = rr;
+#if 0
+          process_arp(gs);
+#endif
+          gs->s_rxlen = 0;
+          result = 0;
+          break;
+        default :
+          fprintf(stderr, "rxf: discarding unknown type 0x%02x%02x\n", gs->s_rxb[FRAME_TYPE1], gs->s_rxb[FRAME_TYPE2]);
+          result = 0;
+          break;
+      }
+    }
+  } else {
+    fprintf(stderr, "rxf: saw runt or oversized frame, len=%u\n bytes", len);
+    return -1;
+  }
+
+#if 0
+  if(lseek(gs->s_bfd, GO_BUFFER_SIZES, SEEK_SET) != GO_BUFFER_SIZES){
+    fprintf(stderr, "rxb: unable to seek to 0x%x\n", GO_BUFFER_SIZES);
+    return -1;
+  }
+  buffer_sizes = 0;
+  if(write(gs->s_bfd, &buffer_sizes, 4) != 4){
+    fprintf(stderr, "rxb: unable to write flags\n");
+    return -1;
+  }
+#endif
+
+  return result;
+}
+
+
+int receive_ip_tap(struct katcp_dispatch *d, struct getap_state *gs)
 {
 #ifdef DEBUG
   int i;
@@ -374,6 +471,22 @@ int receive_io_tap(struct katcp_dispatch *d, struct getap_state *gs)
   return 1;
 }
 
+int run_timer_tap(struct katcp_dispatch *d, void *data)
+{
+  struct getap_state *gs;
+
+  gs = data;
+  if(gs == NULL){
+    return -1;
+  }
+
+  if(receive_frame_fpga(gs) > 0){
+    /* TODO */
+  }
+
+  return 0;
+}
+
 int run_io_tap(struct katcp_dispatch *d, struct katcp_arb *a, unsigned int mode)
 {
   struct getap_state *gs;
@@ -389,7 +502,7 @@ int run_io_tap(struct katcp_dispatch *d, struct katcp_arb *a, unsigned int mode)
   }
 
   if(mode & KATCP_ARB_READ){
-    result = receive_io_tap(d, gs);
+    result = receive_ip_tap(d, gs);
     if(result > 0){
       transmit_ip_fpga(gs);
     }
@@ -581,7 +694,7 @@ int tap_start_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_INVALID;
   }
 
-  return KATCP_RESULT_FAIL;
+  return KATCP_RESULT_OK;
 }
 
 int tap_stop_cmd(struct katcp_dispatch *d, int argc)
