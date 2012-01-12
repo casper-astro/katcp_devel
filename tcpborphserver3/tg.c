@@ -71,12 +71,16 @@
 #define IP_DEST3          18
 #define IP_DEST4          19
 
-#define POLL_INTERVAL   1000 /* in usecs */
+#define POLL_INTERVAL      3  /* in msecs */
 #define ARP_PERIOD       101 /* multiples of POLL_INTERVAL */
 
 #define RUNT_LENGTH       20 /* want a basic ip packet */
 
-#define GS_MAGIC   0x490301fc
+#define GS_MAGIC  0x490301fc
+
+#define FRESH_FOUND    15000 /* length of time to cache a valid reply - units iffy */
+#define FRESH_REQUEST  10000 /* length of time for next request - units iffy */
+#define FRESH_SELF      7000 /* interval when we announce ourselves - good idea to be shorter than others */
 
 static const uint8_t arp_const[] = { 0, 1, 8, 0, 6, 4, 0 }; /* disgusting */
 static const uint8_t broadcast_const[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
@@ -87,53 +91,46 @@ struct getap_state{
   struct katcp_dispatch *s_dispatch;
   struct tbs_raw *s_raw_mode;
 
-#if 0
-  char s_borph_name[NAME_BUFFER];
-#endif
-
   char *s_tap_name;
 
-  /* these items have bounded sizes */
+  /* these names have bounded sizes */
   char s_address_name[IP_BUFFER];
   char s_gateway_name[IP_BUFFER];
   char s_mac_name[MAC_BUFFER];
+
   unsigned short s_port;
 
-  unsigned int s_index;
+  unsigned int s_self;
 
   uint8_t s_mac_binary[MAC_SIZE];
   uint32_t s_address_binary;
   uint32_t s_mask_binary;
   uint32_t s_network_binary;
 
-#if 0
-  int s_bfd;
-#endif
+  unsigned int s_instance;
+  uint16_t s_iteration;
 
   struct tbs_entry *s_register;
-  unsigned int s_instance;
 
+  struct katcp_arb *s_tap_io;
   int s_tap_fd;
-#if 0
-  fd_set s_fsr;
-  fd_set s_fsw;
-#endif
-  struct timeval s_timeout;
 
-  int s_verbose;
-  int s_testing;
+#if 0
+  struct timeval s_timeout;
+#endif
+
+  unsigned int s_timer;
 
   unsigned int s_rx_len;
   unsigned int s_tx_len;
+  unsigned int s_arp_len;
 
   unsigned char s_rxb[MAX_FRAME];
   unsigned char s_txb[MAX_FRAME];
+  unsigned char s_arp_buffer[ARP_FRAME];
 
-  unsigned char s_arb[ARP_FRAME]; /* arp buffer. sorry */
-
-  uint8_t s_arp[ARP_CACHE][MAC_SIZE];
-
-  struct katcp_arb *s_tap_io;
+  uint8_t s_arp_table[ARP_CACHE][MAC_SIZE];
+  uint16_t s_arp_fresh[ARP_CACHE];
 };
 
 /************************************************************************/
@@ -180,7 +177,7 @@ void generate_text_mac(char *text, unsigned int index)
     memcpy(tmp + 2, &pid, MAC_SIZE - 2);
   }
 
-  snprintf(text, MAC_BUFFER, "%02x", tmp[1]);
+  snprintf(text, MAC_BUFFER, "%02x", tmp[0]);
   j = 2;
 
   for(i = 1; i < MAC_SIZE; i++){
@@ -222,29 +219,9 @@ int text_to_mac(uint8_t *binary, const char *text)
   return 0;
 }
 
-/* populate gateware lookup tables with a given mac *********************/
-
-/* configure tap device *************************************************/
-
-static int configure_tap(struct getap_state *gs)
-{
-  char cmd_buffer[CMD_BUFFER];
-  int len;
-
-  len = snprintf(cmd_buffer, CMD_BUFFER, "ifconfig %s %s netmask 255.255.255.0 up\n", gs->s_tap_name, gs->s_address_name);
-  cmd_buffer[CMD_BUFFER - 1] = '\0';
-
-  /* TODO: stalls the system */
-  if(system(cmd_buffer)){
-    return -1;
-  }
-
-  return 0;
-}
-
 /* arp related functions  ***********************************************/
 
-int set_entry_arp(struct getap_state *gs, unsigned int index, const uint8_t *mac)
+int set_entry_arp(struct getap_state *gs, unsigned int index, const uint8_t *mac, unsigned int fresh)
 {
 
 #ifdef DEBUG
@@ -254,7 +231,8 @@ int set_entry_arp(struct getap_state *gs, unsigned int index, const uint8_t *mac
   }
 #endif
 
-  memcpy(gs->s_arp[index], mac, 6);
+  memcpy(gs->s_arp_table[index], mac, 6);
+  gs->s_arp_fresh[index] = gs->s_iteration + fresh;
 
   return write_mac_fpga(gs, GO_ARPTABLE + (8 * index), mac);
 }
@@ -287,77 +265,94 @@ void glean_arp(struct getap_state *gs, uint8_t *mac, uint8_t *ip)
   fprintf(stderr, "glean: adding entry %d\n", ip[3]);
 #endif
 
-  set_entry_arp(gs, ip[3], mac);
+  set_entry_arp(gs, ip[3], mac, FRESH_FOUND);
 }
 
 void announce_arp(struct getap_state *gs)
 {
   uint32_t subnet;
+  int result;
 
   subnet = (~(gs->s_mask_binary)) | gs->s_address_binary;
 
-  memcpy(gs->s_arb + FRAME_DST, broadcast_const, 6);
-  memcpy(gs->s_arb + FRAME_SRC, gs->s_mac_binary, 6);
+  memcpy(gs->s_arp_buffer + FRAME_DST, broadcast_const, 6);
+  memcpy(gs->s_arp_buffer + FRAME_SRC, gs->s_mac_binary, 6);
 
-  gs->s_arb[FRAME_TYPE1] = 0x08;
-  gs->s_arb[FRAME_TYPE2] = 0x06;
+  gs->s_arp_buffer[FRAME_TYPE1] = 0x08;
+  gs->s_arp_buffer[FRAME_TYPE2] = 0x06;
 
-  memcpy(gs->s_arb + SIZE_FRAME_HEADER, arp_const, 7);
+  memcpy(gs->s_arp_buffer + SIZE_FRAME_HEADER, arp_const, 7);
 
-  gs->s_arb[SIZE_FRAME_HEADER + ARP_OP2] = 2;
+  gs->s_arp_buffer[SIZE_FRAME_HEADER + ARP_OP2] = 2;
 
   /* spam the subnet */
-  memcpy(gs->s_arb + SIZE_FRAME_HEADER + ARP_TIP_BASE, &subnet, 4);
-  memcpy(gs->s_arb + SIZE_FRAME_HEADER + ARP_THA_BASE, broadcast_const, 6);
+  memcpy(gs->s_arp_buffer + SIZE_FRAME_HEADER + ARP_TIP_BASE, &subnet, 4);
+  memcpy(gs->s_arp_buffer + SIZE_FRAME_HEADER + ARP_THA_BASE, broadcast_const, 6);
 
   /* write in our own sending information */
-  memcpy(gs->s_arb + SIZE_FRAME_HEADER + ARP_SIP_BASE, &(gs->s_address_binary), 4);
-  memcpy(gs->s_arb + SIZE_FRAME_HEADER + ARP_SHA_BASE, gs->s_mac_binary, 6);
+  memcpy(gs->s_arp_buffer + SIZE_FRAME_HEADER + ARP_SIP_BASE, &(gs->s_address_binary), 4);
+  memcpy(gs->s_arp_buffer + SIZE_FRAME_HEADER + ARP_SHA_BASE, gs->s_mac_binary, 6);
 
 #ifdef DEBUG
   fprintf(stderr, "arp: sending arp announce\n");
 #endif
 
-  write_frame_fpga(gs, gs->s_arb, 42);
+
+  gs->s_arp_fresh[gs->s_self] = gs->s_iteration + FRESH_SELF;
+  gs->s_arp_len = 42;
+
+  result = write_frame_fpga(gs, gs->s_arp_buffer, gs->s_arp_len);
+  if(result != 0){
+    gs->s_arp_len = 0;
+  }
 }
 
 static void request_arp(struct getap_state *gs, int index)
 {
   uint32_t host;
+  int result;
 
-  if(gs->s_index == index){
+  if(gs->s_self == index){
     return;
   }
 
   host = htonl(index) | (gs->s_mask_binary & gs->s_address_binary);
 
-  memcpy(gs->s_arb + FRAME_DST, broadcast_const, 6);
-  memcpy(gs->s_arb + FRAME_SRC, gs->s_mac_binary, 6);
+  memcpy(gs->s_arp_buffer + FRAME_DST, broadcast_const, 6);
+  memcpy(gs->s_arp_buffer + FRAME_SRC, gs->s_mac_binary, 6);
 
-  gs->s_arb[FRAME_TYPE1] = 0x08;
-  gs->s_arb[FRAME_TYPE2] = 0x06;
+  gs->s_arp_buffer[FRAME_TYPE1] = 0x08;
+  gs->s_arp_buffer[FRAME_TYPE2] = 0x06;
 
-  memcpy(gs->s_arb + SIZE_FRAME_HEADER, arp_const, 7);
+  memcpy(gs->s_arp_buffer + SIZE_FRAME_HEADER, arp_const, 7);
 
-  gs->s_arb[SIZE_FRAME_HEADER + ARP_OP2] = 1;
+  gs->s_arp_buffer[SIZE_FRAME_HEADER + ARP_OP2] = 1;
 
-  memcpy(gs->s_arb + SIZE_FRAME_HEADER + ARP_TIP_BASE, &host, 4);
-  memcpy(gs->s_arb + SIZE_FRAME_HEADER + ARP_THA_BASE, broadcast_const, 6);
+  memcpy(gs->s_arp_buffer + SIZE_FRAME_HEADER + ARP_TIP_BASE, &host, 4);
+  memcpy(gs->s_arp_buffer + SIZE_FRAME_HEADER + ARP_THA_BASE, broadcast_const, 6);
 
   /* write in our own sending information */
-  memcpy(gs->s_arb + SIZE_FRAME_HEADER + ARP_SIP_BASE, &(gs->s_address_binary), 4);
-  memcpy(gs->s_arb + SIZE_FRAME_HEADER + ARP_SHA_BASE, gs->s_mac_binary, 6);
+  memcpy(gs->s_arp_buffer + SIZE_FRAME_HEADER + ARP_SIP_BASE, &(gs->s_address_binary), 4);
+  memcpy(gs->s_arp_buffer + SIZE_FRAME_HEADER + ARP_SHA_BASE, gs->s_mac_binary, 6);
 
 #ifdef DEBUG
   fprintf(stderr, "arp: sending arp request for index %d (host=0x%08x)\n", index, host);
 #endif
 
-  write_frame_fpga(gs, gs->s_arb, 42);
+  gs->s_arp_fresh[index] = gs->s_iteration + FRESH_REQUEST;
+  gs->s_arp_len = 42;
+
+  result = write_frame_fpga(gs, gs->s_arp_buffer, gs->s_arp_len);
+  if(result != 0){
+    gs->s_arp_len = 0;
+  }
 }
 
 void reply_arp(struct getap_state *gs)
 {
-  /* don't use arp buffer arb, just turn the rx buffer around */
+  int result;
+
+  /* WARNING: attempt to get away without using the arp buffer, just turn the rx buffer around */
   memcpy(gs->s_rxb + FRAME_DST, gs->s_rxb + FRAME_SRC, 6);
   memcpy(gs->s_rxb + FRAME_SRC, gs->s_mac_binary, 6);
 
@@ -374,7 +369,12 @@ void reply_arp(struct getap_state *gs)
   fprintf(stderr, "arp: sending arp reply\n");
 #endif
 
-  write_frame_fpga(gs, gs->s_rxb, 42);
+  result = write_frame_fpga(gs, gs->s_rxb, 42);
+  if(result == 0){
+    /* WARNING: in case of write failure, clobber arp buffer to save reply. The buffer could contain something else (probably generated by spam_arp), but we assume the current one is more important. In any event, if writes fail on the 10Gbe interface we are already in trouble */
+    memcpy(gs->s_arp_buffer, gs->s_rxb, 42);
+    gs->s_arp_len = 42;
+  }
 }
 
 void process_arp(struct getap_state *gs)
@@ -414,6 +414,38 @@ void process_arp(struct getap_state *gs)
   }
 }
 
+void spam_arp(struct getap_state *gs)
+{
+  unsigned int i;
+  uint32_t update;
+
+  /* unfortunate, but the gateware needs to know other systems and can't wait, so we have to work things out in advance */
+
+  if(gs->s_arp_len > 0){
+    /* already stuff in arp buffer not flushed, wait ... */
+    return;
+  }
+
+  update = 0;
+
+  for(i = 1; i < 254; i++){
+    if(gs->s_arp_fresh[i] == gs->s_iteration){
+      if(update){ /* defer */
+        gs->s_arp_fresh[i] += update;
+      } else {
+        if(i == gs->s_self){
+          announce_arp(gs);
+        } else {
+          request_arp(gs, i);
+        }
+      }
+      update++;
+    }
+  }
+
+  gs->s_iteration++;
+}
+
 /* transmit to gateware *************************************************/
 
 static int write_mac_fpga(struct getap_state *gs, unsigned int offset, const uint8_t *mac)
@@ -421,9 +453,9 @@ static int write_mac_fpga(struct getap_state *gs, unsigned int offset, const uin
   uint32_t value;
   void *base;
 
-  if(gs->s_verbose > 1){
-    log_message_katcp(gs->s_dispatch, KATCP_LEVEL_DEBUG, NULL, "writing mac %x:%x:%x:%x:%x:%x to offset 0x%x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], offset);
-  }
+#if 0
+  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_DEBUG, NULL, "writing mac %x:%x:%x:%x:%x:%x to offset 0x%x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], offset);
+#endif
 
   base = gs->s_raw_mode->r_map + gs->s_register->e_pos_base;
 
@@ -486,7 +518,7 @@ static int write_frame_fpga(struct getap_state *gs, unsigned char *data, unsigne
   if(len <= MIN_FRAME){
     if(len == 0){
       /* nothing to do */
-      return 0;
+      return 1;
     }
  
     /* pad out short packet */
@@ -506,14 +538,14 @@ static int write_frame_fpga(struct getap_state *gs, unsigned char *data, unsigne
   fprintf(stderr, "txf: previous value in tx word count is %d", buffer_sizes >> 16);
 #endif
 
-#ifdef __PPC__
   if((buffer_sizes & 0xffff0000) > 0){
+#ifdef __PPC__
     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "tx still busy (%d)", (buffer_sizes & 0xffff0000) >> 16);
-    return -1;
-  }
+    return 0;
 #else
-  log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "in test mode we ignore %d words previously queued", (buffer_sizes & 0xffff0000) >> 16);
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "in test mode we ignore %d words previously queued", (buffer_sizes & 0xffff0000) >> 16);
 #endif
+  }
 
   memcpy(base + GO_TXBUFFER, data, actual);
 
@@ -551,7 +583,7 @@ static int transmit_frame_fpga(struct getap_state *gs)
   int result;
 
   result = write_frame_fpga(gs, gs->s_txb, gs->s_tx_len);
-  if(result >= 0){
+  if(result != 0){
     gs->s_tx_len = 0;
   }
 
@@ -562,7 +594,7 @@ int transmit_ip_fpga(struct getap_state *gs)
 {
   uint8_t *mac;
 
-  mac = gs->s_arp[gs->s_txb[SIZE_FRAME_HEADER + IP_DEST4]];
+  mac = gs->s_arp_table[gs->s_txb[SIZE_FRAME_HEADER + IP_DEST4]];
 #ifdef DEBUG
   fprintf(stderr, "txf: looked up dst mac: %x:%x:%x:%x:%x:%x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 #endif
@@ -656,7 +688,7 @@ int receive_ip_kernel(struct katcp_dispatch *d, struct getap_state *gs)
       switch(errno){
         case EAGAIN : 
         case EINTR  :
-          break;
+          return 0;
         default :
           log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "read from tap device %s failed: %s", gs->s_tap_name, strerror(errno));
           return -1;
@@ -699,8 +731,12 @@ int transmit_ip_kernel(struct getap_state *gs)
   d = gs->s_dispatch;
 
   if(gs->s_rx_len <= SIZE_FRAME_HEADER){
-    gs->s_rx_len = 0;
-    return 0;
+    if(gs->s_rx_len == 0){
+      return 1;
+    } else {
+      forget_receive(gs);
+      return -1;
+    }
   }
 
   wr = write(gs->s_tap_fd, gs->s_rxb + SIZE_FRAME_HEADER, gs->s_rx_len - SIZE_FRAME_HEADER);
@@ -734,13 +770,30 @@ int transmit_ip_kernel(struct getap_state *gs)
 int run_timer_tap(struct katcp_dispatch *d, void *data)
 {
   struct getap_state *gs;
+  struct katcp_arb *a;
+  int result;
 
   gs = data;
-  if(gs == NULL){
-    return -1;
+
+  sane_gs(gs);
+
+  a = gs->s_tap_io;
+
+  /* attempt to flush out stuff still stuck in buffers */
+
+  if(gs->s_arp_len > 0){
+    result = write_frame_fpga(gs, gs->s_arp_buffer, gs->s_arp_len);
+    if(result != 0){
+      gs->s_arp_len = 0;
+    }
   }
 
-  /* TODO: spam the network with arp packets */
+  if(gs->s_tx_len > 0){
+    result = write_frame_fpga(gs, gs->s_txb, gs->s_tx_len);
+    if(result != 0){
+      gs->s_tx_len = 0;
+    }
+  }
 
   /* TODO: might want to handle burst of traffic better, instead of waiting poll interval for next frame */
   if(receive_frame_fpga(gs) > 0){
@@ -749,7 +802,8 @@ int run_timer_tap(struct katcp_dispatch *d, void *data)
       switch(gs->s_rxb[FRAME_TYPE2]){
         case 0x00 : /* IP packet */
           if(transmit_ip_kernel(gs) == 0){
-            /* TODO: tap device not ready, update arb and wait for it until select says ok */
+            /* attempt another transmit when tfd becomes writable */
+            mode_arb_katcp(d, a, KATCP_ARB_READ | KATCP_ARB_WRITE);
           }
           break;
 
@@ -765,8 +819,14 @@ int run_timer_tap(struct katcp_dispatch *d, void *data)
 
           break;
       }
+    } else {
+      forget_receive(gs);
     }
   }
+
+  /* the ugly bit */
+  spam_arp(gs);
+
 
   return 0;
 }
@@ -777,23 +837,121 @@ int run_io_tap(struct katcp_dispatch *d, struct katcp_arb *a, unsigned int mode)
   int result;
 
   gs = data_arb_katcp(d, a);
-  if(gs == NULL){
-#ifdef DEBUG
-      fprintf(stderr, "tap: no data associated with io callback\n");
-      abort();
-#endif
-    return -1;
-  }
+
+  sane_gs(gs);
 
   if(mode & KATCP_ARB_READ){
     result = receive_ip_kernel(d, gs);
     if(result > 0){
-      transmit_ip_fpga(gs);
+      transmit_ip_fpga(gs); /* if it doesn't work out, hope that next schedule will clear it */
     }
   }
 
   if(mode & KATCP_ARB_WRITE){
-    /* TODO */
+    if(transmit_ip_kernel(gs) != 0){ /* unless we have to defer again disable write select */
+      mode_arb_katcp(d, a, KATCP_ARB_READ);
+    }
+  }
+
+  return 0;
+}
+
+/* configure fpga *******************************************************/
+
+int configure_fpga(struct getap_state *gs)
+{
+  struct in_addr in;
+  uint32_t value;
+  unsigned int i;
+  void *base;
+  struct katcp_dispatch *d;
+
+  sane_gs(gs);
+
+  d = gs->s_dispatch;
+  base = gs->s_raw_mode->r_map + gs->s_register->e_pos_base;
+
+  if(text_to_mac(gs->s_mac_binary, gs->s_mac_name) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse %s to a mac address", gs->s_mac_name);
+    return -1;
+  }
+  if(write_mac_fpga(gs, GO_MAC, gs->s_mac_binary) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to tell gateware about our own mac %s", gs->s_mac_name);
+    return -1;
+  }
+
+  memcpy(gs->s_txb + 6, gs->s_mac_binary, 6);
+  gs->s_txb[FRAME_TYPE1] = 0x08;
+  gs->s_txb[FRAME_TYPE2] = 0x00;
+
+  if(gs->s_gateway_name[0] != '\0'){
+    if(inet_aton(gs->s_gateway_name, &in) == 0){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse gateway %s to ip address", gs->s_gateway_name);
+      return -1;
+    }
+    value = (in.s_addr) & 0xff; /* WARNING: unclear why this has to be masked */
+
+    *((uint32_t *)(base + GO_GATEWAY)) = value;
+  }
+
+  if(inet_aton(gs->s_address_name, &in) == 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse %s to ip address", gs->s_address_name);
+    return -1;
+  }
+  if(sizeof(in.s_addr) != 4){
+    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "major logic problem: ip address not 4 bytes");
+    return -1;
+  }
+  value = in.s_addr;
+
+  gs->s_address_binary = value; /* in network byte order */
+  gs->s_mask_binary = htonl(0xffffff00); /* fixed mask */
+  gs->s_network_binary = gs->s_mask_binary & gs->s_address_binary;
+
+  gs->s_self = ntohl(~(gs->s_mask_binary) & gs->s_address_binary);
+
+  *((uint32_t *)(base + GO_ADDRESS)) = value;
+
+  if(gs->s_port){
+    /* assumes plain big endian value */
+    /* Bitmask: 24   : Reset core */
+    /*          16   : Enable fabric interface */
+    /*          00-15: Port */
+    /* First, reset the core */
+
+    /* WARNING: the below use of the + operator doesn't look right. Jason ?  */
+
+    value = (0xff << 16) + (0xff << 16) + (gs->s_port);
+    *((uint32_t *)(base + GO_EN_RST_PORT)) = value;
+
+    /* Next, remove core from reset state: */
+    value = (0x00 << 16) + (0xff << 16) + (gs->s_port);
+    *((uint32_t *)(base + GO_EN_RST_PORT)) = value;
+  }
+
+  for(i = 0; i < ARP_CACHE; i++){
+    /* heuristic to make things less bursty ... unclear if it is worth anything */
+    set_entry_arp(gs, i, broadcast_const, ((gs->s_self % 32) * 4) + gs->s_iteration + i);
+  }
+
+  set_entry_arp(gs, gs->s_self, gs->s_mac_binary, gs->s_self % 32); /* announce ourselves as function of IP % 32 - an attempt to make things less bursty */
+
+  return 0;
+}
+
+/* configure tap device *************************************************/
+
+static int configure_tap(struct getap_state *gs)
+{
+  char cmd_buffer[CMD_BUFFER];
+  int len;
+
+  len = snprintf(cmd_buffer, CMD_BUFFER, "ifconfig %s %s netmask 255.255.255.0 up\n", gs->s_tap_name, gs->s_address_name);
+  cmd_buffer[CMD_BUFFER - 1] = '\0';
+
+  /* TODO: stalls the system */
+  if(system(cmd_buffer)){
+    return -1;
   }
 
   return 0;
@@ -805,17 +963,22 @@ void destroy_getap(struct katcp_dispatch *d, struct getap_state *gs)
 {
   sane_gs(gs);
 
-  gs->s_raw_mode = NULL;
-  gs->s_register = NULL;
-
-  /* TODO: deallocate more */
+  /* make all the callbacks go away */
 
   if(gs->s_tap_io){
     unlink_arb_katcp(d, gs->s_tap_io);
     gs->s_tap_io = NULL;
   }
 
-  /* what about the timer callback ? */
+  if(gs->s_timer){
+    discharge_timer_katcp(d, gs);
+    gs->s_timer = 0;
+  }
+
+  /* empty out the rest of the data structure */
+
+
+  /* TODO: deallocate more */
 
   if(gs->s_tap_fd >= 0){
     tap_close(gs->s_tap_fd);
@@ -827,14 +990,21 @@ void destroy_getap(struct katcp_dispatch *d, struct getap_state *gs)
     gs->s_tap_name = NULL;
   }
 
+  /* now ensure that things are invalidated */
+
+  gs->s_raw_mode = NULL;
+  gs->s_register = NULL;
+  gs->s_dispatch = NULL;
+
   gs->s_magic = 0;
 
   free(gs);
 }
 
-struct getap_state *create_getap(struct katcp_dispatch *d, unsigned int instance, char *name, char *tap, char *ip, unsigned int port, char *mac)
+struct getap_state *create_getap(struct katcp_dispatch *d, unsigned int instance, char *name, char *tap, char *ip, unsigned int port, char *mac, unsigned int period)
 {
   struct getap_state *gs; 
+  unsigned int i;
 
 #ifdef DEBUG
   fprintf(stderr, "attempting to set up tap device %s from register %s (ip=%s, mac=%s)\n", tap, name, ip, mac);
@@ -860,19 +1030,25 @@ struct getap_state *create_getap(struct katcp_dispatch *d, unsigned int instance
   gs->s_mac_name[0] = '\0';
   gs->s_port = GO_DEFAULT_PORT;
 
-  gs->s_index = 0;
+  gs->s_self = 0;
 
   /* mac, address, mask, network binary */
 
-  gs->s_register = NULL;
   gs->s_instance = 0;
+  gs->s_iteration = 0;
 
-  gs->s_tap_fd = (-1);
-
-  gs->s_verbose = 1;
-  gs->s_testing = 0;
+  gs->s_register = NULL;
 
   gs->s_tap_io = NULL;
+  gs->s_tap_fd = (-1);
+
+  gs->s_timer = 0;
+
+  gs->s_rx_len = 0;
+  gs->s_tx_len = 0;
+  gs->s_arp_len = 0;
+
+  /* buffers, table */
 
   /* TODO: initialise the rest of the structure here */
 
@@ -906,10 +1082,21 @@ struct getap_state *create_getap(struct katcp_dispatch *d, unsigned int instance
     strncpy(gs->s_mac_name, mac, MAC_BUFFER);
   } else {
     generate_text_mac(gs->s_mac_name, gs->s_instance); /* TODO: increment index somehow */
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "generated mac %s", gs->s_mac_name);
   }
 
   if(port > 0){
     gs->s_port = port;
+  }
+
+  for(i = 0; i < ARP_CACHE; i++){
+    gs->s_arp_fresh[i] = i;
+  }
+
+  if(configure_fpga(gs) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to initialise gateware on %s", name);
+    destroy_getap(d, gs);
+    return NULL;
   }
 
   gs->s_tap_fd = tap_open(gs->s_tap_name);
@@ -931,6 +1118,14 @@ struct getap_state *create_getap(struct katcp_dispatch *d, unsigned int instance
     destroy_getap(d, gs);
     return NULL;
   }
+
+  if(register_every_ms_katcp(d, period, &run_timer_tap, gs) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to register timer for interval of %dms", gs->s_timer);
+    destroy_getap(d, gs);
+    return NULL;
+  }
+
+  gs->s_timer = period; /* a nonzero value here means the timer is running ... */
 
   return gs;
 }
@@ -976,7 +1171,7 @@ int tap_start_cmd(struct katcp_dispatch *d, int argc)
     }
   }
 
-  gs = create_getap(d, 0, name, tap, ip, port, mac);
+  gs = create_getap(d, 0, name, tap, ip, port, mac, POLL_INTERVAL);
   if(gs == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to initialise tap module");
     return KATCP_RESULT_INVALID;
@@ -1024,4 +1219,46 @@ int tap_stop_cmd(struct katcp_dispatch *d, int argc)
   return KATCP_RESULT_OK;
 }
 
+int tap_info_cmd(struct katcp_dispatch *d, int argc)
+{
+  char *name;
+  struct katcp_arb *a;
+  struct getap_state *gs;
+  unsigned int i;
 
+  if(argc <= 1){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a register name");
+    return KATCP_RESULT_INVALID;
+  }
+
+  name = arg_string_katcp(d, 1);
+  if(name == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "internal failure while acquireing parameters");
+    return KATCP_RESULT_FAIL;
+  }
+
+  a = find_arb_katcp(d, name);
+  if(a == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to locate %s", name);
+    return KATCP_RESULT_FAIL;
+  }
+
+  gs = data_arb_katcp(d, a);
+  if(gs == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no user state found for %s", name);
+    return KATCP_RESULT_FAIL;
+  }
+
+  for(i = 1; i < 254; i++){
+    if(memcmp(gs->s_arp_table[i], broadcast_const, 6)){
+      log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "peer %02x:%02x:%02x:%02x:%02x:%02x at %u", gs->s_arp_table[i][0], gs->s_arp_table[i][1], gs->s_arp_table[i][2], gs->s_arp_table[i][3], gs->s_arp_table[i][4], gs->s_arp_table[i][5], gs->s_arp_fresh[i]);
+    }
+  }
+
+  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "current iteration %u", gs->s_iteration);
+  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "gateware name %s", name);
+  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "tap device name %s on fd %d", gs->s_tap_name, gs->s_tap_fd);
+  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "address %s", gs->s_address_name);
+
+  return KATCP_RESULT_OK;
+}
