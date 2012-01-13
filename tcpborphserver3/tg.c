@@ -82,6 +82,8 @@
 #define FRESH_REQUEST  10000 /* length of time for next request - units iffy */
 #define FRESH_SELF      7000 /* interval when we announce ourselves - good idea to be shorter than others */
 
+#define RECEIVE_BURST     16 /* read at most N frames per polling interval */
+
 static const uint8_t arp_const[] = { 0, 1, 8, 0, 6, 4, 0 }; /* disgusting */
 static const uint8_t broadcast_const[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 
@@ -109,6 +111,7 @@ struct getap_state{
 
   unsigned int s_instance;
   uint16_t s_iteration;
+  unsigned int s_burst;
 
   struct tbs_entry *s_register;
 
@@ -348,7 +351,7 @@ static void request_arp(struct getap_state *gs, int index)
   }
 }
 
-void reply_arp(struct getap_state *gs)
+int reply_arp(struct getap_state *gs)
 {
   int result;
 
@@ -375,9 +378,11 @@ void reply_arp(struct getap_state *gs)
     memcpy(gs->s_arp_buffer, gs->s_rxb, 42);
     gs->s_arp_len = 42;
   }
+
+  return result;
 }
 
-void process_arp(struct getap_state *gs)
+int process_arp(struct getap_state *gs)
 {
 #ifdef DEBUG
   fprintf(stderr, "arp: got arp packet\n");
@@ -385,7 +390,7 @@ void process_arp(struct getap_state *gs)
 
   if(memcmp(arp_const, gs->s_rxb + SIZE_FRAME_HEADER, 7)){
     fprintf(stderr, "arp: unknown or malformed arp packet\n");
-    return;
+    return 1;
   }
 
   switch(gs->s_rxb[SIZE_FRAME_HEADER + ARP_OP2]){
@@ -394,7 +399,7 @@ void process_arp(struct getap_state *gs)
       fprintf(stderr, "arp: saw reply\n");
 #endif
       glean_arp(gs, gs->s_rxb + SIZE_FRAME_HEADER + ARP_SHA_BASE, gs->s_rxb + SIZE_FRAME_HEADER + ARP_SIP_BASE);
-      break;
+      return 1;
 
     case 1 : /* request */
 #ifdef DEBUG
@@ -405,12 +410,13 @@ void process_arp(struct getap_state *gs)
 #ifdef DEBUG
         fprintf(stderr, "arp: somebody is looking for me\n");
 #endif
-        reply_arp(gs);
+        return reply_arp(gs);
+      } else {
+        return 1;
       }
-      break;
     default :
       fprintf(stderr, "arp: unhandled arp message %x\n", gs->s_rxb[SIZE_FRAME_HEADER + ARP_OP2]);
-      break;
+      return 1;
   }
 }
 
@@ -771,7 +777,8 @@ int run_timer_tap(struct katcp_dispatch *d, void *data)
 {
   struct getap_state *gs;
   struct katcp_arb *a;
-  int result;
+  int result, run;
+  unsigned int burst;
 
   gs = data;
 
@@ -796,37 +803,52 @@ int run_timer_tap(struct katcp_dispatch *d, void *data)
   }
 
   /* TODO: might want to handle burst of traffic better, instead of waiting poll interval for next frame */
-  if(receive_frame_fpga(gs) > 0){
+  do{
 
-    if(gs->s_rxb[FRAME_TYPE1] == 0x08){
-      switch(gs->s_rxb[FRAME_TYPE2]){
-        case 0x00 : /* IP packet */
-          if(transmit_ip_kernel(gs) == 0){
-            /* attempt another transmit when tfd becomes writable */
-            mode_arb_katcp(d, a, KATCP_ARB_READ | KATCP_ARB_WRITE);
-          }
-          break;
+    if(receive_frame_fpga(gs) > 0){
 
-        case 0x06 : /* arp packet */
-          process_arp(gs);
-          forget_receive(gs);
-          break;
+      if(gs->s_rxb[FRAME_TYPE1] == 0x08){
+        switch(gs->s_rxb[FRAME_TYPE2]){
+          case 0x00 : /* IP packet */
+            if(transmit_ip_kernel(gs) == 0){
+              /* attempt another transmit when tfd becomes writable */
+              mode_arb_katcp(d, a, KATCP_ARB_READ | KATCP_ARB_WRITE);
+              run = 0; /* don't bother getting more if we can't send it on */
+            }
+            break;
 
-        default :
+          case 0x06 : /* arp packet */
+            if(process_arp(gs) == 0){
+              run = 0; /* arp reply stalled, wait ... */
+            }
+            forget_receive(gs);
+            break;
 
-          log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "discarding frame of unknown type 0x%02x%02x and length %d\n", gs->s_rxb[FRAME_TYPE1], gs->s_rxb[FRAME_TYPE2], gs->s_rx_len);
-          forget_receive(gs);
+          default :
 
-          break;
+            log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "discarding frame of unknown type 0x%02x%02x and length %d\n", gs->s_rxb[FRAME_TYPE1], gs->s_rxb[FRAME_TYPE2], gs->s_rx_len);
+            forget_receive(gs);
+
+            break;
+        }
+      } else {
+        forget_receive(gs);
       }
-    } else {
-      forget_receive(gs);
+
+      burst++;
+
+      if(burst > gs->s_burst){
+        run = 0;
+      }
+
+    } else { /* nothing more to receive */
+      run = 0;
     }
+  } while(run);
+
+  if(burst < 1){ /* only spam the network if we don't have anything better to do */
+    spam_arp(gs);
   }
-
-  /* the ugly bit */
-  spam_arp(gs);
-
 
   return 0;
 }
@@ -949,7 +971,7 @@ static int configure_tap(struct getap_state *gs)
   len = snprintf(cmd_buffer, CMD_BUFFER, "ifconfig %s %s netmask 255.255.255.0 up\n", gs->s_tap_name, gs->s_address_name);
   cmd_buffer[CMD_BUFFER - 1] = '\0';
 
-  /* TODO: stalls the system */
+  /* WARNING: stalls the system, could possibly handle it via a job command */
   if(system(cmd_buffer)){
     return -1;
   }
@@ -977,9 +999,6 @@ void destroy_getap(struct katcp_dispatch *d, struct getap_state *gs)
 
   /* empty out the rest of the data structure */
 
-
-  /* TODO: deallocate more */
-
   if(gs->s_tap_fd >= 0){
     tap_close(gs->s_tap_fd);
     gs->s_tap_fd = (-1);
@@ -995,6 +1014,14 @@ void destroy_getap(struct katcp_dispatch *d, struct getap_state *gs)
   gs->s_raw_mode = NULL;
   gs->s_register = NULL;
   gs->s_dispatch = NULL;
+
+  gs->s_port = 0;
+  gs->s_self = 0;
+  gs->s_iteration = 0;
+
+  gs->s_rx_len = 0;
+  gs->s_tx_len = 0;
+  gs->s_arp_len = 0;
 
   gs->s_magic = 0;
 
@@ -1036,6 +1063,7 @@ struct getap_state *create_getap(struct katcp_dispatch *d, unsigned int instance
 
   gs->s_instance = 0;
   gs->s_iteration = 0;
+  gs->s_burst = RECEIVE_BURST;
 
   gs->s_register = NULL;
 
@@ -1050,7 +1078,11 @@ struct getap_state *create_getap(struct katcp_dispatch *d, unsigned int instance
 
   /* buffers, table */
 
-  /* TODO: initialise the rest of the structure here */
+  for(i = 0; i < ARP_CACHE; i++){
+    gs->s_arp_fresh[i] = i;
+  }
+
+  /* initialise the rest of the structure here */
 
   gs->s_raw_mode = get_mode_katcp(d, TBS_MODE_RAW);
   if(gs->s_raw_mode == NULL){
@@ -1087,10 +1119,6 @@ struct getap_state *create_getap(struct katcp_dispatch *d, unsigned int instance
 
   if(port > 0){
     gs->s_port = port;
-  }
-
-  for(i = 0; i < ARP_CACHE; i++){
-    gs->s_arp_fresh[i] = i;
   }
 
   if(configure_fpga(gs) < 0){
@@ -1256,9 +1284,12 @@ int tap_info_cmd(struct katcp_dispatch *d, int argc)
   }
 
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "current iteration %u", gs->s_iteration);
+  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "buffers arp=%u/rx=%u/tx=%u", gs->s_arp_len, gs->s_rx_len, gs->s_tx_len);
+  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "polling interval %u", gs->s_timer);
+  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "address %s", gs->s_address_name);
+  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "gateware port is %u", gs->s_port);
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "gateware name %s", name);
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "tap device name %s on fd %d", gs->s_tap_name, gs->s_tap_fd);
-  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "address %s", gs->s_address_name);
 
   return KATCP_RESULT_OK;
 }
