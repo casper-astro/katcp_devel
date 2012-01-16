@@ -354,6 +354,7 @@ int unwarp_timers_katcp(struct katcp_dispatch *d)
 
 int discharge_timer_katcp(struct katcp_dispatch *d, void *data)
 {
+  /* the function name could have been better. Discharge here means release, dismiss, make it go away */
   struct katcp_shared *s;
   struct katcp_time *ts;
 
@@ -439,7 +440,7 @@ int run_timers_katcp(struct katcp_dispatch *d, struct timespec *interval)
       result = cmp_time_katcp(&(ts->t_when), &(now));
       if(result <= 0){
         if(result < 0){
-          log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "missed deadline at %lu.%06lus now %lu.%06lus for %p", ts->t_when.tv_sec, ts->t_when.tv_usec, now.tv_sec, now.tv_usec, ts->t_data);
+          log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "missed deadline at %lu.%06lus now %lu.%06lus for %p", ts->t_when.tv_sec, ts->t_when.tv_usec, now.tv_sec, now.tv_usec, ts->t_data);
         }
         ts->t_armed = 0; /* assume that we won't run again */
 #ifdef DEBUG
