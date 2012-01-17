@@ -1,4 +1,4 @@
-export CORR_CONFIG=/etc/corr/config
+export CORR_CONFIG=/etc/corr/
 export CORR_INIT_SCRIPT=/etc/init.d/corr
 export KATCP_SERVER=localhost:1235
 export CORR_MAPPING=/var/run/corr/antenna_mapping
@@ -49,8 +49,8 @@ kcs_change_corr()
 
     kcs_debug "attempting to set config file"
 
-    if [ ! -e ${CORR_CONFIG}-${1} ] ; then
-      kcs_error "no $1 configuration for corr at ${CORR_CONFIG}-${1}"
+    if [ ! -e ${CORR_CONFIG}/${1} ] ; then
+      kcs_error "no $1 configuration for corr at ${CORR_CONFIG}/${1}"
       return 1
     fi
 
@@ -79,9 +79,9 @@ kcs_corr_log () {
 }
 
 kcs_config_numeric () {
-  value=$(grep ^${1} ${CORR_CONFIG}-${KATCP_MODE} 2> /dev/null | cut -f2 -d= | tr -d ' ' )
+  value=$(grep ^${1} ${CORR_CONFIG}/${KATCP_MODE} 2> /dev/null | cut -f2 -d= | tr -d ' ' )
   if [ -z "${value}" ] ; then
-    kcs_error "unable to locate ${1} in ${CORR_CONFIG}-${KATCP_MODE}"
+    kcs_error "unable to locate ${1} in ${CORR_CONFIG}/${KATCP_MODE}"
   fi
 
   kcs_debug "${1} maps to ${value}"
@@ -117,7 +117,7 @@ kcs_mode_sensors () {
       mode=${sensor_name%%.*}
     fi
 
-    config=${CORR_CONFIG}-${mode}
+    config=${CORR_CONFIG}/${mode}
 
     kcs_debug "attempting to locate $sensor_key in ${config} (mode ${mode}) for ${sensor_name}"
 

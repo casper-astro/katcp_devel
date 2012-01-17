@@ -2,14 +2,14 @@
 
 source functions.sh
 
-if [ ! -f ${CORR_CONFIG}-${KATCP_MODE} ] ; then
-  kcs_warn "no config ${CORR_CONFIG}-${KATCP_MODE}"
+if [ ! -f ${CORR_CONFIG}/${KATCP_MODE} ] ; then
+  kcs_warn "no config ${CORR_CONFIG}/${KATCP_MODE}"
   echo "#capture-list k7 ${rxip} ${rxport}"
   exit 0
 fi
 
-rxip=$(grep ^rx_udp_ip ${CORR_CONFIG}-${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
-rxport=$(grep ^rx_udp_port ${CORR_CONFIG}-${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
+rxip=$(grep ^rx_udp_ip ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
+rxport=$(grep ^rx_udp_port ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
 
 if [ -z "${rxip}" ] ; then
   rxip=unknown

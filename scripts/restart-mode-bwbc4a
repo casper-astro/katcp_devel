@@ -14,7 +14,7 @@ kcs_change_corr bwbc4a
 
 kcs_debug "running connect"
 
-while ! kcpcmd -k -m -t 120 connect ${CORR_CONFIG}-wbc ; do
+while ! kcpcmd -k -m -t 120 connect ${CORR_CONFIG}/bwbc4a ; do
   kcs_check_timeout ${limit}
   kcs_corr_log
   sleep 1
