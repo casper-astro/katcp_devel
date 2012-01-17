@@ -96,11 +96,11 @@ kcs_mode_sensors () {
     kcs_error "mode sensors needs to be invoked with sensor parameter"
   fi
 
-  sensor_suffixes=("number\_of\_channels none integer 0 65536" "number\_of\_chanels none integer 0 65536" "current\_selected\_center\_frequency Hz integer 0 1000000000" "number\_of\_channels none integer 0 65536" "number\_of\_channels none integer 0 65536")
-  sensor_names=(".nbc.channels.coarse" ".nbc.channels.fine" ".nbc.frequency.current" ".wbc.channels" ".wbc8k.channels")
-  sensor_keys=(coarse_chans n_chans "" n_chans n_chans)
-  sensor_values=("" "" "0" "" "")
-  sensor_stata=("" "" "unknown" "" "")
+  sensor_suffixes=("number\_of\_channels none integer 0 65536" "number\_of\_chanels none integer 0 65536" "current\_selected\_center\_frequency Hz integer 0 1000000000" "number\_of\_channels none integer 0 65536" "number\_of\_channels none integer 0 65536" "number\_of\_channels none integer 0 65536")
+  sensor_names=(".nbc.channels.coarse" ".nbc.channels.fine" ".nbc.frequency.current" ".wbc.channels" ".wbc8k.channels" ".bwbc4a.channels")
+  sensor_keys=(coarse_chans n_chans "" n_chans n_chans n_chans)
+  sensor_values=("" "" "0" "" "" "")
+  sensor_stata=("" "" "unknown" "" "" "")
 
   i=0
   while [ $i -lt ${#sensor_names[*]} ] ; do 
