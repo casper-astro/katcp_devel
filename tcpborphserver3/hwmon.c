@@ -49,7 +49,14 @@ int read_fd_hwsensor_tbs(int fd)
   if (fd < 0)
     return -1;
 
-  size = pread(fd, &buf, sizeof(buf), 0);
+  if (lseek(fd, 0, SEEK_SET) < 0){
+#ifdef DEBUG
+    fprintf(stderr, "hwmon: cannot lseek fd: %d\n", fd);
+#endif
+    return -1;
+  }
+
+  size = read(fd, &buf, sizeof(buf));
   if (size <= 0)
     return -1;
 
@@ -102,7 +109,7 @@ struct tbs_hwsensor *create_hwsensor_tbs(struct katcp_dispatch *d, char *name, c
   }
 
   if (adc){
-    hs->h_adc_fd = open(adc, O_RDONLY | O_CLOEXEC);
+    hs->h_adc_fd = open(adc, O_RDONLY);
     if (hs->h_adc_fd < 0){
 #ifdef DEBUG
       fprintf(stderr, "hwmon: create hwsensor could not open %s (%s)\n", adc, strerror(errno));
@@ -111,10 +118,11 @@ struct tbs_hwsensor *create_hwsensor_tbs(struct katcp_dispatch *d, char *name, c
       destroy_hwsensor_tbs(hs);
       return NULL;
     }
+    fcntl(hs->h_adc_fd, F_SETFD, FD_CLOEXEC);
   }
 
   if (min && max){
-    minfd = open(min, O_RDONLY | O_CLOEXEC);
+    minfd = open(min, O_RDONLY);
     if (minfd < 0){
 #ifdef DEBUG
       fprintf(stderr, "hwmon: create hwsensor could not open %s (%s)\n", min, strerror(errno));
@@ -128,7 +136,7 @@ struct tbs_hwsensor *create_hwsensor_tbs(struct katcp_dispatch *d, char *name, c
     if (minfd > 0)
       close(minfd);
 
-    maxfd = open(max, O_RDONLY | O_CLOEXEC);
+    maxfd = open(max, O_RDONLY);
     if (maxfd < 0){
 #ifdef DEBUG
       fprintf(stderr, "hwmon: create hwsensor could not open %s (%s)\n", max, strerror(errno));
