@@ -1193,6 +1193,11 @@ void destroy_raw_tbs(struct katcp_dispatch *d, struct tbs_raw *tr)
     tr->r_registers = NULL;
   }
 
+  if (tr->r_hwmon){
+    destroy_avltree(tr->r_hwmon, &destroy_hwsensor_tbs);
+    tr->r_hwmon = NULL;
+  }
+
   if(tr->r_fpga == TBS_FPGA_MAPPED){
     /* TODO */
 
@@ -1225,6 +1230,7 @@ void release_raw_tbs(struct katcp_dispatch *d, unsigned int mode)
 int enter_raw_tbs(struct katcp_dispatch *d, struct katcp_notice *n, char *flags, unsigned int from)
 {
   log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "now running in raw mode");
+
 
   return 0;
 }
@@ -1275,6 +1281,7 @@ int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir)
   }
 
   tr->r_registers = NULL;
+  tr->r_hwmon = NULL;
   tr->r_fpga = TBS_FRGA_DOWN;
 
   tr->r_map = NULL;
@@ -1294,6 +1301,13 @@ int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir)
     return -1;
   }
 
+  tr->r_hwmon = create_avltree();
+  if(tr->r_hwmon == NULL){
+    destroy_raw_tbs(d, tr);
+    return -1;
+  }
+
+
   if(make_bofdir_tbs(d, tr, bofdir) < 0){
     destroy_raw_tbs(d, tr);
     return -1;
@@ -1301,6 +1315,12 @@ int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir)
 
   if(store_full_mode_katcp(d, TBS_MODE_RAW, TBS_MODE_RAW_NAME, &enter_raw_tbs, NULL, tr, &release_raw_tbs) < 0){
     return -1;
+  }
+
+  if ((result = setup_hwmon_tbs(d)) < 0){
+#ifdef DEBUG
+    fprintf(stderr, "hwmon: setup returns %d\n", result);
+#endif
   }
 
   result = 0;
@@ -1323,6 +1343,6 @@ int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir)
   result += register_flag_mode_katcp(d, "?tap-stop",     "deletes a tap instance (?tap-stop register-name)", &tap_stop_cmd, 0, TBS_MODE_RAW);
   result += register_flag_mode_katcp(d, "?tap-info",     "displays diagnostics for a tap instance (?tap-info register-name)", &tap_info_cmd, 0, TBS_MODE_RAW);
 
-  return 0;
+  return result;
 }
 
