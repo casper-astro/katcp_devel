@@ -111,7 +111,7 @@ struct tbs_hwsensor *create_hwsensor_tbs(struct katcp_dispatch *d, char *name, c
   if (adc){
     hs->h_adc_fd = open(adc, O_RDONLY);
     if (hs->h_adc_fd < 0){
-#ifdef DEBUG
+#if DEBUG>1
       fprintf(stderr, "hwmon: create hwsensor could not open %s (%s)\n", adc, strerror(errno));
 #endif
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not open %s (%s)", adc, strerror(errno));
@@ -124,7 +124,7 @@ struct tbs_hwsensor *create_hwsensor_tbs(struct katcp_dispatch *d, char *name, c
   if (min && max){
     minfd = open(min, O_RDONLY);
     if (minfd < 0){
-#ifdef DEBUG
+#if DEBUG>1
       fprintf(stderr, "hwmon: create hwsensor could not open %s (%s)\n", min, strerror(errno));
 #endif
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not open %s (%s)", min, strerror(errno));
@@ -138,7 +138,7 @@ struct tbs_hwsensor *create_hwsensor_tbs(struct katcp_dispatch *d, char *name, c
 
     maxfd = open(max, O_RDONLY);
     if (maxfd < 0){
-#ifdef DEBUG
+#if DEBUG>1
       fprintf(stderr, "hwmon: create hwsensor could not open %s (%s)\n", max, strerror(errno));
 #endif
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not open %s (%s)", max, strerror(errno));
@@ -217,63 +217,63 @@ int setup_hwmon_tbs(struct katcp_dispatch *d)
   
   rtn = 0;
 
-  rtn += register_hwmon_tbs(d, "raw:temp:ambient", 
+  rtn += register_hwmon_tbs(d, "raw.temp.ambient", 
                                "Ambient board temperature",
                                "millidegrees",
                                "/sys/bus/i2c/devices/0-0018/temp1_input", 
                                "/sys/bus/i2c/devices/0-0018/temp1_min",
                                "/sys/bus/i2c/devices/0-0018/temp1_max");
   
-  rtn += register_hwmon_tbs(d, "raw:temp:ppc", 
+  rtn += register_hwmon_tbs(d, "raw.temp.ppc", 
                                "PowerPC temperature",
                                "millidegrees",
                                "/sys/bus/i2c/devices/0-0018/temp2_input", 
                                "/sys/bus/i2c/devices/0-0018/temp2_min",
                                "/sys/bus/i2c/devices/0-0018/temp2_max");
 
-  rtn += register_hwmon_tbs(d, "raw:temp:fpga", 
+  rtn += register_hwmon_tbs(d, "raw.temp.fpga", 
                                "FPGA temperature",
                                "millidegrees",
                                "/sys/bus/i2c/devices/0-0018/temp3_input", 
                                "/sys/bus/i2c/devices/0-0018/temp3_min",
                                "/sys/bus/i2c/devices/0-0018/temp3_max");
 
-  rtn += register_hwmon_tbs(d, "raw:fan:chs1", 
+  rtn += register_hwmon_tbs(d, "raw.fan.chs1", 
                                "Chassis fan speed",
                                "rpm",
                                "/sys/bus/i2c/devices/0-001b/fan1_input",
                                NULL,
                                NULL);
 
-  rtn += register_hwmon_tbs(d, "raw:fan:chs2",
+  rtn += register_hwmon_tbs(d, "raw.fan.chs2",
                                "Chassis fan speed",
                                "rpm",
                                "/sys/bus/i2c/devices/0-001f/fan1_input",
                                NULL,
                                NULL);
   
-  rtn += register_hwmon_tbs(d, "raw:fan:fpga", 
+  rtn += register_hwmon_tbs(d, "raw.fan.fpga", 
                                "FPGA fan speed",
                                "rpm",
                                "/sys/bus/i2c/devices/0-0048/fan1_input",
                                NULL,
                                NULL);
 
-  rtn += register_hwmon_tbs(d, "raw:fan:chs0", 
+  rtn += register_hwmon_tbs(d, "raw.fan.chs0", 
                                "Chassis fan speed",
                                "rpm",
                                "/sys/bus/i2c/devices/0-004b/fan1_input",
                                NULL,
                                NULL);
   
-  rtn += register_hwmon_tbs(d, "raw:temp:inlet", 
+  rtn += register_hwmon_tbs(d, "raw.temp.inlet", 
                                "Inlet ambient temperature",
                                "millidegrees",
                                "/sys/bus/i2c/devices/0-004c/temp1_input",
                                "/sys/bus/i2c/devices/0-004c/temp1_min",
                                "/sys/bus/i2c/devices/0-004c/temp1_max");
 
-  rtn += register_hwmon_tbs(d, "raw:temp:outlet", 
+  rtn += register_hwmon_tbs(d, "raw.temp.outlet", 
                                "Outlet ambient temperature",
                                "millidegrees",
                                "/sys/bus/i2c/devices/0-004e/temp1_input",
