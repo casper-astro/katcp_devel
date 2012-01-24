@@ -407,6 +407,7 @@ struct katcp_shared{
   struct katcp_cmd *s_commands;
   struct katcp_sensor *s_mode_sensor;
   unsigned int s_mode;
+  unsigned int s_flaky; /* mode transition failed, breaking the old one */
 
   unsigned int s_new;
   char *s_options;
@@ -636,7 +637,7 @@ int add_parameter_parse_katcl(struct katcl_parse *pd, int flags, struct katcl_pa
 unsigned int get_count_parse_katcl(struct katcl_parse *p);
 int get_tag_parse_katcl(struct katcl_parse *p);
 
-int is_type_parse_katcl(struct katcl_parse *p, char mode);
+int is_type_parse_katcl(struct katcl_parse *p, char type);
 int is_request_parse_katcl(struct katcl_parse *p);
 int is_reply_parse_katcl(struct katcl_parse *p);
 int is_inform_parse_katcl(struct katcl_parse *p);

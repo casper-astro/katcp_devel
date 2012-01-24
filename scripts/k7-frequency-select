@@ -39,8 +39,8 @@ kcs_debug "chansel with ${channel} ${mixer}"
 
 if corr_nb_chansel.py -c ${channel} -m ${mixer} >& /dev/null ; then 
   actual=$[channel*bw/coarse_chans]
-  echo "#sensor-list .nbc.frequency.current current\_selected\_center\_frequency Hz integer 0 1000000000"
-  echo "#sensor-status $(date +%s)000 1 .nbc.frequency.current nominal ${actual}"
+  echo "#sensor-list .nbc.centerfrequency current\_selected\_center\_frequency Hz integer 0 1000000000"
+  echo "#sensor-status $(date +%s)000 1 .nbc.centerfrequency nominal ${actual}"
   echo "#return ok ${actual}"
   exit 0
 fi

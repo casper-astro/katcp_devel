@@ -663,13 +663,13 @@ int get_tag_parse_katcl(struct katcl_parse *p)
   return p->p_tag;
 }
 
-int is_type_parse_katcl(struct katcl_parse *p, char mode)
+int is_type_parse_katcl(struct katcl_parse *p, char type)
 {
   if(p->p_got <= 0){
     return 0;
   }
 
-  if(p->p_buffer[p->p_args[0].a_begin] == mode){
+  if(p->p_buffer[p->p_args[0].a_begin] == type){
     return 1;
   }
 

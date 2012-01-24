@@ -2967,7 +2967,7 @@ int sensor_value_cmd_katcp(struct katcp_dispatch *d, int argc)
       if((name == NULL) || (!strncmp(name, sn->s_name, prefix))){
         force_acquire_katcp(d, sn);
         count++;
-      }
+      } /* else: display mode specific sensors but mark their status unknown ? */
     }
   } 
 

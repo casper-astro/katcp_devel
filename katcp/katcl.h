@@ -15,7 +15,7 @@ struct katcl_byte_bit{
 };
 
 struct katcl_line *create_katcl(int fd);
-void destroy_katcl(struct katcl_line *l, int mode);
+void destroy_katcl(struct katcl_line *l, int end);
 int error_katcl(struct katcl_line *l);
 
 int read_katcl(struct katcl_line *l);
