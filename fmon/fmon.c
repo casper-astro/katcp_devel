@@ -1279,7 +1279,11 @@ int detect_fmon(struct fmon_state *f)
       } else {
         n = &(f->f_inputs[f->f_fs]);
         n->n_rf_enabled = (word & 0x80000000) ? 1 : 0;
+#if 0
         n->n_rf_gain = 20.0 - (word & 0x3f) * 0.5;
+#endif 
+        /* alternative via Jason email on 2012-01-24 */
+        n->n_rf_gain = -11.5 + (word & 0x3f) * 0.5;
 
         f->f_fs++;
       }
