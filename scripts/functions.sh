@@ -1,7 +1,7 @@
 export CORR_CONFIG=/etc/corr/
 export CORR_INIT_SCRIPT=/etc/init.d/corr
 export KATCP_SERVER=localhost:1235
-export CORR_MAPPING=/var/run/corr/antenna_mapping
+export CORR_MAPPING=/var/run/corr/antenna_mapping.${KATCP_MODE}
 
 kcs_check_timeout()
 {
@@ -97,7 +97,7 @@ kcs_mode_sensors () {
   fi
 
   sensor_suffixes=("number\_of\_channels none integer 0 65536" "number\_of\_chanels none integer 0 65536" "current\_selected\_center\_frequency Hz integer 0 1000000000" "number\_of\_channels none integer 0 65536" "number\_of\_channels none integer 0 65536" "number\_of\_channels none integer 0 65536")
-  sensor_names=(".nbc.channels.coarse" ".nbc.channels.fine" ".nbc.frequency.current" ".wbc.channels" ".wbc8k.channels" ".bwbc4a.channels")
+  sensor_names=(".nbc.channels.coarse" ".nbc.channels.fine" ".nbc.centerfrequency" ".wbc.channels" ".wbc8k.channels" ".bwbc4a.channels")
   sensor_keys=(coarse_chans n_chans "" n_chans n_chans n_chans)
   sensor_values=("" "" "0" "" "" "")
   sensor_stata=("" "" "unknown" "" "" "")
