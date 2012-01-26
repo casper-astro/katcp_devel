@@ -118,7 +118,7 @@ struct fmon_sensor_template input_template[FMON_INPUT_SENSORS] = {
   { "%s.fft.overrange",  "fft overrange indicator",     KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0 },
   { "%s.sram.available", "sram calibrated and ready",   KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0 },
   { "%s.xaui.link",      "data link up",                KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0 },
-  { "%s.adc.amplitude",  "approximate input signal strength",  KATCP_SENSOR_FLOAT,   0, 0, 0.0, 65000.0},
+  { "%s.adc.raw",        "untranslated average of squared inputs",  KATCP_SENSOR_FLOAT,   0, 0, 0.0, 65000.0},
   { "%s.adc.power",      "approximate input signal strength",  KATCP_SENSOR_FLOAT,   0, 0, -81.0, 16.0}
 };
 
@@ -1281,7 +1281,7 @@ int detect_fmon(struct fmon_state *f)
         n->n_rf_enabled = (word & 0x80000000) ? 1 : 0;
         n->n_rf_gain = 20.0 - (word & 0x3f) * 0.5;
 #if 0
-        /* alternative via Jason email on 2012-01-24 */
+        /* wrong alternative: applies only if values are inverted */
         n->n_rf_gain = -11.5 + (word & 0x3f) * 0.5;
 #endif 
 
@@ -1546,7 +1546,7 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, char *name)
 int check_fengine_amplitude(struct fmon_state *f, struct fmon_input *n, char *name)
 {
   uint32_t word;
-  double result, dbm, fixed;
+  double result, dbm, corrected, plain;
   struct fmon_sensor *raw, *pow;
   unsigned int value;
   int status;
@@ -1561,38 +1561,44 @@ int check_fengine_amplitude(struct fmon_state *f, struct fmon_input *n, char *na
 
   value = word;
 
-  result = sqrt((double)value / ((double)f->f_amplitude_acc_len)) * f->f_adc_scale_factor;
+  plain = sqrt((double)value / ((double)f->f_amplitude_acc_len));
+
+  result = plain * f->f_adc_scale_factor;
 
   dbm = 10.0 * log10(result * result / 50.0 * 1000.0);
 
 #ifdef DEBUG
-  fprintf(stderr, "raw value 0x%x (%f, %d) -> %f (%f + %f)\n", value, f->f_adc_scale_factor, f->f_amplitude_acc_len, result, dbm, n->n_rf_gain);
+  fprintf(stderr, "raw value 0x%x (/%d) -> %f (*%f) -> %f -> %f (-%f)\n", 
+  value, f->f_amplitude_acc_len, 
+  plain, f->f_adc_scale_factor, 
+  result, 
+  dbm, n->n_rf_gain);
 #endif
 
-  update_sensor_double_fmon(f, raw, result, KATCP_STATUS_NOMINAL);
+  update_sensor_double_fmon(f, raw, plain, KATCP_STATUS_NOMINAL);
 
   if(n->n_rf_enabled){
 
-    fixed = dbm + n->n_rf_gain;
+    corrected = dbm - n->n_rf_gain;
     status = KATCP_STATUS_NOMINAL;
 
-    if(fixed > FMON_KATADC_WARN_HIGH){
-      if(fixed > FMON_KATADC_ERR_HIGH){
+    if(corrected > FMON_KATADC_WARN_HIGH){
+      if(corrected > FMON_KATADC_ERR_HIGH){
         status = KATCP_STATUS_ERROR;
       } else {
         status = KATCP_STATUS_WARN;
       }
     }
 
-    if(fixed < FMON_KATADC_WARN_LOW){
-      if(fixed < FMON_KATADC_ERR_LOW){
+    if(corrected < FMON_KATADC_WARN_LOW){
+      if(corrected < FMON_KATADC_ERR_LOW){
         status = KATCP_STATUS_ERROR;
       } else {
         status = KATCP_STATUS_WARN;
       }
     }
 
-    update_sensor_double_fmon(f, pow, fixed, status);
+    update_sensor_double_fmon(f, pow, corrected, status);
 
   } else {
     update_sensor_double_fmon(f, pow, FMON_KATADC_ERR_HIGH, KATCP_STATUS_UNKNOWN);
