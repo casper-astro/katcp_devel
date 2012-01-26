@@ -1279,11 +1279,11 @@ int detect_fmon(struct fmon_state *f)
       } else {
         n = &(f->f_inputs[f->f_fs]);
         n->n_rf_enabled = (word & 0x80000000) ? 1 : 0;
-#if 0
         n->n_rf_gain = 20.0 - (word & 0x3f) * 0.5;
-#endif 
+#if 0
         /* alternative via Jason email on 2012-01-24 */
         n->n_rf_gain = -11.5 + (word & 0x3f) * 0.5;
+#endif 
 
         f->f_fs++;
       }
@@ -1566,14 +1566,14 @@ int check_fengine_amplitude(struct fmon_state *f, struct fmon_input *n, char *na
   dbm = 10.0 * log10(result * result / 50.0 * 1000.0);
 
 #ifdef DEBUG
-  fprintf(stderr, "raw value 0x%x (%f, %d) -> %f (%f - %f)\n", value, f->f_adc_scale_factor, f->f_amplitude_acc_len, result, dbm, n->n_rf_gain);
+  fprintf(stderr, "raw value 0x%x (%f, %d) -> %f (%f + %f)\n", value, f->f_adc_scale_factor, f->f_amplitude_acc_len, result, dbm, n->n_rf_gain);
 #endif
 
   update_sensor_double_fmon(f, raw, result, KATCP_STATUS_NOMINAL);
 
   if(n->n_rf_enabled){
 
-    fixed = dbm - n->n_rf_gain;
+    fixed = dbm + n->n_rf_gain;
     status = KATCP_STATUS_NOMINAL;
 
     if(fixed > FMON_KATADC_WARN_HIGH){
