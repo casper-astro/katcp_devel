@@ -32,6 +32,7 @@ int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir);
 struct tbs_raw
 {
   struct avl_tree *r_registers;
+  struct avl_tree *r_hwmon;
   int r_fpga;
 
   void *r_map;
@@ -55,5 +56,18 @@ struct tbs_entry
   unsigned char e_len_offset;
   unsigned char e_mode;
 };
+
+struct tbs_hwsensor 
+{
+  int h_adc_fd;
+  int h_min;
+  int h_max;
+  char *h_name;
+  char *h_desc;
+  char *h_unit;
+};
+
+int setup_hwmon_tbs(struct katcp_dispatch *d);
+void destroy_hwsensor_tbs(void *data);
 
 #endif

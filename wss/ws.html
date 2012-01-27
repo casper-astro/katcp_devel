@@ -64,7 +64,7 @@
       }
 
 
-      ks = new katcp_websocket('katcp websocket');
+      //ks = new katcp_websocket('katcp websocket');
 
       function setup_cmd_line(cl) {
         cl.value = "?";
@@ -76,8 +76,101 @@
         setup_cmd_line(cl);
       }
 
+
+      function initWebGL(canvas){
+        gl = null;
+        try {
+          gl = canvas.getContext("experimental-webgl");
+        } catch (e){
+        }
+        
+        if (!gl){
+          alert("Unable to init WebGL. Update your browser");
+        }
+      }
+
+      function start_webgl(){
+        var canvas = document.getElementById("glcanvas");
+
+        initWebGL(canvas);
+
+        if (gl){
+          gl.clearColor(0.0, 0.0, 0.0, 1.0);
+          gl.enable(gl.DEPTH_TEST);
+          gl.depthFunc(gl.LEQUAL);
+          gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        } 
+
+      }
+
+function initShaders() {
+  var fragmentShader = getShader(gl, "shader-fs");
+  var vertexShader = getShader(gl, "shader-vs");
+
+  // Create the shader program
+
+  var shaderProgram = gl.createProgram();
+  gl.attachShader(shaderProgram, vertexShader);
+  gl.attachShader(shaderProgram, fragmentShader);
+  gl.linkProgram(shaderProgram);
+
+  // If creating the shader program failed, alert
+
+  if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+    alert("Unable to initialize the shader program.");
+  }
+
+  gl.useProgram(shaderProgram);
+
+  vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
+  gl.enableVertexAttribArray(vertexPositionAttribute);
+}
+function getShader(gl, id) {
+  var shaderScript, theSource, currentChild, shader;
+
+  shaderScript = document.getElementById(id);
+
+  if (!shaderScript) {
+    return null;
+  }
+
+  theSource = "";
+  currentChild = shaderScript.firstChild;
+
+  while(currentChild) {
+    if (currentChild.nodeType == currentChild.TEXT_NODE) {
+      theSource += currentChild.textContent;
+    }
+
+    currentChild = currentChild.nextSibling;
+  }
+  if (shaderScript.type == "x-shader/x-fragment") {
+    shader = gl.createShader(gl.FRAGMENT_SHADER);
+  } else if (shaderScript.type == "x-shader/x-vertex") {
+    shader = gl.createShader(gl.VERTEX_SHADER);
+  } else {
+    // Unknown shader type
+    return null;
+  }
+  gl.shaderSource(shader, theSource);
+
+  // Compile the shader program
+  gl.compileShader(shader);  
+
+  // See if it compiled successfully
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {  
+    alert("An error occurred compiling the shaders: " + gl.getShaderInfoLog(shader));  
+    return null;  
+  }
+
+  return shader;
+}
+
+
       function init(){
         console.log("running init()");
+
+        start_webgl();
 
         var cl = document.getElementById("cmdline");
         
@@ -97,6 +190,25 @@
 
 
     </script>
+
+
+
+    <script id="shader-fs" type="x-shader/x-fragment">
+      void main(void) {
+        gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+      }
+    </script>
+    <script id="shader-vs" type="x-shader/x-vertex">
+      attribute vec3 aVertexPosition;
+
+      uniform mat4 uMVMatrix;
+      uniform mat4 uPMatrix;
+
+      void main(void) {
+        gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+      }
+    </script>
+
 
     <style type="text/css">
 
@@ -127,6 +239,10 @@
     <div>
 
     </div>
+
+    <canvas id="glcanvas" width=640 height=480>
+
+    </canvas>
     
 
   </body>
