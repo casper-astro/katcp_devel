@@ -1875,7 +1875,7 @@ int main(int argc, char **argv)
           server = argv[i];
           break;
         case 1 :
-          fixed = atoi(argv[i] + j);
+          fixed = atoi(argv[i]);
           break;
         default :
           fprintf(stderr, "%s: execess parameter %s\n", app, argv[i]);
