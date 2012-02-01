@@ -160,6 +160,7 @@ struct fmon_state
   char *f_symbolic;
 
   int f_board;
+  int f_fixed;
   int f_prior;
 
   int f_reprobe;
@@ -226,6 +227,7 @@ void destroy_fmon(struct fmon_state *f)
   }
 
   f->f_board = (-1);
+  f->f_fixed = (-1);
   f->f_prior = (-1);
   f->f_reprobe = 0;
   f->f_fs = 0;
@@ -345,7 +347,7 @@ int populate_sensor_fmon(struct fmon_sensor *s, struct fmon_sensor_template *t, 
   return 0;
 }
 
-struct fmon_state *create_fmon(char *server, int verbose, unsigned int timeout, int reprobe)
+struct fmon_state *create_fmon(char *server, int verbose, unsigned int timeout, int reprobe, int fixed)
 {
   struct fmon_state *f;
   struct fmon_sensor *s;
@@ -374,6 +376,7 @@ struct fmon_state *create_fmon(char *server, int verbose, unsigned int timeout, 
 
   f->f_board = (-1);
   f->f_prior = (-1);
+  f->f_fixed = fixed;
 
   f->f_reprobe = reprobe;
   f->f_cycle = 0;
@@ -1251,13 +1254,18 @@ int detect_fmon(struct fmon_state *f)
     return result;
   }
 
-  if(word > FMON_MAX_BOARDS){
-    log_message_katcl(f->f_report, KATCP_LEVEL_WARN, f->f_server, "rather large board id %d reported by roach %s", word, f->f_server);
+  if(f->f_fixed >= 0){
+    f->f_board = f->f_fixed;
+    log_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_server, "using fixed board %u rather than %d", f->f_fixed, word);
   } else {
-    log_message_katcl(f->f_report, KATCP_LEVEL_DEBUG, f->f_server, "roach %s claims board%d", f->f_server, word);
+    if(word > FMON_MAX_BOARDS){
+      log_message_katcl(f->f_report, KATCP_LEVEL_WARN, f->f_server, "rather large board id %d reported by roach %s", word, f->f_server);
+    } else {
+      log_message_katcl(f->f_report, KATCP_LEVEL_DEBUG, f->f_server, "roach %s claims board%d", f->f_server, word);
+    }
+    f->f_board = word;
   }
 
-  f->f_board = word;
 
   if(f->f_reprobe == 0){
     f->f_reprobe = 1;
@@ -1303,7 +1311,7 @@ int detect_fmon(struct fmon_state *f)
 
   log_message_katcl(f->f_report, KATCP_LEVEL_DEBUG, f->f_server, "board contains %d fengines and %d xengines", f->f_fs, f->f_xs);
 
-  if(f->f_board > 0){
+  if((f->f_board > 0) || (f->f_fixed >= 0)){
     f->f_prior = f->f_board;
     return 0;
   } 
@@ -1666,7 +1674,7 @@ int check_all_inputs_fmon(struct fmon_state *f)
   }
 
   if(f->f_dirty){
-    log_message_katcl(f->f_report, KATCP_LEVEL_DEBUG, f->f_server, "clearing status bits");
+    log_message_katcl(f->f_report, KATCP_LEVEL_TRACE, f->f_server, "clearing status bits");
     clear_control_fmon(f);
   }
 
@@ -1720,15 +1728,13 @@ int check_adc_clock_fmon(struct fmon_state *f)
 
 void usage(char *app)
 {
-  printf("usage: %s [-t timeout] [-s server] [-h] [-r] [-l] [-v] [-q] commands\n", app);
+  printf("usage: %s [-t timeout] [-s server] [-h] [-r] [-l] [-v] [-q] [-b id] [server [id]]\n", app);
   printf("\n");
 
   printf("-h                this help\n");
   printf("-v                increase verbosity\n");
   printf("-q                operate quietly\n");
-#if 0
-  printf("-e                board number\n");
-#endif
+  printf("-b                fix board number rather than autodetect\n");
 
   printf("-s server:port    select the server to contact\n");
   printf("-t milliseconds   command timeout in ms\n");
@@ -1746,19 +1752,22 @@ void usage(char *app)
 
 int main(int argc, char **argv)
 {
-  int i, j, c;
+  int i, j, c, g;
   char *app, *server;
   int verbose, interval, reprobe;
   struct fmon_state *f;
   unsigned int timeout;
   struct sigaction sag;
+  unsigned int fixed;
 
   verbose = 1;
   i = j = 1;
+  g = 0;
   app = "fmon";
   timeout = 0;
   interval = 0;
   reprobe = (-1);
+  fixed = (-1);
 
   if(strncmp(argv[0], "roach", 5) == 0){
     server = argv[0];
@@ -1839,11 +1848,9 @@ int main(int argc, char **argv)
             case 'r' :
               reprobe = atoi(argv[i] + j);
               break;
-#if 0
-            case 'e' :
-              board = atoi(argv[i] + j);
+            case 'b' :
+              fixed = atoi(argv[i] + j);
               break;
-#endif
           }
 
           i++;
@@ -1863,8 +1870,19 @@ int main(int argc, char **argv)
           return 2;
       }
     } else {
-      server = argv[i];
+      switch(g){
+        case 0 :
+          server = argv[i];
+          break;
+        case 1 :
+          fixed = atoi(argv[i] + j);
+          break;
+        default :
+          fprintf(stderr, "%s: execess parameter %s\n", app, argv[i]);
+          return 2;
+      }
       i++;
+      g++;
     }
   }
 
@@ -1891,7 +1909,7 @@ int main(int argc, char **argv)
     timeout = FMON_DEFAULT_TIMEOUT;
   }
 
-  f = create_fmon(server, verbose, timeout, reprobe);
+  f = create_fmon(server, verbose, timeout, reprobe, fixed);
   if(f == NULL){
     fprintf(stderr, "%s: unable to allocate monitoring state\n", app);
     return 2;
