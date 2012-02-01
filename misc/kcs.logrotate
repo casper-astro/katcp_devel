@@ -1,0 +1,8 @@
+/var/log/kcs.kcplog {
+  rotate 52
+  weekly
+  postrotate
+    /usr/bin/killall -HUP kcplog
+  endscript
+}
+
