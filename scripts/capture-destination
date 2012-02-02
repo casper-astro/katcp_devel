@@ -8,8 +8,8 @@ if [ $# -lt 3 ] ; then
 fi
 
 output=$1
-port=$2
-host=$1
+host=$2
+port=$3
 
 if [ "$output" != "k7" ] ; then
   kcs_error "only know about k7 destination"
