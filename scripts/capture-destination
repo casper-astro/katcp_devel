@@ -16,7 +16,7 @@ if [ "$output" != "k7" ] ; then
   exit 1
 fi
 
-kcpcmd -s localhost:7147 -k -i -r setenv KCS_CORR_RX $1:$2
+kcpcmd -s localhost:7147 -k -i -r setenv KCS_CORR_RX $host:$port
 
 kcs_info "set k7 destination to $host:$port"
 
