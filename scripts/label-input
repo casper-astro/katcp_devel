@@ -43,7 +43,7 @@ update_aliases()
     name=${fullname##*/}
     : > ${CORR_MAPPING}.${name}
     for roach in $(grep '^servers_f' ${fullname} | cut -f2 -d= | tr '[, ]' '\n') ; do
-      grep ${roach} ${MAIN_MAPPING} | cut -f1 -d: | tr '\\n' ',' >> ${CORR_MAPPING}.${name}
+      grep ${roach} ${MAIN_MAPPING} | cut -f1 -d: | tr '\n' ',' >> ${CORR_MAPPING}.${name}
     done
   done
 }
