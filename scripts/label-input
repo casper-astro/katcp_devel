@@ -63,9 +63,9 @@ fi
 
 kcs_debug "setting label for ${inp} to ${alias}"
 
-sed -i -e 's/^.*:${inp}:(.*)$/${alias}:${inp}:\1' ${MAIN_MAPPING}
+sed -i -e "s/^.*:${inp}:\(.*\)$/${alias}:${inp}:\1/" ${MAIN_MAPPING}
 
-echo "#return ok ${synonym}"
+echo "#return ok $(grep ${inp} ${MAIN_MAPPING} | cut -f1 -d:)"
 
 exit 0
 
