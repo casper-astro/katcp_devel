@@ -28,8 +28,8 @@ make_mapping()
   while [ $i -lt $inp ] ; do
     j=0
     while [ $j -lt $pol ] ; do
-      j=$[j+1]
       echo ${i}${pols[$j]}:${i}${pols[$j]}:${roachposmap[$i]} >> ${MAIN_MAPPING}
+      j=$[j+1]
     done
     i=$[i+1]
   done
@@ -53,41 +53,19 @@ if [ $# -lt 1 ] ; then
   exit 0
 fi
 
-exit 0
-
-############################################
-
-index=$(kcs_input_to_index $1)
-result=1
-
-if [ -z "${index}" ] ; then
-  kcs_error "unable to parse input label ${index}"
-fi
-
-if [ ${index} -ge 16 ] ; then
-  kcs_error "input label ${index} unexpectedly large"
-fi
-
-index=$(kcs_input_to_index $1)
+inp=${1}
 
 if [ $# -gt 1 ] ; then
-  synonym=${2}
+  alias=${2}
 else
-  synonym=${1}
+  alias=${1}
 fi
 
-kcs_debug "setting label for $1  to ${synonym}"
+kcs_debug "setting label for ${inp} to ${alias}"
 
-if kcpcmd -k -r label-input ${index} ${synonym} ; then
-  result=0
-fi
-
-kcs_corr_log
-
-if [ "${result}" != "0" ] ; then
-  exit 1
-fi
+sed -i -e 's/^.*:${inp}:(.*)$/${alias}:${inp}:\1' ${MAIN_MAPPING}
 
 echo "#return ok ${synonym}"
+
 exit 0
 
