@@ -3,23 +3,59 @@
 set -e
 source functions.sh
 
-if [ $# -lt 1 ] ; then
+make_mapping()
+{
+  pols=(x y)
+  pol=$1
 
-  if [ ! -s ${CORR_MAPPING} ] ; then
-    kcs_error "no correlator mapping found"
+  if [ ! -f ${CORR_CONFIG}/wbc ] ; then
+    kcs_error "unable to locate configuration wbc"
+    return 1
   fi
 
-  antennas=($(cat ${CORR_MAPPING} | tr -s ',' ' '))
-  roaches=($(grep '^ *servers_f' ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= |  tr ',' ' '))
   i=0
-  while [ ${i} -lt 16 ] ; do
-    input=$(kcs_index_to_input ${i})
-    echo "#label-input ${antennas[i]:-${input}} $input ${roaches[i/2]}"
+  declare -a roachposmap
+  for name in $(grep ^servers_f.*roach ${CORR_CONFIG}/wbc | cut -f2 -d= | tr '[, ]' '\n' ) ; do
+    roachposmap[$i]=$name
     i=$[i+1]
   done
 
+  inp=$i
+
+  : > ${MAIN_MAPPING}
+  
+  i=0
+  while [ $i -lt $inp ] ; do
+    j=0
+    while [ $j -lt $pol ] ; do
+      j=$[j+1]
+      echo ${i}${pols[$j]}:${i}${pols[$j]}:${roachposmap[$i]} >> ${MAIN_MAPPING}
+    done
+    i=$[i+1]
+  done
+
+  return 0
+}
+
+if [ ! -s ${MAIN_MAPPING} ] ; then
+  kcs_info "generating initial mapping"
+  make_mapping 2
+fi
+
+if [ $# -lt 1 ] ; then
+
+  if [ ! -s ${MAIN_MAPPING} ] ; then
+    kcs_error "no correlator mapping found"
+  fi
+
+  cat ${MAIN_MAPPING} | tr -s : ' ' | sed -s 's/^/#label-input /'
+
   exit 0
 fi
+
+exit 0
+
+############################################
 
 index=$(kcs_input_to_index $1)
 result=1

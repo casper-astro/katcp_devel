@@ -2,6 +2,7 @@ export CORR_CONFIG=/etc/corr/
 export CORR_INIT_SCRIPT=/etc/init.d/corr
 export KATCP_SERVER=localhost:1235
 export CORR_MAPPING=/var/run/corr/antenna_mapping.${KATCP_MODE}
+export MAIN_MAPPING=/var/lib/kcs/mapping
 
 kcs_check_timeout()
 {
