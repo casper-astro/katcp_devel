@@ -37,6 +37,17 @@ make_mapping()
   return 0
 }
 
+update_aliases()
+{
+  for fullname in $(grep -l '^servers_f' ${CORR_CONFIG}/*) ; do
+    name=${fullname##*/}
+    : > ${CORR_MAPPING}.${name}
+    for roach in $(grep '^servers_f' ${fullname} | cut -f2 -d= | tr '[, ]' '\n') ; do
+      grep ${roach} ${MAIN_MAPPING} | cut -f1 -d: | tr '\\n' ',' >> ${CORR_MAPPING}.${name}
+    done
+  done
+}
+
 if [ ! -s ${MAIN_MAPPING} ] ; then
   kcs_info "generating initial mapping"
   make_mapping 2
@@ -64,6 +75,8 @@ fi
 kcs_debug "setting label for ${inp} to ${alias}"
 
 sed -i -e "s/^.*:${inp}:\(.*\)$/${alias}:${inp}:\1/" ${MAIN_MAPPING}
+
+update_aliases
 
 echo "#return ok $(grep ${inp} ${MAIN_MAPPING} | cut -f1 -d:)"
 
