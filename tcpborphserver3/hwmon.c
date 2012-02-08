@@ -322,7 +322,7 @@ int setup_hwmon_tbs(struct katcp_dispatch *d)
                                NULL,
                                "/sys/bus/i2c/device/0-0050/in5_crit");
 
-  rtn += register_hwmon_tbs(d, "raw.voltage.12",
+  rtn += register_hwmon_tbs(d, "raw.voltage.12v",
                                "12v voltage rail",
                                "millivolts",
                                "/sys/bus/i2c/devices/0-0050/in12_input",
