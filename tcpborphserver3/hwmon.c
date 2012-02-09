@@ -121,7 +121,7 @@ struct tbs_hwsensor *create_hwsensor_tbs(struct katcp_dispatch *d, char *name, c
     fcntl(hs->h_adc_fd, F_SETFD, FD_CLOEXEC);
   }
 
-  if (min && max){
+  if (min){
     minfd = open(min, O_RDONLY);
     if (minfd < 0){
 #if DEBUG>1
@@ -135,7 +135,9 @@ struct tbs_hwsensor *create_hwsensor_tbs(struct katcp_dispatch *d, char *name, c
     hs->h_min = read_fd_hwsensor_tbs(minfd);
     if (minfd > 0)
       close(minfd);
+  }
 
+  if (max) {
     maxfd = open(max, O_RDONLY);
     if (maxfd < 0){
 #if DEBUG>1
@@ -149,7 +151,6 @@ struct tbs_hwsensor *create_hwsensor_tbs(struct katcp_dispatch *d, char *name, c
     hs->h_max = read_fd_hwsensor_tbs(maxfd);
     if (maxfd > 0)
       close(maxfd);
-   
   }
 
   return hs;
