@@ -7,7 +7,7 @@ export MAIN_MAPPING=/var/lib/kcs/mapping
 kcs_check_timeout()
 {
   if [ $(date +%s) -gt $1 ] ; then
-    echo "#log error $(date +%s)000 script request\_to\_corr\_timed\_out"
+    kcpmsg -l error -s script "request to corr timed out"
     return 1
   fi
 }
@@ -21,20 +21,20 @@ kcs_index_to_input () {
 }
 
 kcs_debug () {
-  echo "#log debug $(date +%s)000 script $(echo $1 | sed -e 's/ /\\_/g')"
+  kcpmsg -l debug -s script "$1"
 }
 
 kcs_warn () {
-  echo "#log warn $(date +%s)000 script $(echo $1 | sed -e 's/ /\\_/g')"
+  kcpmsg -l warn -s script "$1"
 }
 
 kcs_error () {
-  echo "#log error $(date +%s)000 script $(echo $1 | sed -e 's/ /\\_/g')"
+  kcpmsg -l error -s script "$1"
   return 1
 }
 
 kcs_info () {
-  echo "#log info $(date +%s)000 script $(echo $1 | sed -e 's/ /\\_/g')"
+  kcpmsg -l info -s script "$1"
 }
 
 kcs_change_corr()

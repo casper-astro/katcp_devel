@@ -7,4 +7,11 @@
       two ways: Either on tcpborphserver, or polling 
       registers from kcs itself
 
+********************************
+
+  - add timestamp to client connect
+  - log channel request
+  - maybe report disconnects too
+
+
 

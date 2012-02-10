@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# TODO: should update files atomically
+
 set -e
 source functions.sh
 
@@ -41,6 +43,7 @@ update_aliases()
 {
   for fullname in $(grep -l '^servers_f' ${CORR_CONFIG}/*) ; do
     name=${fullname##*/}
+    kcs_info "updating config for $name"
     : > ${CORR_MAPPING}.${name}
     for roach in $(grep '^servers_f' ${fullname} | cut -f2 -d= | tr '[, ]' '\n') ; do
       grep ${roach} ${MAIN_MAPPING} | cut -f1 -d: | tr '\n' ',' >> ${CORR_MAPPING}.${name}
