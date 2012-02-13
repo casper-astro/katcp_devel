@@ -123,34 +123,30 @@ struct tbs_hwsensor *create_hwsensor_tbs(struct katcp_dispatch *d, char *name, c
 
   if (min){
     minfd = open(min, O_RDONLY);
-    if (minfd < 0){
+    if (minfd > 0){
+      hs->h_min = read_fd_hwsensor_tbs(minfd);
+      close(minfd);
+    } else {
 #if DEBUG>1
       fprintf(stderr, "hwmon: create hwsensor could not open %s (%s)\n", min, strerror(errno));
 #endif
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not open %s (%s)", min, strerror(errno));
-      destroy_hwsensor_tbs(hs);
-      return NULL;
     }
 
-    hs->h_min = read_fd_hwsensor_tbs(minfd);
-    if (minfd > 0)
-      close(minfd);
   }
 
   if (max) {
     maxfd = open(max, O_RDONLY);
-    if (maxfd < 0){
+    if (maxfd > 0){
+      hs->h_max = read_fd_hwsensor_tbs(maxfd);
+      close(maxfd);
+    } else {
 #if DEBUG>1
       fprintf(stderr, "hwmon: create hwsensor could not open %s (%s)\n", max, strerror(errno));
 #endif
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not open %s (%s)", max, strerror(errno));
-      destroy_hwsensor_tbs(hs);
-      return NULL;
     }
 
-    hs->h_max = read_fd_hwsensor_tbs(maxfd);
-    if (maxfd > 0)
-      close(maxfd);
   }
 
   return hs;
@@ -286,42 +282,42 @@ int setup_hwmon_tbs(struct katcp_dispatch *d)
                                "millivolts",
                                "/sys/bus/i2c/devices/0-0050/in0_input",
                                NULL,
-                               "/sys/bus/i2c/device/0-0050/in0_crit");
+                               "/sys/bus/i2c/devices/0-0050/in0_crit");
 
   rtn += register_hwmon_tbs(d, "raw.voltage.1v5",
                                "1.5v voltage rail",
                                "millivolts",
                                "/sys/bus/i2c/devices/0-0050/in1_input",
                                NULL,
-                               "/sys/bus/i2c/device/0-0050/in1_crit");
+                               "/sys/bus/i2c/devices/0-0050/in1_crit");
 
   rtn += register_hwmon_tbs(d, "raw.voltage.1v8",
                                "1.8v voltage rail",
                                "millivolts",
                                "/sys/bus/i2c/devices/0-0050/in2_input",
                                NULL,
-                               "/sys/bus/i2c/device/0-0050/in2_crit");
+                               "/sys/bus/i2c/devices/0-0050/in2_crit");
 
   rtn += register_hwmon_tbs(d, "raw.voltage.2v5",
                                "2.5v voltage rail",
                                "millivolts",
                                "/sys/bus/i2c/devices/0-0050/in3_input",
                                NULL,
-                               "/sys/bus/i2c/device/0-0050/in3_crit");
+                               "/sys/bus/i2c/devices/0-0050/in3_crit");
 
   rtn += register_hwmon_tbs(d, "raw.voltage.3v3",
                                "3.3v voltage rail",
                                "millivolts",
                                "/sys/bus/i2c/devices/0-0050/in4_input",
                                NULL,
-                               "/sys/bus/i2c/device/0-0050/in4_crit");
+                               "/sys/bus/i2c/devices/0-0050/in4_crit");
 
   rtn += register_hwmon_tbs(d, "raw.voltage.5v",
                                "5v voltage rail",
                                "millivolts",
                                "/sys/bus/i2c/devices/0-0050/in5_input",
                                NULL,
-                               "/sys/bus/i2c/device/0-0050/in5_crit");
+                               "/sys/bus/i2c/devices/0-0050/in5_crit");
 
   rtn += register_hwmon_tbs(d, "raw.voltage.12v",
                                "12v voltage rail",
@@ -335,35 +331,35 @@ int setup_hwmon_tbs(struct katcp_dispatch *d)
                                "milliamps",
                                "/sys/bus/i2c/devices/0-0051/in0_input",
                                NULL,
-                               "/sys/bus/i2c/device/0-0051/in0_crit");
+                               "/sys/bus/i2c/devices/0-0051/in0_crit");
 
   rtn += register_hwmon_tbs(d, "raw.current.2v5",
                                "2.5v rail current",
                                "milliamps",
                                "/sys/bus/i2c/devices/0-0051/in1_input",
                                NULL,
-                               "/sys/bus/i2c/device/0-0051/in1_crit");
+                               "/sys/bus/i2c/devices/0-0051/in1_crit");
 
   rtn += register_hwmon_tbs(d, "raw.current.1v8",
                                "1.8v rail current",
                                "milliamps",
                                "/sys/bus/i2c/devices/0-0051/in2_input",
                                NULL,
-                               "/sys/bus/i2c/device/0-0051/in2_crit");
+                               "/sys/bus/i2c/devices/0-0051/in2_crit");
 
   rtn += register_hwmon_tbs(d, "raw.current.1v5",
                                "1.5v rail current",
                                "milliamps",
                                "/sys/bus/i2c/devices/0-0051/in3_input",
                                NULL,
-                               "/sys/bus/i2c/device/0-0051/in3_crit");
+                               "/sys/bus/i2c/devices/0-0051/in3_crit");
 
   rtn += register_hwmon_tbs(d, "raw.current.1v",
                                "1v rail current",
                                "milliamps",
                                "/sys/bus/i2c/devices/0-0051/in4_input",
                                NULL,
-                               "/sys/bus/i2c/device/0-0051/in4_crit");
+                               "/sys/bus/i2c/devices/0-0051/in4_crit");
 
   rtn += register_hwmon_tbs(d, "raw.current.12v",
                                "12v rail current",
