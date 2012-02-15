@@ -168,6 +168,7 @@ struct katcp_sensor{
   struct katcp_acquire *s_acquire;
 
   int (*s_extract)(struct katcp_dispatch *d, struct katcp_sensor *sn);
+  int (*s_flush)(struct katcp_dispatch *d, struct katcp_sensor *sn);
   void *s_more;
 };
 
@@ -559,6 +560,7 @@ int define_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 /* sensor stuff */
 
+int sensor_limit_cmd_katcp(struct katcp_dispatch *d, int argc);
 int sensor_value_cmd_katcp(struct katcp_dispatch *d, int argc);
 int sensor_list_cmd_katcp(struct katcp_dispatch *d, int argc);
 int sensor_sampling_cmd_katcp(struct katcp_dispatch *d, int argc);

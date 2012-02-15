@@ -136,7 +136,7 @@ int main(int argc, char **argv)
   add_version_katcp(d, "mylabel", 0, "myversion", "mybuildtime");
 
   /* example sensor */
-  if(register_integer_sensor_katcp(d, 0, "check.integer.simple", "unix time in decaseconds", "Ds", &simple_integer_check_sensor, NULL, NULL, 0, INT_MAX)){
+  if(register_integer_sensor_katcp(d, 0, "check.integer.simple", "unix time in decaseconds", "Ds", &simple_integer_check_sensor, NULL, NULL, 0, INT_MAX, NULL)){
     fprintf(stderr, "server: unable to register sensors\n");
     return 1;
   }

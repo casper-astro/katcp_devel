@@ -25,9 +25,6 @@ void destroy_hwsensor_tbs(void *data)
     if (hs->h_adc_fd > 0)
       close(hs->h_adc_fd);
       
-    /*close(hs->h_min_fd);
-    close(hs->h_max_fd);
-*/
     if (hs->h_name)
       free(hs->h_name);
 
@@ -37,8 +34,34 @@ void destroy_hwsensor_tbs(void *data)
     if (hs->h_unit)
       free(hs->h_unit);
 
+    if (hs->h_min_path)
+      free(hs->h_min_path);
+
+    if (hs->h_max_path)
+      free(hs->h_max_path);
+
     free(hs);
   }
+}
+
+struct tbs_hwsensor *alloc_hwsensor_tbs()
+{
+  struct tbs_hwsensor *hs;
+
+  hs = malloc(sizeof(struct tbs_hwsensor));
+  if (hs == NULL)
+    return NULL;
+
+  hs->h_adc_fd = -1;
+  hs->h_min = 0;
+  hs->h_max = 0;
+  hs->h_min_path = NULL;
+  hs->h_max_path = NULL;
+  hs->h_name = NULL;
+  hs->h_desc = NULL;
+  hs->h_unit = NULL;
+
+  return hs;
 }
 
 int read_fd_hwsensor_tbs(int fd)
@@ -77,18 +100,100 @@ int read_hwsensor_tbs(struct katcp_dispatch *d, struct katcp_acquire *a)
   return read_fd_hwsensor_tbs(hs->h_adc_fd);
 }
 
+int write_path_hwsensor_tbs(struct katcp_dispatch *d, char *path, char *value)
+{
+  int fd, bytes;
+
+  if (path == NULL || value == NULL)
+    return -1;
+  
+  fd = open(path, O_RDWR | O_TRUNC);
+  if (fd < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "write <%s> %s", path, strerror(errno));
+#ifdef DEBUG
+    fprintf(stderr, "hwmon: write <%s> %s\n", path, strerror(errno));
+#endif
+    return -1;
+  }
+  
+  bytes = write(fd, value, strlen(value));
+
+  if (bytes < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "write <%s> %s", path, strerror(errno));
+#ifdef DEBUG
+    fprintf(stderr, "hwmon: write <%s> %s\n", path, strerror(errno));
+#endif
+    close(fd);
+    return -1;
+  }
+
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "write <%s> %d bytes", path, bytes);
+#ifdef DEBUG
+  fprintf(stderr, "hwmon: write <%s> %d bytes\n", path, bytes);
+#endif
+
+  close(fd);
+  
+  return 0;
+}
+
+int flush_hwsensor_tbs(struct katcp_dispatch *d, struct katcp_sensor *sn)
+{
+  struct katcp_acquire *a;
+  struct tbs_hwsensor *hs;
+  char *limit, *path, *value;
+
+  limit = arg_string_katcp(d, 2);
+  value = arg_string_katcp(d, 3);
+
+  if (limit == NULL || value == NULL)
+    return -1;
+
+  a = acquire_from_sensor_katcp(d, sn);
+  if (a == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "logic error cannot get acquire");
+    return -1;
+  }
+  
+  hs = a->a_local;
+  if (hs == NULL)
+    return -1;
+
+  path = strncmp(limit, "min", 3) == 0 ? hs->h_min_path : (strncmp(limit, "max", 3) == 0 ? hs->h_max_path : NULL);
+
+  return write_path_hwsensor_tbs(d, path, value);
+}
+
 struct tbs_hwsensor *create_hwsensor_tbs(struct katcp_dispatch *d, char *name, char *desc, char *unit, char *adc, char *min, char *max)
 {
   struct tbs_hwsensor *hs;
   int minfd, maxfd;
 
-  hs = malloc(sizeof(struct tbs_hwsensor));
-  if (hs == NULL)
+  if (adc == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "adc required to create a hardware sensor");
     return NULL;
+  }
 
-  hs->h_adc_fd = -1;
-  hs->h_min = 0;
-  hs->h_max = 0;
+  hs = alloc_hwsensor_tbs();
+  if (hs == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "logic error, couldn't malloc\n");
+#endif
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "major logic error");
+    return NULL;
+  }
+
+  hs->h_min_path = (min) ? strdup(min) : NULL;
+  if (hs->h_min_path == NULL){
+    destroy_hwsensor_tbs(hs);
+    return NULL;
+  }
+
+  hs->h_max_path = (max) ? strdup(max) : NULL;
+  if (hs->h_max_path == NULL){
+    destroy_hwsensor_tbs(hs);
+    return NULL;
+  }
 
   hs->h_name = strdup(name);
   if (hs->h_name == NULL){
@@ -108,18 +213,16 @@ struct tbs_hwsensor *create_hwsensor_tbs(struct katcp_dispatch *d, char *name, c
     return NULL;
   }
 
-  if (adc){
-    hs->h_adc_fd = open(adc, O_RDONLY);
-    if (hs->h_adc_fd < 0){
+  hs->h_adc_fd = open(adc, O_RDONLY);
+  if (hs->h_adc_fd < 0){
 #if DEBUG>1
-      fprintf(stderr, "hwmon: create hwsensor could not open %s (%s)\n", adc, strerror(errno));
+    fprintf(stderr, "hwmon: create hwsensor could not open %s (%s)\n", adc, strerror(errno));
 #endif
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not open %s (%s)", adc, strerror(errno));
-      destroy_hwsensor_tbs(hs);
-      return NULL;
-    }
-    fcntl(hs->h_adc_fd, F_SETFD, FD_CLOEXEC);
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not open %s (%s)", adc, strerror(errno));
+    destroy_hwsensor_tbs(hs);
+    return NULL;
   }
+  fcntl(hs->h_adc_fd, F_SETFD, FD_CLOEXEC);
 
   if (min){
     minfd = open(min, O_RDONLY);
@@ -132,7 +235,6 @@ struct tbs_hwsensor *create_hwsensor_tbs(struct katcp_dispatch *d, char *name, c
 #endif
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not open %s (%s)", min, strerror(errno));
     }
-
   }
 
   if (max) {
@@ -146,7 +248,6 @@ struct tbs_hwsensor *create_hwsensor_tbs(struct katcp_dispatch *d, char *name, c
 #endif
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not open %s (%s)", max, strerror(errno));
     }
-
   }
 
   return hs;
@@ -155,7 +256,6 @@ struct tbs_hwsensor *create_hwsensor_tbs(struct katcp_dispatch *d, char *name, c
 int register_hwmon_tbs(struct katcp_dispatch *d, char *label, char *desc, char *unit, char *file, char *min, char *max)
 {
   struct tbs_raw *tr;
-  //struct katcp_acquire *a;
   struct tbs_hwsensor *hs;
 
   tr = get_mode_katcp(d, TBS_MODE_RAW);
@@ -174,15 +274,9 @@ int register_hwmon_tbs(struct katcp_dispatch *d, char *label, char *desc, char *
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not create hw sensor %s", label);
     return -1;
   }
-
-  /*a = setup_integer_acquire_katcp(d, &read_hwsensor_tbs, hs, NULL);
-  if (a == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not create acquire for hw sensor %s", label);
-    destroy_hwsensor_tbs(hs);
-    return -1;
-  }  */
   
-  if (register_integer_sensor_katcp(d, TBS_MODE_RAW, label, desc, unit, &read_hwsensor_tbs, hs, NULL, hs->h_min, hs->h_max) < 0) {
+  /*NULL release since cleaning the avltree will manage the data*/
+  if (register_integer_sensor_katcp(d, TBS_MODE_RAW, label, desc, unit, &read_hwsensor_tbs, hs, NULL, hs->h_min, hs->h_max, &flush_hwsensor_tbs) < 0) {
 #ifdef DEBUG
     fprintf(stderr, "hwmon: unable to register sensor %s\n", label);
 #endif
@@ -213,6 +307,15 @@ int setup_hwmon_tbs(struct katcp_dispatch *d)
   int rtn;
   
   rtn = 0;
+
+#if 1
+  rtn += register_hwmon_tbs(d, "dummy", 
+                               "dummy debug sensor",
+                               "millidegrees",
+                               "dummy_input", 
+                               "dummy_min",
+                               "dummy_max");
+#endif
 
   rtn += register_hwmon_tbs(d, "raw.temp.ambient", 
                                "Ambient board temperature",

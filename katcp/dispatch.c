@@ -140,6 +140,8 @@ struct katcp_dispatch *setup_katcp(int fd)
   register_katcp(d, "?sensor-sampling",   "configure sensor (?sensor-sampling sensor [strategy [parameter]])", &sensor_sampling_cmd_katcp);
   register_katcp(d, "?sensor-value",      "query a sensor (?sensor-value sensor)", &sensor_value_cmd_katcp);
 
+  register_katcp(d, "?sensor-limit",      "adjust sensor limits (?sensor-limit [sensor] [min|max] value)", &sensor_limit_cmd_katcp);
+
   register_katcp(d, "?version-list",      "list versions (?version-list)", &version_list_cmd_katcp);
 
   return d;
