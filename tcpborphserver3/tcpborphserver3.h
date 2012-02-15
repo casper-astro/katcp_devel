@@ -62,6 +62,8 @@ struct tbs_hwsensor
   int h_adc_fd;
   int h_min;
   int h_max;
+  char *h_min_path;
+  char *h_max_path;
   char *h_name;
   char *h_desc;
   char *h_unit;
