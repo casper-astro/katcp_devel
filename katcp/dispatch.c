@@ -582,6 +582,70 @@ int deregister_command_katcp(struct katcp_dispatch *d, char *match)
   return -1;
 }
 
+int update_command_katcp(struct katcp_dispatch *d, char *match, int flags)
+{
+  struct katcp_cmd *c;
+  struct katcp_shared *s;
+  char *ptr;
+  int len;
+
+  if((d == NULL) || (d->d_shared == NULL)){
+    return -1;
+  }
+
+  s = d->d_shared;
+
+  if(match == NULL){
+    return -1;
+  }
+
+  switch(match[0]){
+    case '\0' :
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "refusing to work on empty command");
+      return -1;
+
+    case KATCP_REQUEST :
+    case KATCP_REPLY :
+    case KATCP_INFORM :
+      ptr = match;
+      break;
+
+    default :
+      len = strlen(match) + 2;
+      ptr = malloc(len);
+      if(ptr == NULL){
+        log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "unable to allocate %d bytes", len);
+        return -1;
+      }
+      ptr[0] = KATCP_REQUEST;
+      strcpy(ptr + 1, match);
+      break;
+  }
+
+  c = s->s_commands;
+
+  /* WARNING: if we add state to a _cmd function, deletion may have troublesome side effects */
+
+  while(c){
+    if((c->c_name != NULL) && (strcmp(c->c_name, ptr) == 0)){
+      c->c_flags = (c->c_flags & ~KATCP_CMD_HIDDEN) | (flags & KATCP_CMD_HIDDEN);
+      if(ptr != match){
+        free(ptr);
+      }
+      return 0;
+    }
+    c = c->c_next;
+  }
+
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "no match found for %s", ptr);
+
+  if(ptr != match){
+    free(ptr);
+  }
+
+  return -1;
+}
+
 int register_flag_mode_katcp(struct katcp_dispatch *d, char *match, char *help, int (*call)(struct katcp_dispatch *d, int argc), int flags, int mode)
 {
   struct katcp_cmd *c, *nxt;

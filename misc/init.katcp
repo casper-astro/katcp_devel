@@ -8,6 +8,7 @@
 ?job process tmon exec://tmon
 ?forget ?halt
 ?forget ?restart
+?hide ?sensor ?process ?arb ?define ?job ?notice ?dispatch ?watchannounce ?sm ?roach ?search ?set ?get ?dict
 ?process ?enable-sensors enable\_roach\_sensors\_(?enable-sensors)
 ?process ?label-input alias\_an\_input\_name\_(?label-input\_input\_alias)
 ?process ?halt halt\_the\_control\_server_\(?halt)
@@ -23,8 +24,10 @@
 ?process ?k7-adc-snap-shot retrieve\_an\_adc\_snapshot\_(?k7-adc-snap-shot\_[pps|now]\_threshold\_input+)
 ?process ?k7-quant-snap-shot retrieve\_a\_quantiser\_snapshot\_(?k7-quant-snap-shot\_[count])
 ?process ?k7-gain sets\_the\_digital\_gain\_(?k7-gain\_board-input\_values)
-?process ?k7-frequency-select select\_a\_frequency\_for\_fine\_channelisation\_(?k7-frequency-select\_center-frequency
+?process ?k7-frequency-select select\_a\_frequency\_for\_fine\_channelisation\_(?k7-frequency-select\_center-frequency)
 ?process ?xport start
+?process ?test-reload-rf-gain reload\_analog\_gain\_(?test-reload-rf-gain)
+?hide ?test-reload-rf-gain
 ?xport start
 ?mode ready
 ?mode wbc

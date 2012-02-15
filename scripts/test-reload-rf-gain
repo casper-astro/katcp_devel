@@ -1,0 +1,7 @@
+#!/bin/bash
+
+source functions.sh
+
+kill -HUP $(ps ax | grep roach.*[0-9]:7147 | cut -f1 -d\ )
+
+
