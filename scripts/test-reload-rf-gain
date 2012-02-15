@@ -2,8 +2,6 @@
 
 source functions.sh
 
-kill -HUP $(ps axo comm,pid | tr -s ' ' | grep roach | cut -f2 -d\ )
+kcpmsg -l debug -s reload "about to reload roach monitors"
 
-return 0
-
-
+kill -HUP $(ps axo comm,pid | tr -s ' ' | grep roach | cut -f2 -d\ ) || exit 0
