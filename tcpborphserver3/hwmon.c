@@ -308,7 +308,7 @@ int setup_hwmon_tbs(struct katcp_dispatch *d)
   
   rtn = 0;
 
-#if 1
+#if 0
   rtn += register_hwmon_tbs(d, "dummy", 
                                "dummy debug sensor",
                                "millidegrees",
