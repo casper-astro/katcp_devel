@@ -24,8 +24,8 @@ fi
 
 inp=${1}
 
-if [ $# -gt 1 ] ; then
-  cat ${MAIN_MAPPING} | grep ${inp} | cut -f2 -d: | sed -s 's/^/#return ok /'
+if [ $# -eq 1 ] ; then
+  cat ${MAIN_MAPPING} | grep ${inp} | cut -f1 -d: | sed -s 's/^/#return ok /'
   exit 0
 fi
 
