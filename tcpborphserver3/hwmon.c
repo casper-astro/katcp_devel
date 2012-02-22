@@ -184,13 +184,13 @@ struct tbs_hwsensor *create_hwsensor_tbs(struct katcp_dispatch *d, char *name, c
   }
 
   hs->h_min_path = (min) ? strdup(min) : NULL;
-  if (hs->h_min_path == NULL){
+  if (min && hs->h_min_path == NULL){
     destroy_hwsensor_tbs(hs);
     return NULL;
   }
 
   hs->h_max_path = (max) ? strdup(max) : NULL;
-  if (hs->h_max_path == NULL){
+  if (max && hs->h_max_path == NULL){
     destroy_hwsensor_tbs(hs);
     return NULL;
   }
