@@ -9,6 +9,7 @@ source mappings.sh
 if [ ! -s ${MAIN_MAPPING} ] ; then
   kcs_info "generating initial mapping"
   make_mapping 2
+  update_aliases
 fi
 
 if [ $# -lt 1 ] ; then
