@@ -18,6 +18,12 @@ if [ $# -lt 1 ] ; then
     kcs_error "no correlator mapping found"
   fi
 
+  if [ ! -s ${CORR_MAPPING}.${KATCP_MODE} ] ; then
+    if [ -f ${CORR_CONFIG}/${KATCP_MODE} ] ; then
+      update_aliases
+    fi 
+  fi 
+
   cat ${MAIN_MAPPING} | tr -s : ' ' | sed -s 's/^/#label-input /'
 
   exit 0
