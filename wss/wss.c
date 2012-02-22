@@ -289,8 +289,7 @@ def DEBUG
   for(i=0; i<c->c_rb_len; i++)
     data[i] ^= msk[i % 4];
     
-#if 0
-    def DEBUG
+#ifdef DEBUG
   for(i=0; i<c->c_rb_len; i++)
     fprintf(stderr,"byte %d 0x%0x %c\n", i, data[i], data[i]);
 #endif
