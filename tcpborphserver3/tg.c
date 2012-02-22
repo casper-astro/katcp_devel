@@ -546,7 +546,7 @@ static int write_frame_fpga(struct getap_state *gs, unsigned char *data, unsigne
 
   if((buffer_sizes & 0xffff0000) > 0){
 #ifdef __PPC__
-    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "tx still busy (%d)", (buffer_sizes & 0xffff0000) >> 16);
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "tx queue still busy (%d words to send)", (buffer_sizes & 0xffff0000) >> 16);
     return 0;
 #else
     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "in test mode we ignore %d words previously queued", (buffer_sizes & 0xffff0000) >> 16);
@@ -555,7 +555,7 @@ static int write_frame_fpga(struct getap_state *gs, unsigned char *data, unsigne
 
   memcpy(base + GO_TXBUFFER, data, actual);
 
-  buffer_sizes = ((actual + 7) / 8) << 16;
+  buffer_sizes = (buffer_sizes & 0xffff) & (0xffff0000 | (((actual + 7) / 8) << 16));
   *((uint32_t *)(base + GO_BUFFER_SIZES)) = buffer_sizes;
 
 #if 0
