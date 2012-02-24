@@ -51,7 +51,9 @@
 
 #define FMON_INPUT_SENSORS                  7
 
-/* registers fields */
+/* register fields */
+
+#define FMON_QDRCTRL_RESET         0x80000000
 
 #define FMON_FCONTROL_CLEAR_STATUS     0x0008
 #define FMON_FCONTROL_FLASHER_EN       0x1000
@@ -1540,6 +1542,17 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, char *name)
     if(value_adc || value_disabled || value_fft || (value_sram == 0) || (value_xaui == 0)){
       f->f_dirty = 1;
     }
+  }
+
+  if(status_sram == KATCP_STATUS_ERROR){
+    log_message_katcl(f->f_report, KATCP_LEVEL_ERROR, f->f_server, "qdr not synchronised, attempting reset");
+
+    word = FMON_QDRCTRL_RESET;
+    if(write_word_fmon(f, "qdr0_ctrl", word)){
+      log_message_katcl(f->f_report, KATCP_LEVEL_ERROR, f->f_server, "unable to reset qdr");
+      return -1;
+    }
+
   }
 
   update_sensor_fmon(f, sensor_adc,      value_adc,      status_adc);
