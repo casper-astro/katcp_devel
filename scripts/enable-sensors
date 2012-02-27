@@ -1,6 +1,7 @@
 #!/bin/bash
 
 source functions.sh
+source sensors.sh
 
 export KATCP_SERVER=localhost:7147
 
@@ -26,5 +27,7 @@ for name in $(grep ^servers_x.*roach ${CORR_CONFIG}/wbc | cut -f2 -d= | tr '[, ]
 done
 
 kcpcmd -q -k job process corr exec://corr || kcs_error "unable to launch corr monitoring logic" 
+
+setup_static_sensors
 
 exit 0
