@@ -53,7 +53,7 @@
 
 /* register fields */
 
-#define FMON_QDRCTRL_RESET         0x80000000
+#define FMON_QDRCTRL_RESET         0x00000001
 
 #define FMON_FCONTROL_CLEAR_STATUS     0x0008
 #define FMON_FCONTROL_FLASHER_EN       0x1000
