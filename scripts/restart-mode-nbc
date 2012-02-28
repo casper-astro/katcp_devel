@@ -2,6 +2,7 @@
 
 set -e
 source functions.sh
+source sensors.sh
 
 now=$(date +%s)
 timeout=150
@@ -24,7 +25,7 @@ done
 kcs_info "running initialise"
 if kcpcmd -k -m -t 120 initialise 2 ; then
   kcs_corr_log
-  kcs_mode_sensors nbc
+  change_mode_sensors ${KATCP_MODE} nbc
   exit 0
 fi
 
