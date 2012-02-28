@@ -4,6 +4,6 @@ set -e
 source functions.sh
 source sensors.sh
 
-kcs_mode_sensors ${KATCP_MODE} ready
+change_mode_sensors ${KATCP_MODE} ready
 
 
