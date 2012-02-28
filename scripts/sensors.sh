@@ -12,8 +12,8 @@ setup_static_sensors () {
         adc_clock=$(grep ^adc_clk ${config_file} 2> /dev/null | cut -f2 -d= | tr -d ' ' )
         coarse_channels=$(grep ^coarse_chans ${config_file} 2> /dev/null | cut -f2 -d= | tr -d ' ' )
 
-        bandwidth=$(echo "${adc_clock:-400}/(${coarse_channels:-1}*2)" | bc -l | cut -f1 -d. )
-        centerfrequency=$(echo "${bandwidth}/4" | bc -l | cut -f1 -d.)
+        bandwidth=$(echo "${adc_clock:-800}/(${coarse_channels:-1}*2)" | bc -l | cut -f1 -d. )
+        centerfrequency=$(echo "${bandwidth}/2" | bc -l | cut -f1 -d.)
 
         echo "#sensor-status $(date +%s)000 1 .${mode}.channels unknown ${channels}"
         echo "#sensor-status $(date +%s)000 1 .${mode}.centerfrequency unknown ${centerfrequency}"
