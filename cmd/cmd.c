@@ -489,7 +489,7 @@ int main(int argc, char **argv)
         break;
       case  0 :
         if(k){
-          sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPCMD_NAME, "request timed out after %d seconds", timeout);
+          sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPCMD_NAME, "request %s timed out after %d seconds", argv[base], timeout);
         } 
         if(verbose){
           fprintf(stderr, "%s: no io activity within %d seconds\n", app, timeout);
