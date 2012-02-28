@@ -3,10 +3,11 @@ setup_static_sensors () {
   for config_file in ${CORR_CONFIG}/* ; do
     if [ -f ${config_file} ] ; then
       channels=$(grep ^n_chans ${config_file} 2> /dev/null | cut -f2 -d= | tr -d ' ' )
+      mode=${config_file##*/}
       if [ -n "${channels}" ] ; then
-        sensor_name=${config_file##*/}.channels
-        echo "#sensor-list ${sensor_name} number\_of\_channels none integer 0 65536"
-        echo "#sensor-status $(date +%s)000 1 ${sensor_name} unknown ${channels}"
+        echo "#sensor-list .${mode}.channels number\_of\_channels none integer 0 65536"
+        echo "#sensor-list .${mode}.centerfrequency current\_center\_frequency Hz integer 0 500000000"
+        echo "#sensor-list .${mode}.bandwidth bandwidth\_of\_current\_mode Hz integer 0 1000000000"
 
         adc_clock=$(grep ^adc_clk ${config_file} 2> /dev/null | cut -f2 -d= | tr -d ' ' )
         coarse_channels=$(grep ^coarse_chans ${config_file} 2> /dev/null | cut -f2 -d= | tr -d ' ' )
@@ -14,13 +15,9 @@ setup_static_sensors () {
         bandwidth=$(echo "${adc_clock:-400}/(${coarse_channels:-1}*2)" | bc -l)
         centerfrequency=$(echo "${bandwidth}/4" | bc -l)
 
-        sensor_name=${config_file##*/}.centerfrequency
-        echo "#sensor-list ${sensor_name} current\_center\_frequency Hz integer 0 500000000"
-        echo "#sensor-status $(date +%s)000 1 ${sensor_name} unknown ${centerfrequency}"
-
-        sensor_name=${config_file##*/}.bandwidth
-        echo "#sensor-list ${sensor_name} bandwidth\_of\_current\_mode Hz integer 0 1000000000"
-        echo "#sensor-status $(date +%s)000 1 ${sensor_name} unknown ${bandwidth}"
+        echo "#sensor-status $(date +%s)000 1 .${mode}.channels unknown ${channels}"
+        echo "#sensor-status $(date +%s)000 1 .${mode}.centerfrequency unknown ${centerfrequency}"
+        echo "#sensor-status $(date +%s)000 1 .${mode}.bandwidth unknown ${bandwidth}"
 
       fi 
 
@@ -38,15 +35,15 @@ change_mode_sensors () {
   fi
 
   if [ -f ${CORR_CONFIG}/${from} ]  ; then
-    echo "#sensor-status $(date +%s)000 1 ${from}.centerfrequency unknown \@"
-    echo "#sensor-status $(date +%s)000 1 ${from}.channels unknown \@"
-    echo "#sensor-status $(date +%s)000 1 ${from}.bandwidth unknown \@"
+    echo "#sensor-status $(date +%s)000 1 .${from}.centerfrequency unknown \@"
+    echo "#sensor-status $(date +%s)000 1 .${from}.channels unknown \@"
+    echo "#sensor-status $(date +%s)000 1 .${from}.bandwidth unknown \@"
   fi
 
   if [ -f ${CORR_CONFIG}/${to} ] ; then
-    echo "#sensor-status $(date +%s)000 1 ${to}.centerfrequency nominal \@"
-    echo "#sensor-status $(date +%s)000 1 ${to}.channels nominal \@"
-    echo "#sensor-status $(date +%s)000 1 ${to}.bandwidth nominal \@"
+    echo "#sensor-status $(date +%s)000 1 .${to}.centerfrequency nominal \@"
+    echo "#sensor-status $(date +%s)000 1 .${to}.channels nominal \@"
+    echo "#sensor-status $(date +%s)000 1 .${to}.bandwidth nominal \@"
   fi
 
 }
