@@ -2,6 +2,7 @@
 
 set -e
 source functions.sh
+source sensors.sh
 
 now=$(date +%s)
 timeout=150

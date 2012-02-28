@@ -26,6 +26,7 @@ kcs_info "running initialise"
 if kcpcmd -k -m -t 120 initialise 2 ; then
   kcs_corr_log
   change_mode_sensors ${KATCP_MODE} nbc
+  echo "#sensor-status $(date +%s)000 1 .nbc.centerfrequency nominal 0"
   exit 0
 fi
 
