@@ -29,7 +29,7 @@ change_mode_sensors () {
   from="$1"
   to="$2"
 
-  if [ -n "${from}" -o -n "${to}" ] ; then
+  if [ -z "${from}" -o -z "${to}" ] ; then
     kcpmsg -s mode -l warn "no static sensors to update"
     exit 0
   fi
