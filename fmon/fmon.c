@@ -55,6 +55,7 @@
 
 #define FMON_QDRCTRL_RESET         0x00000001
 
+#define FMON_FCONTROL_CLEAR_TERMINATE  0x0010
 #define FMON_FCONTROL_CLEAR_STATUS     0x0008
 #define FMON_FCONTROL_FLASHER_EN       0x1000
 
@@ -1545,7 +1546,7 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, char *name)
   }
 
   if(status_sram == KATCP_STATUS_ERROR){
-    log_message_katcl(f->f_report, KATCP_LEVEL_ERROR, f->f_server, "qdr not synchronised, attempting reset");
+    log_message_katcl(f->f_report, KATCP_LEVEL_WARN, f->f_server, "qdr not synchronised, attempting reset");
 
     word = FMON_QDRCTRL_RESET;
     if(write_word_fmon(f, "qdr0_ctrl", word)){
