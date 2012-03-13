@@ -379,6 +379,7 @@ void *get_multi_katcp(struct katcp_dispatch *d)
 
 /********************/
 
+#if 0
 void on_disconnect_katcp(struct katcp_dispatch *d, char *fmt, ...)
 {
   va_list args;
@@ -395,6 +396,8 @@ void on_disconnect_katcp(struct katcp_dispatch *d, char *fmt, ...)
 #endif
 
   if(exiting_katcp(d)){ /* ensures that we only run once */
+
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s disconnecting", d->d_name);
 
     append_string_katcp(d, KATCP_FLAG_FIRST, KATCP_DISCONNECT_INFORM);
 
@@ -427,7 +430,9 @@ void on_disconnect_katcp(struct katcp_dispatch *d, char *fmt, ...)
     }
   }
 }
+#endif
 
+#if 0
 void on_connect_katcp(struct katcp_dispatch *d)
 {
   /* prints initial inform messages, could possibly be made dynamic */
@@ -462,6 +467,7 @@ void on_connect_katcp(struct katcp_dispatch *d)
   }
 #endif
 }
+#endif
 
 #if 0
 pid_t spawn_child_katcp(struct katcp_dispatch *d, char *name, int (*run)(void *data), void *data, void (*call)(struct katcp_dispatch *d, int status))

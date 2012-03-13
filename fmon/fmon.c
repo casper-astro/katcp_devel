@@ -74,6 +74,8 @@
 #define FMON_DEFAULT_INTERVAL 1000
 #define FMON_DEFAULT_TIMEOUT  5000
 
+#define FMON_INIT_PERIOD     60000
+
 /* misc */
 
 #define FMON_GOOD_DSP_CLOCK 200000000
@@ -169,6 +171,7 @@ struct fmon_state
   int f_reprobe;
   int f_cycle;
   int f_something;
+  int f_grace; /* grace period (ms) within which initial terminated not reported */
 
   int f_fs;
   int f_xs;
@@ -383,6 +386,7 @@ struct fmon_state *create_fmon(char *server, int verbose, unsigned int timeout, 
 
   f->f_reprobe = reprobe;
   f->f_cycle = 0;
+  f->f_grace = 0;
 
   f->f_amplitude_acc_len = 0x10000;
   f->f_adc_scale_factor = FMON_KATADC_SCALE;
@@ -726,6 +730,7 @@ int maintain_fmon(struct fmon_state *f)
   }
 
   f->f_maintaining = 1;
+  f->f_grace = 0;
 
   if(f->f_line == NULL){
     state = STATE_CONNECT;
@@ -1510,7 +1515,7 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, char *name)
     value_adc       = 1;
     status_adc      = KATCP_STATUS_UNKNOWN;
 
-    value_disabled  = 1;
+    value_disabled  = 0;
     status_disabled = KATCP_STATUS_UNKNOWN;
 
     value_fft       = 1;
@@ -1529,6 +1534,17 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, char *name)
     status_adc      = value_adc ? KATCP_STATUS_ERROR : KATCP_STATUS_NOMINAL;
 
     value_disabled  = (word & FMON_FSTATUS_ADC_DISABLED) ? 1 : 0;
+    if(value_disabled){
+      if(f->f_grace < FMON_INIT_PERIOD){
+        status_disabled = KATCP_STATUS_UNKNOWN;
+      } else {
+        status_disabled = KATCP_STATUS_ERROR;
+      }
+    } else {
+      status_disabled = KATCP_STATUS_NOMINAL;
+      f->f_grace      = FMON_INIT_PERIOD;
+    }
+
     status_disabled = value_disabled ? KATCP_STATUS_ERROR : KATCP_STATUS_NOMINAL;
 
     value_fft       = (word & FMON_FSTATUS_FFT_OVERRANGE) ? 1 : 0;
@@ -1949,6 +1965,10 @@ int main(int argc, char **argv)
 
     if(catchup_fmon(f, interval) < 0){
       run = 0;
+    }
+
+    if(f->f_grace <= FMON_INIT_PERIOD){
+      f->f_grace += interval;
     }
   }
 

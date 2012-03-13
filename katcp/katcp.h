@@ -108,6 +108,9 @@ struct katcp_url;
 #define KATCP_BUILD_STATE_INFORM       "#build-state"
 #define KATCP_VERSION_INFORM           "#version"
 
+#define KATCP_CLIENT_CONNECT           "#client-connected"
+#define KATCP_CLIENT_DISCONNECT        "#client-disconnected"
+
 /******************* core api ********************/
 
 /* create a dispatch handler */

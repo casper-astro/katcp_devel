@@ -28,7 +28,7 @@
 #define KATCP_HALT_WAIT       1
 #define KATCP_BRIEF_WAIT  10000   /* 10 ms */
 
-static int inform_client_connect_katcp(struct katcp_dispatch *d)
+static int inform_client_connections_katcp(struct katcp_dispatch *d, char *type)
 {
   int i;
   struct katcp_shared *s;
@@ -51,7 +51,7 @@ static int inform_client_connect_katcp(struct katcp_dispatch *d)
       fprintf(stderr, "multi[%d]: informing %p of new connection\n", i, d);
 #endif
 
-      send_katcp(dx, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#client-connected", KATCP_FLAG_LAST | KATCP_FLAG_STRING, d->d_name);
+      send_katcp(dx, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, type, KATCP_FLAG_LAST | KATCP_FLAG_STRING, d->d_name);
     }
   }
 
@@ -248,6 +248,8 @@ void add_client_server_katcp(struct katcp_dispatch *dl, int fd, char *label)
   }
 #endif
 
+  log_message_katcp(dl, KATCP_LEVEL_INFO, NULL, "new client connection %s", label);
+
   fcntl(fd, F_SETFD, FD_CLOEXEC);
 
   dx = s->s_clients[s->s_used];
@@ -256,8 +258,12 @@ void add_client_server_katcp(struct katcp_dispatch *dl, int fd, char *label)
   reset_katcp(dx, fd);
   name_katcp(dx, "%s", label);
 
-  inform_client_connect_katcp(dx); /* do before creation to avoid seeing own creation message */
+  inform_client_connections_katcp(dx, KATCP_CLIENT_CONNECT); /* will not send to itself */
+
+  print_versions_katcp(dx, KATCP_PRINT_VERSION_CONNECT);
+#if 0
   on_connect_katcp(dx);
+#endif
 }
 
 void perforate_client_server_katcp(struct katcp_dispatch *dl)
@@ -272,7 +278,9 @@ void perforate_client_server_katcp(struct katcp_dispatch *dl)
     dx = s->s_clients[(unsigned int)rand() % s->s_count];
 
     terminate_katcp(dx, KATCP_EXIT_QUIT);
+#if 0
     on_disconnect_katcp(dx, "displaced by new client connection");
+#endif
   }
 }
 

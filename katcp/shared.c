@@ -446,6 +446,8 @@ static void release_clone(struct katcp_dispatch *d)
   fd = fileno_katcl(d->d_line);
 #endif
 
+  inform_client_connections_katcp(d, KATCP_CLIENT_DISCONNECT); /* will not send to itself */
+
   reset_katcp(d, -1);
 
 #ifdef DEBUG
@@ -556,6 +558,7 @@ int load_shared_katcp(struct katcp_dispatch *d)
 #endif
     switch(status){
       case KATCP_EXIT_NOTYET : /* still running */
+        /* load up read fd */
         FD_SET(fd, &(s->s_read));
         if(fd > s->s_max){
           s->s_max = fd;
@@ -563,7 +566,9 @@ int load_shared_katcp(struct katcp_dispatch *d)
         break;
 
       case KATCP_EXIT_QUIT : /* only this connection is shutting down */
+#if 0
         on_disconnect_katcp(dx, NULL);
+#endif
         break;
 
       default : /* global shutdown */
@@ -574,7 +579,9 @@ int load_shared_katcp(struct katcp_dispatch *d)
         result = (-1); /* pre shutdown mode */
         terminate_katcp(d, status); /* have the shutdown code go to template */
 
+#if 0
         on_disconnect_katcp(dx, NULL);
+#endif
 
         break;
     }
@@ -666,7 +673,9 @@ int ended_shared_katcp(struct katcp_dispatch *d)
       fprintf(stderr, "ended[%d]: unsolicted disconnect with code %d\n", i, status);
 #endif
       terminate_katcp(dx, status); /* have the shutdown code go others */
+#if 0
       on_disconnect_katcp(dx, NULL);
+#endif
     }
   }
 
