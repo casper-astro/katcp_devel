@@ -1526,6 +1526,7 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, char *name)
 
     value_xaui      = 0;
     status_xaui     = KATCP_STATUS_UNKNOWN;
+    f->f_grace      = 0;
   } else {
 #ifdef DEBUG
     fprintf(stderr, "got status 0x%08x from %s\n", word, n->n_label);
