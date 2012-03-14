@@ -1546,7 +1546,9 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, char *name)
       f->f_grace      = FMON_INIT_PERIOD;
     }
 
-    status_disabled = value_disabled ? KATCP_STATUS_ERROR : KATCP_STATUS_NOMINAL;
+#ifdef DEBUG
+    fprintf(stderr, "disabled=%d, status=%d, grace=%d\n", value_disabled, status_disabled, f->f_grace);
+#endif
 
     value_fft       = (word & FMON_FSTATUS_FFT_OVERRANGE) ? 1 : 0;
     status_fft      = value_fft ? KATCP_STATUS_ERROR : KATCP_STATUS_NOMINAL;
