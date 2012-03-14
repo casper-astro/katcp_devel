@@ -1536,7 +1536,7 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, char *name)
 
     value_disabled  = (word & FMON_FSTATUS_ADC_DISABLED) ? 1 : 0;
     if(value_disabled){
-      if(f->f_grace < FMON_INIT_PERIOD){
+      if(f->f_grace <= FMON_INIT_PERIOD){
         status_disabled = KATCP_STATUS_UNKNOWN;
       } else {
         status_disabled = KATCP_STATUS_ERROR;
