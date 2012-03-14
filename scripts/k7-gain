@@ -6,7 +6,7 @@ source functions.sh
 kcs_arg_check $# 1
 
 if [ "$#" -le 1 ]  ; then
-  kcpcmd -i -k eq-get $1 | tr -d '()' | sed -e 's/^!eq-get/#return ok/'
+  kcpcmd -i -k eq-get $1 | tr -d '()' | sed -e 's/^!eq-get/#return/'
 else 
   status=1
   if kcpcmd -k -m eq-set $* ; then
