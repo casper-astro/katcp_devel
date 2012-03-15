@@ -665,6 +665,9 @@ int dump_parse_katcl(struct katcl_parse *p, char *prefix, FILE *fp);
 
 int finalize_parse_katcl(struct katcl_parse *p);
 
+/* */
+int inform_client_connections_katcp(struct katcp_dispatch *d, char *type);
+
 /* queue logic */
 #if 0
 struct katcl_parse *get_head_katcl(struct katcl_queue *q);

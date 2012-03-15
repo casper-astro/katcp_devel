@@ -28,7 +28,7 @@
 #define KATCP_HALT_WAIT       1
 #define KATCP_BRIEF_WAIT  10000   /* 10 ms */
 
-static int inform_client_connections_katcp(struct katcp_dispatch *d, char *type)
+int inform_client_connections_katcp(struct katcp_dispatch *d, char *type)
 {
   int i;
   struct katcp_shared *s;
