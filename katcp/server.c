@@ -276,6 +276,48 @@ void perforate_client_server_katcp(struct katcp_dispatch *dl)
   }
 }
 
+static int update_flags_katcp(struct katcp_dispatch *d, int argc, int flags)
+{
+  char *match;
+  int i;
+
+  if(d->d_shared == NULL){
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(argc < 2){
+    extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
+    return KATCP_RESULT_OWN;
+  }
+
+  for(i = 1; i < argc; i++){
+    match = arg_string_katcp(d, i);
+    if(match == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire parameter %d", i);
+      return KATCP_RESULT_FAIL;
+    }
+
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "about to update command %s", match);
+
+    if(update_command_katcp(d, match, flags) < 0){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to hide or expose command %s", match);
+      return KATCP_RESULT_FAIL;
+    }
+  }
+
+  return KATCP_RESULT_OK;
+}
+
+int expose_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  return update_flags_katcp(d, argc, 0);
+}
+
+int hide_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  return update_flags_katcp(d, argc, KATCP_CMD_HIDDEN);
+}
+
 int forget_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   char *match;
@@ -475,8 +517,8 @@ int prepare_core_loop_katcp(struct katcp_dispatch *dl)
   register_flag_mode_katcp(dl, "?setenv",  "sets/clears an enviroment variable (?setenv [label [value]]", &setenv_cmd_katcp, KATCP_CMD_HIDDEN, 0);
   register_flag_mode_katcp(dl, "?chdir",   "change directory (?chdir directory)", &chdir_cmd_katcp, KATCP_CMD_HIDDEN, 0);
   register_flag_mode_katcp(dl, "?forget",  "deregister a command (?forget command)", &forget_cmd_katcp, KATCP_CMD_HIDDEN, 0);
-
-  register_flag_mode_katcp(dl, "?system-info",  "report server information (?system-info)", &system_info_cmd_katcp, 0, 0);
+  register_flag_mode_katcp(dl, "?hide",    "hide a command (?hide command ...)", &hide_cmd_katcp, KATCP_CMD_HIDDEN, 0);
+  register_flag_mode_katcp(dl, "?expose",  "unhide a command (?expose command ...)", &expose_cmd_katcp, KATCP_CMD_HIDDEN, 0);
 
   register_flag_mode_katcp(dl, "?dispatch","dispatch operations (?dispatch [list])", &dispatch_cmd_katcp, 0, 0);
   register_flag_mode_katcp(dl, "?notice",  "notice operations (?notice [list|watch|wake])", &notice_cmd_katcp, 0, 0);
@@ -487,6 +529,8 @@ int prepare_core_loop_katcp(struct katcp_dispatch *dl)
   register_flag_mode_katcp(dl, "?process", "register a process command (?process executable help-string [mode]", &register_subprocess_cmd_katcp, 0, 0);
   register_flag_mode_katcp(dl, "?sensor",  "sensor operations (?sensor [list|create|relay job-name])", &sensor_cmd_katcp, 0, 0);
   register_flag_mode_katcp(dl, "?version", "version operations (?sensor [add module version [mode]|remove module])", &version_cmd_katcp, 0, 0);
+
+  register_flag_mode_katcp(dl, "?system-info",  "report server information (?system-info)", &system_info_cmd_katcp, 0, 0);
 
   time(&(s->s_start));
 

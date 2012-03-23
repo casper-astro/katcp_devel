@@ -3,7 +3,7 @@ include Makefile.inc
 ###############################################################################
 
 LIBRARY = katcp
-APPS = kcs cmd examples sq bulkread tmon log fmon modules tcpborphserver3
+APPS = kcs cmd examples sq bulkread tmon log fmon modules tcpborphserver3 msg
 MISC = scripts misc 
 
 EVERYTHING = $(LIBRARY) $(APPS) $(MISC)

@@ -1,0 +1,7 @@
+#!/bin/bash
+
+source functions.sh
+
+kcpmsg -l debug -s reload "about to reload roach monitors"
+
+kill -HUP $(ps axo comm,pid | tr -s ' ' | grep roach | cut -f2 -d\ ) || exit 0
