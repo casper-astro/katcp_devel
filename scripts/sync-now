@@ -7,7 +7,7 @@ kcs_debug "about to run resync"
 
 status=1
 
-if kcpcmd -k -r resync ; then
+if kcpcmd -k -r -t 10 resync ; then
   status=0
 else 
   kcs_error "corr resync failed"
