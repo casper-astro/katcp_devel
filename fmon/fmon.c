@@ -1740,11 +1740,15 @@ int check_adc_clock_fmon(struct fmon_state *f)
         status_clock = KATCP_STATUS_ERROR;
         value_clock = 0;
       } else {
+#if 0
         if(delta == 0){ /* clock perfect */
+#endif
           status_clock = KATCP_STATUS_NOMINAL;
+#if 0
         } else {        /* clock kindof ok */
           status_clock = KATCP_STATUS_WARN;
         }
+#endif
         value_clock = 1;
       }
 
