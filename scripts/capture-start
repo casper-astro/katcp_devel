@@ -17,7 +17,7 @@ if [ $# -gt 1 ] ; then
   kcs_warn "corr package no longer supports a timed start"
 fi
 
-if kcpcmd -k -m tx-start ${KCS_CORR_RX%:*} ${KCS_CORR_RX##*:} ; then
+if kcpcmd -t 12 -k -m tx-start ${KCS_CORR_RX%:*} ${KCS_CORR_RX##*:} ; then
   status=0
 else 
   kcs_error "corr tx-start failed"
