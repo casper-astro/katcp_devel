@@ -64,7 +64,7 @@ int script_wildcard_cmd(struct katcp_dispatch *d, int argc)
 
   name = create_kurl_from_string_katcp(arg_string_katcp(d, 0)+1);
   if(name == NULL){
-    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "logic problem, unable to acquire command name possibly try uri exec:///path/to/process");
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "logic problem, unable to acquire command name possibly try uri exec:///path/to/process");
     destroy_kurl_katcp(name);
     return KATCP_RESULT_FAIL;
   }
