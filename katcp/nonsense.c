@@ -2707,6 +2707,31 @@ int register_double_sensor_katcp(struct katcp_dispatch *d, int mode, char *name,
 
   return 0;
 }
+
+/* double registration with one acquire handling multiple sensors *******/
+
+int register_multi_double_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, double min, double max, struct katcp_acquire *a, int (*extract)(struct katcp_dispatch *d, struct katcp_sensor *sn))
+{
+  struct katcp_sensor *sn;
+
+  sn = create_sensor_katcp(d, name, description, units, KATCP_STRATEGY_EVENT, KATCP_SENSOR_FLOAT, mode);
+  if(sn == NULL){
+    return -1;
+  }
+
+  if(create_sensor_double_katcp(d, sn, min, max) < 0){
+    destroy_sensor_katcp(d, sn);
+    return -1;
+  }
+
+  if(link_acquire_katcp(d, a, sn, extract)){
+    destroy_sensor_katcp(d, sn);
+    return -1;
+  }
+
+  return 0;
+}
+
 #endif
 
 /* discrete registration *************************************************/
