@@ -18,7 +18,7 @@ if [ "${freq}" -ge "${bw}" ] ; then
   freq=${bw}
 fi
 
-full=$(echo ${coarse_chans}*${freq}/${bw} | bc -l | sed -e 's/^\./0./' )
+full=$(echo "0.5+(${coarse_chans}*${freq}/${bw})" | bc -l | sed -e 's/^\./0./' )
 
 channel=$(echo ${full} | cut -f1 -d.)
 if [ -z ${channel} ] ; then
