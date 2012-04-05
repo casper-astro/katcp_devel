@@ -555,7 +555,7 @@ static int write_frame_fpga(struct getap_state *gs, unsigned char *data, unsigne
 
   memcpy(base + GO_TXBUFFER, data, actual);
 
-  buffer_sizes = (buffer_sizes & 0xffff) & (0xffff0000 | (((actual + 7) / 8) << 16));
+  buffer_sizes = (buffer_sizes & 0xffff) | (0xffff0000 & (((actual + 7) / 8) << 16));
   *((uint32_t *)(base + GO_BUFFER_SIZES)) = buffer_sizes;
 
 #if 0
