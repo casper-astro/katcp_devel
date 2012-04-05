@@ -330,6 +330,8 @@ struct katcp_acquire *setup_double_acquire_katcp(struct katcp_dispatch *d, doubl
 
 int set_double_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a, double value);
 
+int register_multi_double_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, double min, double max, struct katcp_acquire *a, int (*extract)(struct katcp_dispatch *d, struct katcp_sensor *sn));
+
 #endif
 
 /***************************************************************************/
