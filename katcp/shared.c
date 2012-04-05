@@ -799,7 +799,7 @@ int mode_resume_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *da
 
 int mode_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
-  char *name, *actual, *flags;
+  char *name, *actual, *flags, *scheduled;
   struct katcp_shared *s;
   int result;
 
@@ -858,6 +858,14 @@ int mode_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "current mode now %s", actual);
+  if(s->s_new != s->s_mode){
+    scheduled = s->s_vector[s->s_new].e_name;
+    if(scheduled){
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "transition planned to mode %s", scheduled);
+    } else {
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "transition planned to enter mode number %d", s->s_new);
+    }
+  }
 
   if(name && strcmp(actual, name)){
     extra_response_katcp(d, KATCP_RESULT_FAIL, actual);
