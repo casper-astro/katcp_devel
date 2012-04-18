@@ -3,7 +3,8 @@ KATCP ?= ../katcp
 include ../Makefile.inc
 
 INC = -I$(KATCP)
-LIB = -L$(KATCP) -lkatcp -ldl
+#LIB = -L$(KATCP) -lkatcp -ldl -lz -lmagic
+LIB = -L$(KATCP) -lkatcp -ldl -lz
 CFLAGS += -fPIC
 CFLAGS += -ggdb
 CFLAGS += -DDEBUG
