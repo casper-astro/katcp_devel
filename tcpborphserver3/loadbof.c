@@ -224,7 +224,9 @@ struct bof_state *open_bof(struct katcp_dispatch *d, char *name)
 {
   struct bof_state *bs;
   int rr, have;
+#if 0
   struct stat st;
+#endif
   struct bofhdr bh;
   struct hwrhdr hh;
 
