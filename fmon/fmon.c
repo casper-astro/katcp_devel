@@ -753,6 +753,7 @@ int maintain_fmon(struct fmon_state *f)
       case STATE_CONNECT : 
         f->f_line = create_name_rpc_katcl(f->f_server);
         if(f->f_line == NULL){
+          log_message_katcl(f->f_report, KATCP_LEVEL_TRACE, f->f_server, "connect to %s failed: %s", f->f_server, strerror(errno));
           /* state = STATE_CONNECT */
           break;
         } /* fall */
