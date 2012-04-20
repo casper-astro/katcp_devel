@@ -510,6 +510,15 @@ struct fmon_sensor *find_sensor_fmon(struct fmon_state *f, char *name)
   return NULL;
 }
 
+int check_parent(struct fmon_state *f)
+{
+  if(getppid() <= 1){
+    return -1;
+  }
+
+  return 0;
+}
+
 int catchup_fmon(struct fmon_state *f, unsigned int interval)
 {
   struct timeval delta, target;
@@ -1260,6 +1269,7 @@ int detect_fmon(struct fmon_state *f)
 
   result = read_word_fmon(f, "board_id", &word);
   if(result != 0){
+    log_message_katcl(f->f_report, KATCP_LEVEL_DEBUG, f->f_server, "using fixed board %u rather than %d", f->f_fixed, word);
     return result;
   }
 
@@ -1972,6 +1982,10 @@ int main(int argc, char **argv)
     check_watchdog_fmon(f); /* only gets done if nothing else happened */
 
     if(catchup_fmon(f, interval) < 0){
+      run = 0;
+    }
+
+    if(check_parent(f) < 0){
       run = 0;
     }
 
