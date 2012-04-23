@@ -1325,7 +1325,9 @@ int detect_fmon(struct fmon_state *f)
 
   result = read_word_fmon(f, "board_id", &word);
   if(result != 0){
-    log_message_katcl(f->f_report, KATCP_LEVEL_DEBUG, f->f_server, "using fixed board %u rather than %d", f->f_fixed, word);
+    if(f->f_fixed >= 0){
+      log_message_katcl(f->f_report, KATCP_LEVEL_DEBUG, f->f_server, "using fixed board %u rather than %d", f->f_fixed, word);
+    }
     return result;
   }
 
