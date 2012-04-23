@@ -1345,7 +1345,7 @@ int detect_fmon(struct fmon_state *f)
     f->f_reprobe = 1;
   }
 
-  if(read_word_fmon(f, "fine_ctrl", &word)){
+  if(read_word_fmon(f, "fine_ctrl", &word) == 0){
     log_message_katcl(f->f_report, KATCP_LEVEL_DEBUG, f->f_server, "roach %s seems to be in narrowband mode", f->f_server);
     f->f_mode = FMON_MODE_NBC;
   } else {
