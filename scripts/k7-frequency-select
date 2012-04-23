@@ -5,7 +5,7 @@ source functions.sh
 
 kcs_arg_check $# 1
 
-kcpcmd -i -k nb-set-cf $1 | sed -e 's/^!nb-set-cf/#return/' 
+kcpcmd -i -k nb-set-cf $1 | sed -e 's/^!nb-set-cf/#return/' | cut -f1-3 -d\  
 
 # freq=$1
 # #mix_count=2
