@@ -19,6 +19,8 @@
 #include "katcl.h"
 #include "katcp.h"
 
+#define KATCP_FLUSH_THRESHOLD 4 
+
 /****************************************************************/
 
 #ifdef DEBUG
@@ -465,8 +467,16 @@ static int after_append_katcl(struct katcl_line *l, int flags, int result)
   }
 
   add_tail_queue_katcl(l->l_queue, l->l_stage);
+  
   destroy_parse_katcl(l->l_stage);
   l->l_stage = NULL;
+
+#ifdef KATCP_FLUSH_THRESHOLD
+  if(size_queue_katcl(l->l_queue) > KATCP_FLUSH_THRESHOLD){
+    /* WARNING: ignores return code */
+    write_katcl(l);
+  }
+#endif
 
   return result;
 }

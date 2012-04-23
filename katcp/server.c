@@ -557,6 +557,7 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
   struct timespec delta;
   struct katcp_shared *s;
   char label[LABEL_BUFFER];
+  long opts;
 
   s = dl->d_shared;
 
@@ -682,6 +683,13 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
 
           add_client_server_katcp(dl, nfd, label);
         }
+
+#if 1
+        opts = fcntl(nfd, F_GETFL, NULL);
+        if(opts >= 0){
+          opts = fcntl(nfd, F_SETFL, opts | O_NONBLOCK);
+        }
+#endif
 
       } else {
         /* WARNING: will run a busy loop, terminating one entry each cycle until space becomes available. We expect an exit to happen quickly, otherwise this could empty out all clients (though there is a backoff, since we pick a slot randomly) */

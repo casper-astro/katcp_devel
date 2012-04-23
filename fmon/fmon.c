@@ -61,13 +61,30 @@
 
 #define FMON_XCONTROL_FLASHER_EN       0x1000
 
-#define FMON_FSTATUS_QUANT_OVERRANGE   0x0001  /* bit  0, complex eq  registers 10.1 */
-#define FMON_FSTATUS_FFT_OVERRANGE     0x0002  /* bit  1, fft         registers 8.1 */
-#define FMON_FSTATUS_ADC_OVERRANGE     0x0004  /* bit  2, adc         registers 7.1 */
-#define FMON_FSTATUS_SDRAM_BAD         0x0008  /* bit  3, misc        registers 6.2 */
-#define FMON_FSTATUS_ADC_DISABLED      0x0010  /* bit  4, adc         registers 7.1 */
-#define FMON_FSTATUS_CLOCK_BAD         0x0020  /* bit  5, timing      registers 5.1 */
-#define FMON_FSTATUS_XAUI_LINKBAD  0x00020000  /* bit 17, guessed */
+#define FMON_FSTATUS_WBC_QUANT_OVERRANGE   0x0001  /* bit  0, complex eq  registers 10.1 */
+#define FMON_FSTATUS_WBC_FFT_OVERRANGE     0x0002  /* bit  1, fft         registers 8.1 */
+#define FMON_FSTATUS_WBC_ADC_OVERRANGE     0x0004  /* bit  2, adc         registers 7.1 */
+#define FMON_FSTATUS_WBC_SDRAM_BAD         0x0008  /* bit  3, misc        registers 6.2 */
+#define FMON_FSTATUS_WBC_ADC_DISABLED      0x0010  /* bit  4, adc         registers 7.1 */
+#define FMON_FSTATUS_WBC_CLOCK_BAD         0x0020  /* bit  5, timing      registers 5.1 */
+#define FMON_FSTATUS_WBC_XAUI_LINKBAD  0x00020000  /* bit 17, guessed */
+
+#define FMON_FSTATUS_NBC_QUANT_OVERRANGE   0x0001 
+#define FMON_FSTATUS_NBC_COARSE_OVERGANGE  0x0002 
+#define FMON_FSTATUS_NBC_FFT_OVERRANGE     0x0004 
+#define FMON_FSTATUS_NBC_ADC_OVERRANGE     0x0008 
+#define FMON_FSTATUS_NBC_SDRAM_BAD         0x0010
+#define FMON_FSTATUS_NBC_ADC_DISABLED      0x0020 
+#define FMON_FSTATUS_NBC_CLOCK_BAD         0x0040 
+#define FMON_FSTATUS_NBC_XAUI_LINKBAD  0x00020000 
+
+#define FMON_FSTATUS_QUANT_OVERRANGE(f)  (map_mode_bits[(f)->f_mode][0])
+#define FMON_FSTATUS_FFT_OVERRANGE(f)    (map_mode_bits[(f)->f_mode][1]) 
+#define FMON_FSTATUS_ADC_OVERRANGE(f)    (map_mode_bits[(f)->f_mode][2])
+#define FMON_FSTATUS_SDRAM_BAD(f)        (map_mode_bits[(f)->f_mode][3])
+#define FMON_FSTATUS_ADC_DISABLED(f)     (map_mode_bits[(f)->f_mode][4])
+#define FMON_FSTATUS_CLOCK_BAD(f)        (map_mode_bits[(f)->f_mode][5])
+#define FMON_FSTATUS_XAUI_LINKBAD(f)     (map_mode_bits[(f)->f_mode][5])
 
 /* time related */
 
@@ -89,9 +106,31 @@
 #define FMON_KATADC_WARN_HIGH    -15.0
 #define FMON_KATADC_WARN_LOW     -28.0
 
+#define FMON_MODE_WBC             0
+#define FMON_MODE_NBC             1
+
 volatile int run;
 
 static char inputs_fmon[FMON_MAX_INPUTS] = { 'x', 'y' };
+
+static unsigned int map_mode_bits[2][7] = { { 
+  FMON_FSTATUS_WBC_QUANT_OVERRANGE,
+  FMON_FSTATUS_WBC_FFT_OVERRANGE,
+  FMON_FSTATUS_WBC_ADC_OVERRANGE,
+  FMON_FSTATUS_WBC_SDRAM_BAD,
+  FMON_FSTATUS_WBC_ADC_DISABLED,
+  FMON_FSTATUS_WBC_CLOCK_BAD,
+  FMON_FSTATUS_WBC_XAUI_LINKBAD }, 
+
+{ FMON_FSTATUS_NBC_QUANT_OVERRANGE,
+  FMON_FSTATUS_NBC_FFT_OVERRANGE,
+  FMON_FSTATUS_NBC_ADC_OVERRANGE,
+  FMON_FSTATUS_NBC_SDRAM_BAD,
+  FMON_FSTATUS_NBC_ADC_DISABLED,
+  FMON_FSTATUS_NBC_CLOCK_BAD,
+  FMON_FSTATUS_NBC_XAUI_LINKBAD }
+};
+
 
 #if 0
 static char *board_sensor_labels_fmon[FMON_BOARD_SENSORS]       = { "lru.available", "fpga.synchronised" };
@@ -172,6 +211,8 @@ struct fmon_state
   int f_cycle;
   int f_something;
   int f_grace; /* grace period (ms) within which initial terminated not reported */
+
+  int f_mode;
 
   int f_fs;
   int f_xs;
@@ -387,6 +428,8 @@ struct fmon_state *create_fmon(char *server, int verbose, unsigned int timeout, 
   f->f_reprobe = reprobe;
   f->f_cycle = 0;
   f->f_grace = 0;
+
+  f->f_mode = FMON_MODE_WBC; /* assume a mode */
 
   f->f_amplitude_acc_len = 0x10000;
   f->f_adc_scale_factor = FMON_KATADC_SCALE;
@@ -885,6 +928,7 @@ int read_word_fmon(struct fmon_state *f, char *name, uint32_t *value)
   int result[4], r, status, i;
   int expect[4] = { 6, 0, 2, 2 };
   uint32_t tmp;
+  char *code;
 
   if(maintain_fmon(f) < 0){
     return -1;
@@ -912,6 +956,18 @@ int read_word_fmon(struct fmon_state *f, char *name, uint32_t *value)
   }
 
   f->f_something++;
+
+  /* TODO: check ok */
+  code = arg_string_katcl(f->f_line, 1);
+  if(code == NULL){
+    return -1;
+  }
+
+#if 1
+  if(strcmp(code, KATCP_OK)){
+    return 1;
+  }
+#endif
 
   status = arg_buffer_katcl(f->f_line, 2, &tmp, 4);
   if(status != 4){
@@ -1285,9 +1341,16 @@ int detect_fmon(struct fmon_state *f)
     f->f_board = word;
   }
 
-
   if(f->f_reprobe == 0){
     f->f_reprobe = 1;
+  }
+
+  if(read_word_fmon(f, "fine_ctrl", &word)){
+    log_message_katcl(f->f_report, KATCP_LEVEL_DEBUG, f->f_server, "roach %s seems to be in narrowband mode", f->f_server);
+    f->f_mode = FMON_MODE_NBC;
+  } else {
+    log_message_katcl(f->f_report, KATCP_LEVEL_DEBUG, f->f_server, "roach %s presumed to be in wideband mode", f->f_server);
+    f->f_mode = FMON_MODE_WBC;
   }
 
   limit = FMON_MAX_INPUTS;
@@ -1542,10 +1605,10 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, char *name)
 #ifdef DEBUG
     fprintf(stderr, "got status 0x%08x from %s\n", word, n->n_label);
 #endif
-    value_adc       = (word & FMON_FSTATUS_ADC_OVERRANGE) ? 1 : 0;
+    value_adc       = (word & FMON_FSTATUS_ADC_OVERRANGE(f)) ? 1 : 0;
     status_adc      = value_adc ? KATCP_STATUS_ERROR : KATCP_STATUS_NOMINAL;
 
-    value_disabled  = (word & FMON_FSTATUS_ADC_DISABLED) ? 1 : 0;
+    value_disabled  = (word & FMON_FSTATUS_ADC_DISABLED(f)) ? 1 : 0;
     if(value_disabled){
       if(f->f_grace <= FMON_INIT_PERIOD){
         status_disabled = KATCP_STATUS_UNKNOWN;
@@ -1561,13 +1624,13 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, char *name)
     fprintf(stderr, "disabled=%d, status=%d, grace=%d\n", value_disabled, status_disabled, f->f_grace);
 #endif
 
-    value_fft       = (word & FMON_FSTATUS_FFT_OVERRANGE) ? 1 : 0;
+    value_fft       = (word & FMON_FSTATUS_FFT_OVERRANGE(f)) ? 1 : 0;
     status_fft      = value_fft ? KATCP_STATUS_ERROR : KATCP_STATUS_NOMINAL;
 
-    value_sram      = (word & FMON_FSTATUS_SDRAM_BAD) ? 0 : 1;
+    value_sram      = (word & FMON_FSTATUS_SDRAM_BAD(f)) ? 0 : 1;
     status_sram     = value_sram ? KATCP_STATUS_NOMINAL : KATCP_STATUS_ERROR;
 
-    value_xaui      = (word & FMON_FSTATUS_XAUI_LINKBAD) ? 0 : 1;
+    value_xaui      = (word & FMON_FSTATUS_XAUI_LINKBAD(f)) ? 0 : 1;
     status_xaui     = value_xaui ? KATCP_STATUS_NOMINAL : KATCP_STATUS_ERROR;
 
     if(value_adc || value_disabled || value_fft || (value_sram == 0) || (value_xaui == 0)){
