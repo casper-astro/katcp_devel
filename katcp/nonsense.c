@@ -2937,7 +2937,7 @@ int force_acquire_katcp(struct katcp_dispatch *d, struct katcp_sensor *sn)
     return -1;
   }
  
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "forcing acquisition of sensor %s considered bad form", sn->s_name);
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "forcing acquisition of sensor %s considered bad form", sn->s_name);
 
   a = sn->s_acquire;
   ns = match_nonsense_katcp(d, sn);
