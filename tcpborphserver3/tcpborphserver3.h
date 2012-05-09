@@ -23,7 +23,7 @@
 #define TBS_FPGA_MEM       "dev-roach-mem"
 #endif
 
-int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir);
+int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir, int argc, char **argv);
 
 #define TBS_FRGA_DOWN        0
 #define TBS_FPGA_PROGRAMED   1
@@ -41,6 +41,9 @@ struct tbs_raw
   char *r_image;
   char *r_bof_dir;
   unsigned int r_top_register;
+
+  int r_argc;
+  char **r_argv;
 };
 
 #define TBS_READABLE   1
@@ -71,5 +74,18 @@ struct tbs_hwsensor
 
 int setup_hwmon_tbs(struct katcp_dispatch *d);
 void destroy_hwsensor_tbs(void *data);
+
+
+struct tbs_port_data {
+  int t_port;
+  int t_dsize;
+  int t_rsize;
+  void *t_data;
+};
+
+struct katcp_job * run_child_process_tbs(struct katcp_dispatch *d, struct katcp_url *url, int (*call)(struct katcl_line *, void *), void *data, struct katcp_notice *n); 
+
+int upload_cmd(struct katcp_dispatch *d, int argc);
+
 
 #endif

@@ -10,7 +10,7 @@ CFLAGS += -ggdb
 CFLAGS += -DDEBUG
 
 SERVER = tcpborphserver3
-SRC = main.c raw.c loadbof.c tg.c tapper.c hwmon.c
+SRC = main.c raw.c loadbof.c tg.c tapper.c hwmon.c upload.c subprocess.c
 
 OBJ = $(patsubst %.c,%.o,$(SRC))
 all: $(SERVER)
