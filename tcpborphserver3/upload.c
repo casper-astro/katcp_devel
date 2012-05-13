@@ -21,7 +21,7 @@
 #include "tcpborphserver3.h"
 #include "loadbof.h"
 
-#define MTU               1024*1024*3
+#define MTU               1024*64
 #define UPLOADCOMPLETE    "#upload-complete"
 #define UPLOADFAIL        "#upload-fail"
 #define UPLOAD_TIMEOUT    30 
@@ -148,14 +148,14 @@ int upload_tbs(struct katcl_line *l, void *data)
           return-1;
         default:
           have += wr;
-          sync_message_katcl(l, KATCP_LEVEL_INFO, NULL, "%s: wrote %d bytes to parent", __func__, wr);
+          sync_message_katcl(l, KATCP_LEVEL_DEBUG, NULL, "%s: wrote %d bytes to parent", __func__, wr);
           break;
       }
     } while(have < rr);
 
     pd->t_rsize += rr;
 
-    sync_message_katcl(l, KATCP_LEVEL_INFO, NULL, "%s: received %d bytes total %d", __func__, rr, pd->t_rsize);
+    sync_message_katcl(l, KATCP_LEVEL_INFO, NULL, "uploaded %d bytes", pd->t_rsize);
     alarm(UPLOAD_TIMEOUT);
   }
   
