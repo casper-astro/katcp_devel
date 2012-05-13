@@ -89,7 +89,7 @@ struct katcp_job * run_child_process_tbs(struct katcp_dispatch *d, struct katcp_
   xl = create_katcl(fds[0]);
   close(fds[1]);
  
-#if 1
+#if 0
   for (i=0; i<1024; i++)
     if (i != fds[0])
       close(i);

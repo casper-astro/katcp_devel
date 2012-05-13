@@ -24,6 +24,10 @@
 #endif
 
 int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir, int argc, char **argv);
+int map_raw_tbs(struct katcp_dispatch *d);
+int unmap_raw_tbs(struct katcp_dispatch *d);
+void free_entry(void *data);
+
 
 #define TBS_FRGA_DOWN        0
 #define TBS_FPGA_PROGRAMED   1
@@ -78,8 +82,8 @@ void destroy_hwsensor_tbs(void *data);
 
 struct tbs_port_data {
   int t_port;
-  int t_dsize;
   int t_rsize;
+  int t_fd;
   void *t_data;
 };
 

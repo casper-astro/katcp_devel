@@ -220,7 +220,7 @@ void close_bof(struct katcp_dispatch *d, struct bof_state *bs)
   free(bs);
 }
 
-struct bof_state *open_bof(struct katcp_dispatch *d, char *name)
+struct bof_state *open_bof_fd(struct katcp_dispatch *d, int fd)
 {
   struct bof_state *bs;
   int rr, have;
@@ -230,6 +230,10 @@ struct bof_state *open_bof(struct katcp_dispatch *d, char *name)
   struct bofhdr bh;
   struct hwrhdr hh;
 
+  if (fd < 0){
+    return NULL;
+  }
+  
 #if 0
   magic_t cookie;
   const char *mf;
@@ -260,60 +264,12 @@ struct bof_state *open_bof(struct katcp_dispatch *d, char *name)
 
   bs->b_strings = NULL;
 
-
-#if 0
-  cookie = magic_open(MAGIC_MIME_TYPE);
-  if (cookie == NULL){
-#ifdef DEBUG
-    fprintf(stderr, "open_bof: unable to create magic cookie\n");
-#endif
-    close_bof(d, bs);
-    return NULL;
-  }
-
-  if (magic_load(cookie, NULL) < 0){
-#ifdef DEBUG
-    fprintf(stderr, "open_bof: unable to load magic database\n");
-#endif
-    close_bof(d, bs);
-    magic_close(cookie);
-    return NULL;
-  }
-  
-  mf = magic_file(cookie, name);
-  if (mf == NULL){
-#ifdef DEBUG
-    fprintf(stderr, "open_bof: magic_file: %s\n", magic_error(cookie));
-#endif
-    close_bof(d, bs);
-    magic_close(cookie);
-    return NULL;
-  }
-
-  if (strncmp(mf, "application/x-gzip") == 0){
-#ifdef DEBUG
-    fprintf(stderr, "File is gziped\n");
-#endif
-  }
-
-  magic_close(cookie);
-#endif
-
-
-#if 0
-  bs->b_fd = open(name, O_RDONLY);
-#endif
-  bs->b_fd = gzopen(name, "r");
-#if 0
-  if(bs->b_fd < 0){
-#endif
+  bs->b_fd = gzdopen(fd, "r");
   if(bs->b_fd == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to open boffile %s: %s", name, strerror(errno));
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "gzdopen fail %s", strerror(errno));
     close_bof(d, bs);
     return NULL;
   }
-
-  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "opened boffile %s", name);
 
   /*cannot stat with zlib.h*/
 #if 0
@@ -325,6 +281,7 @@ struct bof_state *open_bof(struct katcp_dispatch *d, char *name)
 
   bs->b_file_size = st.st_size;
 #endif
+
 #if 0
   rr = read(bs->b_fd, &bh, sizeof(struct bofhdr));
 #endif
@@ -410,6 +367,21 @@ struct bof_state *open_bof(struct katcp_dispatch *d, char *name)
   bs->b_strings[bs->b_str_size] = '\0';
 
   return bs;
+}
+
+struct bof_state *open_bof(struct katcp_dispatch *d, char *name)
+{
+  int fd;
+
+  fd = open(name, O_RDONLY);
+  if(fd < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to open boffile %s: %s", name, strerror(errno));
+    return NULL;
+  }
+
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "opened boffile %s", name);
+  
+  return open_bof_fd(d, fd); 
 }
 
 int program_bof(struct katcp_dispatch *d, struct bof_state *bs, char *device)
