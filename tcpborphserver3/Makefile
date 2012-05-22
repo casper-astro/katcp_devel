@@ -3,13 +3,14 @@ KATCP ?= ../katcp
 include ../Makefile.inc
 
 INC = -I$(KATCP)
-LIB = -L$(KATCP) -lkatcp -ldl
+#LIB = -L$(KATCP) -lkatcp -ldl -lz -lmagic
+LIB = -L$(KATCP) -lkatcp -ldl -lz
 CFLAGS += -fPIC
 CFLAGS += -ggdb
 CFLAGS += -DDEBUG
 
 SERVER = tcpborphserver3
-SRC = main.c raw.c loadbof.c tg.c tapper.c hwmon.c
+SRC = main.c raw.c loadbof.c tg.c tapper.c hwmon.c upload.c subprocess.c
 
 OBJ = $(patsubst %.c,%.o,$(SRC))
 all: $(SERVER)

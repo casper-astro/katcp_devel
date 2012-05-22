@@ -2051,6 +2051,8 @@ static struct katcp_sensor *create_sensor_katcp(struct katcp_dispatch *d, char *
   sn->s_nonsense = NULL;
 
   sn->s_acquire = NULL;
+  sn->s_extract = NULL;
+  sn->s_flush   = NULL;
 
   s->s_sensors[s->s_tally] = sn;
   s->s_tally++;
@@ -2555,7 +2557,7 @@ void destroy_nonsensors_katcp(struct katcp_dispatch *d)
 
 /* plain vanillia integer registration ***********************************/
 
-int register_integer_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, int (*get)(struct katcp_dispatch *d, struct katcp_acquire *a), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a), int min, int max)
+int register_integer_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, int (*get)(struct katcp_dispatch *d, struct katcp_acquire *a), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a), int min, int max, int (*flush)(struct katcp_dispatch *d, struct katcp_sensor *sn))
 {
   struct katcp_sensor *sn;
   struct katcp_acquire *a;
@@ -2581,6 +2583,9 @@ int register_integer_sensor_katcp(struct katcp_dispatch *d, int mode, char *name
     destroy_acquire_katcp(d, a);
     return -1;
   }
+
+  if (flush != NULL)
+    sn->s_flush = flush;
 
   return 0;
 }
@@ -3007,6 +3012,33 @@ int sensor_value_cmd_katcp(struct katcp_dispatch *d, int argc)
   append_unsigned_long_katcp(d, KATCP_FLAG_LAST | KATCP_FLAG_ULONG, count);
 
   return KATCP_RESULT_OWN;
+}
+
+int sensor_limit_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  struct katcp_sensor *sn;
+  char *name;  
+  int rtn;
+
+  if (argc < 4)
+    return KATCP_RESULT_FAIL;
+  
+  name  = arg_string_katcp(d, 1);
+
+  sn = find_sensor_katcp(d, name);
+  if (sn == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "undefined sensor <%s>", name);
+    return KATCP_RESULT_FAIL;
+  }
+
+  if (sn->s_flush == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "undefined flush function for sensor <%s>", name);
+    return KATCP_RESULT_FAIL;
+  }
+
+  rtn = (*(sn->s_flush))(d, sn);
+
+  return (rtn == 0) ? KATCP_RESULT_OK : KATCP_RESULT_FAIL;
 }
 
 /*** sensor list and support **********************************************/
@@ -4125,7 +4157,7 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
     switch(code){
 
       case KATCP_SENSOR_INTEGER : 
-        if(register_integer_sensor_katcp(d, 0, label, description, units, NULL, NULL, NULL, 0, INT_MAX) < 0){
+        if(register_integer_sensor_katcp(d, 0, label, description, units, NULL, NULL, NULL, 0, INT_MAX, NULL) < 0){
           log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to register integer sensor %s", label);
           return KATCP_RESULT_FAIL;
         }

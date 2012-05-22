@@ -139,7 +139,7 @@ int main(int argc, char **argv)
     return 1;
   }
 
-  if(setup_raw_tbs(d, bofdir) < 0){
+  if(setup_raw_tbs(d, bofdir, argc, argv) < 0){
     fprintf(stderr, "%s: unable to initialise logic for raw mode\n", argv[0]);
     return 1;
   }
