@@ -902,6 +902,35 @@ int read_cmd(struct katcp_dispatch *d, int argc)
   return KATCP_RESULT_OWN;
 }
 
+int fpgastatus_cmd(struct katcp_dispatch *d, int argc)
+{
+#if 0
+  struct bof_state *bs;
+#endif
+  struct tbs_raw *tr;
+
+  tr = get_mode_katcp(d, TBS_MODE_RAW);
+  if(tr == NULL){
+    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "unable to acquire state");
+    return KATCP_RESULT_FAIL;
+  }
+
+  switch(tr->r_fpga){
+    case TBS_FPGA_DOWN :
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "fpga not programmed");
+      return KATCP_RESULT_FAIL;
+    case TBS_FPGA_PROGRAMMED :
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "fpga programmed but not mapped into processor");
+      return KATCP_RESULT_FAIL;
+    case TBS_FPGA_MAPPED :
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "fpga programmed and mapped with %s", tr->r_image ? tr->r_image : "<unknown file>");
+      return KATCP_RESULT_OK;
+    default :
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "corrupted fpga state tracking");
+      return KATCP_RESULT_FAIL;
+  }
+}
+
 int progdev_cmd(struct katcp_dispatch *d, int argc)
 {
   char *file;
@@ -920,10 +949,10 @@ int progdev_cmd(struct katcp_dispatch *d, int argc)
 
   if(tr->r_fpga == TBS_FPGA_MAPPED){
     unmap_raw_tbs(d);
-    tr->r_fpga = TBS_FPGA_PROGRAMED;
+    tr->r_fpga = TBS_FPGA_PROGRAMMED;
   }
 
-  if(tr->r_fpga == TBS_FPGA_PROGRAMED){
+  if(tr->r_fpga == TBS_FPGA_PROGRAMMED){
     /* TODO: actually unprogram FPGA */
   }
 
@@ -982,7 +1011,7 @@ int progdev_cmd(struct katcp_dispatch *d, int argc)
     close_bof(d, bs);
     return KATCP_RESULT_FAIL;
   }
-  tr->r_fpga = TBS_FPGA_PROGRAMED;
+  tr->r_fpga = TBS_FPGA_PROGRAMMED;
 
   if(index_bof(d, bs) < 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to load register mapping of %s", file);
@@ -1122,7 +1151,7 @@ int unmap_raw_tbs(struct katcp_dispatch *d)
   }
 
   munmap(tr->r_map, tr->r_map_size);
-  tr->r_fpga = TBS_FPGA_PROGRAMED;
+  tr->r_fpga = TBS_FPGA_PROGRAMMED;
 
   tr->r_map_size = 0;
   tr->r_map = NULL;
@@ -1201,7 +1230,7 @@ void destroy_raw_tbs(struct katcp_dispatch *d, struct tbs_raw *tr)
   if(tr->r_fpga == TBS_FPGA_MAPPED){
     /* TODO */
 
-    tr->r_fpga = TBS_FPGA_PROGRAMED;
+    tr->r_fpga = TBS_FPGA_PROGRAMMED;
   }
 
   if(tr->r_image){
@@ -1282,7 +1311,7 @@ int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir)
 
   tr->r_registers = NULL;
   tr->r_hwmon = NULL;
-  tr->r_fpga = TBS_FRGA_DOWN;
+  tr->r_fpga = TBS_FPGA_DOWN;
 
   tr->r_map = NULL;
   tr->r_map_size = 0;
@@ -1333,7 +1362,8 @@ int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir)
   result += register_flag_mode_katcp(d, "?wordwrite",    "write data to a named register (?wordwrite name index value+)", &word_write_cmd, 0, TBS_MODE_RAW);
   result += register_flag_mode_katcp(d, "?wordread",     "read data from a named register (?wordread name word-offset:bit-offset word-count)", &word_read_cmd, 0, TBS_MODE_RAW);
 
-  result += register_flag_mode_katcp(d, "?progdev", "program the fpga (?progdev [filename])", &progdev_cmd, 0, TBS_MODE_RAW);
+  result += register_flag_mode_katcp(d, "?progdev",      "program the fpga (?progdev [filename])", &progdev_cmd, 0, TBS_MODE_RAW);
+  result += register_flag_mode_katcp(d, "?fpgastatus",   "display if the fpga is programmed (?fpgastatus)", &fpgastatus_cmd, 0, TBS_MODE_RAW);
   result += register_flag_mode_katcp(d, "?listdev",      "lists available registers (?listdev [size|detail]", &listdev_cmd, 0, TBS_MODE_RAW);
 
   result += register_flag_mode_katcp(d, "?listbof",      "display available bof files (?listbof)", &listbof_cmd, 0, TBS_MODE_RAW);
