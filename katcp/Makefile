@@ -43,7 +43,3 @@ install: all
 	$(INSTALL) -d $(PREFIX)/include $(prefix)/lib
 	$(INSTALL) $(LIB) $(PREFIX)/lib
 	$(INSTALL) $(HDR) $(PREFIX)/include
-
-# FORCE:
-# dispatch.o: FORCE
-

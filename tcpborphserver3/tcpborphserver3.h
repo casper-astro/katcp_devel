@@ -25,8 +25,8 @@
 
 int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir);
 
-#define TBS_FRGA_DOWN        0
-#define TBS_FPGA_PROGRAMED   1
+#define TBS_FPGA_DOWN        0
+#define TBS_FPGA_PROGRAMMED  1
 #define TBS_FPGA_MAPPED      2
 
 struct tbs_raw

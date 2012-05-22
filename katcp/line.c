@@ -19,9 +19,7 @@
 #include "katcl.h"
 #include "katcp.h"
 
-#if 0
 #define KATCP_FLUSH_THRESHOLD 4 
-#endif
 
 /****************************************************************/
 
