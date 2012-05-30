@@ -1605,6 +1605,10 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, char *name)
     value_xaui      = 0;
     status_xaui     = KATCP_STATUS_UNKNOWN;
 
+#ifdef DEBUG
+    fprintf(stderr, "check: unable to fstatus, dropping connection\n");
+#endif
+
     drop_connection_fmon(f);
 
     f->f_grace      = 0;
