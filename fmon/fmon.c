@@ -84,7 +84,7 @@
 #define FMON_FSTATUS_SDRAM_BAD(f)        (map_mode_bits[(f)->f_mode][3])
 #define FMON_FSTATUS_ADC_DISABLED(f)     (map_mode_bits[(f)->f_mode][4])
 #define FMON_FSTATUS_CLOCK_BAD(f)        (map_mode_bits[(f)->f_mode][5])
-#define FMON_FSTATUS_XAUI_LINKBAD(f)     (map_mode_bits[(f)->f_mode][5])
+#define FMON_FSTATUS_XAUI_LINKBAD(f)     (map_mode_bits[(f)->f_mode][6])
 
 /* time related */
 
@@ -1623,7 +1623,7 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, char *name)
     }
 
 #ifdef DEBUG
-    fprintf(stderr, "disabled=%d, status=%d, grace=%d\n", value_disabled, status_disabled, f->f_grace);
+    fprintf(stderr, "mode=%d, adc-overrange=%d, adc-disabled=%d, adc-disabled-status=%d, grace=%d\n", f->f_mode, value_adc, value_disabled, status_disabled, f->f_grace);
 #endif
 
     value_fft       = (word & FMON_FSTATUS_FFT_OVERRANGE(f)) ? 1 : 0;
