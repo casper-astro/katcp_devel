@@ -1575,7 +1575,7 @@ int clear_control_fmon(struct fmon_state *f)
 int check_fengine_status(struct fmon_state *f, struct fmon_input *n, char *name)
 {
   /* WARNING: this is poorly written interrim code, to be redone in zmon */
-
+  int result;
   uint32_t word;
   struct fmon_sensor *sensor_adc, *sensor_disabled, *sensor_fft, *sensor_sram, *sensor_xaui;
   int value_adc, value_disabled, value_fft, value_sram, value_xaui;
@@ -1586,6 +1586,8 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, char *name)
   sensor_fft      = &(n->n_sensors[FMON_SENSOR_FFT_OVERRANGE]);
   sensor_sram     = &(n->n_sensors[FMON_SENSOR_SRAM]);
   sensor_xaui     = &(n->n_sensors[FMON_SENSOR_LINK]);
+
+  result = 0;
 
   if(read_word_fmon(f, name, &word)){
     value_adc       = 1;
@@ -1602,7 +1604,12 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, char *name)
 
     value_xaui      = 0;
     status_xaui     = KATCP_STATUS_UNKNOWN;
+
+    drop_connection_fmon(f);
+
     f->f_grace      = 0;
+    result          = (-1);
+
   } else {
 #ifdef DEBUG
     fprintf(stderr, "got status 0x%08x from %s\n", word, n->n_label);
@@ -1646,7 +1653,6 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, char *name)
     word = FMON_QDRCTRL_RESET;
     if(write_word_fmon(f, "qdr0_ctrl", word)){
       log_message_katcl(f->f_report, KATCP_LEVEL_ERROR, f->f_server, "unable to reset qdr");
-      return -1;
     }
 
   }
@@ -1657,7 +1663,7 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, char *name)
   update_sensor_fmon(f, sensor_sram,     value_sram,     status_sram);
   update_sensor_fmon(f, sensor_xaui,     value_xaui,     status_xaui);
 
-  return 0;  
+  return result;  
 }
 
 int check_fengine_amplitude(struct fmon_state *f, struct fmon_input *n, char *name)
