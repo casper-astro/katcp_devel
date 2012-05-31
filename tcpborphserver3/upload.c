@@ -241,10 +241,10 @@ int upload_complete_tbs(struct katcp_dispatch *d, struct katcp_notice *n, void *
 
   if(tr->r_fpga == TBS_FPGA_MAPPED){
     unmap_raw_tbs(d);
-    tr->r_fpga = TBS_FPGA_PROGRAMED;
+    tr->r_fpga = TBS_FPGA_PROGRAMMED;
   }
 
-  if(tr->r_fpga == TBS_FPGA_PROGRAMED){
+  if(tr->r_fpga == TBS_FPGA_PROGRAMMED){
     /* TODO: actually unprogram FPGA */
   }
 
@@ -277,7 +277,7 @@ int upload_complete_tbs(struct katcp_dispatch *d, struct katcp_notice *n, void *
     destroy_port_data_tbs(pd);
     return KATCP_RESULT_FAIL;
   }
-  tr->r_fpga = TBS_FPGA_PROGRAMED;
+  tr->r_fpga = TBS_FPGA_PROGRAMMED;
 
   if(index_bof(d, bs) < 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to load register mapping of uploaded file");
