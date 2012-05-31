@@ -1363,6 +1363,7 @@ int detect_fmon(struct fmon_state *f)
       limit = 0;
     } else {
 
+#if 0 /* this code now happens periodically */
       snprintf(buffer, BUFFER - 1, "adc_ctrl%d", f->f_fs);
       buffer[BUFFER - 1] = '\0';
 
@@ -1376,6 +1377,7 @@ int detect_fmon(struct fmon_state *f)
         /* wrong alternative: applies only if values are inverted */
         n->n_rf_gain = -11.5 + (word & 0x3f) * 0.5;
 #endif 
+#endif
 
         f->f_fs++;
       }
@@ -1572,7 +1574,7 @@ int clear_control_fmon(struct fmon_state *f)
   return 0;
 }
 
-int check_fengine_status(struct fmon_state *f, struct fmon_input *n, char *name)
+int check_fengine_status(struct fmon_state *f, struct fmon_input *n, unsigned int number)
 {
   /* WARNING: this is poorly written interrim code, to be redone in zmon */
   int result;
@@ -1580,12 +1582,20 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, char *name)
   struct fmon_sensor *sensor_adc, *sensor_disabled, *sensor_fft, *sensor_sram, *sensor_xaui;
   int value_adc, value_disabled, value_fft, value_sram, value_xaui;
   int status_adc, status_disabled, status_fft, status_sram, status_xaui;
+  char buffer[BUFFER];
 
   sensor_adc      = &(n->n_sensors[FMON_SENSOR_ADC_OVERRANGE]);
   sensor_disabled = &(n->n_sensors[FMON_SENSOR_ADC_DISABLED]);
   sensor_fft      = &(n->n_sensors[FMON_SENSOR_FFT_OVERRANGE]);
   sensor_sram     = &(n->n_sensors[FMON_SENSOR_SRAM]);
   sensor_xaui     = &(n->n_sensors[FMON_SENSOR_LINK]);
+
+  snprintf(buffer, BUFFER - 1, "fstatus%d", number);
+  buffer[BUFFER - 1] = '\0';
+
+#ifdef DEBUG
+  fprintf(stderr, "checking status %s\n", buffer);
+#endif
 
   result = 0;
 
@@ -1606,7 +1616,7 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, char *name)
     status_xaui     = KATCP_STATUS_UNKNOWN;
 
 #ifdef DEBUG
-    fprintf(stderr, "check: unable to fstatus, dropping connection\n");
+    fprintf(stderr, "check: unable to check fstatus, dropping connection\n");
 #endif
 
     drop_connection_fmon(f);
@@ -1670,18 +1680,26 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, char *name)
   return result;  
 }
 
-int check_fengine_amplitude(struct fmon_state *f, struct fmon_input *n, char *name)
+int check_fengine_amplitude(struct fmon_state *f, struct fmon_input *n, unsigned int number);
 {
   uint32_t word;
   double result, dbm, corrected, plain;
   struct fmon_sensor *raw, *pow;
   unsigned int value;
   int status;
+  char buffer[BUFFER];
 
   raw = &(n->n_sensors[FMON_SENSOR_ADC_RAW_POWER]);
   pow = &(n->n_sensors[FMON_SENSOR_ADC_DBM_POWER]);
 
-  if(read_word_fmon(f, name, &word)){
+  snprintf(buffer, BUFFER - 1, "adc_sum_sq%d", number);
+  buffer[BUFFER - 1] = '\0';
+
+#ifdef DEBUG
+  fprintf(stderr, "checking sums %s\n", buffer);
+#endif
+
+  if(read_word_fmon(f, buffer, &word)){
     update_sensor_status_fmon(f, raw, KATCP_STATUS_UNKNOWN);
     return 0;
   }
@@ -1703,6 +1721,16 @@ int check_fengine_amplitude(struct fmon_state *f, struct fmon_input *n, char *na
 #endif
 
   update_sensor_double_fmon(f, raw, plain, KATCP_STATUS_NOMINAL);
+
+  snprintf(buffer, BUFFER - 1, "adc_ctrl%d", number);
+  buffer[BUFFER - 1] = '\0';
+
+  if(!read_word_fmon(f, buffer, &word)){
+    n->n_rf_enabled = (word & 0x80000000) ? 1 : 0;
+    n->n_rf_gain = 20.0 - (word & 0x3f) * 0.5;
+  } else {
+    n->n_rf_enabled = 0;
+  }
 
   if(n->n_rf_enabled){
 
@@ -1775,21 +1803,8 @@ int check_all_inputs_fmon(struct fmon_state *f)
 #endif
 
   for(i = 0; i < f->f_fs; i++){
-    snprintf(buffer, BUFFER - 1, "fstatus%d", i);
-    buffer[BUFFER - 1] = '\0';
-#ifdef DEBUG
-    fprintf(stderr, "checking status %s\n", buffer);
-#endif
-
-    result += check_fengine_status(f, &(f->f_inputs[i]), buffer);
-
-    snprintf(buffer, BUFFER - 1, "adc_sum_sq%d", i);
-    buffer[BUFFER - 1] = '\0';
-#ifdef DEBUG
-    fprintf(stderr, "checking status %s\n", buffer);
-#endif
-
-    result += check_fengine_amplitude(f, &(f->f_inputs[i]), buffer);
+    result += check_fengine_status(f, &(f->f_inputs[i]), i);
+    result += check_fengine_amplitude(f, &(f->f_inputs[i]), i);
   }
 
   if(f->f_dirty){
