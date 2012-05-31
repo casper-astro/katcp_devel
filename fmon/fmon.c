@@ -1,5 +1,7 @@
 /* module to perform monitoring on fengine gateware */
 
+/* WARNING: this is poorly written interrim code, to be redone in zmon */
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -1316,7 +1318,9 @@ int detect_fmon(struct fmon_state *f)
   uint32_t word;
   char buffer[BUFFER];
   int limit, result;
+#if 0
   struct fmon_input *n;
+#endif
 
   /* assume all things to have gone wrong */
   f->f_board = (-1);
@@ -1380,7 +1384,9 @@ int detect_fmon(struct fmon_state *f)
 #endif
 
         f->f_fs++;
+#if 0
       }
+#endif
     }
   }
 
@@ -1576,7 +1582,7 @@ int clear_control_fmon(struct fmon_state *f)
 
 int check_fengine_status(struct fmon_state *f, struct fmon_input *n, unsigned int number)
 {
-  /* WARNING: this is poorly written interrim code, to be redone in zmon */
+#define BUFFER 32
   int result;
   uint32_t word;
   struct fmon_sensor *sensor_adc, *sensor_disabled, *sensor_fft, *sensor_sram, *sensor_xaui;
@@ -1599,7 +1605,7 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, unsigned in
 
   result = 0;
 
-  if(read_word_fmon(f, name, &word)){
+  if(read_word_fmon(f, buffer, &word)){
     value_adc       = 1;
     status_adc      = KATCP_STATUS_UNKNOWN;
 
@@ -1678,10 +1684,12 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, unsigned in
   update_sensor_fmon(f, sensor_xaui,     value_xaui,     status_xaui);
 
   return result;  
+#undef BUFFER
 }
 
-int check_fengine_amplitude(struct fmon_state *f, struct fmon_input *n, unsigned int number);
+int check_fengine_amplitude(struct fmon_state *f, struct fmon_input *n, unsigned int number)
 {
+#define BUFFER 32
   uint32_t word;
   double result, dbm, corrected, plain;
   struct fmon_sensor *raw, *pow;
@@ -1760,6 +1768,7 @@ int check_fengine_amplitude(struct fmon_state *f, struct fmon_input *n, unsigned
   }
 
   return 0;  
+#undef BUFFER
 }
 
 int check_watchdog_fmon(struct fmon_state *f)
@@ -1787,9 +1796,7 @@ int check_watchdog_fmon(struct fmon_state *f)
 
 int check_all_inputs_fmon(struct fmon_state *f)
 {
-#define BUFFER 32
   int i; 
-  char buffer[BUFFER];
   int result;
 
   if(f->f_board < 0){
@@ -1813,7 +1820,6 @@ int check_all_inputs_fmon(struct fmon_state *f)
   }
 
   return result;
-#undef BUFFER
 }
 
 int check_adc_clock_fmon(struct fmon_state *f)
