@@ -5,6 +5,8 @@
 #include <errno.h>
 #include <stdint.h>
 #include <fcntl.h>
+#include <limits.h>
+
 #include <sys/types.h>
 #include <sys/stat.h>
 
@@ -159,9 +161,22 @@ int flush_hwsensor_tbs(struct katcp_dispatch *d, struct katcp_sensor *sn)
   if (hs == NULL)
     return -1;
 
-  path = strncmp(limit, "min", 3) == 0 ? hs->h_min_path : (strncmp(limit, "max", 3) == 0 ? hs->h_max_path : NULL);
+  if (strncmp(limit, "min", 3) == 0){
+    hs->h_min = arg_unsigned_long_katcp(d, 3);
+    path = hs->h_min_path;    
+  } else if (strncmp(limit, "max", 3) == 0) {
+    hs->h_max = arg_unsigned_long_katcp(d, 3);
+    path = hs->h_max_path;
+  }
 
-  return write_path_hwsensor_tbs(d, path, value);
+#if 0
+  path = strncmp(limit, "min", 3) == 0 ? hs->h_min_path : (strncmp(limit, "max", 3) == 0 ? hs->h_max_path : NULL);
+#endif
+  if (write_path_hwsensor_tbs(d, path, value) < 0){
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "unable to flush new sensor value to path");
+  }
+
+  return 0;
 }
 
 struct tbs_hwsensor *create_hwsensor_tbs(struct katcp_dispatch *d, char *name, char *desc, char *unit, char *adc, char *min, char *max)
@@ -276,7 +291,12 @@ int register_hwmon_tbs(struct katcp_dispatch *d, char *label, char *desc, char *
   }
   
   /*NULL release since cleaning the avltree will manage the data*/
+#if 0
   if (register_integer_sensor_katcp(d, TBS_MODE_RAW, label, desc, unit, &read_hwsensor_tbs, hs, NULL, hs->h_min, hs->h_max, &flush_hwsensor_tbs) < 0) {
+#endif
+
+
+  if (register_integer_sensor_katcp(d, TBS_MODE_RAW, label, desc, unit, &read_hwsensor_tbs, hs, NULL, 0, INT_MAX, &flush_hwsensor_tbs) < 0) {
 #ifdef DEBUG
     fprintf(stderr, "hwmon: unable to register sensor %s\n", label);
 #endif
