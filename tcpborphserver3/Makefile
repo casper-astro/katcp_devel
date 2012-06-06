@@ -6,7 +6,7 @@ INC = -I$(KATCP)
 LIB = -L$(KATCP) -lkatcp -ldl
 CFLAGS += -fPIC
 CFLAGS += -ggdb
-CFLAGS += -DDEBUG=2
+#CFLAGS += -DDEBUG=2
 
 SERVER = tcpborphserver3
 SRC = main.c raw.c loadbof.c tg.c tapper.c hwmon.c
