@@ -56,7 +56,7 @@ struct tbs_hwsensor *alloc_hwsensor_tbs()
 
   hs->h_adc_fd = -1;
   hs->h_min = 0;
-  hs->h_max = 0;
+  hs->h_max = INT_MAX;
   hs->h_min_path = NULL;
   hs->h_max_path = NULL;
   hs->h_name = NULL;
@@ -291,12 +291,13 @@ int register_hwmon_tbs(struct katcp_dispatch *d, char *label, char *desc, char *
   }
   
   /*NULL release since cleaning the avltree will manage the data*/
-#if 0
+
+#if 1
   if (register_integer_sensor_katcp(d, TBS_MODE_RAW, label, desc, unit, &read_hwsensor_tbs, hs, NULL, hs->h_min, hs->h_max, &flush_hwsensor_tbs) < 0) {
 #endif
-
-
+#if 0
   if (register_integer_sensor_katcp(d, TBS_MODE_RAW, label, desc, unit, &read_hwsensor_tbs, hs, NULL, 0, INT_MAX, &flush_hwsensor_tbs) < 0) {
+#endif
 #ifdef DEBUG
     fprintf(stderr, "hwmon: unable to register sensor %s\n", label);
 #endif
