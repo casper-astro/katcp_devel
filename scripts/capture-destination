@@ -1,0 +1,23 @@
+#!/bin/bash
+
+source functions.sh
+
+if [ $# -lt 3 ] ; then
+  kcs_error "require three parameters: k7 ip port"
+  exit 1
+fi
+
+output=$1
+host=$2
+port=$3
+
+if [ "$output" != "k7" ] ; then
+  kcs_error "only know about k7 destination"
+  exit 1
+fi
+
+kcpcmd -s localhost:7147 -k -i -r setenv KCS_CORR_RX $host:$port
+
+kcs_info "set k7 destination to $host:$port"
+
+exit 0

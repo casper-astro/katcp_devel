@@ -1,57 +1,50 @@
 #!/bin/bash
 
+# TODO: should update files atomically
+
 set -e
 source functions.sh
+source mappings.sh
+
+if [ ! -s ${MAIN_MAPPING} ] ; then
+  kcs_info "generating initial mapping"
+  make_mapping 2
+  update_aliases
+fi
 
 if [ $# -lt 1 ] ; then
 
-  if [ ! -s ${CORR_MAPPING} ] ; then
+  if [ ! -s ${MAIN_MAPPING} ] ; then
     kcs_error "no correlator mapping found"
   fi
 
-  antennas=($(cat ${CORR_MAPPING} | tr -s ',' ' '))
-  roaches=($(grep '^ *servers_f' ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= |  tr ',' ' '))
-  i=0
-  while [ ${i} -lt 16 ] ; do
-    input=$(kcs_index_to_input ${i})
-    echo "#label-input ${antennas[i]:-${input}} $input ${roaches[i/2]}"
-    i=$[i+1]
-  done
+  if [ ! -s ${CORR_MAPPING}.${KATCP_MODE} ] ; then
+    if [ -f ${CORR_CONFIG}/${KATCP_MODE} ] ; then
+      update_aliases
+    fi 
+  fi 
+
+  cat ${MAIN_MAPPING} | tr -s : ' ' | sed -s 's/^/#label-input /'
 
   exit 0
 fi
 
-index=$(kcs_input_to_index $1)
-result=1
+inp=${1}
 
-if [ -z "${index}" ] ; then
-  kcs_error "unable to parse input label ${index}"
+if [ $# -eq 1 ] ; then
+  cat ${MAIN_MAPPING} | grep ${inp} | cut -f1 -d: | sed -s 's/^/#return ok /'
+  exit 0
 fi
 
-if [ ${index} -ge 16 ] ; then
-  kcs_error "input label ${index} unexpectedly large"
-fi
+alias=${2}
 
-index=$(kcs_input_to_index $1)
+kcs_debug "setting label for ${inp} to ${alias}"
 
-if [ $# -gt 1 ] ; then
-  synonym=${2}
-else
-  synonym=${1}
-fi
+sed -i -e "s/^.*:${inp}:\(.*\)$/${alias}:${inp}:\1/" ${MAIN_MAPPING}
 
-kcs_debug "setting label for $1  to ${synonym}"
+update_aliases
 
-if kcpcmd -k -r label-input ${index} ${synonym} ; then
-  result=0
-fi
+echo "#return ok $(grep ${inp} ${MAIN_MAPPING} | cut -f1 -d:)"
 
-kcs_corr_log
-
-if [ "${result}" != "0" ] ; then
-  exit 1
-fi
-
-echo "#return ok ${synonym}"
 exit 0
 

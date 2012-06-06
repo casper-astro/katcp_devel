@@ -14,17 +14,13 @@ kcs_debug "about to run tx-start"
 status=1
 
 if [ $# -gt 1 ] ; then
-  if kcpcmd -k -m tx-start $2 ; then
-    status=0
-  else 
-    kcs_error "corr tx-start failed"
-  fi
+  kcs_warn "corr package no longer supports a timed start"
+fi
+
+if kcpcmd -k -m tx-start ${KCS_CORR_RX%:*} ${KCS_CORR_RX##*:} ; then
+  status=0
 else 
-  if kcpcmd -k -m tx-start ; then
-    status=0
-  else 
-    kcs_error "corr tx-start failed"
-  fi 
+  kcs_error "corr tx-start failed"
 fi
 
 kcs_corr_log

@@ -22,8 +22,6 @@
 
 /*********************************************************************/
 
-int map_raw_tbs(struct katcp_dispatch *d);
-int unmap_raw_tbs(struct katcp_dispatch *d);
 
 /*********************************************************************/
 
@@ -1270,7 +1268,7 @@ int make_bofdir_tbs(struct katcp_dispatch *d, struct tbs_raw *tr, char *bofdir)
   return -1;
 }
 
-int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir)
+int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir, int argc, char **argv)
 {
   struct tbs_raw *tr;
   int result;
@@ -1291,6 +1289,9 @@ int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir)
   tr->r_bof_dir = NULL;
 
   tr->r_top_register = 0;
+
+  tr->r_argc = argc;
+  tr->r_argv = argv;
 
   /* clear out further structure elements */
 
@@ -1324,6 +1325,8 @@ int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir)
   }
 
   result = 0;
+
+  result += register_flag_mode_katcp(d, "?upload", "upload a compressed bitstream to device (?upload port)", &upload_cmd, 0, TBS_MODE_RAW);
 
   result += register_flag_mode_katcp(d, "?register",     "name a memory location (?register name position bit-offset length)", &register_cmd, 0, TBS_MODE_RAW);
 

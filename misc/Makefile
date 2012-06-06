@@ -2,14 +2,16 @@ include ../Makefile.inc
 
 # in theory this should live in /etc/kcs
 CMDSDIR = $(PREFIX)/lib/kcs
+CMDS    = init.katcp
 
 # startup routines
 INITDIR = /etc/init.d
+INITSCRIPT = kcs.initscript
 
-INITSRC = init-kcs
-INITDST = kcs
+# log rotation
+LOGROTATEDIR = /etc/logrotate.d
+LOGROTATE = kcs.logrotate
 
-CMDS    = init.katcp
 
 all:
 
@@ -20,4 +22,7 @@ install: all
 	$(INSTALL) $(CMDS) $(CMDSDIR)/$(CMDS)
 
 	$(INSTALL) -d $(INITDIR)
-	$(INSTALL) $(INITSRC) $(INITDIR)/$(INITDST)
+	$(INSTALL) $(INITSCRIPT) $(INITDIR)/$(basename $(INITSCRIPT))
+
+	$(INSTALL) -d $(LOGROTATEDIR)
+	$(INSTALL) $(LOGROTATE) $(LOGROTATEDIR)/$(basename $(LOGROTATE))
