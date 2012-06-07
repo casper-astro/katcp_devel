@@ -102,6 +102,38 @@ int read_hwsensor_tbs(struct katcp_dispatch *d, struct katcp_acquire *a)
   return read_fd_hwsensor_tbs(hs->h_adc_fd);
 }
 
+int extract_hwsensor_tbs(struct katcp_dispatch *d, struct katcp_sensor *sn)
+{
+  struct katcp_integer_acquire *ia;
+  struct katcp_integer_sensor *is;
+  struct katcp_acquire *a;
+  struct tbs_hwsensor *hs;
+
+  a = sn->s_acquire;
+
+  hs = a->a_local;
+  if (hs == NULL)
+    return -1;
+  
+  if ((a == NULL) || (a->a_type != KATCP_SENSOR_INTEGER) || (sn->s_type != KATCP_SENSOR_INTEGER)){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "type mismatch for putative integer sensor %s", sn->s_name);
+    return -1;
+  }
+  
+  is = sn->s_more;
+  ia = a->a_more;
+
+  if((ia->ia_current < hs->h_min) || (ia->ia_current > hs->h_max)){
+    set_status_sensor_katcp(sn, KATCP_STATUS_ERROR);
+  } else {
+    set_status_sensor_katcp(sn, KATCP_STATUS_NOMINAL);
+  }
+
+  is->is_current = ia->ia_current;
+
+  return 0;
+}
+
 int write_path_hwsensor_tbs(struct katcp_dispatch *d, char *path, char *value)
 {
   int fd, bytes;
@@ -270,8 +302,10 @@ struct tbs_hwsensor *create_hwsensor_tbs(struct katcp_dispatch *d, char *name, c
 
 int register_hwmon_tbs(struct katcp_dispatch *d, char *label, char *desc, char *unit, char *file, char *min, char *max)
 {
+  struct katcp_acquire *a;
   struct tbs_raw *tr;
   struct tbs_hwsensor *hs;
+  
 
   tr = get_mode_katcp(d, TBS_MODE_RAW);
   if (tr == NULL){
@@ -289,20 +323,33 @@ int register_hwmon_tbs(struct katcp_dispatch *d, char *label, char *desc, char *
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not create hw sensor %s", label);
     return -1;
   }
-  
-  /*NULL release since cleaning the avltree will manage the data*/
 
-#if 1
+  /*NULL release since avltree will manage the data*/
+  a = setup_integer_acquire_katcp(d, &read_hwsensor_tbs, hs, NULL);
+  if (a == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "hwmon: unable to setup integer acquire for %s\n", label);
+#endif
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to setup integer acquire sensor %s", label);
+    destroy_hwsensor_tbs(hs);
+    return -1; 
+  } 
+  
+
+#if 0
   if (register_integer_sensor_katcp(d, TBS_MODE_RAW, label, desc, unit, &read_hwsensor_tbs, hs, NULL, hs->h_min, hs->h_max, &flush_hwsensor_tbs) < 0) {
 #endif
+
+  if (register_multi_integer_sensor_katcp(d, TBS_MODE_RAW, label, desc, unit, INT_MIN, INT_MAX, a, &extract_hwsensor_tbs, &flush_hwsensor_tbs) < 0){
 #if 0
-  if (register_integer_sensor_katcp(d, TBS_MODE_RAW, label, desc, unit, &read_hwsensor_tbs, hs, NULL, 0, INT_MAX, &flush_hwsensor_tbs) < 0) {
+  if (register_integer_sensor_katcp(d, TBS_MODE_RAW, label, desc, unit, &read_hwsensor_tbs, hs, NULL, INT_MIN, INT_MAX, &flush_hwsensor_tbs) < 0) {
 #endif
 #ifdef DEBUG
     fprintf(stderr, "hwmon: unable to register sensor %s\n", label);
 #endif
     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to register integer sensor %s", label);
     destroy_hwsensor_tbs(hs);
+    destroy_acquire_katcp(d, a);
     return -1;
   }
   
@@ -312,6 +359,7 @@ int register_hwmon_tbs(struct katcp_dispatch *d, char *label, char *desc, char *
 #endif
     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to store definition of hw sensor %s", label);
     destroy_hwsensor_tbs(hs);
+    destroy_acquire_katcp(d, a);
     return -1;
   }
 
