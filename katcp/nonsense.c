@@ -2592,7 +2592,7 @@ int register_integer_sensor_katcp(struct katcp_dispatch *d, int mode, char *name
 
 /* integer registration with one acquire handling multiple sensors *******/
 
-int register_multi_integer_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, int min, int max, struct katcp_acquire *a, int (*extract)(struct katcp_dispatch *d, struct katcp_sensor *sn))
+int register_multi_integer_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, int min, int max, struct katcp_acquire *a, int (*extract)(struct katcp_dispatch *d, struct katcp_sensor *sn), int (*flush)(struct katcp_dispatch *d, struct katcp_sensor *sn))
 {
   struct katcp_sensor *sn;
 
@@ -2610,6 +2610,9 @@ int register_multi_integer_sensor_katcp(struct katcp_dispatch *d, int mode, char
     destroy_sensor_katcp(d, sn);
     return -1;
   }
+
+  if (flush != NULL)
+    sn->s_flush = flush;
 
   return 0;
 }
