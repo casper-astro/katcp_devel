@@ -5,6 +5,8 @@
 #include <errno.h>
 #include <stdint.h>
 #include <fcntl.h>
+#include <limits.h>
+
 #include <sys/types.h>
 #include <sys/stat.h>
 
@@ -54,8 +56,9 @@ struct tbs_hwsensor *alloc_hwsensor_tbs()
 
   hs->h_adc_fd = -1;
   hs->h_min = 0;
-  hs->h_max = 0;
-  hs->h_scale = 1;
+  hs->h_max = INT_MAX;
+  hs->h_mult = 1;
+  hs->h_div = 1;
   hs->h_min_path = NULL;
   hs->h_max_path = NULL;
   hs->h_name = NULL;
@@ -98,7 +101,39 @@ int read_hwsensor_tbs(struct katcp_dispatch *d, struct katcp_acquire *a)
   if (hs == NULL)
     return -1;
 
-  return read_fd_hwsensor_tbs(hs->h_scale * hs->h_adc_fd);
+  return read_fd_hwsensor_tbs((hs->h_mult * hs->h_adc_fd) / hs->h_div);
+}
+
+int extract_hwsensor_tbs(struct katcp_dispatch *d, struct katcp_sensor *sn)
+{
+  struct katcp_integer_acquire *ia;
+  struct katcp_integer_sensor *is;
+  struct katcp_acquire *a;
+  struct tbs_hwsensor *hs;
+
+  a = sn->s_acquire;
+
+  hs = a->a_local;
+  if (hs == NULL)
+    return -1;
+  
+  if ((a == NULL) || (a->a_type != KATCP_SENSOR_INTEGER) || (sn->s_type != KATCP_SENSOR_INTEGER)){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "type mismatch for putative integer sensor %s", sn->s_name);
+    return -1;
+  }
+  
+  is = sn->s_more;
+  ia = a->a_more;
+
+  if((ia->ia_current < hs->h_min) || (ia->ia_current > hs->h_max)){
+    set_status_sensor_katcp(sn, KATCP_STATUS_ERROR);
+  } else {
+    set_status_sensor_katcp(sn, KATCP_STATUS_NOMINAL);
+  }
+
+  is->is_current = ia->ia_current;
+
+  return 0;
 }
 
 int write_path_hwsensor_tbs(struct katcp_dispatch *d, char *path, char *value)
@@ -157,15 +192,32 @@ int flush_hwsensor_tbs(struct katcp_dispatch *d, struct katcp_sensor *sn)
   }
   
   hs = a->a_local;
-  if (hs == NULL)
+  if (hs == NULL){
     return -1;
+  }
 
-  path = strncmp(limit, "min", 3) == 0 ? hs->h_min_path : (strncmp(limit, "max", 3) == 0 ? hs->h_max_path : NULL);
+  if (strncmp(limit, "min", 3) == 0){
+    hs->h_min = arg_unsigned_long_katcp(d, 3);
+    path = hs->h_min_path;    
+  } else if (strncmp(limit, "max", 3) == 0) {
+    hs->h_max = arg_unsigned_long_katcp(d, 3);
+    path = hs->h_max_path;
+  } else if (strncmp(limit, "mult", 4) == 0){
+    hs->h_mult = arg_unsigned_long_katcp(d, 3);
+    path = NULL;
+  } else if (strncmp(limit, "div", 3) == 0){
+    hs->h_div = arg_unsigned_long_katcp(d, 3);
+    path = NULL;
+  }
 
-  return write_path_hwsensor_tbs(d, path, value);
+  if (write_path_hwsensor_tbs(d, path, value) < 0){
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "unable to flush new sensor value to path");
+  }
+
+  return 0;
 }
 
-struct tbs_hwsensor *create_hwsensor_tbs(struct katcp_dispatch *d, char *name, char *desc, char *unit, char *adc, char *min, char *max, unsigned int scale)
+struct tbs_hwsensor *create_hwsensor_tbs(struct katcp_dispatch *d, char *name, char *desc, char *unit, char *adc, char *min, char *max, unsigned int mult, unsigned int div)
 {
   struct tbs_hwsensor *hs;
   int minfd, maxfd;
@@ -184,7 +236,8 @@ struct tbs_hwsensor *create_hwsensor_tbs(struct katcp_dispatch *d, char *name, c
     return NULL;
   }
 
-  hs->h_scale = scale;
+  hs->h_mult = mult;
+  hs->h_div  = div;
 
   hs->h_min_path = (min) ? strdup(min) : NULL;
   if (min && hs->h_min_path == NULL){
@@ -256,8 +309,9 @@ struct tbs_hwsensor *create_hwsensor_tbs(struct katcp_dispatch *d, char *name, c
   return hs;
 }
 
-int register_hwmon_tbs(struct katcp_dispatch *d, char *label, char *desc, char *unit, char *file, char *min, char *max, unsigned int scale)
+int register_hwmon_tbs(struct katcp_dispatch *d, char *label, char *desc, char *unit, char *file, char *min, char *max, unsigned int mult, unsigned int div)
 {
+  struct katcp_acquire *a;
   struct tbs_raw *tr;
   struct tbs_hwsensor *hs;
 
@@ -269,7 +323,7 @@ int register_hwmon_tbs(struct katcp_dispatch *d, char *label, char *desc, char *
     return -1;
   }
 
-  hs = create_hwsensor_tbs(d, label, desc, unit, file, min, max, scale);
+  hs = create_hwsensor_tbs(d, label, desc, unit, file, min, max, mult, div);
   if (hs == NULL){
 #ifdef DEBUG
     fprintf(stderr, "hwmon: cannot create hw sensor %s\n", label);
@@ -277,14 +331,33 @@ int register_hwmon_tbs(struct katcp_dispatch *d, char *label, char *desc, char *
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not create hw sensor %s", label);
     return -1;
   }
+
+  /*NULL release since avltree will manage the data*/
+  a = setup_integer_acquire_katcp(d, &read_hwsensor_tbs, hs, NULL);
+  if (a == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "hwmon: unable to setup integer acquire for %s\n", label);
+#endif
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to setup integer acquire sensor %s", label);
+    destroy_hwsensor_tbs(hs);
+    return -1; 
+  } 
   
-  /*NULL release since cleaning the avltree will manage the data*/
+
+#if 0
   if (register_integer_sensor_katcp(d, TBS_MODE_RAW, label, desc, unit, &read_hwsensor_tbs, hs, NULL, hs->h_min, hs->h_max, &flush_hwsensor_tbs) < 0) {
+#endif
+
+  if (register_multi_integer_sensor_katcp(d, TBS_MODE_RAW, label, desc, unit, INT_MIN, INT_MAX, a, &extract_hwsensor_tbs, &flush_hwsensor_tbs) < 0){
+#if 0
+  if (register_integer_sensor_katcp(d, TBS_MODE_RAW, label, desc, unit, &read_hwsensor_tbs, hs, NULL, INT_MIN, INT_MAX, &flush_hwsensor_tbs) < 0) {
+#endif
 #ifdef DEBUG
     fprintf(stderr, "hwmon: unable to register sensor %s\n", label);
 #endif
     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to register integer sensor %s", label);
     destroy_hwsensor_tbs(hs);
+    destroy_acquire_katcp(d, a);
     return -1;
   }
   
@@ -294,6 +367,7 @@ int register_hwmon_tbs(struct katcp_dispatch *d, char *label, char *desc, char *
 #endif
     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to store definition of hw sensor %s", label);
     destroy_hwsensor_tbs(hs);
+    destroy_acquire_katcp(d, a);
     return -1;
   }
 
@@ -326,7 +400,7 @@ int setup_hwmon_tbs(struct katcp_dispatch *d)
                                "/sys/bus/i2c/devices/0-0018/temp1_input", 
                                "/sys/bus/i2c/devices/0-0018/temp1_min",
                                "/sys/bus/i2c/devices/0-0018/temp1_max", 
-                               1);
+                               1, 1);
   
   rtn += register_hwmon_tbs(d, "raw.temp.ppc", 
                                "PowerPC temperature",
@@ -334,7 +408,7 @@ int setup_hwmon_tbs(struct katcp_dispatch *d)
                                "/sys/bus/i2c/devices/0-0018/temp2_input", 
                                "/sys/bus/i2c/devices/0-0018/temp2_min",
                                "/sys/bus/i2c/devices/0-0018/temp2_max",
-                               1);
+                               1, 1);
 
   rtn += register_hwmon_tbs(d, "raw.temp.fpga", 
                                "FPGA temperature",
@@ -342,7 +416,7 @@ int setup_hwmon_tbs(struct katcp_dispatch *d)
                                "/sys/bus/i2c/devices/0-0018/temp3_input", 
                                "/sys/bus/i2c/devices/0-0018/temp3_min",
                                "/sys/bus/i2c/devices/0-0018/temp3_max",
-                               1);
+                               1, 1);
 
   rtn += register_hwmon_tbs(d, "raw.fan.chs1", 
                                "Chassis fan speed",
@@ -350,7 +424,7 @@ int setup_hwmon_tbs(struct katcp_dispatch *d)
                                "/sys/bus/i2c/devices/0-001b/fan1_input",
                                NULL,
                                NULL,
-                               1);
+                               1, 1);
 
   rtn += register_hwmon_tbs(d, "raw.fan.chs2",
                                "Chassis fan speed",
@@ -358,7 +432,7 @@ int setup_hwmon_tbs(struct katcp_dispatch *d)
                                "/sys/bus/i2c/devices/0-001f/fan1_input",
                                NULL,
                                NULL, 
-                               1);
+                               1, 1);
   
   rtn += register_hwmon_tbs(d, "raw.fan.fpga", 
                                "FPGA fan speed",
@@ -366,7 +440,7 @@ int setup_hwmon_tbs(struct katcp_dispatch *d)
                                "/sys/bus/i2c/devices/0-0048/fan1_input",
                                NULL,
                                NULL, 
-                               1);
+                               1, 1);
 
   rtn += register_hwmon_tbs(d, "raw.fan.chs0", 
                                "Chassis fan speed",
@@ -374,7 +448,7 @@ int setup_hwmon_tbs(struct katcp_dispatch *d)
                                "/sys/bus/i2c/devices/0-004b/fan1_input",
                                NULL,
                                NULL,
-                               1);
+                               1, 1);
   
   rtn += register_hwmon_tbs(d, "raw.temp.inlet", 
                                "Inlet ambient temperature",
@@ -382,7 +456,7 @@ int setup_hwmon_tbs(struct katcp_dispatch *d)
                                "/sys/bus/i2c/devices/0-004c/temp1_input",
                                "/sys/bus/i2c/devices/0-004c/temp1_min",
                                "/sys/bus/i2c/devices/0-004c/temp1_max",
-                               1);
+                               1, 1);
 
   rtn += register_hwmon_tbs(d, "raw.temp.outlet", 
                                "Outlet ambient temperature",
@@ -390,7 +464,7 @@ int setup_hwmon_tbs(struct katcp_dispatch *d)
                                "/sys/bus/i2c/devices/0-004e/temp1_input",
                                "/sys/bus/i2c/devices/0-004e/temp1_min",
                                "/sys/bus/i2c/devices/0-004e/temp1_max",
-                               1);
+                               1, 1);
 
 
   rtn += register_hwmon_tbs(d, "raw.voltage.1v",
@@ -399,7 +473,7 @@ int setup_hwmon_tbs(struct katcp_dispatch *d)
                                "/sys/bus/i2c/devices/0-0050/in0_input",
                                NULL,
                                "/sys/bus/i2c/devices/0-0050/in0_crit",
-                               1);
+                               1, 1);
 
   rtn += register_hwmon_tbs(d, "raw.voltage.1v5",
                                "1.5v voltage rail",
@@ -407,7 +481,7 @@ int setup_hwmon_tbs(struct katcp_dispatch *d)
                                "/sys/bus/i2c/devices/0-0050/in1_input",
                                NULL,
                                "/sys/bus/i2c/devices/0-0050/in1_crit",
-                               1);
+                               1, 1);
 
   rtn += register_hwmon_tbs(d, "raw.voltage.1v8",
                                "1.8v voltage rail",
@@ -415,7 +489,7 @@ int setup_hwmon_tbs(struct katcp_dispatch *d)
                                "/sys/bus/i2c/devices/0-0050/in2_input",
                                NULL,
                                "/sys/bus/i2c/devices/0-0050/in2_crit",
-                               1);
+                               1, 1);
 
   rtn += register_hwmon_tbs(d, "raw.voltage.2v5",
                                "2.5v voltage rail",
@@ -423,7 +497,7 @@ int setup_hwmon_tbs(struct katcp_dispatch *d)
                                "/sys/bus/i2c/devices/0-0050/in3_input",
                                NULL,
                                "/sys/bus/i2c/devices/0-0050/in3_crit",
-                               1);
+                               1, 1);
 
   rtn += register_hwmon_tbs(d, "raw.voltage.3v3",
                                "3.3v voltage rail",
@@ -431,15 +505,15 @@ int setup_hwmon_tbs(struct katcp_dispatch *d)
                                "/sys/bus/i2c/devices/0-0050/in4_input",
                                NULL,
                                "/sys/bus/i2c/devices/0-0050/in4_crit",
-                               1);
+                               1, 1);
 
   rtn += register_hwmon_tbs(d, "raw.voltage.5v",
                                "5v voltage rail",
                                "millivolts",
                                "/sys/bus/i2c/devices/0-0050/in5_input",
                                NULL,
-                               "/sys/bus/i2c/devices/0-0050/in5_crit"
-                               1);
+                               "/sys/bus/i2c/devices/0-0050/in5_crit",
+                               1, 1);
 
   rtn += register_hwmon_tbs(d, "raw.voltage.12v",
                                "12v voltage rail",
@@ -447,7 +521,7 @@ int setup_hwmon_tbs(struct katcp_dispatch *d)
                                "/sys/bus/i2c/devices/0-0050/in12_input",
                                NULL,
                                NULL,
-                               1);
+                               1, 1);
 
 
 
@@ -457,15 +531,15 @@ int setup_hwmon_tbs(struct katcp_dispatch *d)
                                "/sys/bus/i2c/devices/0-0051/in0_input",
                                NULL,
                                "/sys/bus/i2c/devices/0-0051/in0_crit",
-                               1);
+                               5, 2);
 
   rtn += register_hwmon_tbs(d, "raw.current.2v5",
                                "2.5v rail current",
                                "milliamps",
                                "/sys/bus/i2c/devices/0-0051/in1_input",
                                NULL,
-                               "/sys/bus/i2c/devices/0-0051/in1_crit"
-                               1);
+                               "/sys/bus/i2c/devices/0-0051/in1_crit", 
+                               200, 499);
 
   rtn += register_hwmon_tbs(d, "raw.current.1v8",
                                "1.8v rail current",
@@ -473,7 +547,7 @@ int setup_hwmon_tbs(struct katcp_dispatch *d)
                                "/sys/bus/i2c/devices/0-0051/in2_input",
                                NULL,
                                "/sys/bus/i2c/devices/0-0051/in2_crit", 
-                               1);
+                               5, 2);
 
   rtn += register_hwmon_tbs(d, "raw.current.1v5",
                                "1.5v rail current",
@@ -481,7 +555,7 @@ int setup_hwmon_tbs(struct katcp_dispatch *d)
                                "/sys/bus/i2c/devices/0-0051/in3_input",
                                NULL,
                                "/sys/bus/i2c/devices/0-0051/in3_crit", 
-                               1);
+                               10, 1);
 
   rtn += register_hwmon_tbs(d, "raw.current.1v",
                                "1v rail current",
@@ -489,7 +563,7 @@ int setup_hwmon_tbs(struct katcp_dispatch *d)
                                "/sys/bus/i2c/devices/0-0051/in4_input",
                                NULL,
                                "/sys/bus/i2c/devices/0-0051/in4_crit",
-                               1);
+                               40, 1);
 
   rtn += register_hwmon_tbs(d, "raw.current.12v",
                                "12v rail current",
@@ -497,7 +571,7 @@ int setup_hwmon_tbs(struct katcp_dispatch *d)
                                "/sys/bus/i2c/devices/0-0051/in12_input",
                                NULL,
                                NULL, 
-                               1);
+                               1, 1);
 
   return rtn;
 }

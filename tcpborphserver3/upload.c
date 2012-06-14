@@ -36,8 +36,8 @@ void destroy_port_data_tbs(struct tbs_port_data *pd)
 #if 0
     if (pd->t_data != NULL || pd->t_data != MAP_FAILED)
       munmap(pd->t_data, pd->t_rsize);
-
 #endif
+
    munmap(pd, sizeof(struct tbs_port_data));
   }
 }
