@@ -85,6 +85,7 @@ static void byte_normalise(struct katcl_byte_bit *bb)
   bb->b_bit  = tmp.b_bit % 8;
 }
 
+#if 0 /* currently unused, pacify the compiler */
 static void word_normalise(struct katcl_byte_bit *bb)
 {
   struct katcl_byte_bit tmp;
@@ -97,6 +98,7 @@ static void word_normalise(struct katcl_byte_bit *bb)
   bb->b_byte = (tmp.b_byte / 4) * 4;
   bb->b_bit  = ((tmp.b_byte % 4) * 4) + bb->b_bit;
 }
+#endif
 
 /*********************************************************************/
 
@@ -451,8 +453,9 @@ int write_cmd(struct katcp_dispatch *d, int argc)
 
   if (start > size_have || (size_have - start) < want_len){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "trying to write past the end of the register %s", name);
-    if (buffer != NULL)
+    if (buffer != NULL){
       free(buffer);
+    }
     return KATCP_RESULT_FAIL;
   }
   
@@ -555,8 +558,9 @@ int write_cmd(struct katcp_dispatch *d, int argc)
 
   msync(tr->r_map, tr->r_map_size, MS_SYNC);
 
-  if (buffer != NULL)
+  if (buffer != NULL){
     free(buffer);
+  }
   
   return KATCP_RESULT_OK;
 }

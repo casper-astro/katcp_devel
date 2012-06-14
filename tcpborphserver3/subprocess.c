@@ -45,11 +45,10 @@ void replace_argv(struct katcp_dispatch *d, char *str)
 #endif
 }
 
-struct katcp_job * run_child_process_tbs(struct katcp_dispatch *d, struct katcp_url *url, int (*call)(struct katcl_line *, void *), void *data, struct katcp_notice *n) 
+struct katcp_job *run_child_process_tbs(struct katcp_dispatch *d, struct katcp_url *url, int (*call)(struct katcl_line *, void *), void *data, struct katcp_notice *n) 
 {
   int fds[2];
   pid_t pid;
-  int i;
   struct katcp_job *j;
   struct katcl_line *xl;
 

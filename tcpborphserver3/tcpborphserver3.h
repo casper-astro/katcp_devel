@@ -69,6 +69,7 @@ struct tbs_hwsensor
   int h_adc_fd;
   int h_min;
   int h_max;
+  int h_scale;
   char *h_min_path;
   char *h_max_path;
   char *h_name;
@@ -78,7 +79,6 @@ struct tbs_hwsensor
 
 int setup_hwmon_tbs(struct katcp_dispatch *d);
 void destroy_hwsensor_tbs(void *data);
-
 
 struct tbs_port_data {
   int t_port;
