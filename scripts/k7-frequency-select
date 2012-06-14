@@ -7,7 +7,15 @@ kcs_arg_check $# 1
 
 #kcpcmd -i -k nb-set-cf $1 | sed -e 's/^!nb-set-cf/#return/' | cut -f1-3 -d\  
 
-kcpcmd -i -k nb-set-cf $1 | ( while read cmd stat first rest ; do if [ "$cmd" = "!nb-set-cf" ] ; then if [ "${stat}" = "ok" ] ; then echo "#sensor-list .nbc.centerfrequency current\_selected\_center\_frequency Hz integer 0 1000000000" ; echo "#sensor-status $(date +%s)000 1 .nbc.centerfrequency nominal ${first}" ; fi ; echo "#return" ${stat} ${first} ; else echo ${cmd} ${stat} ${first} ${rest} ; fi ; done)
+case "${KATCP_MODE}" in
+  xbc|nbc)
+    kcpcmd -i -k nb-set-cf $1 | ( while read cmd stat first rest ; do if [ "$cmd" = "!nb-set-cf" ] ; then if [ "${stat}" = "ok" ] ; then echo "#sensor-list .${KATCP_MODE}.centerfrequency current\_selected\_center\_frequency Hz integer 0 1000000000" ; echo "#sensor-status $(date +%s)000 1 .${KATCP_MODE}.centerfrequency nominal ${first}" ; fi ; echo "#return" ${stat} ${first} ; else echo ${cmd} ${stat} ${first} ${rest} ; fi ; done)
+
+    ;;
+  *)
+    kcs_error "frequency selection not available in ${KATCP_MODE} mode"
+    ;;
+esac 
 
 exit 1
 
