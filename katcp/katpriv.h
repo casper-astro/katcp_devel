@@ -440,6 +440,11 @@ struct katcp_shared{
   unsigned int s_pending;
   unsigned int s_woken;
 
+  struct katcp_flat **s_flats;
+  struct katcp_flat *s_this;
+  unsigned int s_floors;
+  unsigned int s_ceiling;
+
 #if 0
   int s_version_major;
   int s_version_minor;
@@ -612,6 +617,10 @@ int register_subprocess_cmd_katcp(struct katcp_dispatch *d, int argc);
 int submit_to_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, struct katcl_parse *p, char *name, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n, void *data), void *data);
 int notice_to_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, struct katcp_notice *n);
 int ended_jobs_katcp(struct katcp_dispatch *d);
+
+/* flat stuff */
+int run_flat_katcp(struct katcp_dispatch *d);
+int load_flat_katcp(struct katcp_dispatch *d);
 
 /* parse: setup */
 struct katcl_parse *create_parse_katcl();
