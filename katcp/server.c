@@ -601,6 +601,12 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
       run = (-1);
     }
 
+    /* WARNING: new code */
+    if(load_flat_katcp(dl) < 0){
+      run = (-1);
+    }
+
+
     if(run < 0){
 
       run = 0; /* assume we have stopped, revert to stopping if the below still need to do work */
@@ -665,6 +671,9 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
 #endif
       wait_jobs_katcp(dl);
     }
+
+    /* WARNING: new logic */
+    run_flat_katcp(dl);
 
     run_shared_katcp(dl);
     run_jobs_katcp(dl);
