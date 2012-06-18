@@ -35,7 +35,7 @@ fi
 shift 2
 
 case "${KATCP_MODE}" in
-  xbc|nbc)
+  xbc|c16n3M8k)
     if [ "${level}" -gt 0  ] ; then
       kcs_error "threshold triggering not currently supported in narrowband mode"
       exit 1 
