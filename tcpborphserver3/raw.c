@@ -1219,6 +1219,11 @@ void destroy_raw_tbs(struct katcp_dispatch *d, struct tbs_raw *tr)
     return;
   }
 
+  if(tr->r_chasis){
+    unlink_arb_katcp(d, tr->r_chasis);
+    tr->r_chasis = NULL;
+  }
+
   if(tr->r_registers){
     destroy_avltree(tr->r_registers, &free_entry);
     tr->r_registers = NULL;
@@ -1326,6 +1331,8 @@ int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir, int argc, char **argv)
   tr->r_argc = argc;
   tr->r_argv = argv;
 
+  tr->r_chasis = NULL;
+
   /* clear out further structure elements */
 
   /* allocate structure elements */
@@ -1379,6 +1386,11 @@ int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir, int argc, char **argv)
   result += register_flag_mode_katcp(d, "?tap-start",    "start a tap instance (?tap-start (?tap-start tap-device register-name ip-address [port [mac]])", &tap_start_cmd, 0, TBS_MODE_RAW);
   result += register_flag_mode_katcp(d, "?tap-stop",     "deletes a tap instance (?tap-stop register-name)", &tap_stop_cmd, 0, TBS_MODE_RAW);
   result += register_flag_mode_katcp(d, "?tap-info",     "displays diagnostics for a tap instance (?tap-info register-name)", &tap_info_cmd, 0, TBS_MODE_RAW);
+
+  result += register_flag_mode_katcp(d, "?chasis-start",  "initialise chasis interface", &start_chasis_cmd, 0, TBS_MODE_RAW);
+  result += register_flag_mode_katcp(d, "?chasis-led",    "set a chasis led", &led_chasis_cmd, 0, TBS_MODE_RAW);
+
+
 
   return result;
 }

@@ -524,6 +524,8 @@ struct katcp_arb *find_arb_katcp(struct katcp_dispatch *d, char *name);
 
 void mode_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a, unsigned int mode);
 void *data_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a);
+int fileno_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a);
+
 
 /*katcp_type functions*/
 

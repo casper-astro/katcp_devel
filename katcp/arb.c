@@ -117,6 +117,15 @@ void *data_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a)
   return a->a_data;
 }
 
+int fileno_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a)
+{
+  if(a == NULL){
+    return -1;
+  }
+
+  return a->a_fd;
+}
+
 struct katcp_arb *find_arb_katcp(struct katcp_dispatch *d, char *name)
 {
   unsigned int i;
