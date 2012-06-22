@@ -25,7 +25,11 @@ int open_evdev_tbs(struct katcp_dispatch *d, char *name)
     snprintf(buffer, BUFFER - 1, "/dev/input/event%d", i);
     buffer[BUFFER - 1] = '\0';
 
+#ifdef O_CLOEXEC
     fd = open(buffer, O_RDWR | O_CLOEXEC);
+#else
+    fd = open(buffer, O_RDWR);
+#endif
     if(fd < 0){
       switch(errno){
         case ENODEV : 
@@ -60,7 +64,7 @@ int open_evdev_tbs(struct katcp_dispatch *d, char *name)
 #undef BUFFER 
 }
 
-int run_chasis_tbs(struct katcp_dispatch *d, struct katcp_arb *a, unsigned int mode)
+int run_chassis_tbs(struct katcp_dispatch *d, struct katcp_arb *a, unsigned int mode)
 {
   struct input_event event;
   int rr, fd;
@@ -78,7 +82,7 @@ int run_chasis_tbs(struct katcp_dispatch *d, struct katcp_arb *a, unsigned int m
   return 0;
 }
 
-struct katcp_arb *chasis_init_tbs(struct katcp_dispatch *d, char *name)
+struct katcp_arb *chassis_init_tbs(struct katcp_dispatch *d, char *name)
 {
   struct katcp_arb *a;
   int fd;
@@ -94,7 +98,7 @@ struct katcp_arb *chasis_init_tbs(struct katcp_dispatch *d, char *name)
     return NULL;
   }
 
-  a = create_arb_katcp(d, name, fd, KATCP_ARB_READ, &run_chasis_tbs, NULL);
+  a = create_arb_katcp(d, name, fd, KATCP_ARB_READ, &run_chassis_tbs, NULL);
   if(a == NULL){
     close(fd);
     return NULL;
@@ -103,7 +107,7 @@ struct katcp_arb *chasis_init_tbs(struct katcp_dispatch *d, char *name)
   return a;
 }
 
-int start_chasis_cmd(struct katcp_dispatch *d, int argc)
+int start_chassis_cmd(struct katcp_dispatch *d, int argc)
 {
   char *match;
   struct tbs_raw *tr;
@@ -114,13 +118,13 @@ int start_chasis_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
-  if(tr->r_chasis){
-    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "chasis logic already registered");
+  if(tr->r_chassis){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "chassis logic already registered");
     return KATCP_RESULT_FAIL;
   }
 
   if(argc <= 1){
-    match = "roach";
+    match = "roach2chassis";
   } else {
     match = arg_string_katcp(d, 1);
     if(match == NULL){
@@ -129,8 +133,8 @@ int start_chasis_cmd(struct katcp_dispatch *d, int argc)
     }
   }
 
-  tr->r_chasis = chasis_init_tbs(d, match);
-  if(tr->r_chasis == NULL){
+  tr->r_chassis = chassis_init_tbs(d, match);
+  if(tr->r_chassis == NULL){
     return KATCP_RESULT_FAIL;
   }
 
@@ -166,7 +170,7 @@ int write_event_tbs(struct katcp_dispatch *d, struct katcp_arb *a, int type, int
   return -1;
 }
 
-int led_chasis_cmd(struct katcp_dispatch *d, int argc)
+int led_chassis_cmd(struct katcp_dispatch *d, int argc)
 {
   struct tbs_raw *tr;
   int code, value;
@@ -183,8 +187,8 @@ int led_chasis_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
-  if(tr->r_chasis == NULL){
-    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "no chasis logic registered");
+  if(tr->r_chassis == NULL){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "no chassis logic registered");
     return KATCP_RESULT_FAIL;
   }
 
@@ -215,11 +219,11 @@ int led_chasis_cmd(struct katcp_dispatch *d, int argc)
     }
   }
 
-  if(write_event_tbs(d, tr->r_chasis, EV_LED, code, value) < 0){
+  if(write_event_tbs(d, tr->r_chassis, EV_LED, code, value) < 0){
     return KATCP_RESULT_FAIL;
   }
 
-  if(write_event_tbs(d, tr->r_chasis, EV_SYN, 0, 0) < 0){
+  if(write_event_tbs(d, tr->r_chassis, EV_SYN, 0, 0) < 0){
     return KATCP_RESULT_FAIL;
   }
 

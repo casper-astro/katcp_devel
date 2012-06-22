@@ -49,7 +49,7 @@ struct tbs_raw
   int r_argc;
   char **r_argv;
 
-  struct katcp_arb *r_chasis;
+  struct katcp_arb *r_chassis;
 };
 
 #define TBS_READABLE   1
@@ -94,7 +94,7 @@ struct katcp_job * run_child_process_tbs(struct katcp_dispatch *d, struct katcp_
 
 int upload_cmd(struct katcp_dispatch *d, int argc);
 
-int start_chasis_cmd(struct katcp_dispatch *d, int argc);
-int led_chasis_cmd(struct katcp_dispatch *d, int argc);
+int start_chassis_cmd(struct katcp_dispatch *d, int argc);
+int led_chassis_cmd(struct katcp_dispatch *d, int argc);
 
 #endif
