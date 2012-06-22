@@ -153,6 +153,9 @@ int startup_shared_katcp(struct katcp_dispatch *d)
   s->s_modal = 0;
 #endif
 
+  s->s_prehook = NULL;
+  s->s_posthook = NULL;
+
   s->s_commands = NULL;
 
   s->s_mode_sensor = NULL;

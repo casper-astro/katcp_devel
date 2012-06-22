@@ -405,6 +405,9 @@ struct katcp_shared{
   unsigned int s_modal;
 #endif
 
+  int (*s_prehook)(struct katcp_dispatch *d, int argc);
+  int (*s_posthook)(struct katcp_dispatch *d, int argc);
+
   struct katcp_cmd *s_commands;
   struct katcp_sensor *s_mode_sensor;
   unsigned int s_mode;
