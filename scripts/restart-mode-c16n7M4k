@@ -11,11 +11,11 @@ limit=$[now+timeout]
 
 kcs_debug "changing mode to narrowband"
 
-kcs_change_corr xbc
+kcs_change_corr c16n7M4k
 
 kcs_debug "running connect"
 
-while ! kcpcmd -k -m -t 120 connect ${CORR_CONFIG}/xbc ; do
+while ! kcpcmd -k -m -t 120 connect ${CORR_CONFIG}/c16n7M4k ; do
   kcs_check_timeout ${limit}
   kcs_corr_log
   sleep 1
@@ -25,8 +25,8 @@ done
 kcs_info "running initialise"
 if kcpcmd -k -m -t 120 initialise 2 ; then
   kcs_corr_log
-  change_mode_sensors ${KATCP_MODE} xbc
-  echo "#sensor-status $(date +%s)000 1 .xbc.centerfrequency nominal 0"
+  change_mode_sensors ${KATCP_MODE} c16n7M4k
+  echo "#sensor-status $(date +%s)000 1 .c16n2M4k.centerfrequency nominal 0"
   exit 0
 fi
 
