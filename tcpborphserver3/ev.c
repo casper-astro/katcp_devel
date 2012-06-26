@@ -74,7 +74,9 @@ int run_chassis_tbs(struct katcp_dispatch *d, struct katcp_arb *a, unsigned int 
   if(mode & KATCP_ARB_READ){
     rr = read(fd, &event, sizeof(struct input_event));
     if(rr == sizeof(struct input_event)){
-      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "input event type=%d, code=%d, value=%d", event.type, event.code, event.value);
+#ifdef DEBUG
+      log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "input event type=%d, code=%d, value=%d", event.type, event.code, event.value);
+#endif
       /* TODO: one of: shut down server, emit message, invoke callback */
     }
   }
@@ -112,7 +114,7 @@ int start_chassis_cmd(struct katcp_dispatch *d, int argc)
   char *match;
   struct tbs_raw *tr;
 
-  tr = get_current_mode_katcp(d);
+  tr = get_mode_katcp(d, TBS_MODE_RAW);
   if(tr == NULL){
     log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "unable to get raw state");
     return KATCP_RESULT_FAIL;
@@ -124,7 +126,7 @@ int start_chassis_cmd(struct katcp_dispatch *d, int argc)
   }
 
   if(argc <= 1){
-    match = "roach2chassis";
+    match = TBS_ROACH_CHASSIS;
   } else {
     match = arg_string_katcp(d, 1);
     if(match == NULL){
@@ -170,6 +172,43 @@ int write_event_tbs(struct katcp_dispatch *d, struct katcp_arb *a, int type, int
   return -1;
 }
 
+int hook_led_cmd(struct katcp_dispatch *d, int argc, int value)
+{
+  struct tbs_raw *tr;
+
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "running tbs hook function with value %d", value);
+
+  tr = get_mode_katcp(d, TBS_MODE_RAW);
+  if(tr == NULL){
+    return -1;
+  }
+
+  if(tr->r_chassis == NULL){
+    return -1;
+  }
+
+  if(write_event_tbs(d, tr->r_chassis, EV_LED, LED_MISC, value) < 0){
+    return -1;
+  }
+
+  if(write_event_tbs(d, tr->r_chassis, EV_SYN, 0, 0) < 0){
+    return -1;
+  }
+
+  return 0;
+
+}
+
+int pre_hook_led_cmd(struct katcp_dispatch *d, int argc)
+{
+  return hook_led_cmd(d, argc, 0);
+}
+
+int post_hook_led_cmd(struct katcp_dispatch *d, int argc)
+{
+  return hook_led_cmd(d, argc, 1);
+}
+
 int led_chassis_cmd(struct katcp_dispatch *d, int argc)
 {
   struct tbs_raw *tr;
@@ -181,7 +220,7 @@ int led_chassis_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
-  tr = get_current_mode_katcp(d);
+  tr = get_mode_katcp(d, TBS_MODE_RAW);
   if(tr == NULL){
     log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "unable to get raw state");
     return KATCP_RESULT_FAIL;

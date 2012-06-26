@@ -23,6 +23,8 @@
 #define TBS_FPGA_MEM       "dev-roach-mem"
 #endif
 
+#define TBS_ROACH_CHASSIS  "roach2chassis"
+
 int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir, int argc, char **argv);
 int map_raw_tbs(struct katcp_dispatch *d);
 int unmap_raw_tbs(struct katcp_dispatch *d);
@@ -96,5 +98,8 @@ int upload_cmd(struct katcp_dispatch *d, int argc);
 
 int start_chassis_cmd(struct katcp_dispatch *d, int argc);
 int led_chassis_cmd(struct katcp_dispatch *d, int argc);
+
+int pre_hook_led_cmd(struct katcp_dispatch *d, int argc);
+int post_hook_led_cmd(struct katcp_dispatch *d, int argc);
 
 #endif

@@ -384,6 +384,13 @@ char *query_mode_name_katcp(struct katcp_dispatch *d);
 int query_mode_code_katcp(struct katcp_dispatch *d, char *name);
 void *need_current_mode_katcp(struct katcp_dispatch *d, unsigned int mode);
 
+/* intercept any command, needed in tcpborphserver for trivial reasons */
+
+#define KATCP_HOOK_PRE  0
+#define KATCP_HOOK_POST 1
+
+int hook_commands_katcp(struct katcp_dispatch *d, unsigned int type, int (*hook)(struct katcp_dispatch *d, int argc));
+
 /* timing callbacks */
 
 int discharge_timer_katcp(struct katcp_dispatch *d, void *data);
