@@ -29,10 +29,6 @@ fetch_config_sensors() {
     bandwidth=$(echo "${adc_clock:-800}/(${coarse_channels:-1}*2)" | bc -l | cut -f1 -d. )
     centerfrequency=$(echo "${bandwidth}/2" | bc -l | cut -f1 -d.)
 
-    echo "#sensor-list ${prefix}.channels number\_of\_channels none integer 0 65536"
-    echo "#sensor-list ${prefix}.centerfrequency current\_center\_frequency Hz integer 0 500000000"
-    echo "#sensor-list ${prefix}.bandwidth bandwidth\_of\_current\_mode Hz integer 0 1000000000"
-
     echo "#sensor-status $(date +%s)000 1 ${prefix}.channels ${status} ${channels}"
     echo "#sensor-status $(date +%s)000 1 ${prefix}.centerfrequency ${status} ${centerfrequency}"
     echo "#sensor-status $(date +%s)000 1 ${prefix}.bandwidth ${status} ${bandwidth}"
@@ -43,7 +39,13 @@ fetch_config_sensors() {
 
 setup_static_sensors () {
   for config_file in ${CORR_CONFIG}/* ; do
-    fetch_config_sensors ${config_file} unknown .${config_file##*/}
+    mode=${config_file##*/}
+
+    echo "#sensor-list .${mode}.channels number\_of\_channels none integer 0 65536"
+    echo "#sensor-list .${mode}.centerfrequency current\_center\_frequency Hz integer 0 500000000"
+    echo "#sensor-list .${mode}.bandwidth bandwidth\_of\_current\_mode Hz integer 0 1000000000"
+
+    fetch_config_sensors ${config_file} unknown .${mode}
   done
 
   echo "#sensor-list .channels number\_of\_channels none integer 0 65536"
