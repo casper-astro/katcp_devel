@@ -10,24 +10,26 @@ if [ ! -f ${CORR_CONFIG}/wbc ] ; then
   exit 1
 fi
 
-i=0
-for name in $(grep ^servers_f.*roach ${CORR_CONFIG}/wbc | cut -f2 -d= | tr '[, ]' '\n' ) ; do
-  if [ ! -f /usr/local/lib/kcs/scripts/${name} ] ; then
-    ln -s /usr/local/bin/kcpfmon /usr/local/lib/kcs/scripts/${name} >& /dev/null || kcs_error "unable to alias ${name}"
-  fi
-  kcpcmd -q -k job process $name exec://${name} ${name}:7147 $i || kcs_error "unable to launch lru monitor for ${name}"
-  i=$[i+1]
-done
+if [ "$1" = "static" ] ; then
+  setup_static_sensors
+else 
+  i=0
+  for name in $(grep ^servers_f.*roach ${CORR_CONFIG}/wbc | cut -f2 -d= | tr '[, ]' '\n' ) ; do
+    if [ ! -f /usr/local/lib/kcs/scripts/${name} ] ; then
+      ln -s /usr/local/bin/kcpfmon /usr/local/lib/kcs/scripts/${name} >& /dev/null || kcs_error "unable to alias ${name}"
+    fi
+    kcpcmd -q -k job process $name exec://${name} ${name}:7147 $i || kcs_error "unable to launch lru monitor for ${name}"
+    i=$[i+1]
+  done
 
-for name in $(grep ^servers_x.*roach ${CORR_CONFIG}/wbc | cut -f2 -d= | tr '[, ]' '\n' ) ; do
-  if [ ! -f /usr/local/lib/kcs/scripts/${name} ] ; then
-    ln -s /usr/local/bin/kcpfmon /usr/local/lib/kcs/scripts/${name} >& /dev/null || kcs_error "unable to alias ${name}"
-  fi
-  kcpcmd -q -k job process $name exec://${name} || kcs_error "unable to launch lru monitor for ${name}"
-done
+  for name in $(grep ^servers_x.*roach ${CORR_CONFIG}/wbc | cut -f2 -d= | tr '[, ]' '\n' ) ; do
+    if [ ! -f /usr/local/lib/kcs/scripts/${name} ] ; then
+      ln -s /usr/local/bin/kcpfmon /usr/local/lib/kcs/scripts/${name} >& /dev/null || kcs_error "unable to alias ${name}"
+    fi
+    kcpcmd -q -k job process $name exec://${name} || kcs_error "unable to launch lru monitor for ${name}"
+  done
 
-kcpcmd -q -k job process corr exec://corr || kcs_error "unable to launch corr monitoring logic" 
-
-setup_static_sensors
+  kcpcmd -q -k job process corr exec://corr || kcs_error "unable to launch corr monitoring logic" 
+fi
 
 exit 0

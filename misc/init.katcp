@@ -34,5 +34,6 @@
 ?hide ?test-reload-rf-gain ?enable-sensors
 ?xport start
 ?mode ready
+?enable-sensors static 
 ?mode wbc
-?enable-sensors
+?enable-sensors dynamic
