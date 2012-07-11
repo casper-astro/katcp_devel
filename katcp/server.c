@@ -439,7 +439,7 @@ int system_info_cmd_katcp(struct katcp_dispatch *d, int argc)
 
   hours   = (delta / 3600);
   minutes = (delta / 60)     - (hours * 60);
-  seconds = (delta)          - (minutes * 60);
+  seconds = (delta)          - (((hours * 60) + minutes) * 60);
 
   strftime(buffer, BUFFER - 1, "%Y-%m-%dT%H:%M:%S", when);
 
