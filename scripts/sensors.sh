@@ -1,10 +1,16 @@
 fetch_config_sensors() {
   
   config_file="$1"
-  prefix="$2"
+  status="$2"
+  prefix="$3"
 
   if [ ! -f "${config_file}" ] ; then
     kcpmsg -s mode -l warn "no configuration in ${config_file}"
+    return 0
+  fi
+
+  if [ -n "${status}" ] ; then
+    kcpmsg -s mode -l warn "bad status field ${status}"
     return 0
   fi
 
@@ -27,9 +33,9 @@ fetch_config_sensors() {
     echo "#sensor-list ${prefix}.centerfrequency current\_center\_frequency Hz integer 0 500000000"
     echo "#sensor-list ${prefix}.bandwidth bandwidth\_of\_current\_mode Hz integer 0 1000000000"
 
-    echo "#sensor-status $(date +%s)000 1 ${prefix}.channels unknown ${channels}"
-    echo "#sensor-status $(date +%s)000 1 ${prefix}.centerfrequency unknown ${centerfrequency}"
-    echo "#sensor-status $(date +%s)000 1 ${prefix}.bandwidth unknown ${bandwidth}"
+    echo "#sensor-status $(date +%s)000 1 ${prefix}.channels ${status} ${channels}"
+    echo "#sensor-status $(date +%s)000 1 ${prefix}.centerfrequency ${status} ${centerfrequency}"
+    echo "#sensor-status $(date +%s)000 1 ${prefix}.bandwidth ${status} ${bandwidth}"
 
   fi
 
@@ -37,7 +43,7 @@ fetch_config_sensors() {
 
 setup_static_sensors () {
   for config_file in ${CORR_CONFIG}/* ; do
-    fetch_config_sensors ${config_file} .${config_file##*/}
+    fetch_config_sensors ${config_file} unknown .${config_file##*/}
   done
 
   echo "#sensor-list channels number\_of\_channels none integer 0 65536"
@@ -66,7 +72,7 @@ change_mode_sensors () {
     echo "#sensor-status $(date +%s)000 1 .${to}.bandwidth nominal \@"
   fi
 
-  fetch_config_sensors ${CORR_CONFIG}/${to}
+  fetch_config_sensors ${CORR_CONFIG}/${to} nominal
 }
 
 
