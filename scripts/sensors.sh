@@ -46,9 +46,9 @@ setup_static_sensors () {
     fetch_config_sensors ${config_file} unknown .${config_file##*/}
   done
 
-  echo "#sensor-list channels number\_of\_channels none integer 0 65536"
-  echo "#sensor-list centerfrequency current\_center\_frequency Hz integer 0 500000000"
-  echo "#sensor-list bandwidth bandwidth\_of\_current\_mode Hz integer 0 1000000000"
+  echo "#sensor-list .channels number\_of\_channels none integer 0 65536"
+  echo "#sensor-list .centerfrequency current\_center\_frequency Hz integer 0 500000000"
+  echo "#sensor-list .bandwidth bandwidth\_of\_current\_mode Hz integer 0 1000000000"
 }
 
 change_mode_sensors () {
