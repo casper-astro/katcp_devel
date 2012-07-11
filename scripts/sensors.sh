@@ -15,7 +15,7 @@ fetch_config_sensors() {
   fi
 
   if [ -n "${prefix}" ] ; then
-    if [ "${prefix:0:1}" != '.'] ; then
+    if [ "${prefix:0:1}" != '.' ] ; then
       kcpmsg -s mode -l warn "mode prefix ${prefix} probably malformed"
     fi
   fi
