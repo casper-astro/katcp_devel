@@ -9,7 +9,7 @@ fetch_config_sensors() {
     return 0
   fi
 
-  if [ -n "${status}" ] ; then
+  if [ -z "${status}" ] ; then
     kcpmsg -s mode -l warn "bad status field ${status}"
     return 0
   fi
