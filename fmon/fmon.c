@@ -1639,14 +1639,13 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, unsigned in
 
     value_disabled  = (word & FMON_FSTATUS_ADC_DISABLED(f)) ? 1 : 0;
     if(value_disabled){
-      if(f->f_grace <= FMON_INIT_PERIOD){
+      if(f->f_grace < FMON_INIT_PERIOD){
         status_disabled = KATCP_STATUS_UNKNOWN;
       } else {
         status_disabled = KATCP_STATUS_ERROR;
       }
     } else {
       status_disabled = KATCP_STATUS_NOMINAL;
-      f->f_grace      = FMON_INIT_PERIOD;
     }
 
 #ifdef DEBUG
@@ -1663,16 +1662,30 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, unsigned in
     status_xaui     = value_xaui ? KATCP_STATUS_NOMINAL : KATCP_STATUS_ERROR;
 
     if(value_adc || value_disabled || value_fft || (value_sram == 0) || (value_xaui == 0)){
-      f->f_dirty = 1;
+      if(f->f_grace >= FMON_INIT_PERIOD){ /* only clear status outside initial grace period */
+        f->f_dirty = 1;
+      }
+    } else { /* but shorten grace period if everything worked out */
+      f->f_grace    = FMON_INIT_PERIOD;
     }
-  }
 
-  if(status_sram == KATCP_STATUS_ERROR){
-    log_message_katcl(f->f_report, KATCP_LEVEL_WARN, f->f_server, "qdr not synchronised, attempting reset");
+    if(status_sram == KATCP_STATUS_ERROR){
 
-    word = FMON_QDRCTRL_RESET;
-    if(write_word_fmon(f, "qdr0_ctrl", word)){
-      log_message_katcl(f->f_report, KATCP_LEVEL_ERROR, f->f_server, "unable to reset qdr");
+      /* qdr failures may block init... so reset soon ?*/
+#if 0
+      if(f->f_grace <= FMON_INIT_PERIOD){
+        log_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_server, "qdr not synchronised yet ... giving it time");
+      } else {
+#endif
+        log_message_katcl(f->f_report, KATCP_LEVEL_WARN, f->f_server, "qdr not synchronised, attempting reset");
+
+        word = FMON_QDRCTRL_RESET;
+        if(write_word_fmon(f, "qdr0_ctrl", word)){
+          log_message_katcl(f->f_report, KATCP_LEVEL_ERROR, f->f_server, "unable to reset qdr");
+        }
+#if 0
+      }
+#endif
     }
 
   }
