@@ -1664,17 +1664,20 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, unsigned in
     if(value_adc || value_disabled || value_fft || (value_sram == 0) || (value_xaui == 0)){
       if(f->f_grace >= FMON_INIT_PERIOD){ /* only clear status outside initial grace period */
         f->f_dirty = 1;
+      } else {
+        log_message_katcl(f->f_report, KATCP_LEVEL_DEBUG, f->f_server, "not clearing status yet, we are  are %ds post reconnect", f->f_grace);
       }
     } else { /* but shorten grace period if everything worked out */
+      log_message_katcl(f->f_report, KATCP_LEVEL_DEBUG, f->f_server, "all ok after %ds post startup, assuming good from now on");
       f->f_grace    = FMON_INIT_PERIOD;
     }
 
     if(status_sram == KATCP_STATUS_ERROR){
 
-      if(f->f_grace <= FMON_INIT_PERIOD){
+      if(f->f_grace < FMON_INIT_PERIOD){
         log_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_server, "qdr not synchronised yet ... giving it time");
       } else {
-        log_message_katcl(f->f_report, KATCP_LEVEL_WARN, f->f_server, "qdr not synchronised, attempting reset");
+        log_message_katcl(f->f_report, KATCP_LEVEL_WARN, f->f_server, "qdr not synchronised after %d, attempting reset", f->f_grace);
 
         word = FMON_QDRCTRL_RESET;
         if(write_word_fmon(f, "qdr0_ctrl", word)){
