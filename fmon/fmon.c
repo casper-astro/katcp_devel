@@ -784,7 +784,6 @@ int maintain_fmon(struct fmon_state *f)
   }
 
   f->f_maintaining = 1;
-  f->f_grace = 0;
 
   if(f->f_line == NULL){
     state = STATE_CONNECT;
@@ -820,6 +819,7 @@ int maintain_fmon(struct fmon_state *f)
           break;
         } /* fall */
         state = STATE_DONE; /* superfluous, but symmetrical */
+        f->f_grace = 0; /* start counter on done transition */
       case STATE_DONE :
         set_lru_fmon(f, 1, KATCP_STATUS_NOMINAL);
         f->f_maintaining = 0;
@@ -831,6 +831,7 @@ int maintain_fmon(struct fmon_state *f)
     if(cmp_time_katcp(&(f->f_when), &now) <= 0){
 
       set_lru_fmon(f, 0, KATCP_STATUS_ERROR);
+      f->f_grace = 0; /* unclear if needed ... */
       f->f_maintaining = 0;
       return -1;
     }
@@ -844,7 +845,7 @@ int maintain_fmon(struct fmon_state *f)
     select(0, NULL, NULL, NULL, &delta);
   }
 
-  return 0;
+  /* return 0; */
 }
 
 /* basic io routines ***************************************************************/
@@ -2081,7 +2082,7 @@ int main(int argc, char **argv)
   for(run = 1; run > 0; ){
     set_timeout_fmon(f, timeout);
 
-    maintain_fmon(f);
+    maintain_fmon(f); /* might have to check return code, but if we do we skip checks which set sensors to unknown on failure ?  */
 
     check_adc_clock_fmon(f);
     check_all_inputs_fmon(f);
