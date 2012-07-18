@@ -1671,21 +1671,16 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, unsigned in
 
     if(status_sram == KATCP_STATUS_ERROR){
 
-      /* qdr failures may block init... so reset soon ?*/
-#if 0
       if(f->f_grace <= FMON_INIT_PERIOD){
         log_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_server, "qdr not synchronised yet ... giving it time");
       } else {
-#endif
         log_message_katcl(f->f_report, KATCP_LEVEL_WARN, f->f_server, "qdr not synchronised, attempting reset");
 
         word = FMON_QDRCTRL_RESET;
         if(write_word_fmon(f, "qdr0_ctrl", word)){
           log_message_katcl(f->f_report, KATCP_LEVEL_ERROR, f->f_server, "unable to reset qdr");
         }
-#if 0
       }
-#endif
     }
 
   }
