@@ -1678,7 +1678,9 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, unsigned in
     if(status_sram == KATCP_STATUS_ERROR){
 
       if(f->f_grace < FMON_INIT_PERIOD){
+#if 0
         log_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_server, "qdr not synchronised yet ... giving it time");
+#endif
       } else {
         log_message_katcl(f->f_report, KATCP_LEVEL_WARN, f->f_server, "qdr not synchronised after %d, attempting reset", f->f_grace);
 
