@@ -93,7 +93,7 @@
 #define FMON_DEFAULT_INTERVAL 1000
 #define FMON_DEFAULT_TIMEOUT  5000
 
-#define FMON_INIT_PERIOD     60000
+#define FMON_INIT_PERIOD    100000
 
 /* misc */
 
@@ -1669,7 +1669,9 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, unsigned in
         log_message_katcl(f->f_report, KATCP_LEVEL_DEBUG, f->f_server, "not clearing status yet, we are  are %ds post reconnect", f->f_grace);
       }
     } else { /* but shorten grace period if everything worked out */
-      log_message_katcl(f->f_report, KATCP_LEVEL_DEBUG, f->f_server, "all ok after %ds post startup, assuming good from now on");
+#if 0
+      log_message_katcl(f->f_report, KATCP_LEVEL_DEBUG, f->f_server, "all ok after %ds post startup, assuming good from now on", f->f_grace);
+#endif
       f->f_grace    = FMON_INIT_PERIOD;
     }
 
