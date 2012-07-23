@@ -39,13 +39,15 @@ fetch_config_sensors() {
 
 setup_static_sensors () {
   for config_file in ${CORR_CONFIG}/* ; do
-    mode=${config_file##*/}
+    if [ -f ${config_file} ] ; then
+      mode=${config_file##*/}
 
-    echo "#sensor-list .${mode}.channels number\_of\_channels none integer 0 65536"
-    echo "#sensor-list .${mode}.centerfrequency current\_center\_frequency Hz integer 0 500000000"
-    echo "#sensor-list .${mode}.bandwidth bandwidth\_of\_current\_mode Hz integer 0 1000000000"
+      echo "#sensor-list .${mode}.channels number\_of\_channels none integer 0 65536"
+      echo "#sensor-list .${mode}.centerfrequency current\_center\_frequency Hz integer 0 500000000"
+      echo "#sensor-list .${mode}.bandwidth bandwidth\_of\_current\_mode Hz integer 0 1000000000"
 
-    fetch_config_sensors ${config_file} unknown .${mode}
+      fetch_config_sensors ${config_file} unknown .${mode}
+    fi
   done
 
   echo "#sensor-list .channels number\_of\_channels none integer 0 65536"
