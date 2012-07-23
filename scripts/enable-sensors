@@ -5,8 +5,8 @@ source sensors.sh
 
 export KATCP_SERVER=localhost:7147
 
-if [ ! -f ${CORR_CONFIG}/wbc ] ; then
-  kcs_error "unable to locate configuration file ${CORR_CONFIG}/wbc"
+if [ ! -f ${CORR_CONFIG}/c16n400M1k ] ; then
+  kcs_error "unable to locate configuration file ${CORR_CONFIG}/c16n400M1k"
   exit 1
 fi
 
@@ -14,7 +14,7 @@ if [ "$1" = "static" ] ; then
   setup_static_sensors
 else 
   i=0
-  for name in $(grep ^servers_f.*roach ${CORR_CONFIG}/wbc | cut -f2 -d= | tr '[, ]' '\n' ) ; do
+  for name in $(grep ^servers_f.*roach ${CORR_CONFIG}/c16n400M1k | cut -f2 -d= | tr '[, ]' '\n' ) ; do
     if [ ! -f /usr/local/lib/kcs/scripts/${name} ] ; then
       ln -s /usr/local/bin/kcpfmon /usr/local/lib/kcs/scripts/${name} >& /dev/null || kcs_error "unable to alias ${name}"
     fi
@@ -22,7 +22,7 @@ else
     i=$[i+1]
   done
 
-  for name in $(grep ^servers_x.*roach ${CORR_CONFIG}/wbc | cut -f2 -d= | tr '[, ]' '\n' ) ; do
+  for name in $(grep ^servers_x.*roach ${CORR_CONFIG}/c16n400M1k | cut -f2 -d= | tr '[, ]' '\n' ) ; do
     if [ ! -f /usr/local/lib/kcs/scripts/${name} ] ; then
       ln -s /usr/local/bin/kcpfmon /usr/local/lib/kcs/scripts/${name} >& /dev/null || kcs_error "unable to alias ${name}"
     fi

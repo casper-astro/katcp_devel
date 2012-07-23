@@ -2111,7 +2111,7 @@ int main(int argc, char **argv)
   if(run < 0){
     execvp(argv[0], argv);
 
-    sync_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_server, "unable to restart %s: %s", argv[0], strerror(errno));
+    sync_message_katcl(f->f_report, KATCP_LEVEL_WARN, f->f_server, "unable to restart %s: %s", argv[0], strerror(errno));
     return 2;
   }
 

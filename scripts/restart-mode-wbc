@@ -11,11 +11,11 @@ limit=$[now+timeout]
 
 kcs_debug "changing mode to wideband"
 
-kcs_change_corr wbc
+kcs_change_corr c16n400M1k
 
 kcs_debug "running connect"
 
-while ! kcpcmd -k -m -t 120 connect ${CORR_CONFIG}/wbc ; do
+while ! kcpcmd -k -m -t 120 connect ${CORR_CONFIG}/c16n400M1k ; do
   kcs_check_timeout ${limit}
   kcs_corr_log
   sleep 1
@@ -25,7 +25,7 @@ done
 kcs_info "running initialise"
 if kcpcmd -k -m -t 120 initialise 2 ; then
   kcs_corr_log
-  change_mode_sensors ${KATCP_MODE} wbc
+  change_mode_sensors ${KATCP_MODE} c16n400M1k
   exit 0
 fi
 

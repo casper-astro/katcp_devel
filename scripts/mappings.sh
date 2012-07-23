@@ -4,14 +4,14 @@ make_mapping()
   pols=(x y)
   pol=$1
 
-  if [ ! -f ${CORR_CONFIG}/wbc ] ; then
-    kcs_error "unable to locate configuration wbc"
+  if [ ! -f ${CORR_CONFIG}/c16n400M1k ] ; then
+    kcs_error "unable to locate configuration c16n400M1k"
     return 1
   fi
 
   i=0
   declare -a roachposmap
-  for name in $(grep ^servers_f.*roach ${CORR_CONFIG}/wbc | cut -f2 -d= | tr '[, ]' '\n' ) ; do
+  for name in $(grep ^servers_f.*roach ${CORR_CONFIG}/c16n400M1k | cut -f2 -d= | tr '[, ]' '\n' ) ; do
     roachposmap[$i]=$name
     i=$[i+1]
   done
