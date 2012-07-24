@@ -11,6 +11,8 @@ limit=$[now+timeout]
 
 kcs_debug "changing mode to wideband"
 
+await_mode_sensors
+
 kcs_change_corr bwbc4a
 
 kcs_debug "running connect"

@@ -11,6 +11,8 @@ limit=$[now+timeout]
 
 kcs_debug "changing mode to narrowband"
 
+await_mode_sensors
+
 kcs_change_corr c16n2M4k
 
 kcs_debug "running connect"

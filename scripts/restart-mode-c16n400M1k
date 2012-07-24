@@ -11,6 +11,8 @@ limit=$[now+timeout]
 
 kcs_debug "changing mode to wideband"
 
+await_mode_sensors
+
 kcs_change_corr c16n400M1k
 
 kcs_debug "running connect"
