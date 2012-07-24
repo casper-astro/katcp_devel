@@ -35,9 +35,9 @@ fetch_config_sensors() {
     bandwidth=$(echo "${adc_clock:-800}/(${coarse_channels:-1}*2)" | bc -l | cut -f1 -d. )
     centerfrequency=$(echo "${bandwidth}/2" | bc -l | cut -f1 -d.)
 
-    echo "#sensor-status $(date +%s)000 1 channels ${status} ${channels}"
-    echo "#sensor-status $(date +%s)000 1 centerfrequency ${status} ${centerfrequency}"
-    echo "#sensor-status $(date +%s)000 1 bandwidth ${status} ${bandwidth}"
+    echo "#sensor-status $(date +%s)000 1 .channels ${status} ${channels}"
+    echo "#sensor-status $(date +%s)000 1 .centerfrequency ${status} ${centerfrequency}"
+    echo "#sensor-status $(date +%s)000 1 .bandwidth ${status} ${bandwidth}"
 
   fi
 
