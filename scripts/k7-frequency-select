@@ -13,6 +13,7 @@ case "${KATCP_MODE}" in
 
     ;;
   *)
+    echo "#return fail unavailable"
     kcs_error "frequency selection not available in ${KATCP_MODE} mode"
     ;;
 esac 

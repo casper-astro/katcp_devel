@@ -1571,7 +1571,7 @@ int extra_response_katcp(struct katcp_dispatch *d, int code, char *fmt, ...)
   char *result;
 
   if(code > KATCP_RESULT_OK){
-    return 0;
+    return code;
   }
 
 #if 0
@@ -1596,7 +1596,7 @@ int extra_response_katcp(struct katcp_dispatch *d, int code, char *fmt, ...)
     append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, result);
   }
 
-  return 0;
+  return KATCP_RESULT_OWN;
 }
 
 int basic_inform_katcp(struct katcp_dispatch *d, char *name, char *arg)

@@ -612,7 +612,7 @@ int run_shared_katcp(struct katcp_dispatch *d)
 {
   struct katcp_shared *s;
   struct katcp_dispatch *dx;
-  int i, fd;
+  int i, fd, result;
 
   sane_shared_katcp(d);
   s = d->d_shared;
@@ -629,7 +629,7 @@ int run_shared_katcp(struct katcp_dispatch *d)
     if(FD_ISSET(fd, &(s->s_write))){
       if(write_katcp(dx) < 0){
         release_clone(dx);
-        continue; /* WARNING: after release_clone, d will be invalid, forcing a continue */
+        continue; /* WARNING: after release_clone, dx will be invalid, forcing a continue */
       }
     }
 
@@ -642,7 +642,12 @@ int run_shared_katcp(struct katcp_dispatch *d)
     }
 
     if(FD_ISSET(fd, &(s->s_read))){
-      if(read_katcp(dx)){
+      if((result = read_katcp(dx))){
+        if(result > 0){
+          log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "received end of file from %s", dx->d_name);
+        } else {
+          log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "read failed from %s: %s", dx->d_name, error_katcl(dx->d_line));
+        }
         release_clone(dx);
         continue;
       }
