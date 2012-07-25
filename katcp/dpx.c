@@ -2,6 +2,17 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
+
+#include <sys/socket.h>
+#include <sys/stat.h>
+
+#include <arpa/inet.h>
+#include <netinet/in.h>
+
+#include <netc.h>
 #include <katcp.h>
 #include <katpriv.h>
 #include <katcl.h>
@@ -76,10 +87,19 @@ static void destroy_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *f)
 struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, char *name)
 {
   /* TODO: what about cloning an existing one to preserve misc settings, including log level, etc */
-  struct katcp_flat *f;
+  struct katcp_flat *f, **tmp;
   struct katcp_shared *s;
 
   s = d->d_shared;
+
+  /* TODO: check if we have hit the ceiling */
+
+  tmp = realloc(s->s_flats, sizeof(struct katcp_flat *) * (s->s_floors + 1));
+  if(tmp == NULL){
+    return NULL;
+  }
+
+  s->s_flats = tmp;
 
   f = malloc(sizeof(struct katcp_flat));
   if(f == NULL){
@@ -115,6 +135,9 @@ struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, char *nam
   }
 
   f->f_shared = s;
+
+  s->s_flats[s->s_floors] = f;
+  s->s_floors++;
 
   return f;
 }
@@ -213,3 +236,76 @@ int run_flat_katcp(struct katcp_dispatch *d)
 
   return result;
 }
+
+/****************************************************************/
+
+int accept_flat_katcp(struct katcp_dispatch *d, struct katcp_arb *a, unsigned int mode)
+{
+#define LABEL_BUFFER 32
+  int fd, nfd;
+  unsigned int len;
+  struct sockaddr_in sa;
+  struct katcp_flat *f;
+  char label[LABEL_BUFFER];
+  long opts;
+
+  fd = fileno_arb_katcp(d, a);
+
+  if(!(mode & KATCP_ARB_READ)){
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "ay caramba, accept handler expected to be called with the read flag");
+    return 0;
+  }
+
+  len = sizeof(struct sockaddr_in);
+  nfd = accept(fd, (struct sockaddr *) &sa, &len);
+
+  if(nfd < 0){
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "accept on %s failed: %s", name_arb_katcp(d, a), strerror(errno));
+    return 0;
+  }
+
+  opts = fcntl(nfd, F_GETFL, NULL);
+  if(opts >= 0){
+    opts = fcntl(nfd, F_SETFL, opts | O_NONBLOCK);
+  }
+
+  snprintf(label, LABEL_BUFFER, "%s:%d", inet_ntoa(sa.sin_addr), ntohs(sa.sin_port));
+  label[LABEL_BUFFER - 1] = '\0';
+
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "accepted new connection from %s via %s", label, name_arb_katcp(d, a));
+
+  f = create_flat_katcp(d, nfd, label);
+  if(f == NULL){
+    close(nfd);
+  }
+  
+  return 0;
+#undef LABEL_BUFFER
+}
+
+struct katcp_arb *listen_flat_katcp(struct katcp_dispatch *d, char *name)
+{
+  int fd;
+  struct katcp_arb *a;
+  long opts;
+
+  fd = net_listen(name, 0, 0);
+  if(fd < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to listen on %s: %s", name, strerror(errno));
+    return NULL;
+  }
+
+  opts = fcntl(fd, F_GETFL, NULL);
+  if(opts >= 0){
+    opts = fcntl(fd, F_SETFL, opts | O_NONBLOCK);
+  }
+
+  a = create_arb_katcp(d, name, fd, KATCP_ARB_READ, &accept_flat_katcp, NULL);
+  if(a == NULL){
+    close(fd);
+    return NULL;
+  }
+
+  return a;
+}
+
