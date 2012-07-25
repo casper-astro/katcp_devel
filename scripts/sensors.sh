@@ -33,7 +33,11 @@ fetch_config_sensors() {
     coarse_channels=$(grep ^coarse_chans ${config_file} 2> /dev/null | cut -f2 -d= | tr -d ' ' )
 
     bandwidth=$(echo "${adc_clock:-800}/(${coarse_channels:-1}*2)" | bc -l | cut -f1 -d. )
-    centerfrequency=$(echo "${bandwidth}/2" | bc -l | cut -f1 -d.)
+    if [ -n "${coarse_channels}" ] ; then
+      centerfrequency=0
+    else
+      centerfrequency=$(echo "${bandwidth}/2" | bc -l | cut -f1 -d.)
+    fi 
 
     echo "#sensor-status $(date +%s)000 1 .channels ${status} ${channels}"
     echo "#sensor-status $(date +%s)000 1 .centerfrequency ${status} ${centerfrequency}"
