@@ -623,5 +623,9 @@ int tag_data_katcp(struct katcp_dispatch *d, struct katcp_tag *t, void *data, st
 
 int search_cmd_katcp(struct katcp_dispatch *d, int argc);
 
+/* duplex related logic */
+int listen_duplex_cmd_katcp(struct katcp_dispatch *d, int argc);
+int list_duplex_cmd_katcp(struct katcp_dispatch *d, int argc);
+
 #endif
 

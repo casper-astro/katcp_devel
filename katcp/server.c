@@ -540,6 +540,9 @@ int prepare_core_loop_katcp(struct katcp_dispatch *dl)
 
   register_flag_mode_katcp(dl, "?system-info",  "report server information (?system-info)", &system_info_cmd_katcp, 0, 0);
 
+  register_flag_mode_katcp(dl, "?listen-duplex", "accept new duplex connections on given interface (?listen-duplex [interface:]port)", &listen_duplex_cmd_katcp, 0, 0);
+  register_flag_mode_katcp(dl, "?list-duplex",  "report duplex information (?list-duplex)", &list_duplex_cmd_katcp, 0, 0);
+
   time(&(s->s_start));
 
   /* used to randomly select a client to displace when a new connection arrives and table is full */

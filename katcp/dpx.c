@@ -309,3 +309,35 @@ struct katcp_arb *listen_flat_katcp(struct katcp_dispatch *d, char *name)
   return a;
 }
 
+int listen_duplex_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  char *name;
+
+  name = arg_string_katcp(d, 1);
+  if(name == NULL){
+    return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
+  }
+
+  if(listen_flat_katcp(d, name) == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to listen on %s: %s", name, strerror(errno));
+    return KATCP_RESULT_FAIL;
+  }
+
+  return KATCP_RESULT_OK;
+}
+
+int list_duplex_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  unsigned int i;
+  struct katcp_shared *s;
+  struct katcp_flat *fx;
+
+  s = d->d_shared;
+
+  for(i = 0; i < s->s_floors; i++){
+    fx = s->s_flats[i];
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%p: %s", fx, fx->f_name);
+  }
+
+  return KATCP_RESULT_OK;
+}
