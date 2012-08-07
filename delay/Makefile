@@ -7,7 +7,7 @@ CFLAGS := $(filter-out -DDEBUG,$(CFLAGS))
 INC = -I$(KATCP)
 LIB = -L$(KATCP) -lkatcp -lm
 
-EXE = k7delay
+EXE = k7-delay
 SRC = delay.c
 
 OBJ = $(patsubst %.c,%.o,$(SRC))
