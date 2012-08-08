@@ -63,7 +63,10 @@ int main(int argc, char **argv)
     return 1;
   }
 
+#if 0
   server = getenv("KATCP_SERVER");
+#endif
+  server = "localhost:1235";
 
   l = create_name_rpc_katcl(server ? server : "localhost:7147");
   if(l == NULL){
