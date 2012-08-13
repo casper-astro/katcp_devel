@@ -155,8 +155,8 @@ struct fmon_sensor_template{
 };
 
 struct fmon_sensor_template board_template[FMON_BOARD_SENSORS] = {
-  { "lru.available", "line replacement unit operational",  KATCP_SENSOR_BOOLEAN, 0, 1, 1 },
-  { "fpga.synchronised", "signal processing clock stable", KATCP_SENSOR_BOOLEAN, 0, 1, 0 }
+  { "lru.available", "line replacement unit operational",  KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0, 1 },
+  { "fpga.synchronised", "signal processing clock stable", KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0, 0 }
 };
 
 struct fmon_sensor_template input_template[FMON_INPUT_SENSORS] = {
