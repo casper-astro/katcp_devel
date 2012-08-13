@@ -151,6 +151,7 @@ struct fmon_sensor_template{
   int t_max;
   double t_fmin;
   double t_fmax;
+  int t_logging;
 };
 
 struct fmon_sensor_template board_template[FMON_BOARD_SENSORS] = {
@@ -159,13 +160,13 @@ struct fmon_sensor_template board_template[FMON_BOARD_SENSORS] = {
 };
 
 struct fmon_sensor_template input_template[FMON_INPUT_SENSORS] = {
-  { "%s.adc.overrange",  "adc overrange indicator",     KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0 },
-  { "%s.adc.terminated", "adc disabled",                KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0 },
-  { "%s.fft.overrange",  "fft overrange indicator",     KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0 },
-  { "%s.sram.available", "sram calibrated and ready",   KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0 },
-  { "%s.xaui.link",      "data link up",                KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0 },
-  { "%s.adc.raw",        "untranslated average of squared inputs",  KATCP_SENSOR_FLOAT,   0, 0, 0.0, 65000.0},
-  { "%s.adc.power",      "approximate input signal strength",  KATCP_SENSOR_FLOAT,   0, 0, -81.0, 16.0}
+  { "%s.adc.overrange",  "adc overrange indicator",     KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0, 0 },
+  { "%s.adc.terminated", "adc disabled",                KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0, 1 },
+  { "%s.fft.overrange",  "fft overrange indicator",     KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0, 0 },
+  { "%s.sram.available", "sram calibrated and ready",   KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0, 0 },
+  { "%s.xaui.link",      "data link up",                KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0, 1 },
+  { "%s.adc.raw",        "untranslated average of squared inputs",  KATCP_SENSOR_FLOAT,   0, 0, 0.0, 65000.0, 0},
+  { "%s.adc.power",      "approximate input signal strength",  KATCP_SENSOR_FLOAT,   0, 0, -81.0, 16.0, 0}
 };
 
 struct fmon_sensor{
@@ -180,6 +181,8 @@ struct fmon_sensor{
   int s_max;
   double s_fmin;
   double s_fmax;
+
+  int s_logging;
 };
 
 struct fmon_input{
@@ -392,6 +395,8 @@ int populate_sensor_fmon(struct fmon_sensor *s, struct fmon_sensor_template *t, 
 
   s->s_fmin = t->t_fmin;
   s->s_fmax = t->t_fmax;
+
+  s->s_logging = t->t_logging;
 
   return 0;
 }
@@ -1445,8 +1450,20 @@ int detect_fmon(struct fmon_state *f)
 
 int update_sensor_status_fmon(struct fmon_state *f, struct fmon_sensor *s, unsigned int status)
 {
+  char *str;
+
   if(status != s->s_status){
+
+    if(s->s_logging){
+      str = name_status_sensor_katcl(status);
+      if(str == NULL){
+        str = "broken";
+      }
+      log_message_katcl(f->f_report, (status == KATCP_STATUS_ERROR) ? KATCP_LEVEL_WARN : KATCP_LEVEL_INFO, f->f_server, "sensor %s transitioned to %s status", s->s_name, str);
+    }
+
     s->s_status = status;
+
     if(s->s_new){
       s->s_new = 0;
       print_sensor_list_fmon(f, s);
@@ -1474,22 +1491,22 @@ int update_sensor_fmon(struct fmon_state *f, struct fmon_sensor *s, int value, u
   }
 
   if(value != s->s_value){
-    switch(value){
-      case KATCP_STATUS_ERROR : 
-      case KATCP_STATUS_WARN  : 
-        str = name_status_sensor_katcl(value);
-        if(str == NULL){
-          str = "broken";
-        }
-        log_message_katcl(f->f_report, KATCP_LEVEL_DEBUG, f->f_server, "sensor %s now has status %s", s->s_name, str);
-      break;
-    }
     s->s_value = value;
     change++;
   }
 
   if(status != s->s_status){
+
+    if(s->s_logging){
+      str = name_status_sensor_katcl(status);
+      if(str == NULL){
+        str = "broken";
+      }
+      log_message_katcl(f->f_report, (status == KATCP_STATUS_ERROR) ? KATCP_LEVEL_WARN : KATCP_LEVEL_INFO, f->f_server, "sensor %s transitioned to %s status", s->s_name, str);
+    }
+
     s->s_status = status;
+
     change++;
   }
 
