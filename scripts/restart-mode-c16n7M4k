@@ -31,6 +31,8 @@ if kcpcmd -k -m -t 120 initialise 2 ; then
   exit 0
 fi
 
+kcs_set_frequency 150000000
+
 kcs_corr_log
 kcs_error "corr initialise failed"
 

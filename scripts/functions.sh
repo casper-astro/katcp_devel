@@ -12,6 +12,10 @@ kcs_check_timeout()
   fi
 }
 
+kcs_set_frequency () {
+  kcpcmd -i -k nb-set-cf $1 | ( while read cmd stat first rest ; do if [ "$cmd" = "!nb-set-cf" ] ; then if [ "${stat}" = "ok" ] ; then echo "#sensor-list .centerfrequency current\_selected\_center\_frequency Hz integer 0 1000000000" ; echo "#sensor-status $(date +%s)000 1 .centerfrequency nominal ${first}" ; fi ; echo "#return" ${stat} ${first} ; else echo ${cmd} ${stat} ${first} ${rest} ; fi ; done)
+}
+
 kcs_input_to_index () {
   echo $[$(echo $1 | tr -d -c [:digit:])*2+$(echo $1 | tr -dc xy | tr xy 01)]
 }
