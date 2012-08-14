@@ -41,6 +41,10 @@ struct katcp_flat{
 
   struct katcl_line *f_line;
   struct katcp_shared *f_shared;
+
+  struct katcl_parse *f_rx;      /* received message */
+
+  struct katcl_queue *f_backlog; /* backed up requests from the remote end, shouldn't happen */
 };
 
 /* */
@@ -75,6 +79,20 @@ static void destroy_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *f)
     /* TODO: wake halt notice watching us */
 
     f->f_halt = NULL;
+  }
+
+  if(f->f_backlog){
+    destroy_queue_katcl(f->f_backlog);
+    f->f_backlog = NULL;
+  }
+
+
+  if(f->f_rx){
+#if 0
+    /* destroy currently not needed, operate on assumption that it is transient ? */
+    destroy_parse_katcl(f->f_rx);
+#endif
+    f->f_rx = NULL;
   }
 
   /* will probably have to decouple ourselves here */
@@ -120,6 +138,9 @@ struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, char *nam
   f->f_line = NULL;
   f->f_shared = NULL;
 
+  f->f_backlog = NULL;
+  f->f_rx = NULL;
+
   if(name){
     f->f_name = strdup(name);
     if(f->f_name == NULL){
@@ -130,6 +151,12 @@ struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, char *nam
 
   f->f_line = create_katcl(fd);
   if(f->f_line == NULL){
+    destroy_flat_katcp(d, f);
+    return NULL;
+  }
+
+  f->f_backlog = create_queue_katcl();
+  if(f->f_backlog == NULL){
     destroy_flat_katcp(d, f);
     return NULL;
   }
@@ -198,7 +225,8 @@ int run_flat_katcp(struct katcp_dispatch *d)
   struct katcp_flat *f;
   struct katcp_shared *s;
   unsigned int i;
-  int fd, result;
+  int fd, result, r;
+  char *str;
 
   sane_flat_katcp(f);
 
@@ -227,7 +255,39 @@ int run_flat_katcp(struct katcp_dispatch *d)
       if(read_katcl(f->f_line) < 0){
         /* FAIL somehow */
       }
+
+      while((r = parse_katcl(f->f_line)) > 0){
+        f->f_rx = ready_katcl(f->f_line);
+#if 1
+        if(f->f_rx == NULL){
+          log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "parse_katcl promised us data, but there isn't any");
+          return -1;
+        }
+#endif
+
+        str = get_string_parse_katcl(f->f_rx, 0);
+        if(str){
+          switch(str[0]){
+            case KATCP_REQUEST :
+              break;
+            case KATCP_REPLY   :
+              break;
+            case KATCP_INFORM  :
+              break;
+            default :
+              /* ignore malformed messages silently */
+              break;
+          }
+        } /* else silently ignore */
+
+
+      }
+
+      if(r < 0){
+        /* FAIL */
+      }
     }
+
 
     /* TODO */
   }
@@ -330,13 +390,15 @@ int list_duplex_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   unsigned int i;
   struct katcp_shared *s;
+
   struct katcp_flat *fx;
 
   s = d->d_shared;
 
   for(i = 0; i < s->s_floors; i++){
     fx = s->s_flats[i];
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%p: %s", fx, fx->f_name);
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s at %p in state %u", fx->f_name, fx, fx->f_state);
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s has queue backlog of %u", size_queue_katcl(fx->f_backlog));
   }
 
   return KATCP_RESULT_OK;
