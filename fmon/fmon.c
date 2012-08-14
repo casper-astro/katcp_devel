@@ -1502,7 +1502,7 @@ int update_sensor_fmon(struct fmon_state *f, struct fmon_sensor *s, int value, u
       if(str == NULL){
         str = "broken";
       }
-      log_message_katcl(f->f_report, (status == KATCP_STATUS_ERROR) ? KATCP_LEVEL_WARN : KATCP_LEVEL_INFO, f->f_server, "sensor %s transitioned to %s status", s->s_name, str);
+      log_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_server, "sensor %s transitioned to %s status", s->s_name, str);
     }
 
     s->s_status = status;
