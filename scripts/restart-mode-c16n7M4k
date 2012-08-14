@@ -28,10 +28,9 @@ kcs_info "running initialise"
 if kcpcmd -k -m -t 120 initialise 2 ; then
   kcs_corr_log
   change_mode_sensors ${KATCP_MODE} c16n7M4k
+  kcs_set_frequency 150000000
   exit 0
 fi
-
-kcs_set_frequency 150000000
 
 kcs_corr_log
 kcs_error "corr initialise failed"
