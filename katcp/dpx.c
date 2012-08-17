@@ -25,6 +25,7 @@
 #define FLAT_STATE_DRAIN  3
 
 /* was supposed to be called duplex, but flat is punnier */
+/********************************************************************/
 
 struct katcp_flat{
   unsigned int f_magic;
@@ -46,6 +47,242 @@ struct katcp_flat{
 
   struct katcl_queue *f_backlog; /* backed up requests from the remote end, shouldn't happen */
 };
+
+struct katcp_cmd_item{
+  char *i_name;
+  char *i_help;
+  int (*i_call)(struct katcp_dispatch *d, int argc);
+  unsigned int i_flags;
+  char *i_data;
+  void (*i_clear)(void *data);
+};
+
+#include <avltree.h>
+
+struct katcp_cmd_map{
+  char *m_name;
+  unsigned int m_refs;
+  struct avl_tree *m_tree;
+  struct katcp_cmd_item *m_fallback;
+};
+
+
+void destroy_cmd_item(struct katcp_cmd_item *i)
+{
+  if(i == NULL){
+    return;
+  }
+
+  if(i->i_name){
+    free(i->i_name);
+    i->i_name = NULL;
+  }
+
+  if(i->i_help){
+    free(i->i_help);
+    i->i_help = NULL;
+  }
+
+  i->i_call = NULL;
+  i->i_flags = 0;
+
+  if(i->i_clear){
+    (*(i->i_clear))(i->i_data);
+    i->i_clear = NULL;
+  }
+
+  i->i_data = NULL;
+
+  free(i);
+}
+
+void destroy_cmd_item_void(void *v)
+{
+  struct katcp_cmd_item *i;
+
+  i = v;
+
+  destroy_cmd_item(i);
+}
+struct katcp_cmd_item *create_cmd_item(char *name, char *help, unsigned int flags, int (*call)(struct katcp_dispatch *d, int argc), void *data, void (*clear)(void *data)){
+  struct katcp_cmd_item *i;
+
+  i = malloc(sizeof(struct katcp_cmd_item));
+  if(i == NULL){
+    return NULL;
+  }
+
+  i->i_name = NULL;
+  i->i_help = NULL;
+
+  i->i_flags = 0;
+
+  i->i_call = NULL;
+  i->i_data = NULL;
+  i->i_clear = NULL;
+
+  if(i->i_name){
+    i->i_name = strdup(name);
+    if(i->i_name == NULL){
+      destroy_cmd_item(i);
+      return NULL;
+    }
+  }
+
+  if(i->i_help){
+    i->i_help = strdup(help);
+    if(i->i_help == NULL){
+      destroy_cmd_item(i);
+      return NULL;
+    }
+  }
+
+  i->i_flags = flags;
+
+  i->i_call = call;
+  i->i_data = data;
+  i->i_clear = clear;
+
+  return i;
+}
+
+void destroy_cmd_map(struct katcp_cmd_map *m)
+{
+  if(m == NULL){
+    return;
+  }
+
+  if(m->m_refs > 0){
+    m->m_refs--;
+  }
+
+  if(m->m_refs > 0){
+    return;
+  }
+
+  if(m->m_tree){
+    destroy_avltree(m->m_tree, &destroy_cmd_item_void);
+    m->m_tree = NULL;
+  }
+
+  if(m->m_fallback){
+    destroy_cmd_item(m->m_fallback);
+    m->m_fallback = NULL;
+  }
+
+  if(m->m_name){
+    free(m->m_name);
+    m->m_name = NULL;
+  }
+}
+
+struct katcp_cmd_map *create_cmd_map(char *name)
+{
+  struct katcp_cmd_map *m;
+
+  m = malloc(sizeof(struct katcp_cmd_map));
+  if(m == NULL){
+    return NULL;
+  }
+
+  m->m_name = NULL;
+  m->m_refs = 0;
+  m->m_tree = NULL;
+  m->m_fallback = NULL;
+
+  m->m_tree = create_avltree();
+  if(m->m_tree == NULL){
+    destroy_cmd_map(m);
+    return NULL;
+  }
+
+  if(name){
+    m->m_name = strdup(name);
+    if(m->m_name == NULL){
+      destroy_cmd_map(m);
+      return NULL;
+    }
+  }
+
+  return m;
+}
+
+int add_full_cmd_map(struct katcp_cmd_map *m, char *name, char *help, unsigned int flags, int (*call)(struct katcp_dispatch *d, int argc), void *data, void (*clear)(void *data))
+{
+  struct katcp_cmd_item *i;
+  struct avl_node *n;
+
+  if(name == NULL){
+    return -1;
+  }
+
+  switch(name[0]){
+    case KATCP_REQUEST : 
+    case KATCP_REPLY :
+    case KATCP_INFORM : 
+      break;
+    default: 
+      return -1;
+  }
+
+  if(name[1] == '\0'){
+    return -1;
+  }
+
+  i = create_cmd_item(name, help, flags, call, data, clear);
+  if(i == NULL){
+    return -1;
+  }
+
+  n = create_node_avltree(name + 1, i);
+  if(n == NULL){
+    destroy_cmd_item(i);
+    return -1;
+  }
+  
+  if(add_node_avltree(m->m_tree, n) < 0){
+    free_node_avltree(n, &destroy_cmd_item_void);
+    return -1;
+  }
+
+  return 0;
+}
+
+int add_cmd_map(struct katcp_cmd_map *m, char *name, char *help, int (*call)(struct katcp_dispatch *d, int argc))
+{
+  return add_full_cmd_map(m, name, help, 0, call, NULL, NULL);
+}
+
+struct katcp_cmd_item *locate_cmd_item(struct katcp_flat *f, struct katcl_parse *p)
+{
+  struct katcp_cmd_item *i;
+  struct katcp_cmd_map *m;
+  char *str;
+
+  str = get_string_parse_katcl(p, 0);
+  if(str == NULL){
+    return NULL;
+  }
+
+  if(str[0] == '\0'){
+    return NULL;
+  }
+
+#if 1
+  /* map not initialised */
+  return NULL;
+#endif
+
+  i = find_data_avltree(m->m_tree, str + 1);
+  if(i){
+    return i;
+  }
+
+  return m->m_fallback;
+}
+
+
+/********************************************************************/
 
 /* */
 
