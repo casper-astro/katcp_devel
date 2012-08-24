@@ -125,15 +125,15 @@ int main(int argc, char **argv)
       ptr = arg_string_katcl(l, 1);
       if(ptr){
         if(strcmp(ptr, KATCP_OK)){
-          append_string_katcl(l, KATCP_FLAG_STRING | KATCP_FLAG_FIRST | KATCP_FLAG_LAST, "?get-log");
-          complete_with_log(l, &until, k);
-
-          append_string_katcl(l, KATCP_FLAG_STRING | KATCP_FLAG_FIRST | KATCP_FLAG_LAST, "?clr-log");
-          complete_with_log(l, &until, k);
           code = 1;
         } else {
           code = 0;
         }
+        append_string_katcl(l, KATCP_FLAG_STRING | KATCP_FLAG_FIRST | KATCP_FLAG_LAST, "?get-log");
+        complete_with_log(l, &until, k);
+
+        append_string_katcl(l, KATCP_FLAG_STRING | KATCP_FLAG_FIRST | KATCP_FLAG_LAST, "?clr-log");
+        complete_with_log(l, &until, k);
       } else {
         code = 2;
       }
