@@ -27,6 +27,11 @@
 /* was supposed to be called duplex, but flat is punnier */
 /********************************************************************/
 
+struct katcp_group{
+  char *g_name;
+  struct katcp_cmd_map *g_map;
+};
+
 struct katcp_flat{
   unsigned int f_magic;
   char *f_name;          /* locate the thing by name */
@@ -46,6 +51,9 @@ struct katcp_flat{
   struct katcl_parse *f_rx;      /* received message */
 
   struct katcl_queue *f_backlog; /* backed up requests from the remote end, shouldn't happen */
+
+  struct katcp_cmd_map *f_map;
+  struct katcp_group *f_group;
 };
 
 struct katcp_cmd_item{
@@ -65,7 +73,6 @@ struct katcp_cmd_map{
   struct avl_tree *m_tree;
   struct katcp_cmd_item *m_fallback;
 };
-
 
 void destroy_cmd_item(struct katcp_cmd_item *i)
 {
