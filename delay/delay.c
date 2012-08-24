@@ -79,16 +79,16 @@ int main(int argc, char **argv)
   append_string_katcl(l, KATCP_FLAG_STRING, argv[1]); /* antenna */
 
   value = strtold(argv[5], &end); /* fringe */
-  append_args_katcl(l, KATCP_FLAG_STRING , "%.8Lf", value * 57.29578);
+  append_args_katcl(l, KATCP_FLAG_STRING , "%.16Lf", value * 57.29578);
 
   value = strtold(argv[6], &end); /* fringe rate */
-  append_args_katcl(l, KATCP_FLAG_STRING , "%.8Lf", value * 159.154943091);
+  append_args_katcl(l, KATCP_FLAG_STRING , "%.16Lf", value * 159.154943091);
 
   value = strtold(argv[3], &end); /* delay */
-  append_args_katcl(l, KATCP_FLAG_STRING , "%.8Lf", value / 1000.0);
+  append_args_katcl(l, KATCP_FLAG_STRING , "%.16Lf", value / 1000.0);
 
   value = strtold(argv[4], &end); /* delay rate */
-  append_args_katcl(l, KATCP_FLAG_STRING , "%.8Lf", value);
+  append_args_katcl(l, KATCP_FLAG_STRING , "%.16Lf", value);
 
   value = strtold(argv[2], &end) / 1000.0; /* time */
   append_args_katcl(l, KATCP_FLAG_STRING , "%Lf", value);
