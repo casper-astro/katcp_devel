@@ -443,10 +443,10 @@ struct katcp_shared{
   unsigned int s_pending;
   unsigned int s_woken;
 
-  struct katcp_flat **s_flats;
+  struct katcp_group **s_groups;
+  struct katcp_group *s_fallback;
   struct katcp_flat *s_this;
-  unsigned int s_floors;
-  unsigned int s_ceiling;
+  unsigned int s_members;
 
 #if 0
   int s_version_major;

@@ -192,10 +192,10 @@ int startup_shared_katcp(struct katcp_dispatch *d)
   s->s_pending = 0;
   s->s_woken = 0;
 
-  s->s_flats = NULL;
+  s->s_groups = NULL;
+  s->s_fallback = NULL;
   s->s_this = NULL;
-  s->s_floors = 0;
-  s->s_ceiling = 0;
+  s->s_members = 0;
 
   s->s_build_state = NULL;
   s->s_build_items = 0;
@@ -274,6 +274,8 @@ void shutdown_shared_katcp(struct katcp_dispatch *d)
 #endif
     return;
   }
+
+  /* TODO: what about duplex logic ? */
 
   /* clear modes only once, when we clear the template */
   /* modes want callbacks, so we invoke them before operating on internals */
