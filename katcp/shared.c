@@ -630,6 +630,7 @@ int run_shared_katcp(struct katcp_dispatch *d)
 
     if(FD_ISSET(fd, &(s->s_write))){
       if(write_katcp(dx) < 0){
+        log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "write to %s failed: %s", dx->d_name, error_katcl(dx->d_line));
         release_clone(dx);
         continue; /* WARNING: after release_clone, dx will be invalid, forcing a continue */
       }
