@@ -14,7 +14,7 @@ General purpose components
 Utilities for particular tasks, probably of lesser interest to most
 
   bulkread    - a utlity to perform a ?bulkread request
-  msg         - something to generate katcp log messages
+  msg         - something to generate katcp log messages (glue logic)
 
   tcpborphserver3 
               - roach2 server using memory mapped logic. Requires a kernel
