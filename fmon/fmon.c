@@ -1,4 +1,4 @@
-/* module to perform monitoring on fengine gateware */
+, 0/* module to perform monitoring on fengine gateware */
 
 /* WARNING: this is poorly written interrim code, to be redone in zmon */
 
@@ -338,7 +338,7 @@ void destroy_fmon(struct fmon_state *f)
   }
 
   if(f->f_report){
-    destroy_rpc_katcl(f->f_report);
+    destroy_katcl(f->f_report, 0);
     f->f_report = NULL;
   }
 
