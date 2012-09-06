@@ -92,8 +92,13 @@ void destroy_cmd_map(struct katcp_cmd_map *m);
 
 /********************************************************************/
 
-void destroy_group_katcp(struct katcp_group *g)
+void destroy_group_katcp(struct katcp_dispatch *d, struct katcp_group *g)
 {
+  struct katcp_shared *s;
+  unsigned int i;
+
+  s = d->d_shared;
+
   if(g == NULL){
     return;
   }
@@ -124,12 +129,26 @@ void destroy_group_katcp(struct katcp_group *g)
     g->g_flats = NULL;
   }
 
+  for(i = 0; (i < s->s_members) && (g != s->s_groups[i]); i++);
+
+  s->s_members--;
+  if(i < s->s_members){
+    s->s_groups[i] = s->s_groups[s->s_members];
+  } else {
+    if(i > s->s_members){
+      s->s_members++;
+    }
+  }
+
   free(g);
 }
 
-struct katcp_group *create_group_katcp(char *name)
+struct katcp_group *create_group_katcp(struct katcp_dispatch *d, char *name)
 {
-  struct katcp_group *g;
+  struct katcp_group *g, **tmp;
+  struct katcp_shared *s;
+
+  s = d->d_shared;
 
   g = malloc(sizeof(struct katcp_group));
   if(g == NULL){
@@ -144,10 +163,22 @@ struct katcp_group *create_group_katcp(char *name)
 
   g->g_use = 0;
 
+  tmp = realloc(s->s_groups, sizeof(struct katcp_group *) * (s->s_members + 1));
+  if(tmp == NULL){
+    destroy_group_katcp(d, g);
+    return NULL;
+  }
+
+  s->s_groups = tmp;
+  s->s_groups[s->s_members] = g;
+  s->s_members++;
+
+  /* s_fallback not set here, set up in default_ */
+
   if(name){
     g->g_name = strdup(name);
     if(g->g_name == NULL){
-      destroy_group_katcp(g);
+      destroy_group_katcp(d, g);
       return NULL;
     }
   }
@@ -357,6 +388,7 @@ int add_full_cmd_map(struct katcp_cmd_map *m, char *name, char *help, unsigned i
 {
   struct katcp_cmd_item *i;
   struct avl_node *n;
+  char *ptr;
 
   if(name == NULL){
     return -1;
@@ -366,21 +398,23 @@ int add_full_cmd_map(struct katcp_cmd_map *m, char *name, char *help, unsigned i
     case KATCP_REQUEST : 
     case KATCP_REPLY :
     case KATCP_INFORM : 
+      ptr = name + 1;
       break;
     default: 
-      return -1;
+      ptr = name;
+      break;
   }
 
-  if(name[1] == '\0'){
+  if(ptr[0] == '\0'){
     return -1;
   }
 
-  i = create_cmd_item(name, help, flags, call, data, clear);
+  i = create_cmd_item(ptr, help, flags, call, data, clear);
   if(i == NULL){
     return -1;
   }
 
-  n = create_node_avltree(name + 1, i);
+  n = create_node_avltree(ptr, i);
   if(n == NULL){
     destroy_cmd_item(i);
     return -1;
@@ -506,13 +540,9 @@ static void destroy_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *f)
       if(i < gx->g_count){
         gx->g_flats[i] = gx->g_flats[gx->g_count];
       } else {
-#ifdef DEBUG
         if(i > gx->g_count){
           gx->g_count++;
-          fprintf(stderr, "dpx: major logic problem: duplex %u %p not found int group of %u elements\n", i, f, gx->g_count);
-          abort();
         }
-#endif
       }
     }
 
@@ -569,6 +599,9 @@ struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, char *nam
   f->f_backlog = NULL;
   f->f_rx = NULL;
 
+  f->f_map = NULL;
+  f->f_group = NULL;
+
   if(name){
     f->f_name = strdup(name);
     if(f->f_name == NULL){
@@ -594,12 +627,9 @@ struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, char *nam
   gx->g_flats[gx->g_count] = f;
   gx->g_count++;
 
-  /* maybe TODO: 
-   *
-   * hold_cmd_map(m);
-   *
-   * hold_group_katcp(gx); 
-   */
+  f->f_group = gx;
+
+  hold_group_katcp(gx); 
 
   log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "created instance for %s", name ? name : "<anonymous");
 
@@ -662,6 +692,8 @@ int load_flat_katcp(struct katcp_dispatch *d)
       f = gx->g_flats[i];
       fd = fileno_katcl(f->f_line);
 
+      log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "loading %p in state %d with fd %d", f, f->f_state, fd);
+
       switch(f->f_state){
         case FLAT_STATE_GONE :
 #ifdef DEBUG
@@ -670,6 +702,7 @@ int load_flat_katcp(struct katcp_dispatch *d)
 #endif
           break;
 
+        case FLAT_STATE_NEW : 
         case FLAT_STATE_UP : 
           FD_SET(fd, &(s->s_read));
           if(fd > s->s_max){
@@ -765,25 +798,28 @@ int run_flat_katcp(struct katcp_dispatch *d)
                 break;
             }
             if(mask & (KATCP_MAP_FLAG_REQUEST | KATCP_MAP_FLAG_INFORM)){
+              log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "attempting to match %s to tree", str + 1);
+
               ix = find_data_avltree(mx->m_tree, str + 1);
-              if(ix == NULL){
-                log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "no match for %s found", str + 1);
-              }
-              if(mask & ix->i_flags){
-                log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "found matching command of correct type");
+              if(ix){
+                if(mask & ix->i_flags){
+                  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "found matching command of correct type");
 
-                if(ix->i_call){
-                  argc = get_count_parse_katcl(fx->f_rx);
-                  result = (*(ix->i_call))(d, argc);
+                  if(ix->i_call){
+                    argc = get_count_parse_katcl(fx->f_rx);
+                    result = (*(ix->i_call))(d, argc);
 
-                  switch(result){
-                    /* TODO: construct return messages as before */
+                    switch(result){
+                      /* TODO: construct return messages as before */
+                    }
                   }
+
+
+                } else {
+                  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "found match for %s, but wrong type");
                 }
-
-
               } else {
-                log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "found match for %s, but wrong type");
+                log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "no match for %s found", str + 1);
               }
             }
           } /* else silently ignore */
@@ -959,7 +995,7 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
 
   s = d->d_shared;
 
-  gx = create_group_katcp(name);
+  gx = create_group_katcp(d, name);
   if(gx == NULL){
     return -1;
   }
@@ -967,7 +1003,7 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
   if(gx->g_map == NULL){
     m = create_cmd_map(name);
     if(m == NULL){
-      destroy_group_katcp(gx);
+      destroy_group_katcp(d, gx);
       return -1;
     }
 
@@ -1039,6 +1075,8 @@ int list_duplex_cmd_katcp(struct katcp_dispatch *d, int argc)
 
   for(j = 0; j < s->s_members; j++){
     gx = s->s_groups[j];
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "group[%d]=%p is %s", j, gx, gx->g_name ? gx->g_name : "<anonymous>");
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "group[%d]=%p has %d references and %u members", j, gx, gx->g_use, gx->g_count);
     for(i = 0; i < gx->g_count; i++){
       fx = gx->g_flats[i];
       log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s at %p in state %u", fx->f_name, fx, fx->f_state);
