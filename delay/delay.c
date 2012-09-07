@@ -101,7 +101,7 @@ int main(int argc, char **argv)
   value = strtold(argv[2], &end) / 1000.0; /* time */
   append_args_katcl(l, KATCP_FLAG_STRING , "%Lf", value);
 
-  log_message_katcl(k, KATCP_LEVEL_INFO, NAME, "%s load time %s mapped to %Lfs", argv[1], argv[2], value);
+  log_message_katcl(k, KATCP_LEVEL_INFO, NAME, "%s load time %sms mapped to %Lfs", argv[1], argv[2], value);
 
   tmp = truncl(value);
   request.tv_sec = tmp;
