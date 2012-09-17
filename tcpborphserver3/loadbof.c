@@ -510,6 +510,8 @@ int index_bof(struct katcp_dispatch *d, struct bof_state *bs)
       return -1;
     }
 
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "about to define register %s", bs->b_strings + br.name);
+
     if(find_data_avltree(tr->r_registers, bs->b_strings + br.name)){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register called %s already defined", bs->b_strings + br.name);
       return -1;

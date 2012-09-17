@@ -1,4 +1,4 @@
-, 0/* module to perform monitoring on fengine gateware */
+/* module to perform monitoring on fengine gateware */
 
 /* WARNING: this is poorly written interrim code, to be redone in zmon */
 
