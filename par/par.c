@@ -22,39 +22,14 @@
 
 #define KCPPAR_NAME "kcppar"
 
-void usage(char *app)
-{
-  printf("usage: %s [flags] [-s server+ command args*]*\n", app);
-  printf("-h                 this help\n");
-  printf("-v                 increase verbosity\n");
-  printf("-q                 run quietly\n");
-  printf("-k                 emit katcp log messages\n");
-  printf("-s server:port     specify server:port\n");
-  printf("-t seconds         set timeout\n");
-  printf("-r                 toggle printing of reply messages\n");
-  printf("-i                 toggle printing of inform messages\n");
-  printf("-m                 munge replies into log messages (requires -k)\n");
-  printf("-n                 suppress version information emitted on connect\n");
-
-  printf("return codes:\n");
-  printf("0     command completed successfully\n");
-  printf("1     command failed\n");
-  printf("2     other errors\n");
-
-  printf("environment variables:\n");
-  printf("  KATCP_SERVER     default server (overridden by -s option)\n");
-
-  printf("notes:\n");
-  printf("  command and parameters have to be given as separate arguments\n");
-}
-
 #define BUFFER 1024
 #define TIMEOUT   4
 
 #define RX_SETUP 1 
 #define RX_UP    2 
-#define RX_DONE  0
-#define RX_BAD   (-1)
+#define RX_OK    0
+#define RX_FAIL  (-1)
+#define RX_BAD   (-2)
 
 struct remote{
   char *r_name;
@@ -72,6 +47,9 @@ struct remote{
 struct set{
   struct remote **s_vector;
   unsigned int s_count;
+
+  int s_status;
+  unsigned int s_finished;
 };
 
 void destroy_remote(struct remote *rx)
@@ -172,6 +150,9 @@ struct set *create_set()
   ss->s_count = 0; 
   ss->s_vector = NULL;
 
+  ss->s_status = 0;
+  ss->s_finished = 0;
+
   return ss;
 }
 
@@ -192,6 +173,8 @@ void destroy_set(struct set *ss)
     free(ss->s_vector);
     ss->s_vector = NULL;
   }
+  
+  ss->s_status = (-1);
 
   free(ss);
 }
@@ -409,21 +392,63 @@ int next_request(struct remote *rx)
   return 0;
 }
 
-int update_state(struct remote *rx, int state)
+void update_state(struct set *ss, struct remote *rx, int state)
 {
   if(rx->r_state == state){
-    return 0;
+    return;
   }
 
   rx->r_state = state;
 
   switch(state){
-    case RX_DONE : 
     case RX_BAD : 
-      return 1;
-    default :
-      return 0;
+      ss->s_status = 2;
+      ss->s_finished++;
+      break;
+
+    case RX_FAIL : 
+      ss->s_status = 1;
+      ss->s_finished++;
+      break;
+
+    case RX_OK : 
+      ss->s_finished++;
+      break;
   }
+
+#ifdef DEBUG
+  fprintf(stderr, "updated state=%d, status=%d\n", rx->r_state, ss->s_status);
+#endif
+}
+
+void usage(char *app)
+{
+  printf("usage: %s [flags] [-s server[,server]* -x command args*]*\n", app);
+  printf("-h                 this help\n");
+  printf("-v                 increase verbosity\n");
+  printf("-q                 run quietly\n");
+#if 0
+  printf("-k                 emit katcp log messages\n");
+#endif
+  printf("-s server:port     specify server:port\n");
+  printf("-t seconds         set timeout\n");
+  printf("-r                 toggle printing of reply messages\n");
+  printf("-i                 toggle printing of inform messages\n");
+  printf("-m                 munge replies into log messages (requires -k)\n");
+  printf("-n                 suppress version information emitted on connect\n");
+
+  printf("return codes:\n");
+  printf("0     command completed successfully\n");
+  printf("1     command failed\n");
+  printf("2     usage problems\n");
+  printf("3     network problems\n");
+  printf("4     severe internal errors\n");
+
+  printf("environment variables:\n");
+  printf("  KATCP_SERVER     default server (overridden by -s option)\n");
+
+  printf("notes:\n");
+  printf("  command and parameters have to be given as separate arguments\n");
 }
 
 int main(int argc, char **argv)
@@ -436,7 +461,7 @@ int main(int argc, char **argv)
   fd_set fsr, fsw;
 
   char *app, *parm, *cmd, *copy, *ptr, *servers;
-  int i, j, c, fd, mfd, fin;
+  int i, j, c, fd, mfd;
   int verbose, result, status, base, info, reply, timeout, pos, flags, show;
   int xmit, code;
   unsigned int len;
@@ -458,10 +483,16 @@ int main(int argc, char **argv)
   show = 1;
   parm = NULL;
 
+  k = create_katcl(STDOUT_FILENO);
+  if(k == NULL){
+    fprintf(stderr, "%s: unable to create katcp message logic\n", app);
+    return 4;
+  }
+
   ss = create_set();
   if(ss == NULL){
-    fprintf(stderr, "%s: unable to set up command set\n", app);
-    return 2;
+    sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPPAR_NAME, "unable to set up command set data structures");
+    return 4;
   }
 
   xmit = (-1);
@@ -505,14 +536,16 @@ int main(int argc, char **argv)
           j++;
           break;
 
+#if 0
         case 'k' : 
           k = create_katcl(STDOUT_FILENO);
           if(k == NULL){
             fprintf(stderr, "%s: unable to create katcp message logic\n", app);
-            return 2;
+            return 4;
           }
           j++;
           break;
+#endif
 
         case 's' :
         case 't' :
@@ -523,7 +556,7 @@ int main(int argc, char **argv)
             i++;
           }
           if (i >= argc) {
-            fprintf(stderr, "%s: argument needs a parameter\n", app);
+            sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPPAR_NAME, "argument needs a parameter");
             return 2;
           }
 
@@ -548,10 +581,15 @@ int main(int argc, char **argv)
           i++;
           break;
         default:
-          fprintf(stderr, "%s: unknown option -%c\n", app, argv[i][j]);
+          if(k){
+            sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPPAR_NAME, "unknown option -%c", argv[i][j]);
+          }
           return 2;
       }
     } else {
+
+      copy = NULL;
+
       if(xmit < 0){
         /* WARNING: this could make error detection worse */
         xmit = 0;
@@ -560,8 +598,10 @@ int main(int argc, char **argv)
       if(xmit == 0){
         px = create_referenced_parse_katcl();
         if(px == NULL){
-          fprintf(stderr, "%s: unable to create parse instance\n", app);
-          return 2;
+          if(k){
+            sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPPAR_NAME, "unable to create parse instance for <%s ...>", argv[i]);
+          }
+          return 4;
         }
 
         switch(argv[i][0]){
@@ -573,8 +613,10 @@ int main(int argc, char **argv)
           default :
             copy = malloc(strlen(argv[i]) + 1);
             if(copy == NULL){
-              fprintf(stderr, "%s: unable to allocate temporary storage\n", app);
-              return 2;
+              if(k){
+                sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPPAR_NAME, "unable to allocate temporary storage for %s", argv[i]);
+              }
+              return 4;
             }
             copy[0] = KATCP_REQUEST;
             strcpy(copy + 1, argv[i]);
@@ -593,8 +635,10 @@ int main(int argc, char **argv)
       }
 
       if(add_string_parse_katcl(px, flags, ptr) < 0){
-        fprintf(stderr, "%s: unable to add parameter %s\n", app, ptr);
-        return 2;
+        if(k){
+          sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPPAR_NAME, "unable to add parameter %s", ptr);
+        }
+        return 4;
       }
 
       if(flags & KATCP_FLAG_LAST){
@@ -602,8 +646,10 @@ int main(int argc, char **argv)
         fprintf(stderr, "par: loading command for servers %s\n", servers);
 #endif
         if(load_parse_set(ss, servers, px) < 0){
-          fprintf(stderr, "%s: unable to load command into server set %s\n", app, servers);
-          return 2;
+          if(k){
+            sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPPAR_NAME, "unable to load command into server set %s", servers);
+          }
+          return 4;
         }
       }
 
@@ -617,14 +663,24 @@ int main(int argc, char **argv)
   }
 
   if(activate_remotes(ss, k) < 0){
-    return 2;
+    if(k){
+      sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPPAR_NAME, "unable to initiate connections to remote servers");
+    }
+    return 3;
   }
 
-  for(fin = 0; fin < ss->s_count;){
+  for(ss->s_finished = 0; ss->s_finished < ss->s_count;){
 
     mfd = 0;
     FD_ZERO(&fsr);
     FD_ZERO(&fsw);
+
+    if(k){
+      if(flushing_katcl(k)){
+        mfd = fileno_katcl(k);
+        FD_SET(mfd, &fsw);
+      }
+    }
 
     for(i = 0; i < ss->s_count; i++){
       rx = ss->s_vector[i];
@@ -647,7 +703,8 @@ int main(int argc, char **argv)
           }
           FD_SET(fd, &fsr);
           break;
-          /* case RX_DONE : */
+          /* case RX_OK : */
+          /* case RX_FAIL : */
           /* case RX_BAD  : */
         default :
           break;
@@ -668,18 +725,22 @@ int main(int argc, char **argv)
             if(k){
               sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPPAR_NAME, "select failed: %s", strerror(errno));
             }
-            return 2;
+            return 4;
         }
         break;
       case  0 :
         if(k){
           sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPPAR_NAME, "requests timed out after %d seconds", argv[base], timeout);
         } 
-        if(verbose){
-          fprintf(stderr, "%s: no io activity within %d seconds\n", app, timeout);
-        }
         /* could terminate cleanly here, but ... */
-        return 2;
+        return 3;
+    }
+
+    if(k){
+      fd = fileno_katcl(k);
+      if(FD_ISSET(fd, &fsw)){
+        result = write_katcl(k);
+      }
     }
 
     for(i = 0; i < ss->s_count; i++){
@@ -703,9 +764,9 @@ int main(int argc, char **argv)
                   }
                   if(next_request(rx) < 0){
                     sync_message_katcl(k, KATCP_LEVEL_ERROR, NULL, "failed to load request for destination %s", rx->r_name);
-                    fin += update_state(rx, RX_BAD);
+                    update_state(ss, rx, RX_BAD);
                   } else {
-                    fin += update_state(rx, RX_UP);
+                    update_state(ss, rx, RX_UP);
                   }
                   break;
                 case EINPROGRESS :
@@ -717,7 +778,7 @@ int main(int argc, char **argv)
                   if(k){
                     sync_message_katcl(k, KATCP_LEVEL_ERROR, NULL, "unable to connect to %s: %s", rx->r_name, strerror(code));
                   }
-                  fin += update_state(rx, RX_BAD);
+                  update_state(ss, rx, RX_BAD);
                   break;
               }
             }
@@ -731,7 +792,7 @@ int main(int argc, char **argv)
               if(k){
                 sync_message_katcl(k, KATCP_LEVEL_ERROR, NULL, "unable to write to %s", rx->r_name);
               }
-              fin += update_state(rx, RX_BAD);
+              update_state(ss, rx, RX_BAD);
             }
           }
 
@@ -754,17 +815,20 @@ int main(int argc, char **argv)
 #endif
               switch(cmd[0]){
                 case KATCP_INFORM : 
+                  if(k){
 #if 0
-                  if(!strcmp(KATCP_VERSION_CONNECT_INFORM, cmd)){
-                    display = 0;
-                  }
-                  if(!strcmp(KATCP_VERSION_INFORM, cmd)){
-                    display = 0;
-                  }
-                  if(!strcmp(KATCP_BUILD_STATE_INFORM, cmd)){
-                    display = 0;
-                  }
+                    if(!strcmp(KATCP_VERSION_CONNECT_INFORM, cmd)){
+                      display = 0;
+                    }
+                    if(!strcmp(KATCP_VERSION_INFORM, cmd)){
+                      display = 0;
+                    }
+                    if(!strcmp(KATCP_BUILD_STATE_INFORM, cmd)){
+                      display = 0;
+                    }
 #endif
+                    relay_katcl(rx->r_line, k);
+                  }
                   break;
                 case KATCP_REPLY : 
 
@@ -778,7 +842,7 @@ int main(int argc, char **argv)
                       if(k){
                         sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPPAR_NAME, "unreasonable response message");
                       } 
-                      fin += update_state(rx, RX_BAD);
+                      update_state(ss, rx, RX_BAD);
                       break;
                     default : 
                       ptr = cmd + 1;
@@ -786,7 +850,7 @@ int main(int argc, char **argv)
                         if(k){
                           sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPPAR_NAME, "did not issue request matching response %s", ptr);
                         } 
-                        fin += update_state(rx, RX_BAD);
+                        update_state(ss, rx, RX_BAD);
                       } else {
                         parm = arg_string_katcl(rx->r_line, 1);
                         if(parm && !strcmp(parm, KATCP_OK)){
@@ -799,16 +863,16 @@ int main(int argc, char **argv)
                               if(k){
                                 sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPPAR_NAME, "unable to queue request %s to %s", ptr, rx->r_name);
                               } 
-                              fin += update_state(rx, RX_BAD);
+                              update_state(ss, rx, RX_BAD);
                             } else {
-                              fin += update_state(rx, RX_DONE);
+                              update_state(ss, rx, RX_OK);
                             } 
                           }
                         } else {
                           if(k){
                             sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPPAR_NAME, "request %s to %s failed", cmd, rx->r_name);
                           } 
-                          fin += update_state(rx, RX_BAD);
+                          update_state(ss, rx, RX_FAIL);
                         }
                       }
                       break;
@@ -818,7 +882,7 @@ int main(int argc, char **argv)
                   if(k){
                     sync_message_katcl(k, KATCP_LEVEL_WARN, KCPPAR_NAME, "encountered unanswerable request %s", cmd);
                   } 
-                  fin += update_state(rx, RX_BAD);
+                  update_state(ss, rx, RX_BAD);
                   break;
                 default :
                   if(k){
@@ -831,13 +895,16 @@ int main(int argc, char **argv)
           }
           break;
 
-        /* case RX_DONE : */
+        /* case RX_OK : */
+        /* case RX_FAIL : */
         /* case RX_BAD : */
         default :
           break;
       }
     }
   }
+
+  status = ss->s_status;
 
   destroy_set(ss);
 
