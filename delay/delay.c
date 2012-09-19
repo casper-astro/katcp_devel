@@ -2,8 +2,6 @@
 #include <string.h>
 #include <stdio.h>
 
-#include <math.h>
-
 #include <unistd.h>
 #include <errno.h>
 #include <time.h>
@@ -11,10 +9,16 @@
 
 #include <sys/time.h>
 
+#include <math.h>
+
 #include "katcl.h"
 #include "katcp.h"
 #include "katpriv.h"
 
+#define FORGIVING
+
+/* cribbed from math.h, it wants __GNU to be defined and who knows what else that does */
+#define OVERPI  0.3183098861837906715377675267450287L
 #define BUFFER 64
 
 #define NAME   "k7-delay"
@@ -79,14 +83,18 @@ int main(int argc, char **argv)
   append_string_katcl(l, KATCP_FLAG_STRING, argv[1]); /* antenna */
 
   value = strtold(argv[5], &end); /* fringe */
-  append_args_katcl(l, KATCP_FLAG_STRING , "%.16Lf", value * 57.29578);
+  tmp = 180.0 * OVERPI;
+#ifdef FORGIVING
+  tmp = fmodl(tmp, 360.0);
+#endif
 
-  log_message_katcl(k, KATCP_LEVEL_INFO, NAME, "fringe offset %srad mapped to %.16Lfdeg", argv[5], value * 57.29578);
+  append_args_katcl(l, KATCP_FLAG_STRING , "%.16Lf", tmp);
+  log_message_katcl(k, KATCP_LEVEL_INFO, NAME, "fringe offset %srad mapped to %.16Lfdeg", argv[5], tmp);
 
   value = strtold(argv[6], &end); /* fringe rate */
-  append_args_katcl(l, KATCP_FLAG_STRING , "%.16Lf", value * 159.154943091);
-
-  log_message_katcl(k, KATCP_LEVEL_INFO, NAME, "fringe rate %srads/s mapped to %.16Lfrotations/s", argv[6], value / 159.154943091);
+  tmp = value * 500.0 * OVERPI;
+  append_args_katcl(l, KATCP_FLAG_STRING, "%.16Lf", tmp);
+  log_message_katcl(k, KATCP_LEVEL_INFO, NAME, "fringe rate %srads/s mapped to %.16Lfrotations/s", argv[6], tmp);
 
   value = strtold(argv[3], &end); /* delay */
   append_args_katcl(l, KATCP_FLAG_STRING , "%.16Lf", value / 1000.0);
@@ -117,7 +125,11 @@ int main(int argc, char **argv)
     sync_message_katcl(k, KATCP_LEVEL_ERROR, NAME, "requested time %lu.%06lus is %lu.%06lus in the past", request.tv_sec, request.tv_usec, delta.tv_sec, delta.tv_usec);
     code = 1;
 
+#ifdef FORGIVING
+  }
+#else
   } else {
+#endif
 
     /* the send part */
 
@@ -148,7 +160,9 @@ int main(int argc, char **argv)
         code = 2;
       }
     }
+#ifndef FORGIVING
   }
+#endif
 
   gettimeofday(&done, NULL);
 
