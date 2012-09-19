@@ -83,7 +83,7 @@ int main(int argc, char **argv)
   append_string_katcl(l, KATCP_FLAG_STRING, argv[1]); /* antenna */
 
   value = strtold(argv[5], &end); /* fringe */
-  tmp = 180.0 * OVERPI;
+  tmp = value * 180.0 * OVERPI;
 #ifdef FORGIVING
   tmp = fmodl(tmp, 360.0);
 #endif
