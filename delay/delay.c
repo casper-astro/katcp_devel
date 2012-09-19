@@ -89,27 +89,27 @@ int main(int argc, char **argv)
 #endif
 
   append_args_katcl(l, KATCP_FLAG_STRING , "%.16Lf", tmp);
-  log_message_katcl(k, KATCP_LEVEL_INFO, NAME, "fringe offset %srad mapped to %.16Lfdeg", argv[5], tmp);
+  log_message_katcl(k, KATCP_LEVEL_DEBUG, NAME, "fringe offset %srad mapped to %.16Lfdeg", argv[5], tmp);
 
   value = strtold(argv[6], &end); /* fringe rate */
   tmp = value * 500.0 * OVERPI;
   append_args_katcl(l, KATCP_FLAG_STRING, "%.16Lf", tmp);
-  log_message_katcl(k, KATCP_LEVEL_INFO, NAME, "fringe rate %srads/s mapped to %.16Lfrotations/s", argv[6], tmp);
+  log_message_katcl(k, KATCP_LEVEL_DEBUG, NAME, "fringe rate %srads/s mapped to %.16Lfrotations/s", argv[6], tmp);
 
   value = strtold(argv[3], &end); /* delay */
   append_args_katcl(l, KATCP_FLAG_STRING , "%.16Lf", value / 1000.0);
 
-  log_message_katcl(k, KATCP_LEVEL_INFO, NAME, "delay %sms mapped to %.16Lfs", argv[3], value / 1000.0);
+  log_message_katcl(k, KATCP_LEVEL_DEBUG, NAME, "delay %sms mapped to %.16Lfs", argv[3], value / 1000.0);
 
   value = strtold(argv[4], &end); /* delay rate */
   append_args_katcl(l, KATCP_FLAG_STRING , "%.16Lf", value);
 
-  log_message_katcl(k, KATCP_LEVEL_INFO, NAME, "delay rate is %.16Lfs/s or ms/ms", value);
+  log_message_katcl(k, KATCP_LEVEL_DEBUG, NAME, "delay rate is %.16Lfs/s or ms/ms", value);
 
   value = strtold(argv[2], &end) / 1000.0; /* time */
   append_args_katcl(l, KATCP_FLAG_STRING , "%Lf", value);
 
-  log_message_katcl(k, KATCP_LEVEL_INFO, NAME, "%s load time %sms mapped to %Lfs", argv[1], argv[2], value);
+  log_message_katcl(k, KATCP_LEVEL_DEBUG, NAME, "%s load time %sms mapped to %Lfs", argv[1], argv[2], value);
 
   tmp = truncl(value);
   request.tv_sec = tmp;
