@@ -9,6 +9,9 @@ if [ "$#" -le 1 ]  ; then
   kcpcmd -i -k eq-get $1 | tr -d '()' | sed -e 's/^!eq-get/#return/'
 else 
   status=1
+
+  kcs_debug "setting gain to $*"
+
   if kcpcmd -k -m eq-set $* ; then
     status=0
   fi
