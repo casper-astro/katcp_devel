@@ -1956,7 +1956,7 @@ int check_basic_xengine_fmon(struct fmon_state *f)
   }
 
   s = &(f->f_sensors[FMON_SENSOR_LRU]);
-  update_sensor_fmon(f, s, 0, problems ? KATCP_STATUS_WARN : KATCP_STATUS_NOMINAL);
+  update_sensor_fmon(f, s, problems ? 0 : 1, problems ? KATCP_STATUS_WARN : KATCP_STATUS_NOMINAL);
 
   return 0;
 #undef BUFFER
