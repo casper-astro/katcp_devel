@@ -231,6 +231,8 @@ struct fmon_state
 
   unsigned int f_amplitude_acc_len;
   double f_adc_scale_factor;
+
+  unsigned long f_xengine_errors[FMON_MAX_CROSSES];
 };
 
 /*************************************************************************/
@@ -440,6 +442,10 @@ struct fmon_state *create_fmon(char *server, int verbose, unsigned int timeout, 
 
   f->f_amplitude_acc_len = 0x10000;
   f->f_adc_scale_factor = FMON_KATADC_SCALE;
+
+  for(i = 0; i < FMON_MAX_CROSSES; i++){
+    f->f_xengine_errors[i] = 0;
+  }
 
   f->f_fs = 0;
   f->f_xs = 0;
@@ -1403,6 +1409,7 @@ int detect_fmon(struct fmon_state *f)
     if(read_word_fmon(f, buffer, &word)){
       limit = 0;
     } else {
+      f->f_xengine_errors[f->f_xs] = 0;
       f->f_xs++;
     }
   }
@@ -1598,7 +1605,7 @@ int clear_control_fmon(struct fmon_state *f)
   return 0;
 }
 
-int check_fengine_status(struct fmon_state *f, struct fmon_input *n, unsigned int number)
+int check_status_fengine_fmon(struct fmon_state *f, struct fmon_input *n, unsigned int number)
 {
 #define BUFFER 32
   int result;
@@ -1720,7 +1727,7 @@ int check_fengine_status(struct fmon_state *f, struct fmon_input *n, unsigned in
 #undef BUFFER
 }
 
-int check_fengine_amplitude(struct fmon_state *f, struct fmon_input *n, unsigned int number)
+int check_power_fengine_fmon(struct fmon_state *f, struct fmon_input *n, unsigned int number)
 {
 #define BUFFER 32
   uint32_t word;
@@ -1827,12 +1834,12 @@ int check_watchdog_fmon(struct fmon_state *f)
   return collect_io_fmon(f);
 }
 
-int check_all_inputs_fmon(struct fmon_state *f)
+int check_inputs_fengine_fmon(struct fmon_state *f)
 {
   int i; 
   int result;
 
-  if(f->f_board < 0){
+  if((f->f_board < 0) || (f->f_fs <= 0)){
     return 0;
   }
 
@@ -1843,8 +1850,8 @@ int check_all_inputs_fmon(struct fmon_state *f)
 #endif
 
   for(i = 0; i < f->f_fs; i++){
-    result += check_fengine_status(f, &(f->f_inputs[i]), i);
-    result += check_fengine_amplitude(f, &(f->f_inputs[i]), i);
+    result += check_status_fengine_fmon(f, &(f->f_inputs[i]), i);
+    result += check_power_fengine_fmon(f, &(f->f_inputs[i]), i);
   }
 
   if(f->f_dirty){
@@ -1855,7 +1862,7 @@ int check_all_inputs_fmon(struct fmon_state *f)
   return result;
 }
 
-int check_adc_clock_fmon(struct fmon_state *f)
+int check_clock_fengine_fmon(struct fmon_state *f)
 {
   uint32_t word;
   struct fmon_sensor *sensor_clock;
@@ -1899,6 +1906,60 @@ int check_adc_clock_fmon(struct fmon_state *f)
   }
 
   return 0;
+}
+
+int check_basic_xengine_fmon(struct fmon_state *f)
+{
+#define BUFFER 128
+  int i, problems, result;
+  uint32_t vector_error, reorder_error;
+  unsigned long total;
+  char buffer[BUFFER];
+  struct fmon_sensor *s;
+
+  if(f->f_xs <= 0){
+    return 0;
+  }
+
+  total = 0;
+  problems = 0;
+
+  for(i = 0; i < f->f_xs; i++){
+
+    snprintf(buffer, BUFFER - 1, "vacc_err_cnt%d", i);
+    buffer[BUFFER - 1] = '\0';
+    result = read_word_fmon(f, buffer, &vector_error);
+    if(result){
+      break;
+    }
+    total += vector_error;
+
+    snprintf(buffer, BUFFER - 1, "pkt_reord_err%d", i);
+    buffer[BUFFER - 1] = '\0';
+    result = read_word_fmon(f, buffer, &reorder_error);
+    if(result){
+      break;
+    }
+    total += reorder_error;
+
+    if(f->f_xengine_errors[i] < total){
+      sync_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_server, "encountered xengine%d errors: vector-accumulator=%u reorder=%u", vector_error, reorder_error);
+      f->f_xengine_errors[i] = total;
+      problems++;
+    }
+
+  }
+
+  if(result < 0){
+    drop_connection_fmon(f);
+    return result;
+  }
+
+  s = &(f->f_sensors[FMON_SENSOR_LRU]);
+  update_sensor_fmon(f, s, 0, problems ? KATCP_STATUS_WARN : KATCP_STATUS_NOMINAL);
+
+  return 0;
+#undef BUFFER
 }
 
 /* main related **********************************************************/
@@ -2105,8 +2166,10 @@ int main(int argc, char **argv)
 
     maintain_fmon(f); /* might have to check return code, but if we do we skip checks which set sensors to unknown on failure ?  */
 
-    check_adc_clock_fmon(f);
-    check_all_inputs_fmon(f);
+    check_clock_fengine_fmon(f);
+    check_inputs_fengine_fmon(f);
+
+    check_basic_xengine_fmon(f);
 
     check_watchdog_fmon(f); /* only gets done if nothing else happened */
 
