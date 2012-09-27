@@ -731,7 +731,7 @@ int probe_fmon(struct fmon_state *f)
 
   result = 0;
 
-  if((f->f_board >= 0) && ((f->f_fs > 0) || (f->f_xs > 0))){
+  if(((f->f_board >= 0) && (f->f_fs > 0)) || (f->f_xs > 0)){
     return 0;
   }
 
