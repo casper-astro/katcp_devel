@@ -1426,7 +1426,7 @@ int detect_fmon(struct fmon_state *f)
 
   limit = f->f_xs;
   f->f_xp_count = 0;
-  while(f->f_xp_count < f->f_xs){
+  while(f->f_xp_count < limit){
     snprintf(buffer, BUFFER - 1, "gbe_tx_cnt%d", f->f_xp_count);
     buffer[BUFFER - 1] = '\0';
     if(read_word_fmon(f, buffer, &word)){
