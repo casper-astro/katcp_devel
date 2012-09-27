@@ -34,6 +34,8 @@
 #define FMON_MAX_CROSSES        2
 #define FMON_MAX_INPUTS         2
 
+#define FMON_XENG_THRESHOLD     5 /* number of times we see an error */
+
 /* sensors of which a board only has one, if at all */
 
 #define FMON_SENSOR_LRU     0
@@ -232,7 +234,12 @@ struct fmon_state
   unsigned int f_amplitude_acc_len;
   double f_adc_scale_factor;
 
-  unsigned long f_xengine_errors[FMON_MAX_CROSSES];
+  unsigned long f_xe_errors[FMON_MAX_CROSSES];
+
+  int f_xp_count;
+  unsigned long f_xp_errors[FMON_MAX_CROSSES];
+
+  int f_x_threshold;
 };
 
 /*************************************************************************/
@@ -444,8 +451,11 @@ struct fmon_state *create_fmon(char *server, int verbose, unsigned int timeout, 
   f->f_adc_scale_factor = FMON_KATADC_SCALE;
 
   for(i = 0; i < FMON_MAX_CROSSES; i++){
-    f->f_xengine_errors[i] = 0;
+    f->f_xe_errors[i] = 0;
+    f->f_xp_errors[i] = 0;
   }
+
+  f->f_xp_count = 0;
 
   f->f_fs = 0;
   f->f_xs = 0;
@@ -1409,12 +1419,25 @@ int detect_fmon(struct fmon_state *f)
     if(read_word_fmon(f, buffer, &word)){
       limit = 0;
     } else {
-      f->f_xengine_errors[f->f_xs] = 0;
+      f->f_xe_errors[f->f_xs] = 0;
       f->f_xs++;
     }
   }
 
-  log_message_katcl(f->f_report, KATCP_LEVEL_DEBUG, f->f_server, "board contains %d fengines and %d xengines", f->f_fs, f->f_xs);
+  limit = f->f_xs;
+  f->f_xp_count = 0;
+  while(f->f_xp_count < f->f_xs){
+    snprintf(buffer, BUFFER - 1, "gbe_tx_cnt%d", f->f_xp_count);
+    buffer[BUFFER - 1] = '\0';
+    if(read_word_fmon(f, buffer, &word)){
+      limit = 0;
+    } else {
+      f->f_xe_errors[f->f_xp_count] = 0;
+      f->f_xp_count++;
+    }
+  }
+
+  log_message_katcl(f->f_report, KATCP_LEVEL_DEBUG, f->f_server, "board contains %d fengines and %d xengines (%d ports)", f->f_fs, f->f_xs, f->f_xp_count);
 
   if((f->f_board > 0) || (f->f_fixed >= 0)){
     f->f_prior = f->f_board;
@@ -1911,8 +1934,8 @@ int check_clock_fengine_fmon(struct fmon_state *f)
 int check_basic_xengine_fmon(struct fmon_state *f)
 {
 #define BUFFER 128
-  int i, problems, result;
-  uint32_t vector_error, reorder_error;
+  int i, problems, result, status;
+  uint32_t vector_error, reorder_error, rx_error, gbe_rx_error, gbe_tx_error;
   unsigned long total;
   char buffer[BUFFER];
   struct fmon_sensor *s;
@@ -1921,10 +1944,10 @@ int check_basic_xengine_fmon(struct fmon_state *f)
     return 0;
   }
 
-  total = 0;
   problems = 0;
 
   for(i = 0; i < f->f_xs; i++){
+    total = 0;
 
     snprintf(buffer, BUFFER - 1, "vacc_err_cnt%d", i);
     buffer[BUFFER - 1] = '\0';
@@ -1942,12 +1965,70 @@ int check_basic_xengine_fmon(struct fmon_state *f)
     }
     total += reorder_error;
 
-    if(f->f_xengine_errors[i] < total){
-      sync_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_server, "encountered xengine%d errors: vector-accumulator=%u reorder=%u", vector_error, reorder_error);
-      f->f_xengine_errors[i] = total;
+#if 0
+    snprintf(buffer, BUFFER - 1, "pkt_reord_err%d", i);
+    buffer[BUFFER - 1] = '\0';
+    result = read_word_fmon(f, buffer, &reorder_error);
+    if(result){
+      break;
+    }
+    total += reorder_error;
+#endif
+
+    if(f->f_xe_errors[i] < total){
+      sync_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_server, "encountered xengine%d errors: vector-accumulator=%u reorder=%u", i, vector_error, reorder_error);
+      f->f_xe_errors[i] = total;
       problems++;
     }
 
+  }
+
+  if(result >= 0){
+    for(i = 0; i < f->f_xp_count; i++){
+      total = 0;
+
+      snprintf(buffer, BUFFER - 1, "gbe_tx_err_cnt%d", i);
+      buffer[BUFFER - 1] = '\0';
+      result = read_word_fmon(f, buffer, &gbe_tx_error);
+      if(result){
+        break;
+      }
+      total += gbe_tx_error;
+
+      snprintf(buffer, BUFFER - 1, "gbe_rx_err_cnt%d", i);
+      buffer[BUFFER - 1] = '\0';
+      result = read_word_fmon(f, buffer, &gbe_rx_error);
+      if(result){
+        break;
+      }
+      total += gbe_rx_error;
+
+      snprintf(buffer, BUFFER - 1, "rx_err_cnt%d", i);
+      buffer[BUFFER - 1] = '\0';
+      result = read_word_fmon(f, buffer, &rx_error);
+      if(result){
+        break;
+      }
+      total += rx_error;
+
+      if(f->f_xp_errors[i] < total){
+        sync_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_server, "encountered xengine port%d errors: rx=%u, gbe-rx=%u, gbe-tx=%u", i, rx_error, gbe_rx_error, gbe_tx_error);
+        f->f_xe_errors[i] = total;
+        problems++;
+      }
+    }
+  }
+
+  if(problems){
+    f->f_x_threshold++;
+    if(f->f_x_threshold >= FMON_XENG_THRESHOLD){
+      status = KATCP_STATUS_ERROR;
+    } else {
+      status = KATCP_STATUS_WARN;
+    }
+  } else {
+    f->f_x_threshold = 0;
+    status = KATCP_STATUS_NOMINAL;
   }
 
   if(result < 0){
@@ -1956,7 +2037,7 @@ int check_basic_xengine_fmon(struct fmon_state *f)
   }
 
   s = &(f->f_sensors[FMON_SENSOR_LRU]);
-  update_sensor_fmon(f, s, problems ? 0 : 1, problems ? KATCP_STATUS_WARN : KATCP_STATUS_NOMINAL);
+  update_sensor_fmon(f, s, problems ? 0 : 1, status);
 
   return 0;
 #undef BUFFER
