@@ -10,6 +10,9 @@
 
 #define TS_MAGIC 0x01020811
 
+/* attempt to do stuff within 5ms */
+#define KATCP_DEFAULT_DEADLINE 5000
+
 void dump_timers_katcp(struct katcp_dispatch *d)
 {
   int i;
@@ -408,9 +411,8 @@ int run_timers_katcp(struct katcp_dispatch *d, struct timespec *interval)
 
   struct katcp_shared *s;
   struct katcp_time *ts;
-  struct timeval now, delta, min;
+  struct timeval now, delta, min, deadline;
   unsigned int i, j;
-  int result;
 
   s = d->d_shared;
   if(s == NULL){
@@ -429,6 +431,10 @@ int run_timers_katcp(struct katcp_dispatch *d, struct timespec *interval)
 
   gettimeofday(&now, NULL);
 
+  delta.tv_sec = 0;
+  delta.tv_usec = KATCP_DEFAULT_DEADLINE;
+  sub_time_katcp(&deadline, &now, &delta);
+
 #if 0
   dump_timers_katcp(d);
 #endif
@@ -437,10 +443,9 @@ int run_timers_katcp(struct katcp_dispatch *d, struct timespec *interval)
   for(i = 0; i < s->s_length; i++){
     ts = s->s_queue[i];
     if(ts->t_armed > 0){
-      result = cmp_time_katcp(&(ts->t_when), &(now));
-      if(result <= 0){
-        if(result < 0){
-          log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "missed deadline at %lu.%06lus now %lu.%06lus for %p", ts->t_when.tv_sec, ts->t_when.tv_usec, now.tv_sec, now.tv_usec, ts->t_data);
+      if(cmp_time_katcp(&(ts->t_when), &now) <= 0){
+        if(cmp_time_katcp(&(ts->t_when), &deadline) <= 0){
+          log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "missed deadline: scheduled=%lu.%06lus actual=%lu.%06lus for %p", ts->t_when.tv_sec, ts->t_when.tv_usec, now.tv_sec, now.tv_usec, ts->t_data);
         }
         ts->t_armed = 0; /* assume that we won't run again */
 #ifdef DEBUG
@@ -452,8 +457,16 @@ int run_timers_katcp(struct katcp_dispatch *d, struct timespec *interval)
             ts->t_armed++; /* a discharge will result in this still being zero */
             add_time_katcp(&(ts->t_when), &(ts->t_when), &(ts->t_interval));
             if(cmp_time_katcp(&(ts->t_when), &now) < 0){
+              log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "will miss deadline: scheduled=%lu.%06lus, now aiming for +%lu.%06lus for %p", ts->t_when.tv_sec, ts->t_when.tv_usec, ts->t_interval.tv_sec, ts->t_interval.tv_usec, ts->t_data);
+
+#if 0 /* might be needed later */
+              gettimeofday(&now, NULL);
+              delta.tv_sec = 0;
+              delta.tv_usec = KATCP_DEFAULT_DEADLINE;
+              sub_time_katcp(&deadline, &now, &delta);
+#endif
+
               add_time_katcp(&(ts->t_when), &now, &(ts->t_interval));
-              log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "detected time warp or stall, rescheduling periodic task for %lu.%06lus", ts->t_when.tv_sec, ts->t_when.tv_usec);
             }
           }
         }
@@ -485,6 +498,9 @@ int run_timers_katcp(struct katcp_dispatch *d, struct timespec *interval)
 #endif
     return 1;
   }
+
+  /* now try to catch up */
+  gettimeofday(&now, NULL);
 
   ts = s->s_queue[0];
   min.tv_sec  = ts->t_when.tv_sec;
