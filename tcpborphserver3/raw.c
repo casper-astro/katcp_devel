@@ -947,6 +947,8 @@ int progdev_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
+  stop_all_getap(d, 0);
+
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "attempting to empty fpga");
 
   if(tr->r_fpga == TBS_FPGA_MAPPED){
@@ -1219,6 +1221,8 @@ void destroy_raw_tbs(struct katcp_dispatch *d, struct tbs_raw *tr)
     return;
   }
 
+  stop_all_getap(d, 1);
+
   if(tr->r_chassis){
     unlink_arb_katcp(d, tr->r_chassis);
     tr->r_chassis = NULL;
@@ -1333,6 +1337,9 @@ int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir, int argc, char **argv)
 
   tr->r_chassis = NULL;
 
+  tr->r_taps = NULL;
+  tr->r_instances = 0;
+
   /* clear out further structure elements */
 
   /* allocate structure elements */
@@ -1347,7 +1354,6 @@ int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir, int argc, char **argv)
     destroy_raw_tbs(d, tr);
     return -1;
   }
-
 
   if(make_bofdir_tbs(d, tr, bofdir) < 0){
     destroy_raw_tbs(d, tr);
