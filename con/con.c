@@ -46,6 +46,7 @@ struct state{
   unsigned int s_finished;
 
   struct katcl_line *s_up;
+  int s_code;
 };
 
 /*********************************************************************/
@@ -109,6 +110,7 @@ void destroy_state(struct state *s)
   }
   s->s_count = 0;
   s->s_finished = 0;
+  s->s_code = 0;
 
   free(s);
 }
@@ -125,6 +127,7 @@ struct state *create_state(int fd)
   s->s_vector = NULL;
   s->s_count = 0;
   s->s_finished = 0;
+  s->s_code = 0;
 
   s->s_up = create_katcl(fd);
   if(s->s_up == NULL){
@@ -313,24 +316,18 @@ void usage(char *app)
   printf("-q                 run quietly\n");
 #if 0
   printf("-k                 emit katcp log messages\n");
-#endif
   printf("-r                 toggle printing of reply messages\n");
   printf("-i                 toggle printing of inform messages\n");
-  printf("-m                 munge replies into log messages (requires -k)\n");
-  printf("-n                 suppress version information emitted on connect\n");
+#endif
 
   printf("return codes:\n");
   printf("0     command completed successfully\n");
   printf("1     command failed\n");
   printf("2     usage problems\n");
-  printf("3     network problems\n");
-  printf("4     severe internal errors\n");
-
-  printf("environment variables:\n");
-  printf("  KATCP_SERVER     default server (overridden by -s option)\n");
+  printf("4     internal errors\n");
 
   printf("notes:\n");
-  printf("  command and parameters have to be given as separate arguments\n");
+  printf("  command and parameters have to be given as single quoted strings\n");
 }
 
 int main(int argc, char **argv)
@@ -346,7 +343,7 @@ int main(int argc, char **argv)
 
   ss = create_state(STDOUT_FILENO);
   if(ss == NULL){
-    return 1;
+    return 4;
   }
 
 #if 0
@@ -406,6 +403,7 @@ int main(int argc, char **argv)
 #endif
       if(string_launch_child(ss, argv[i]) < 0){
         sync_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, KCPCON_NAME, "unable to start <%s>", argv[i]);
+        return 4;
       }
       i++;
     }
@@ -415,7 +413,7 @@ int main(int argc, char **argv)
   sigaddset(&mask_current, SIGCHLD);
 
   action_current.sa_handler = &handle_child;
-  action_current.sa_flags = 0;
+  action_current.sa_flags = SA_NOCLDSTOP;
   sigfillset(&(action_current.sa_mask));
   sigaction(SIGCHLD, &action_current, &action_previous);
 
@@ -468,7 +466,7 @@ int main(int argc, char **argv)
       case  0 :
         sync_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, KCPCON_NAME, "requests timed out despite having no timeout");
         /* could terminate cleanly here, but ... */
-        return 3;
+        return 4;
     }
 
 
@@ -521,15 +519,31 @@ int main(int argc, char **argv)
       }
     }
 
-    /* the location of this routine is rather intricate */
+    /* the position of this logic is rather intricate */
     if(got_child_signal){
       got_child_signal = 0;
       while((pid = waitpid(WAIT_ANY, &status, WNOHANG)) > 0){
         for(i = 0; i < ss->s_count; i++){
           cx = ss->s_vector[i];
           if(cx->c_pid == pid){
-            log_message_katcl(ss->s_up, KATCP_LEVEL_INFO, KCPCON_NAME, "subordinate job[%u] %u ended with status %d", i, cx->c_pid, status);
-            cx->c_status = status;
+
+            if (WIFEXITED(status)) {
+              result = WEXITSTATUS(status);
+              log_message_katcl(ss->s_up, KATCP_LEVEL_INFO, KCPCON_NAME, "subordinate job[%u] %u exited with code %d", i, cx->c_pid, result);
+              cx->c_status = (result > 4) ? 4 : result;
+            } else if (WIFSIGNALED(status)) {
+              result = WTERMSIG(status);
+              log_message_katcl(ss->s_up, KATCP_LEVEL_WARN, KCPCON_NAME, "subordinate job[%u] %u killed by signal %d", i, cx->c_pid, result);
+              cx->c_status = 4;
+            } else {
+              log_message_katcl(ss->s_up, KATCP_LEVEL_WARN, KCPCON_NAME, "subordinate job[%u] %u return unexpected status %d", i, cx->c_pid, status);
+              cx->c_status = 4;
+            }
+
+            if(cx->c_status > ss->s_code){
+              ss->s_code = cx->c_status;
+            }
+
             cx->c_pid = (-1);
           }
         }
@@ -540,13 +554,13 @@ int main(int argc, char **argv)
   /* force drain */
   while(write_katcl(ss->s_up) == 0);
 
+  result = ss->s_code;
+
   destroy_state(ss);
 
   /* WARNING: pointlessly fussy */
   sigaction(SIGCHLD, &action_previous, NULL);
   sigprocmask(SIG_BLOCK, &mask_previous, NULL);
 
-  /* TODO: work out status */
-
-  return 0;
+  return result;
 }
