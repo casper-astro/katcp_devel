@@ -34,7 +34,7 @@
 #define FMON_MAX_CROSSES        2
 #define FMON_MAX_INPUTS         2
 
-#define FMON_XENG_THRESHOLD     5 /* number of times we see an error */
+#define FMON_XENG_THRESHOLD    15 /* number of times we see an error */
 
 /* sensors of which a board only has one, if at all */
 
