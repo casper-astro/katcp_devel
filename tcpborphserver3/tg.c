@@ -24,6 +24,17 @@
 #include "tapper.h"
 #include "tg.h"
 
+#define POLL_INTERVAL     10  /* polling interval, in msecs, how often we look at register */
+
+#define FRESH_FOUND    18000 /* length of time to cache a valid reply - units are poll interval, approx */
+#define FRESH_REQUEST   8000 /* length of time for next request - units as above */
+#define FRESH_SELF      3000 /* interval when we announce ourselves - good idea to be shorter than others */
+#define SPAM_SMEAR       152 /* initial arp spamming offset as multiple of instance number, units poll interval */
+#define SPAM_BLOCKS       16 /* drift apart in spam block quantities */
+#define ARP_MULT           2 /* multiplier to space out arp messages */
+
+#define RECEIVE_BURST      4 /* read at most N frames per polling interval */
+
 #define GO_DEFAULT_PORT 7148
 
 #define GO_MAC          0x00
@@ -66,18 +77,9 @@
 #define IP_DEST3          18
 #define IP_DEST4          19
 
-#define POLL_INTERVAL      7  /* in msecs */
-#define ARP_PERIOD       101 /* multiples of POLL_INTERVAL */
-
 #define RUNT_LENGTH       20 /* want a basic ip packet */
 
 #define GS_MAGIC  0x490301fc
-
-#define FRESH_FOUND    15000 /* length of time to cache a valid reply - units iffy */
-#define FRESH_REQUEST  10000 /* length of time for next request - units iffy */
-#define FRESH_SELF      7000 /* interval when we announce ourselves - good idea to be shorter than others */
-
-#define RECEIVE_BURST     16 /* read at most N frames per polling interval */
 
 static const uint8_t arp_const[] = { 0, 1, 8, 0, 6, 4, 0 }; /* disgusting */
 static const uint8_t broadcast_const[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
@@ -288,7 +290,8 @@ static void request_arp(struct getap_state *gs, int index)
   fprintf(stderr, "arp: sending arp request for index %d (host=0x%08x)\n", index, host);
 #endif
 
-  gs->s_arp_fresh[index] = gs->s_iteration + FRESH_REQUEST;
+  /* WARNING: arb calculation, attempt to have things diverge gradually */
+  gs->s_arp_fresh[index] = gs->s_iteration + FRESH_REQUEST + gs->s_instance + (index % SPAM_BLOCKS);
   gs->s_arp_len = 42;
 
   result = write_frame_fpga(gs, gs->s_arp_buffer, gs->s_arp_len);
@@ -462,7 +465,7 @@ static int write_frame_fpga(struct getap_state *gs, unsigned char *data, unsigne
   void *base;
 
   base = gs->s_raw_mode->r_map + gs->s_register->e_pos_base;
-#ifdef DEBUG
+#if DEBUG > 1
   fprintf(stderr, "txf: base address is %p + 0x%x\n", gs->s_raw_mode->r_map, gs->s_register->e_pos_base);
 #endif
   d = gs->s_dispatch;
@@ -487,7 +490,7 @@ static int write_frame_fpga(struct getap_state *gs, unsigned char *data, unsigne
 
   buffer_sizes = *((uint32_t *)(base + GO_BUFFER_SIZES));
 #ifdef DEBUG
-  fprintf(stderr, "txf: previous value in tx word count is %d", buffer_sizes >> 16);
+  fprintf(stderr, "txf: previous value in tx word count is %d\n", buffer_sizes >> 16);
 #endif
 
   if((buffer_sizes & 0xffff0000) > 0){
@@ -503,6 +506,11 @@ static int write_frame_fpga(struct getap_state *gs, unsigned char *data, unsigne
 
   buffer_sizes = (buffer_sizes & 0xffff) | (0xffff0000 & (((actual + 7) / 8) << 16));
   *((uint32_t *)(base + GO_BUFFER_SIZES)) = buffer_sizes;
+
+#ifdef DEBUG
+  fprintf(stderr, "txf: wrote date to %p (bytes=%d, gateware register=0x%08x)\n", base + GO_TXBUFFER, actual, buffer_sizes);
+#endif
+
 
 #if 0
   fprintf(stderr, "txf: loaded %u bytes into TX buffer: \n",wr);
@@ -569,7 +577,7 @@ int receive_frame_fpga(struct getap_state *gs)
 #endif
 
   base = gs->s_raw_mode->r_map + gs->s_register->e_pos_base;
-#ifdef DEBUG
+#if DEBUG > 1
   fprintf(stderr, "rxf: base address is %p + 0x%x\n", gs->s_raw_mode->r_map, gs->s_register->e_pos_base);
 #endif
   d = gs->s_dispatch;
@@ -582,7 +590,7 @@ int receive_frame_fpga(struct getap_state *gs)
   buffer_sizes = *((uint32_t *)(base + GO_BUFFER_SIZES));
   len = (buffer_sizes & 0xffff) * 8;
   if(len <= 0){
-#ifdef DEBUG
+#if DEBUG > 1
     fprintf(stderr, "rxf: nothing to read: register 0x%x\n", buffer_sizes);
 #endif
     return 0;
@@ -759,6 +767,9 @@ int run_timer_tap(struct katcp_dispatch *d, void *data)
     }
   }
 
+  burst = 0;
+  run = 1;
+
   /* TODO: might want to handle burst of traffic better, instead of waiting poll interval for next frame */
   do{
 
@@ -802,6 +813,10 @@ int run_timer_tap(struct katcp_dispatch *d, void *data)
       run = 0;
     }
   } while(run);
+
+#ifdef DEBUG
+  fprintf(stderr, "run timer loop: burst now %d\n", burst);
+#endif
 
   if(burst < 1){ /* only spam the network if we don't have anything better to do */
     spam_arp(gs);
@@ -915,10 +930,10 @@ int configure_fpga(struct getap_state *gs)
 
   for(i = 0; i < GETAP_ARP_CACHE; i++){
     /* heuristic to make things less bursty ... unclear if it is worth anything */
-    set_entry_arp(gs, i, broadcast_const, ((gs->s_self % 32) * 4) + gs->s_iteration + i);
+    set_entry_arp(gs, i, broadcast_const, gs->s_iteration + (i * ARP_MULT) + (gs->s_instance * SPAM_SMEAR));
   }
 
-  set_entry_arp(gs, gs->s_self, gs->s_mac_binary, gs->s_self % 32); /* announce ourselves as function of IP % 32 - an attempt to make things less bursty */
+  set_entry_arp(gs, gs->s_self, gs->s_mac_binary, gs->s_instance * SPAM_SMEAR); /* announce ourselves as function of IP % 32 - an attempt to make things less bursty */
 
   return 0;
 }
@@ -1089,7 +1104,7 @@ struct getap_state *create_getap(struct katcp_dispatch *d, unsigned int instance
 
   /* mac, address, mask, network binary */
 
-  gs->s_instance = 0;
+  gs->s_instance = instance;
   gs->s_iteration = 0;
   gs->s_burst = RECEIVE_BURST;
 
@@ -1186,7 +1201,7 @@ struct getap_state *create_getap(struct katcp_dispatch *d, unsigned int instance
   return gs;
 }
 
-int insert_getap(struct katcp_dispatch *d, unsigned int instance, char *name, char *tap, char *ip, unsigned int port, char *mac, unsigned int period)
+int insert_getap(struct katcp_dispatch *d, char *name, char *tap, char *ip, unsigned int port, char *mac, unsigned int period)
 {
   struct getap_state *gs, **tmp; 
   unsigned int i;
@@ -1212,7 +1227,7 @@ int insert_getap(struct katcp_dispatch *d, unsigned int instance, char *name, ch
     }
   }
 
-  gs = create_getap(d, instance, name, tap, ip, port, mac, period);
+  gs = create_getap(d, tr->r_instances, name, tap, ip, port, mac, period);
   if(gs == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "failed to set up tap devices %s on register %s", tap, name);
     return -1;
@@ -1272,7 +1287,7 @@ int tap_start_cmd(struct katcp_dispatch *d, int argc)
     }
   }
 
-  if(insert_getap(d, 0, name, tap, ip, port, mac, POLL_INTERVAL) < 0){
+  if(insert_getap(d, name, tap, ip, port, mac, POLL_INTERVAL) < 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to initialise tap component");
     return KATCP_RESULT_INVALID;
   }
