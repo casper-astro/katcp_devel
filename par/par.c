@@ -431,7 +431,7 @@ void usage(char *app)
   printf("-k                 emit katcp log messages\n");
 #endif
   printf("-s server:port     specify server:port\n");
-  printf("-t seconds         set timeout\n");
+  printf("-t seconds         set timeout (in ms)\n");
   printf("-r                 toggle printing of reply messages\n");
   printf("-i                 toggle printing of inform messages\n");
   printf("-m                 munge replies into log messages (requires -k)\n");
@@ -457,7 +457,7 @@ int main(int argc, char **argv)
   struct remote *rx;
   struct katcl_parse *px;
   struct katcl_line *k;
-  struct timeval tv;
+  struct timeval delta, start, stop;
   fd_set fsr, fsw;
 
   char *app, *parm, *cmd, *copy, *ptr, *servers;
@@ -477,7 +477,7 @@ int main(int argc, char **argv)
   i = j = 1;
   app = argv[0];
   base = (-1);
-  timeout = 5;
+  timeout = 0;
   pos = (-1);
   k = NULL;
   show = 1;
@@ -662,6 +662,17 @@ int main(int argc, char **argv)
     }
   }
 
+  if(timeout == 0){
+    timeout = 5000 * ss->s_count;
+  }
+
+  gettimeofday(&start, NULL);
+
+  delta.tv_sec = timeout / 1000;
+  delta.tv_usec = (timeout % 1000) * 1000;
+
+  add_time_katcp(&stop, &start, &delta);
+
   if(activate_remotes(ss, k) < 0){
     if(k){
       sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPPAR_NAME, "unable to initiate connections to remote servers");
@@ -711,10 +722,10 @@ int main(int argc, char **argv)
       }
     }
 
-    tv.tv_sec  = timeout;
-    tv.tv_usec = 0;
+    gettimeofday(&start, NULL);
+    sub_time_katcp(&delta, &stop, &start);
 
-    result = select(mfd + 1, &fsr, &fsw, NULL, &tv);
+    result = select(mfd + 1, &fsr, &fsw, NULL, &delta);
     switch(result){
       case -1 :
         switch(errno){
@@ -730,7 +741,7 @@ int main(int argc, char **argv)
         break;
       case  0 :
         if(k){
-          sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPPAR_NAME, "requests timed out after %d seconds", argv[base], timeout);
+          sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPPAR_NAME, "requests timed out after %dms", timeout);
         } 
         /* could terminate cleanly here, but ... */
         return 3;
