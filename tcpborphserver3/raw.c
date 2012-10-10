@@ -11,7 +11,9 @@
 
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 
+#include <katpriv.h>
 #include <katcp.h>
 #include <katcl.h>
 #include <avltree.h>
@@ -673,6 +675,36 @@ int word_read_cmd(struct katcp_dispatch *d, int argc)
   return KATCP_RESULT_OWN;
 }
 
+#ifdef DEBUG
+void check_read_results(int *v, int floor)
+{
+  int i, total;
+
+  total = 0;
+  for(i = 0; i < 3; i++){
+    if(v[i] < 0){
+      fprintf(stderr, "major problem: read arg[%d] is %d\n", i, v[i]);
+#ifdef FAILFAST
+      abort();
+#endif
+      return;
+    }
+    total += v[i];
+  }
+
+  /* "?read ok " plus "\n" plus limit of data */
+
+  if(total < (floor + 10)){
+    fprintf(stderr, "data added is %d, needed at least 10 + %d", total, floor);
+#ifdef FAILFAST
+    abort();
+#endif
+  }
+}
+#else
+#define check_read_results(p)
+#endif
+
 int read_cmd(struct katcp_dispatch *d, int argc)
 {
   struct katcl_byte_bit bb;
@@ -681,6 +713,12 @@ int read_cmd(struct katcp_dispatch *d, int argc)
   char *name;
   unsigned int want_base, want_offset, start_base, start_offset, i, j, shift, combined_base, combined_offset, pos_base, pos_offset, len_base, len_offset, grab_base, grab_offset;
   unsigned char *ptr, *buffer, prev, current, mask, tail_mask;
+  int results[3];
+#ifdef PROFILE
+  struct timeval then, now, delta;
+
+  gettimeofday(&then, NULL);
+#endif
 
   tr = get_mode_katcp(d, TBS_MODE_RAW);
   if(tr == NULL){
@@ -806,9 +844,17 @@ int read_cmd(struct katcp_dispatch *d, int argc)
     log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "fast read, start at %u, read %u complete bytes", combined_base, want_base);
     /* FAST: no bit offset (start at byte, read complete bytes) => no shifts => no alloc, no copy */
 
-    prepend_reply_katcp(d);
-    append_string_katcp(d, KATCP_FLAG_STRING, KATCP_OK);
-    append_buffer_katcp(d, KATCP_FLAG_BUFFER | KATCP_FLAG_LAST, ptr + combined_base, want_base);
+    results[0] = prepend_reply_katcp(d);
+    results[1] = append_string_katcp(d, KATCP_FLAG_STRING, KATCP_OK);
+    results[2] = append_buffer_katcp(d, KATCP_FLAG_BUFFER | KATCP_FLAG_LAST, ptr + combined_base, want_base);
+
+    check_read_results(results, want_base);
+
+#ifdef PROFILE
+    gettimeofday(&now, NULL);
+    sub_time_katcp(&delta, &now, &then);
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "fast read of %u bytes took %lu.%06lus", want_base, delta.tv_sec, delta.tv_usec);
+#endif
 
     /* END easy case */
     return KATCP_RESULT_OWN;
@@ -833,11 +879,14 @@ int read_cmd(struct katcp_dispatch *d, int argc)
     memcpy(buffer, ptr + combined_base, want_base + 1);
     buffer[want_base] = buffer[want_base] & (0xff << (8 - want_offset));
 
-    prepend_reply_katcp(d);
-    append_string_katcp(d, KATCP_FLAG_STRING, KATCP_OK);
-    append_buffer_katcp(d, KATCP_FLAG_BUFFER | KATCP_FLAG_LAST, buffer, want_base + 1);
+    results[0] = prepend_reply_katcp(d);
+    results[1] = append_string_katcp(d, KATCP_FLAG_STRING, KATCP_OK);
+    results[2] = append_buffer_katcp(d, KATCP_FLAG_BUFFER | KATCP_FLAG_LAST, buffer, want_base + 1);
 
     free(buffer);
+
+    check_read_results(results, want_base + 1);
+
     return KATCP_RESULT_OWN;
   }
 
@@ -895,11 +944,13 @@ int read_cmd(struct katcp_dispatch *d, int argc)
     i++;
   }
 
-  prepend_reply_katcp(d);
-  append_string_katcp(d, KATCP_FLAG_STRING, KATCP_OK);
-  append_buffer_katcp(d, KATCP_FLAG_BUFFER | KATCP_FLAG_LAST, buffer, i);
+  results[0] = prepend_reply_katcp(d);
+  results[1] = append_string_katcp(d, KATCP_FLAG_STRING, KATCP_OK);
+  results[2] = append_buffer_katcp(d, KATCP_FLAG_BUFFER | KATCP_FLAG_LAST, buffer, i);
 
   free(buffer);
+
+  check_read_results(results, want_base + 1);
 
   return KATCP_RESULT_OWN;
 }
@@ -1027,6 +1078,9 @@ int progdev_cmd(struct katcp_dispatch *d, int argc)
     close_bof(d, bs);
     return KATCP_RESULT_FAIL;
   }
+
+  /* note: no check here, but it isn't critical */
+  tr->r_image = strdup(file);
 
   close_bof(d, bs);
   return KATCP_RESULT_OK;

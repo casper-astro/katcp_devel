@@ -1869,7 +1869,9 @@ int dispatch_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   struct katcp_shared *s;
   struct katcp_dispatch *dx;
-  unsigned int i;
+  struct katcl_line *lx;
+
+  unsigned int i, t;
   char *name, *level;
 
   s = d->d_shared;
@@ -1888,9 +1890,16 @@ int dispatch_cmd_katcp(struct katcp_dispatch *d, int argc)
       dx = s->s_clients[i];
       level = log_to_string_katcl(dx->d_level);
 
-      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "dispatch %s (%s) logging %s with %d notices and %d sensors", dx->d_name, (dx == d) ? "this" : "other", level ? level : "unknown", dx->d_count, dx->d_size);
+      lx = dx->d_line;
+
+      /* WARNING: we are groping through data structures which are private */
+
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "dispatch %s (%s) logging %s with %d notices, %d sensors", dx->d_name, (dx == d) ? "this" : "other", level ? level : "unknown", dx->d_count, dx->d_size);
+      t = size_queue_katcl(lx->l_queue);
+      if((t > 0) || (lx->l_pending > 0)){
+        log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "dispatch %s is flushing %u messages where %u output bytes are pending before offset %u in argument %u", dx->d_name, t, lx->l_pending, lx->l_offset, lx->l_arg);
+      }
     }
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%d clients", s->s_number);
     return KATCP_RESULT_OK;
   } else {
     return KATCP_RESULT_FAIL;

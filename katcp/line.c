@@ -998,11 +998,15 @@ int flushing_katcl(struct katcl_line *l)
 
   result = size_queue_katcl(l->l_queue);
 
-#if DEBUG>2
-  fprintf(stderr, "flushing: is empty returns %d\n", result);
-#endif
+  if(result > 0){
+    return 1;
+  }
 
-  return (result > 0) ? 1 : 0;
+  if(l->l_pending > 0){
+    return 1;
+  }
+
+  return 0;
 }
 
 /***************************/

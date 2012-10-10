@@ -814,7 +814,7 @@ int run_timer_tap(struct katcp_dispatch *d, void *data)
     }
   } while(run);
 
-#ifdef DEBUG
+#if DEBUG > 1
   fprintf(stderr, "run timer loop: burst now %d\n", burst);
 #endif
 
