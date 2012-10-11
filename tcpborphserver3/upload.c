@@ -20,6 +20,7 @@
 
 #include "tcpborphserver3.h"
 #include "loadbof.h"
+#include "tg.h"
 
 #define MTU               1024*64
 #define UPLOADCOMPLETE    "#upload-complete"
@@ -38,7 +39,7 @@ void destroy_port_data_tbs(struct tbs_port_data *pd)
       munmap(pd->t_data, pd->t_rsize);
 #endif
 
-   munmap(pd, sizeof(struct tbs_port_data));
+    munmap(pd, sizeof(struct tbs_port_data));
   }
 }
 
@@ -230,39 +231,8 @@ int upload_complete_tbs(struct katcp_dispatch *d, struct katcp_notice *n, void *
   }
 
 /*==========================================*/
-  tr = get_mode_katcp(d, TBS_MODE_RAW);
-  if(tr == NULL){
-    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "unable to acquire state");
-    destroy_port_data_tbs(pd);
-    return KATCP_RESULT_FAIL;
-  }
-
-  stop_all_getap(d, 0);
-
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "attempting to empty fpga");
-
-  if(tr->r_fpga == TBS_FPGA_MAPPED){
-    unmap_raw_tbs(d);
-    tr->r_fpga = TBS_FPGA_PROGRAMMED;
-  }
-
-  if(tr->r_fpga == TBS_FPGA_PROGRAMMED){
-    /* TODO: actually unprogram FPGA */
-  }
-
-  if(tr->r_image){
-    free(tr->r_image);
-    tr->r_image = NULL;
-  }
-
-  if(tr->r_registers){
-    destroy_avltree(tr->r_registers, &free_entry);
-    tr->r_registers = NULL;
-  }
-
-  tr->r_registers = create_avltree();
-  if(tr->r_registers == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to re-create empty lookup structure");
+ 
+  if(stop_fpga_tbs(d) < 0){
     destroy_port_data_tbs(pd);
     return KATCP_RESULT_FAIL;
   }
@@ -273,22 +243,8 @@ int upload_complete_tbs(struct katcp_dispatch *d, struct katcp_notice *n, void *
     return KATCP_RESULT_FAIL;
   }
 
-  if(program_bof(d, bs, TBS_FPGA_CONFIG) < 0){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to program bit stream from uploaded file to %s", TBS_FPGA_CONFIG);
-    close_bof(d, bs);
-    destroy_port_data_tbs(pd);
-    return KATCP_RESULT_FAIL;
-  }
-  tr->r_fpga = TBS_FPGA_PROGRAMMED;
-
-  if(index_bof(d, bs) < 0){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to load register mapping of uploaded file");
-    close_bof(d, bs);
-    destroy_port_data_tbs(pd);
-    return KATCP_RESULT_FAIL;
-  }
-
-  if(map_raw_tbs(d) < 0){
+  if(start_fpga_tbs(d, bs) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to program uploaded bof file");
     close_bof(d, bs);
     destroy_port_data_tbs(pd);
     return KATCP_RESULT_FAIL;

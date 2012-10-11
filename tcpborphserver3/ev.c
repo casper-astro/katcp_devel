@@ -243,7 +243,7 @@ int led_chassis_cmd(struct katcp_dispatch *d, int argc)
   } else if(!strcmp(name, "green")){
     code = LED_MISC;
   } else {
-    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unsupported led %s", name);
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unsupported led colour %s", name);
     return KATCP_RESULT_FAIL;
   }
 
