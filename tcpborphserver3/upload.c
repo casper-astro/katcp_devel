@@ -117,7 +117,7 @@ int upload_tbs(struct katcl_line *l, void *data)
       run = rr;
       break;
     } else if (rr < 0){
-      sync_message_katcl(l, KATCP_LEVEL_INFO, NULL, "%s: READ FAILED %s", __func__, strerror(errno));
+      sync_message_katcl(l, KATCP_LEVEL_INFO, NULL, "%s: read failed while receiving bof file: %s", __func__, strerror(errno));
       append_string_katcl(l, KATCP_FLAG_FIRST | KATCP_FLAG_STRING | KATCP_FLAG_LAST, UPLOADFAIL);
       while(write_katcl(l) == 0);
       close(nfd);
@@ -236,6 +236,8 @@ int upload_complete_tbs(struct katcp_dispatch *d, struct katcp_notice *n, void *
     destroy_port_data_tbs(pd);
     return KATCP_RESULT_FAIL;
   }
+
+  stop_all_getap(d, 0);
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "attempting to empty fpga");
 
