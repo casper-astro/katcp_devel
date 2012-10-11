@@ -35,7 +35,7 @@ fi
 shift 2
 
 case "${KATCP_MODE}" in
-  c16n25M4k|c16n13M4k|c16n2M4k|c16n3M8k|c16n7M4k)
+  c16n25M4k|c16n13M4k|c16n2M4k|c16n3M8k|c16n7M4k|c8n7M4k_top)
     if [ "${level}" -gt 0  ] ; then
       kcs_error "threshold triggering not currently supported in narrowband mode"
       exit 1 

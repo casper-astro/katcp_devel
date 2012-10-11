@@ -176,7 +176,6 @@ int upload_complete_tbs(struct katcp_dispatch *d, struct katcp_notice *n, void *
   char *inform;
 
   struct bof_state *bs;
-  struct tbs_raw *tr;
 
 #if 0
   int fd, offset, wr, sr;
