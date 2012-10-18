@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <dirent.h>
 #include <fcntl.h>
+#include <signal.h>
 
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -25,6 +26,31 @@
 /*********************************************************************/
 
 int status_fpga_tbs(struct katcp_dispatch *d, int status);
+
+/*********************************************************************/
+
+static volatile int bus_error_happened;
+
+void handle_bus_error(int signal)
+{
+  bus_error_happened = 1;
+}
+
+static int check_bus_error(struct katcp_dispatch *d)
+{
+#if 0
+  if(bus_error_happened){
+
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "bus error happened, probably a problem on the fpga bus, don't expect the system to be reliable from now on");
+
+    bus_error_happened = 0;
+
+    return -1;
+  }
+#endif
+
+  return 0;
+}
 
 /*********************************************************************/
 
@@ -358,6 +384,10 @@ int word_write_cmd(struct katcp_dispatch *d, int argc)
 #endif
   msync(tr->r_map, tr->r_map_size, MS_SYNC);
 
+  if(check_bus_error(d) < 0){
+    return KATCP_RESULT_FAIL;
+  }  
+
   return KATCP_RESULT_OK;
 }
 
@@ -564,6 +594,10 @@ int write_cmd(struct katcp_dispatch *d, int argc)
   if (buffer != NULL){
     free(buffer);
   }
+
+  if(check_bus_error(d) < 0){
+    return KATCP_RESULT_FAIL;
+  }  
   
   return KATCP_RESULT_OK;
 }
@@ -672,6 +706,8 @@ int word_read_cmd(struct katcp_dispatch *d, int argc)
   value = *((uint32_t *)(tr->r_map + te->e_pos_base));
   append_hex_long_katcp(d, KATCP_FLAG_LAST | KATCP_FLAG_XLONG, value);
 #endif
+
+  check_bus_error(d);
 
   return KATCP_RESULT_OWN;
 }
@@ -858,6 +894,8 @@ int read_cmd(struct katcp_dispatch *d, int argc)
 #endif
 
     /* END easy case */
+    check_bus_error(d);
+
     return KATCP_RESULT_OWN;
   }
 
@@ -889,6 +927,7 @@ int read_cmd(struct katcp_dispatch *d, int argc)
 #ifdef DEBUG
     check_read_results(results, want_base + 1);
 #endif
+    check_bus_error(d);
 
     return KATCP_RESULT_OWN;
   }
@@ -956,6 +995,7 @@ int read_cmd(struct katcp_dispatch *d, int argc)
 #ifdef DEBUG
   check_read_results(results, want_base + 1);
 #endif
+  check_bus_error(d);
 
   return KATCP_RESULT_OWN;
 }
@@ -1463,6 +1503,9 @@ int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir, int argc, char **argv)
 {
   struct tbs_raw *tr;
   int result;
+#if 0
+  struct sigaction sa;
+#endif
 
   tr = malloc(sizeof(struct tbs_raw));
   if(tr == NULL){
@@ -1518,6 +1561,16 @@ int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir, int argc, char **argv)
     fprintf(stderr, "hwmon: setup returns %d\n", result);
 #endif
   }
+
+#if 0
+  sa.sa_handler = handle_bus_error;
+  sa.sa_flags = SA_RESTART;
+  sigemptyset(&(sa.sa_mask));
+
+  sigaction(SIGBUS, &sa, NULL);
+#endif
+
+  bus_error_happened = 0;
 
   result = 0;
 
