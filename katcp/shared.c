@@ -549,7 +549,7 @@ int load_shared_katcp(struct katcp_dispatch *d)
   }
 #endif
 
-  result = 0;
+  result = exiting_katcp(d) ? (-1) : 0;
 
   /* WARNING: all clients contiguous */
   for(i = 0; i < s->s_used; i++){
