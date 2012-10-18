@@ -21,7 +21,7 @@
 ?process ?restart restart\_the\_system\_(?restart)
 ?process ?sync-now resynchronises\_the\_correlator\_(?sync-now)
 ?process ?capture-start start\_a\_capture\_(?capture-start\_k7\_[time])
-?process ?capture-stop stop\_a\_capture\_(?capture-start\_k7\_[time])
+?process ?capture-stop stop\_a\_capture\_(?capture-stop\_k7)
 ?process ?capture-list list\_available\_data\_streams\_(?capture-list)
 ?process ?capture-destination set\_the\_destination\_for\a_data\_stream\_(?capture-destination\_stream\_ip\_port)
 ?process ?k7-accumulation-length sets\_the\_accumulation\_length\_(?k7-accumlation-length\_accumulation-period)
