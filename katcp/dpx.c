@@ -35,6 +35,7 @@
 /********************************************************************/
 
 struct katcp_group{
+  /* a set of flats which belong together, probably spawned off the same listener, probably same set of commands, probably same "mode" */
   char *g_name;
   struct katcp_cmd_map *g_map;
 
@@ -45,6 +46,7 @@ struct katcp_group{
 };
 
 struct katcp_flat{
+  /* a client instance, intended to replace what was job and dispatch previously */
   unsigned int f_magic;
   char *f_name;          /* locate the thing by name */
 
@@ -64,11 +66,20 @@ struct katcp_flat{
 
   struct katcl_queue *f_backlog; /* backed up requests from the remote end, shouldn't happen */
 
-  struct katcp_cmd_map *f_map;
+  struct katcp_cmd_map *f_map;   /* local command instance to override others */
   struct katcp_group *f_group;
+
+  /* TODO: */
+  
+  /* notices, sensors */
+
+  /* a sensor could probably be a special type of notice */
 };
 
+/*******************************************************************************/
+
 struct katcp_cmd_item{
+  /* a single command */
   char *i_name;
   char *i_help;
   int (*i_call)(struct katcp_dispatch *d, int argc);
@@ -80,6 +91,7 @@ struct katcp_cmd_item{
 #include <avltree.h>
 
 struct katcp_cmd_map{
+  /* "table" of commands */
   char *m_name;
   unsigned int m_refs;
   struct avl_tree *m_tree;
