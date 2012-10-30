@@ -548,9 +548,12 @@ void exchange_katcl(struct katcl_line *l, int fd);
 int dispatch_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 void component_time_katcp(struct timeval *result, unsigned int ms);
+int string_to_tv_katcp(struct timeval *tv, char *string);
+
 int sub_time_katcp(struct timeval *delta, struct timeval *alpha, struct timeval *beta);
 int add_time_katcp(struct timeval *sigma, struct timeval *alpha, struct timeval *beta);
 int cmp_time_katcp(struct timeval *alpha, struct timeval *beta);
+
 
 int startup_shared_katcp(struct katcp_dispatch *d);
 void shutdown_shared_katcp(struct katcp_dispatch *d);

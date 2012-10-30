@@ -5,6 +5,64 @@
 #include <sys/time.h>
 #include <sys/types.h>
 
+int string_to_tv_katcp(struct timeval *tv, char *string)
+{
+  char *end, *ptr;
+  unsigned long v[2]; /* keep tv unchanged in case of parsing failure */
+
+  if(string == NULL){
+    return -1;
+  }
+
+  ptr = string;
+
+  v[0] = strtoul(ptr, &end, 10);
+  switch(*end){
+    case ' '  :
+    case '\n' :
+    case '\r' : 
+    case '\t' :
+      /* WARNING: above chars mean string doesn't only contain a number */
+    case '\0' :
+      if(end == ptr){ /* empty string, fail */
+        return -1;
+      }
+
+      /* had to be something valid, no fractional part */
+      tv->tv_sec = v[0];
+      tv->tv_usec = 0;
+      return 0;
+
+    case '.' :
+      /* move on to fractional handling logic, everything else fails */
+      ptr = end + 1;
+      break;
+
+    default :
+      return -1;
+  }
+
+  v[1] = strtoul(ptr, &end, 10);
+  switch(*end){
+    case ' '  :
+    case '\n' :
+    case '\r' : 
+    case '\t' :
+      /* WARNING: above chars mean string doesn't only contain a number */
+    case '\0' :
+      if(end == ptr){ /* empty string, fail */
+        return -1;
+      }
+      tv->tv_sec = v[0];
+      tv->tv_usec = 0;
+      return 0;
+
+    default :
+      return -1;
+  }
+
+}
+
 void component_time_katcp(struct timeval *result, unsigned int ms)
 {
   result->tv_sec  = ms / 1000;

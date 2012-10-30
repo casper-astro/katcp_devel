@@ -2828,7 +2828,11 @@ static int strategy_code_sensor_katcp(char *name)
 
 /* status information ***********************************************/
 
+#if KATCP_PROTOCOL_MAJOR_VERSION >= 5   
+static char *sensor_status_table[KATCP_STATA_COUNT] = { "unknown", "nominal", "warn", "error", "failure", "unreachable", "inactive"};
+#else
 static char *sensor_status_table[KATCP_STATA_COUNT] = { "unknown", "nominal", "warn", "error", "failure" };
+#endif
 
 char *status_name_sensor_katcp(struct katcp_sensor *sn)
 {
@@ -2910,9 +2914,15 @@ int generic_sensor_update_katcp(struct katcp_dispatch *d, struct katcp_sensor *s
     return -1;
   }
 
+#if KATCP_PROTOCOL_MAJOR_VERSION >= 5
+  if(append_args_katcp(d, 0, "%lu.%03lu", sn->s_recent.tv_sec, sn->s_recent.tv_usec / 1000) < 0){
+    return -1;
+  }
+#else 
   if(append_args_katcp(d, 0, "%lu%03lu", sn->s_recent.tv_sec, sn->s_recent.tv_usec / 1000) < 0){
     return -1;
   }
+#endif
 
   /* dirty shortcut */
   if(append_string_katcp(d, KATCP_FLAG_STRING, "1") < 0){
