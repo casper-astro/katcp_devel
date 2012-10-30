@@ -4,23 +4,35 @@ set -e
 source functions.sh
 
 kcs_arg_check $# 1
-if [ "$1" != "k7" ] ; then
-  kcs_error "expected k7 not $1"
-  return 1
-fi
+stream=$1
 
 kcs_debug "about to run tx-stop"
 
-status=1
-if [ $# -gt 1 ] ; then
-  if kcpcmd -k -m tx-stop $2 ; then
-    status=0
-  fi
-else 
-  if kcpcmd -k -m tx-stop ; then
-    status=0
-  fi 
-fi
+case "${stream}" in
+  k7)
+    status=1
+    if [ $# -gt 1 ] ; then
+      if kcpcmd -k -m tx-stop $2 ; then
+        status=0
+      fi
+    else 
+      if kcpcmd -k -m tx-stop ; then
+        status=0
+      fi 
+    fi
 
-kcs_corr_log
-exit $status
+    kcs_corr_log
+    exit $status
+
+    ;;
+  bf*)
+    kcs_warn "beamformer streams ${stream} currently tied to stream k7"
+    exit 0
+    ;;
+
+  *)
+    kcs_error "unsupported data stream ${stream}"
+    exit 1
+    ;;
+esac
+
