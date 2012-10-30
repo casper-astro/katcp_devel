@@ -3369,10 +3369,14 @@ static int configure_sensor_katcp(struct katcp_dispatch *d, struct katcp_sensor 
           log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "require a period as extra parameter");
           return -1;
         }
+#if KATCP_PROTOCOL_MAJOR_VERSION >= 5 
+        string_to_tv_katcp(&(ns->n_period), extra);
+#else
         period = strtoul(extra, &end, 10);
         log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "scan period is %lums", period);
         ns->n_period.tv_sec = period / 1000;
         ns->n_period.tv_usec = (period % 1000) * 1000;
+#endif
 
         if(cmp_time_katcp(&(ns->n_period), &(a->a_limit)) < 0){
           fudge.tv_sec = 0;
