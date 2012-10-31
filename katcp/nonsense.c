@@ -2829,8 +2829,14 @@ static int strategy_code_sensor_katcp(char *name)
 /* status information ***********************************************/
 
 #if KATCP_PROTOCOL_MAJOR_VERSION >= 5   
+#if KATCP_STATA_COUNT != 7
+#error incorret number of status fields
+#endif
 static char *sensor_status_table[KATCP_STATA_COUNT] = { "unknown", "nominal", "warn", "error", "failure", "unreachable", "inactive"};
 #else
+#if KATCP_STATA_COUNT != 5
+#error incorret number of status fields
+#endif
 static char *sensor_status_table[KATCP_STATA_COUNT] = { "unknown", "nominal", "warn", "error", "failure" };
 #endif
 
@@ -3302,8 +3308,10 @@ static int configure_sensor_katcp(struct katcp_dispatch *d, struct katcp_sensor 
 {
   struct katcp_nonsense *ns;
   struct katcp_acquire *a;
+#if KATCP_PROTOCOL_MAJOR_VERSION < 5 
   unsigned long period;
   char *end;
+#endif
   struct timeval fudge;
 
   if(manual == 0){ /* automatic mode an alias for EVENT */
