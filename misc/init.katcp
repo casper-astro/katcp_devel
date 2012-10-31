@@ -2,6 +2,7 @@
 ?chdir /usr/local/lib/kcs
 ?define mode ready restart-mode-ready warn
 ?define mode c16n400M1k restart-mode-c16n400M1k nominal
+?define mode b16n400M1k restart-mode-b16n400M1k nominal
 ?define mode c16n400M8k restart-mode-c16n400M8k nominal
 ?define mode bwbc4a restart-mode-bwbc4a nominal
 ?define mode c16n2M4k restart-mode-c16n2M4k nominal
