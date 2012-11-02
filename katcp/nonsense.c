@@ -21,6 +21,11 @@
 
 #define SENSOR_LIMIT_FUDGE            2500  /* minor fudge factor */
 
+#define SENSOR_CHECK_NONE                0
+#define SENSOR_CHECK_SINGLE              1
+#define SENSOR_CHECK_FAST                2
+#define SENSOR_CHECK_FULL                3
+
 /**********************************************************************************************/
 
 static int run_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a, int forced);
@@ -955,10 +960,51 @@ int extract_intbool_katcp(struct katcp_dispatch *d, struct katcp_sensor *sn)
   is = sn->s_more;
   ia = a->a_more;
 
+  switch(is->is_checks){
+    case SENSOR_CHECK_FULL   : 
+      if((ia->ia_current < is->is_warning_min) || (ia->ia_current > is->is_warning_max)){
+        set_status_sensor_katcp(sn, KATCP_STATUS_ERROR);
+      } else {
+        set_status_sensor_katcp(sn, KATCP_STATUS_NOMINAL);
+      }
+
+      /* WARNING: fall */
+    case SENSOR_CHECK_SINGLE : /* only check nominal range */
+      if((ia->ia_current < is->is_nominal_min) || (ia->ia_current > is->is_nominal_max)){
+        set_status_sensor_katcp(sn, KATCP_STATUS_WARN);
+      } else {
+        set_status_sensor_katcp(sn, KATCP_STATUS_NOMINAL);
+      }
+      break;
+    case SENSOR_CHECK_FAST   : /* assumes wmin < nmin < nmax < wmax */
+
+      if(ia->ia_current < is->is_nominal_min){
+        if(ia->ia_current < is->is_warning_min){
+          set_status_sensor_katcp(sn, KATCP_STATUS_ERROR);
+        } else {
+          set_status_sensor_katcp(sn, KATCP_STATUS_WARN);
+        }
+      } else if (ia->ia_current > is->is_nominal_max) {
+        if(ia->ia_current > is->is_warning_max){
+          set_status_sensor_katcp(sn, KATCP_STATUS_ERROR);
+        } else {
+          set_status_sensor_katcp(sn, KATCP_STATUS_WARN);
+        }
+      } else {
+        set_status_sensor_katcp(sn, KATCP_STATUS_NOMINAL);
+      }
+    break;
+    /* case SENSOR_CHECK_NONE   :  */
+    default:
+    break;
+  }
+
+#if 0
   if((ia->ia_current < is->is_min) || (ia->ia_current > is->is_max)){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "bad extracted integer (%d) for sensor %s", ia->ia_current, sn->s_name);
     return -1;
   }
+#endif
 
   is->is_current = ia->ia_current;
   return 0;
@@ -1066,7 +1112,7 @@ int has_poll_intbool_katcp(struct katcp_acquire *a)
 
 /*********************************************************************/
 
-int create_sensor_integer_katcp(struct katcp_dispatch *d, struct katcp_sensor *sn, int min, int max)
+int create_sensor_integer_katcp(struct katcp_dispatch *d, struct katcp_sensor *sn, int warn_min, int nom_min, int nom_max, int warn_max)
 {
   struct katcp_integer_sensor *is;
 
@@ -1081,9 +1127,28 @@ int create_sensor_integer_katcp(struct katcp_dispatch *d, struct katcp_sensor *s
     return -1;
   }
 
+  if(nom_min < nom_max){
+    is->is_nominal_min = nom_min;
+    is->is_nominal_max = nom_max;
+
+    if(warn_min < warn_max){
+      is->is_warning_min = warn_min;
+      is->is_warning_max = warn_max;
+
+      if((warn_min < nom_min) && (nom_max < warn_max)){
+        is->is_checks = SENSOR_CHECK_FAST;
+      } else {
+        is->is_checks = SENSOR_CHECK_FULL;
+      }
+
+    } else {
+      is->is_checks = SENSOR_CHECK_SINGLE;
+    }
+  } else {
+    is->is_checks = SENSOR_CHECK_NONE;
+  }
+
   is->is_current = 0;
-  is->is_min = min;
-  is->is_max = max;
 
   sn->s_more = is;
 
@@ -1142,11 +1207,11 @@ int append_type_integer_katcp(struct katcp_dispatch *d, int flags, struct katcp_
 
   is = sn->s_more;
 
-  if(append_signed_long_katcp(d, KATCP_FLAG_SLONG | (flags & KATCP_FLAG_FIRST) , (unsigned long)(is->is_min)) < 0){
+  if(append_signed_long_katcp(d, KATCP_FLAG_SLONG | (flags & KATCP_FLAG_FIRST) , (unsigned long)(is->is_warning_min)) < 0){
     return -1;
   }
 
-  return append_signed_long_katcp(d, KATCP_FLAG_SLONG | (flags & KATCP_FLAG_LAST), (unsigned long)(is->is_max));
+  return append_signed_long_katcp(d, KATCP_FLAG_SLONG | (flags & KATCP_FLAG_LAST), (unsigned long)(is->is_warning_max));
 }
 
 int append_value_intbool_katcp(struct katcp_dispatch *d, int flags, struct katcp_sensor *sn)
@@ -1381,8 +1446,8 @@ int create_sensor_boolean_katcp(struct katcp_dispatch *d, struct katcp_sensor *s
   }
 
   is->is_current = 0;
-  is->is_min = 0;
-  is->is_max = 1;
+  is->is_warning_min = 0;
+  is->is_warning_max = 1;
 
   sn->s_more = is;
 
@@ -2557,6 +2622,11 @@ void destroy_nonsensors_katcp(struct katcp_dispatch *d)
 
 /* plain vanillia integer registration ***********************************/
 
+int declare_integer_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, int (*get)(struct katcp_dispatch *d, struct katcp_acquire *a), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a), int (*flush)(struct katcp_dispatch *d, struct katcp_sensor *sn), unsigned int test, int nom_min, int nom_max, int warn_min, int warn_max)
+{
+  return -1;
+}
+
 int register_integer_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, int (*get)(struct katcp_dispatch *d, struct katcp_acquire *a), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a), int min, int max, int (*flush)(struct katcp_dispatch *d, struct katcp_sensor *sn))
 {
   struct katcp_sensor *sn;
@@ -2567,7 +2637,7 @@ int register_integer_sensor_katcp(struct katcp_dispatch *d, int mode, char *name
     return -1;
   }
 
-  if(create_sensor_integer_katcp(d, sn, min, max) < 0){
+  if(create_sensor_integer_katcp(d, sn, min, 0, 0, max) < 0){
     destroy_sensor_katcp(d, sn);
     return -1;
   }
@@ -2601,7 +2671,7 @@ int register_multi_integer_sensor_katcp(struct katcp_dispatch *d, int mode, char
     return -1;
   }
 
-  if(create_sensor_integer_katcp(d, sn, min, max) < 0){
+  if(create_sensor_integer_katcp(d, sn, min, 0, 0, max) < 0){
     destroy_sensor_katcp(d, sn);
     return -1;
   }
@@ -3633,7 +3703,7 @@ int match_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_notice *n, vo
   struct katcp_acquire *a;
   struct katcp_job *j;
   char *inform, *name, *description, *type, *units, *combine, **vector;
-  int code, min, max;
+  int code, wmin, wmax, nmin, nmax;
   unsigned int count, size, i;
 #ifdef KATCP_USE_FLOATS
   double maxf, minf;
@@ -3714,10 +3784,22 @@ int match_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_notice *n, vo
   switch(code){
     case KATCP_SENSOR_INTEGER :
       count = get_count_parse_katcl(p);
-      if(count >= 7){
-        min = get_signed_long_parse_katcl(p, 5);
-        max = get_signed_long_parse_katcl(p, 6);
-        if(create_sensor_integer_katcp(d, sn, min, max) >= 0){
+      if(count >= 5){
+        if(count >= 7){
+          wmin = get_signed_long_parse_katcl(p, 5);
+          wmax = get_signed_long_parse_katcl(p, 6);
+          if(count >= 9){
+            nmin = get_signed_long_parse_katcl(p, 7);
+            nmax = get_signed_long_parse_katcl(p, 8);
+          } else {
+            nmin = 0;
+            nmax = 0;
+          }
+        } else {
+          wmin = 0;
+          wmax = 0;
+        }
+        if(create_sensor_integer_katcp(d, sn, wmin, nmin, nmax, wmax) >= 0){
           a = setup_integer_acquire_katcp(d, NULL, NULL, NULL);
         }
       } else {

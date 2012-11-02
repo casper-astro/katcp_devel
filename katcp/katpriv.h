@@ -182,8 +182,13 @@ struct katcp_double_sensor{
 
 struct katcp_integer_sensor{
   int is_current;
-  int is_min;
-  int is_max;
+
+  int is_checks;
+
+  int is_nominal_min;
+  int is_nominal_max;
+  int is_warning_min;
+  int is_warning_max;
 };
 
 struct katcp_discrete_sensor{

@@ -284,7 +284,7 @@ int exiting_katcp(struct katcp_dispatch *d); /* run cleanup functions once */
 #define   KATCP_STATUS_INACTIVE    6
 #define   KATCP_STATA_COUNT        7
 #else
-#define   KATCP_STATA_COUNT      5
+#define   KATCP_STATA_COUNT        5
 #endif
 
 #if 0 /* unclear where this was used */
