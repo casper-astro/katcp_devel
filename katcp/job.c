@@ -1375,7 +1375,7 @@ int wait_jobs_katcp(struct katcp_dispatch *d)
       if(j->j_pid == pid){
         if(WIFEXITED(status)){
           code = WEXITSTATUS(status);
-          log_message_katcp(d, code ? KATCP_LEVEL_INFO : KATCP_LEVEL_DEBUG, NULL, "process %d exited with code %d", j->j_pid, code);
+          log_message_katcp(d, code ? KATCP_LEVEL_INFO : KATCP_LEVEL_DEBUG, NULL, "job %d completed with code %d", j->j_pid, code);
           j->j_code = code ? KATCP_RESULT_FAIL : KATCP_RESULT_OK;
         } else if(WIFSIGNALED(status)){
           code = WTERMSIG(status);

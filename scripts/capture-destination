@@ -18,7 +18,7 @@ case "${output}" in
     kcs_info "set k7 destination to $host:$port"
     ;;
   bf*)
-    if ! set_bf_rx ${output} ${host} ${port} $(grep ^servers_x.*roach ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= | tr '[,]' ' ' ) ; then
+    if ! set_bf_rx ${output} ${host} ${port} $(grep ^servers_x.*roach ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= ) ; then
       kcs_error "unable to set beam destination for ${output}"
       if [ -n "${KCS_BF_COUNT}" ] ; then
         if [ "${KCS_BF_COUNT}" -gt "0" ] ; then

@@ -34,7 +34,7 @@ if ! kcpcmd -k -m -t 120 initialise 2 ; then
   exit 1
 fi
 
-if ! detect_bf_count $(grep ^servers_x.*roach ${CORR_CONFIG}/${TARGET_MODE} | cut -f2 -d= | tr '[,]' ' ' ) ; then
+if ! detect_bf_count $(grep ^servers_x.*roach ${CORR_CONFIG}/${TARGET_MODE} | cut -f2 -d=  ) ; then
   kcs_error "beamformer detection logic failed"
   exit 1
 fi
