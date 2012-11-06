@@ -94,4 +94,15 @@ kcs_config_numeric () {
   export $1=${value}
 }
 
+kcs_load_config () {
+  if [ $# -lt 1 ] ; then
+    config_file=${CORR_CONFIG}/${KATCP_MODE}
+  else
+    config_file=${CORR_CONFIG}/$1
+  fi
+
+  eval $(grep -v '^ *#' ${config_file} | grep \=  | sed -e 's/=/ = /' | (while read label sep value ; do echo var_${label}=${value}\; ; done) ; echo echo )
+
+}
+
 
