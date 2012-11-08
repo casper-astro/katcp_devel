@@ -884,12 +884,10 @@ int mode_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
 
   if(name && strcmp(actual, name)){
-    extra_response_katcp(d, KATCP_RESULT_FAIL, actual);
-  } else {
-    extra_response_katcp(d, KATCP_RESULT_OK, actual);
-  }
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, actual);
+  } 
 
-  return KATCP_RESULT_OWN;
+  return extra_response_katcp(d, KATCP_RESULT_OK, actual);
 }
 
 /***********************************************************************/

@@ -294,8 +294,7 @@ static int update_flags_katcp(struct katcp_dispatch *d, int argc, int flags)
   }
 
   if(argc < 2){
-    extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
-    return KATCP_RESULT_OWN;
+    return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
   }
 
   for(i = 1; i < argc; i++){
@@ -335,8 +334,7 @@ int forget_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
 
   if(argc < 2){
-    extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
-    return KATCP_RESULT_OWN;
+    return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
   }
 
   match = arg_string_katcp(d, 1);
@@ -362,8 +360,7 @@ int chdir_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
 
   if(argc < 2){
-    extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
-    return KATCP_RESULT_OWN;
+    return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
   }
 
   dir = arg_string_katcp(d, 1);
@@ -389,8 +386,7 @@ int setenv_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
 
   if(argc < 2){
-    extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
-    return KATCP_RESULT_OWN;
+    return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
   }
 
   label = arg_string_katcp(d, 1);

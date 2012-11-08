@@ -175,8 +175,14 @@ struct katcp_sensor{
 #ifdef KATCP_USE_FLOATS
 struct katcp_double_sensor{
   double ds_current;
-  double ds_min;
-  double ds_max;
+
+  int ds_checks;
+
+  double ds_nominal_min;
+  double ds_nominal_max;
+
+  double ds_warning_min;
+  double ds_warning_max;
 };
 #endif
 
@@ -187,6 +193,7 @@ struct katcp_integer_sensor{
 
   int is_nominal_min;
   int is_nominal_max;
+
   int is_warning_min;
   int is_warning_max;
 };
