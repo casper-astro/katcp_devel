@@ -125,6 +125,7 @@ int main(int argc, char **argv)
   speed = 0;
   serial = NULL;
   net = NULL;
+  count = 0;
 
   i = j = 1;
   while (i < argc) {
@@ -192,7 +193,7 @@ int main(int argc, char **argv)
 
   }
 
-  if(speed < 0){
+  if(speed <= 0){
     speed = 9600;
   }
 
@@ -334,9 +335,10 @@ int main(int argc, char **argv)
         close(fd);
       }
       if(count > 0){
-        log_message_katcl(k, KATCP_LEVEL_WARN, label, "discarded %u messages while no client was connected", count);
+        log_message_katcl(nk, KATCP_LEVEL_WARN, label, "discarded %u messages while no client was connected", count);
         count = 0;
       }
+      log_message_katcl(nk, KATCP_LEVEL_DEBUG, label, "connected to %s at speed %d", serial, speed);
     }
 
     if(sk){
