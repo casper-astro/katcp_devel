@@ -9,10 +9,11 @@ CFLAGS += -Wall
 #CFLAGS += -O2
 CFLAGS += -DKATCP_USE_FLOATS
 CFLAGS += -DKATCP_STRICT_CONFORMANCE
+CFLAGS += -DKATCP_FLUSH_THRESHOLD=4
 CFLAGS += -DPARANOID
+CFLAGS += -DREPORT
 #CFLAGS += -DDEBUG=4
 #CFLAGS += -DDEBUG
-CFLAGS += -DREPORT
 CFLAGS += -ggdb
 
 GITVER = $(shell git describe  --tags --dirty  2> /dev/null || echo unknown)
