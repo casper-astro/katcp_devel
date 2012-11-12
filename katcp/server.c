@@ -277,6 +277,8 @@ void perforate_client_server_katcp(struct katcp_dispatch *dl)
 
     dx = s->s_clients[(unsigned int)rand() % s->s_count];
 
+    basic_inform_katcp(dx, KATCP_CLIENT_DISCONNECT, "overloaded");
+
     terminate_katcp(dx, KATCP_EXIT_QUIT);
 #if 0
     on_disconnect_katcp(dx, "displaced by new client connection");

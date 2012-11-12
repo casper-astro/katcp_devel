@@ -688,6 +688,9 @@ int ended_shared_katcp(struct katcp_dispatch *d)
 #ifdef DEBUG
       fprintf(stderr, "ended[%d]: unsolicted disconnect with code %d\n", i, status);
 #endif
+
+      basic_inform_katcp(dx, KATCP_DISCONNECT_INFORM, (status == KATCP_EXIT_RESTART) ? "restart" : "shutdown");
+
       terminate_katcp(dx, status); /* have the shutdown code go others */
 #if 0
       on_disconnect_katcp(dx, NULL);
