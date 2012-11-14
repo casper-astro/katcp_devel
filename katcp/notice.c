@@ -20,7 +20,7 @@
 /**********************************************************************************/
 
 
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
 static void sane_notice_katcp(struct katcp_notice *n)
 {
   if(n == NULL){

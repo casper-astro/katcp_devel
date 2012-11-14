@@ -2,6 +2,9 @@
 This package contains a C katcp library implementation and selected applications using it. 
 Unless otherwise noted the code base is released under the terms described in COPYING
 
+The Makefile.inc file in this directory contains a number of options, edit to your needs
+
+
 General purpose components
 
   katcp       - the katcp library itself

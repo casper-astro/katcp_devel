@@ -102,7 +102,7 @@ void clear_queue_katcl(struct katcl_queue *q)
 
   /* WARNING: clear queue *does* remove reference count of parse structures */
 
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
   if(q == NULL){
     fprintf(stderr, "queue: given null queue to clear\n");
     abort();
@@ -139,6 +139,8 @@ int add_tail_queue_katcl(struct katcl_queue *q, struct katcl_parse *p)
 
 #if DEBUG > 1
     fprintf(stderr, "size=%d, count=%d - increasing parse queue\n", q->q_size, q->q_count);
+#endif
+#ifdef KATCP_CONSISTENCY_CHECKS
     if(q->q_size < q->q_count){
       fprintf(stderr, "add: warning: detected rapid size increase of parse queue, expect corruption\n");
       abort();
@@ -212,7 +214,7 @@ struct katcl_parse *remove_index_queue_katcl(struct katcl_queue *q, unsigned int
     return NULL;
   }
 
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
   if(index >= q->q_size){
     fprintf(stderr, "index %u out of range %u\n", index, q->q_size);
     abort();

@@ -44,7 +44,7 @@
 
 /******************************************************************/
 
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
 static void sane_job_katcp(struct katcp_job *j)
 {
   if(j->j_magic != JOB_MAGIC){
@@ -69,6 +69,8 @@ static int add_tail_job(struct katcp_dispatch *d, struct katcp_job *j, struct ka
 
 #ifdef DEBUG
     fprintf(stderr, "size=%d, count=%d - increasing queue\n", j->j_size, j->j_count);
+#endif
+#ifdef KATCP_CONSISTENCY_CHECKS
     if(j->j_size < j->j_count){
       fprintf(stderr, "add: warning: detected rapid size increase of queue, expect corruption\n");
       abort();
@@ -118,7 +120,7 @@ static struct katcp_notice *remove_index_job(struct katcp_dispatch *d, struct ka
     return NULL;
   }
 
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
   if(index >= j->j_size){
     fprintf(stderr, "index %u out of range %u\n", index, j->j_size);
     abort();
@@ -228,7 +230,7 @@ int unlink_queue_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n, voi
   }
 
   for(i = j->j_head, k = 0; k < j->j_count; i = (i + 1) % j->j_size, k++){
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
     if(j->j_queue[i] == NULL){
       fprintf(stderr, "unlink: found null entry in queue\n");
       abort();
@@ -240,7 +242,7 @@ int unlink_queue_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n, voi
     }
   }
   
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
   fprintf(stderr, "unlink: notice not registered with job\n");
   abort();
 #endif

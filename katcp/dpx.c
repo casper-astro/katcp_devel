@@ -478,7 +478,7 @@ struct katcp_cmd_item *locate_cmd_item(struct katcp_flat *f, struct katcl_parse 
 
 /* */
 
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
 static void sane_flat_katcp(struct katcp_flat *f)
 {
   if(f->f_magic != FLAT_MAGIC){
@@ -539,7 +539,7 @@ static void destroy_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *f)
     gx = f->f_group;
 
     if((gx == NULL) || (gx->g_count == 0)){
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
       fprintf(stderr, "dpx: major logic problem: malformed or empty group at %p\n", gx);
       abort();
 #endif
@@ -708,7 +708,7 @@ int load_flat_katcp(struct katcp_dispatch *d)
 
       switch(f->f_state){
         case FLAT_STATE_GONE :
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
           fprintf(stderr, "flat: problem: state %u should have been removed already\n", f->f_state);
           abort();
 #endif

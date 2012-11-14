@@ -18,7 +18,7 @@ static int check_array_parse_katcl(struct katcl_parse *p);
 
 /****************************************************************/
 
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
 static void sane_parse_katcl(struct katcl_parse *p)
 {
   if(p == NULL){
@@ -102,7 +102,7 @@ static void clear_parse_katcl(struct katcl_parse *p)
 {
   sane_parse_katcl(p);
 
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
   if(p->p_refs != 1){
     fprintf(stderr, "logic problem: clearing parse used in multiple places\n");
     abort();
@@ -186,7 +186,7 @@ static int before_add_parse_katcl(struct katcl_parse *p, unsigned int flags)
   sane_parse_katcl(p);
 
   if(flags & KATCP_FLAG_FIRST){
-#ifdef PARANOID
+#ifdef KATCP_CONSISTENCY_CHECKS
     if(p->p_got > 0){
       fprintf(stderr, "usage problem: can not add first field to one which already has %u fields\n", p->p_got);
       abort();
@@ -198,7 +198,7 @@ static int before_add_parse_katcl(struct katcl_parse *p, unsigned int flags)
 #endif
     p->p_state = KATCL_PARSE_FAKE; /* not really parsed, inserted manually */
   } else {
-#ifdef PARANOID
+#ifdef KATCP_CONSISTENCY_CHECKS
     if(p->p_got == 0){
       fprintf(stderr, "first field should be flagged as first\n");
       abort();
@@ -206,7 +206,7 @@ static int before_add_parse_katcl(struct katcl_parse *p, unsigned int flags)
 #endif
   }
 
-#ifdef PARANOID
+#ifdef KATCP_CONSISTENCY_CHECKS
   if(p->p_state != KATCL_PARSE_FAKE){
     fprintf(stderr, "usage problem: parse structure in state %u, wanted state %u\n", p->p_state, KATCL_PARSE_FAKE);
     abort();
@@ -352,7 +352,7 @@ int add_parameter_parse_katcl(struct katcl_parse *pd, int flags, struct katcl_pa
   char *src, *dst;
   unsigned int len;
 
-#ifdef PARANOID
+#ifdef KATCP_CONSISTENCY_CHECKS
   if(ps->p_state != KATCL_PARSE_DONE){
     fprintf(stderr, "warning: copy argument %u from incomplete parse (state=%u)\n", index, ps->p_state);
   }
@@ -555,7 +555,7 @@ int add_vargs_parse_katcl(struct katcl_parse *p, int flags, char *fmt, va_list a
     }
   }
 
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
   fprintf(stderr, "add vargs: sanity failure with %d bytes\n", got);
   abort();
 #endif
@@ -582,7 +582,7 @@ struct katcl_parse *vturnaround_extra_parse_katcl(struct katcl_parse *p, int cod
   char *string;
   struct katcl_parse *px;
 
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
   if(p->p_state != KATCL_PARSE_DONE){
     fprintf(stderr, "logic problem: attempting to turn around incomplete parse\n");
     abort();
@@ -594,7 +594,7 @@ struct katcl_parse *vturnaround_extra_parse_katcl(struct katcl_parse *p, int cod
     return NULL;
   }
 
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
   if(string[0] != KATCP_REQUEST){
     fprintf(stderr, "logic problem: attempting to turn around <%s>\n", string);
     abort();
@@ -650,7 +650,7 @@ struct katcl_parse *turnaround_parse_katcl(struct katcl_parse *p, int code)
 
 unsigned int get_count_parse_katcl(struct katcl_parse *p)
 {
-#ifdef PARANOID
+#ifdef KATCP_CONSISTENCY_CHECKS
   if(p->p_state != KATCL_PARSE_DONE){
     fprintf(stderr, "warning: extracting argument count from incomplete parse (state=%u)\n", p->p_state);
   }
@@ -706,7 +706,7 @@ int is_null_parse_katcl(struct katcl_parse *p, unsigned int index)
 
 char *get_string_parse_katcl(struct katcl_parse *p, unsigned int index)
 {
-#ifdef PARANOID
+#ifdef KATCP_CONSISTENCY_CHECKS
   if(p->p_state != KATCL_PARSE_DONE){
     fprintf(stderr, "warning: extracting string argument %u from incomplete parse (state=%u)\n", index, p->p_state);
   }
@@ -940,12 +940,14 @@ int parse_katcl(struct katcl_line *l) /* transform buffer -> args */
   struct katcl_parse *p;
 
   p = l->l_next;
-#if DEBUG>2
+#ifdef KATCP_CONSISTENCY_CHECKS
   if(p == NULL){
     fprintf(stderr, "logic failure: expected a valid next entry in parse\n");
     abort();
   }
+#endif
 
+#if DEBUG>2
   fprintf(stderr, "invoking parse (state=%d, have=%d, used=%d, kept=%d)\n", p->p_state, p->p_have, p->p_used, p->p_kept);
 #endif
 
@@ -962,7 +964,7 @@ int parse_katcl(struct katcl_line *l) /* transform buffer -> args */
     switch(p->p_state){
 
       case KATCL_PARSE_FAKE :
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
         fprintf(stderr, "major logic problem: attempting to parse a locally generated message\n");
         abort();
 #endif

@@ -38,7 +38,7 @@ int watchdog_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 /************ paranoia checks ***********************************/
 
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
 static void sane_katcp(struct katcp_dispatch *d)
 {
   if(d == NULL){
@@ -392,7 +392,7 @@ void on_disconnect_katcp(struct katcp_dispatch *d, char *fmt, ...)
   fprintf(stderr, "disconnect: run=%d\n", d->d_run);
 #endif
 
-#ifdef PARANOID
+#ifdef KATCP_CONSISTENCY_CHECKS
   if(d->d_run > 0){
     fprintf(stderr, "disconnect: not yet terminated\n");
     abort();
@@ -580,7 +580,7 @@ int deregister_command_katcp(struct katcp_dispatch *d, char *match)
     c = nxt;
   }
 
-#ifdef REPORT
+#ifdef KATCP_STDERR_ERRORS
   fprintf(stderr, "no match found for %s while deregistering command\n", match);
 #endif
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "no match found for %s", ptr);
@@ -668,7 +668,7 @@ int register_flag_mode_katcp(struct katcp_dispatch *d, char *match, char *help, 
   s = d->d_shared;
 
   if(mode >= s->s_size){
-#ifdef REPORT
+#ifdef KATCP_STDERR_ERRORS
     fprintf(stderr, "register: registering command for oversized mode number %u\n", mode);
 #endif
     log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "mode number %d is not within range", mode);
@@ -804,7 +804,7 @@ int lookup_katcp(struct katcp_dispatch *d)
     return -1;
   }
 
-#ifdef REPORT
+#ifdef KATCP_STDERR_ERRORS
   if((d == NULL) || (d->d_shared == NULL)){
     fprintf(stderr, "lookup: state is null\n");
     return -1;
@@ -857,7 +857,7 @@ int call_katcp(struct katcp_dispatch *d)
   struct katcp_shared *s;
   char *str;
 
-#ifdef REPORT
+#ifdef KATCP_STDERR_ERRORS
   if(d == NULL){
     fprintf(stderr, "call: null dispatch argument\n");
     return -1;
@@ -898,7 +898,7 @@ int call_katcp(struct katcp_dispatch *d)
       d->d_pause = 1;
     }
   } else { /* force a fail for unknown commands */
-#ifdef REPORT
+#ifdef KATCP_STDERR_ERRORS
     fprintf(stderr, "call: no dispatch function for %s\n", str);
 #endif
     switch(str[0]){
@@ -1095,7 +1095,7 @@ int terminate_katcp(struct katcp_dispatch *d, int code)
   d->d_run = (-1);
 
   if(code < 0){
-#ifdef REPORT
+#ifdef KATCP_STDERR_ERRORS
     fprintf(stderr, "terminate: logic failure: values no longer negative\n");
 #endif
     d->d_exit = KATCP_EXIT_ABORT;
@@ -1460,7 +1460,7 @@ int log_relay_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
 
   s = d->d_shared;
   if(s == NULL){
-#ifdef REPORT
+#ifdef KATCP_STDERR_ERRORS
     fprintf(stderr, "log: no shared state available\n");
 #endif
     return -1;
@@ -1521,7 +1521,7 @@ int log_message_katcp(struct katcp_dispatch *d, unsigned int priority, char *nam
 
   s = d->d_shared;
   if(s == NULL){
-#ifdef REPORT
+#ifdef KATCP_STDERR_ERRORS
     fprintf(stderr, "log: no shared state available\n");
 #endif
     return -1;
@@ -1717,7 +1717,7 @@ static int prepend_generic_katcp(struct katcp_dispatch *d, int reply)
 
   message = arg_string_katcl(d->d_line, 0);
   if((message == NULL) || (message[0] != KATCP_REQUEST)){
-#ifdef REPORT
+#ifdef KATCP_STDERR_ERRORS
     fprintf(stderr, "prepend: arg0 is unavailable (%p)\n", message);
 #endif
     return -1;

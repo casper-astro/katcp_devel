@@ -130,8 +130,8 @@ int vlog_message_katcl(struct katcl_line *cl, int level, char *name, char *fmt, 
 
   logstring = log_to_string_katcl(level);
   if(logstring == NULL){
-#ifdef DEBUG
-    fprintf(stderr, "log: bad log level\n");
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "log: using unknown log level %d in log function call\n", level);
     abort();
 #endif
     return -1;

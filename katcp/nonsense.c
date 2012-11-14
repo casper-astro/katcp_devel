@@ -32,7 +32,7 @@ static int run_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a, 
 
 /**********************************************************************************************/
 
-#ifdef PARANOID
+#ifdef KATCP_CONSISTENCY_CHECKS
 static void sane_nonsense(struct katcp_nonsense *ns)
 {
   int i, found;
