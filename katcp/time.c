@@ -9,6 +9,7 @@ int string_to_tv_katcp(struct timeval *tv, char *string)
 {
   char *end, *ptr;
   unsigned long v[2]; /* keep tv unchanged in case of parsing failure */
+  int digits;
 
   if(string == NULL){
     return -1;
@@ -53,6 +54,26 @@ int string_to_tv_katcp(struct timeval *tv, char *string)
       if(end == ptr){ /* empty string, fail */
         return -1;
       }
+
+      /* this is rather lame, but avoids floats. Should actually manually parse the string */
+      digits = end - ptr;
+      if(digits < 0){
+        return -1;
+      }
+
+      if(digits > 10){ /* integer overflow on 32 bits */
+        return -1;
+      }
+
+      while(digits > 6){
+        v[1] = v[1] / 10;
+        digits--;
+      }
+      while(digits < 6){
+        v[1] = v[1] * 10;
+        digits++;
+      }
+      
       tv->tv_sec = v[0];
       tv->tv_usec = v[1];
       return 0;
