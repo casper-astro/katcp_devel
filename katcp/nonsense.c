@@ -3463,7 +3463,9 @@ static int reply_sensor_sampling_katcp(struct katcp_dispatch *d, struct katcp_se
 {
   char *strategy;
   int result, extra;
+#if KATCP_PROTOCOL_MAJOR_VERSION < 5 
   unsigned long period;
+#endif
   struct katcp_nonsense *ns;
   extra = 0; /* paranoid tautology */
 
@@ -3514,7 +3516,7 @@ static int reply_sensor_sampling_katcp(struct katcp_dispatch *d, struct katcp_se
 #endif
     switch(ns->n_strategy){
       case KATCP_STRATEGY_PERIOD :
-#if KATCP_PROTOCOL_MAJOR_VERSION < 5 
+#if KATCP_PROTOCOL_MAJOR_VERSION >= 5 
         result = append_args_katcp(d, KATCP_FLAG_LAST | KATCP_FLAG_STRING, "%lu.%06lu", ns->n_period.tv_sec, ns->n_period.tv_usec);
 #else
         period = (ns->n_period.tv_sec * 1000) + (ns->n_period.tv_usec / 1000);
