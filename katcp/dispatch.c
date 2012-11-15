@@ -1295,6 +1295,9 @@ int log_level_generic_katcp(struct katcp_dispatch *d, int argc, int global)
     return KATCP_RESULT_FAIL;
   }
 
+  code = (-1); /* assume the worst */
+  got = NULL;
+
   if(argc > 1){
     ok = 0;
     requested = arg_string_katcp(d, 1);
@@ -1317,18 +1320,20 @@ int log_level_generic_katcp(struct katcp_dispatch *d, int argc, int global)
           case 1 : 
             s->s_default = code;
             break;
-          case 2 :
+          case 2 : /* change all, immediately */
             for(i = 0; i < s->s_used; i++){
               dx = s->s_clients[i];
               if(dx){
                 dx->d_level = code;
               }
             }
+            s->s_default = code;
             break;
         }
       }
     }
   } else {
+    code = d->d_level;
     ok = 1;
     requested = NULL;
   }
@@ -1338,6 +1343,9 @@ int log_level_generic_katcp(struct katcp_dispatch *d, int argc, int global)
     if(got == NULL){
       ok = 0;
     }
+  } else {
+    got = NULL;
+    ok = 0;
   }
 
   if(ok){
