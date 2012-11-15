@@ -23,16 +23,7 @@ struct katcp_url;
 #define KATCP_CODEBASE_NAME     "libkatcp" 
 
 #define KATCP_LIBRARY_LABEL     "katcp-library"
-
 #define KATCP_PROTOCOL_LABEL    "katcp-protocol"
-
-#if 0
-#define KATCP_PROTOCOL_MAJOR_VERSION    5
-#define KATCP_PROTOCOL_MINOR_VERSION    0
-#else
-#define KATCP_PROTOCOL_MAJOR_VERSION    4
-#define KATCP_PROTOCOL_MINOR_VERSION    9
-#endif
 
 #define KATCP_REQUEST '?' 
 #define KATCP_REPLY   '!' 

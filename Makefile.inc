@@ -1,14 +1,14 @@
-# install target 
+# install location
 PREFIX=/usr/local
 
 # where to find the KATCP library (change this in case katcp isn't included locally)
 KATCP ?= katcp
 
-# compiler flags 
+# compiler flags, -Wall is just the right thing to do 
 CFLAGS += -Wall
 #CFLAGS += -O2
 
-# where the historic implementation diverges from the standard,
+# where the C implementation has diverged from the standard,
 # force standard behaviour. Currently only one case: log-level affects
 # all connections immediately in standard, otherwise local connection only
 CFLAGS += -DKATCP_STRICT_CONFORMANCE
@@ -29,15 +29,22 @@ CFLAGS += -DKATCP_CONSISTENCY_CHECKS
 
 # log certain noncritical failures to stderr 
 CFLAGS += -DKATCP_STDERR_ERRORS
+
+# pick a protocol reversion from the list. Making up
+# your own major values doesn't work unless you also implement what 
+# the protocol requires
+CFLAGS += -DKATCP_PROTOCOL_MAJOR_VERSION=5 -DKATCP_PROTOCOL_MINOR_VERSION=0
+#CFLAGS += -DKATCP_PROTOCOL_MAJOR_VERSION=4 -DKATCP_PROTOCOL_MINOR_VERSION=9
+
 # amount of debugging logic to enable 
 #CFLAGS += -DDEBUG=4
 #CFLAGS += -DDEBUG
 CFLAGS += -ggdb
 
-GITVER = $(shell git describe  --tags --dirty  2> /dev/null || echo unknown)
-
+# what compiler to use 
 CC = $(CROSS_COMPILE)gcc
-LOCALCC = gcc
+
+GITVER = $(shell git describe  --tags --dirty  2> /dev/null || echo unknown)
 
 INSTALL = install
 RM = rm -f
