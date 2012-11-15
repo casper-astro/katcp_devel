@@ -54,7 +54,7 @@ int string_to_tv_katcp(struct timeval *tv, char *string)
         return -1;
       }
       tv->tv_sec = v[0];
-      tv->tv_usec = 0;
+      tv->tv_usec = v[1];
       return 0;
 
     default :
