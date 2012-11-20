@@ -666,7 +666,7 @@ int extract_discrete_katcp(struct katcp_dispatch *d, struct katcp_sensor *sn)
   da = a->a_more;
 
   if(da->da_current > ds->ds_size){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "extracted float (%f) for sensor %s not in advertised range", da->da_current, sn->s_name);
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "extracted discrete position %u for sensor %s not in advertised range 0-%d", da->da_current, sn->s_name, ds->ds_size);
     return -1;
   }
 
@@ -2268,7 +2268,7 @@ int is_up_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a)
 
 /*************************************************************************/
 
-static struct katcp_sensor *create_sensor_katcp(struct katcp_dispatch *d, char *name, char *description, char *units, int preferred, int type, int mode)
+static struct katcp_sensor *create_sensor_katcp(struct katcp_dispatch *d, char *name, char *description, char *units, int preferred, int type, int mode, int (*flush)(struct katcp_dispatch *d, struct katcp_sensor *sn))
 {
   struct katcp_sensor *sn, **tmp;
   struct katcp_shared *s;
@@ -2815,12 +2815,12 @@ void destroy_nonsensors_katcp(struct katcp_dispatch *d)
 
 /* plain vanillia integer registration ***********************************/
 
-int declare_integer_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, int (*get)(struct katcp_dispatch *d, struct katcp_acquire *a), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a), int (*flush)(struct katcp_dispatch *d, struct katcp_sensor *sn), int nom_min, int nom_max, int warn_min, int warn_max)
+int declare_integer_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, int (*get)(struct katcp_dispatch *d, struct katcp_acquire *a), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a), int nom_min, int nom_max, int warn_min, int warn_max, int (*flush)(struct katcp_dispatch *d, struct katcp_sensor *sn))
 {
   struct katcp_sensor *sn;
   struct katcp_acquire *a;
 
-  sn = create_sensor_katcp(d, name, description, units, KATCP_STRATEGY_EVENT, KATCP_SENSOR_INTEGER, mode);
+  sn = create_sensor_katcp(d, name, description, units, KATCP_STRATEGY_EVENT, KATCP_SENSOR_INTEGER, mode, flush);
   if(sn == NULL){
     return -1;
   }
@@ -2842,25 +2842,21 @@ int declare_integer_sensor_katcp(struct katcp_dispatch *d, int mode, char *name,
     return -1;
   }
 
-  if (flush != NULL){
-    sn->s_flush = flush;
-  }
-
   return -1;
 }
 
 int register_integer_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, int (*get)(struct katcp_dispatch *d, struct katcp_acquire *a), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a), int min, int max, int (*flush)(struct katcp_dispatch *d, struct katcp_sensor *sn))
 {
-  return declare_integer_sensor_katcp(d, mode, name, description, units, get, local, release, flush, min, max, min, max);
+  return declare_integer_sensor_katcp(d, mode, name, description, units, get, local, release, min, max, min, max, flush);
 }
 
 /* integer registration with one acquire handling multiple sensors *******/
 
-int declare_multi_integer_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, struct katcp_acquire *a, int (*extract)(struct katcp_dispatch *d, struct katcp_sensor *sn), int (*flush)(struct katcp_dispatch *d, struct katcp_sensor *sn), int nom_min, int nom_max, int warn_min, int warn_max)
+int declare_multi_integer_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, int nom_min, int nom_max, int warn_min, int warn_max, struct katcp_acquire *a, int (*extract)(struct katcp_dispatch *d, struct katcp_sensor *sn), int (*flush)(struct katcp_dispatch *d, struct katcp_sensor *sn))
 {
   struct katcp_sensor *sn;
 
-  sn = create_sensor_katcp(d, name, description, units, KATCP_STRATEGY_EVENT, KATCP_SENSOR_INTEGER, mode);
+  sn = create_sensor_katcp(d, name, description, units, KATCP_STRATEGY_EVENT, KATCP_SENSOR_INTEGER, mode, flush);
   if(sn == NULL){
     return -1;
   }
@@ -2875,16 +2871,12 @@ int declare_multi_integer_sensor_katcp(struct katcp_dispatch *d, int mode, char 
     return -1;
   }
 
-  if (flush != NULL){
-    sn->s_flush = flush;
-  }
-
   return 0;
 }
 
 int register_multi_integer_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, int min, int max, struct katcp_acquire *a, int (*extract)(struct katcp_dispatch *d, struct katcp_sensor *sn), int (*flush)(struct katcp_dispatch *d, struct katcp_sensor *sn))
 {
-  return declare_multi_integer_sensor_katcp(d, mode, name, description, units, a, extract, flush, min, max, min, max);
+  return declare_multi_integer_sensor_katcp(d, mode, name, description, units, min, max, min, max, a, extract, flush);
 }
 
 /* plain vanilla boolean registration ************************************/
@@ -2894,7 +2886,7 @@ int register_boolean_sensor_katcp(struct katcp_dispatch *d, int mode, char *name
   struct katcp_sensor *sn;
   struct katcp_acquire *a;
 
-  sn = create_sensor_katcp(d, name, description, units, KATCP_STRATEGY_EVENT, KATCP_SENSOR_BOOLEAN, mode);
+  sn = create_sensor_katcp(d, name, description, units, KATCP_STRATEGY_EVENT, KATCP_SENSOR_BOOLEAN, mode, NULL);
   if(sn == NULL){
     return -1;
   }
@@ -2925,7 +2917,7 @@ int register_multi_boolean_sensor_katcp(struct katcp_dispatch *d, int mode, char
 {
   struct katcp_sensor *sn;
 
-  sn = create_sensor_katcp(d, name, description, units, KATCP_STRATEGY_EVENT, KATCP_SENSOR_BOOLEAN, mode);
+  sn = create_sensor_katcp(d, name, description, units, KATCP_STRATEGY_EVENT, KATCP_SENSOR_BOOLEAN, mode, NULL);
   if(sn == NULL){
     return -1;
   }
@@ -2956,17 +2948,18 @@ int register_invert_multi_boolean_sensor_katcp(struct katcp_dispatch *d, int mod
 /* float/double registration *********************************************/
 
 #ifdef KATCP_USE_FLOATS
-int register_double_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, double (*get)(struct katcp_dispatch *d, struct katcp_acquire *a), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a), double min, double max)
+
+int declare_double_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, double (*get)(struct katcp_dispatch *d, struct katcp_acquire *a), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a), double nom_min, double nom_max, double warn_min, double warn_max, int (*flush)(struct katcp_dispatch *d, struct katcp_sensor *sn))
 {
   struct katcp_sensor *sn;
   struct katcp_acquire *a;
 
-  sn = create_sensor_katcp(d, name, description, units, KATCP_STRATEGY_EVENT, KATCP_SENSOR_FLOAT, mode);
+  sn = create_sensor_katcp(d, name, description, units, KATCP_STRATEGY_EVENT, KATCP_SENSOR_FLOAT, mode, flush);
   if(sn == NULL){
     return -1;
   }
 
-  if(create_sensor_double_katcp(d, sn, min, max, min, max) < 0){
+  if(create_sensor_double_katcp(d, sn, nom_min, nom_max, warn_min, warn_max) < 0){
     destroy_sensor_katcp(d, sn);
     return -1;
   }
@@ -2986,18 +2979,23 @@ int register_double_sensor_katcp(struct katcp_dispatch *d, int mode, char *name,
   return 0;
 }
 
+int register_double_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, double (*get)(struct katcp_dispatch *d, struct katcp_acquire *a), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a), double min, double max, int (*flush)(struct katcp_dispatch *d, struct katcp_sensor *sn))
+{
+  return declare_double_sensor_katcp(d, mode, name, description, units, get, local, release, min, max, min, max, flush);
+}
+
 /* double registration with one acquire handling multiple sensors *******/
 
-int register_multi_double_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, double min, double max, struct katcp_acquire *a, int (*extract)(struct katcp_dispatch *d, struct katcp_sensor *sn))
+int declare_multi_double_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, double nom_min, double nom_max, double warn_min, double warn_max, struct katcp_acquire *a, int (*extract)(struct katcp_dispatch *d, struct katcp_sensor *sn), int (*flush)(struct katcp_dispatch *d, struct katcp_sensor *sn))
 {
   struct katcp_sensor *sn;
 
-  sn = create_sensor_katcp(d, name, description, units, KATCP_STRATEGY_EVENT, KATCP_SENSOR_FLOAT, mode);
+  sn = create_sensor_katcp(d, name, description, units, KATCP_STRATEGY_EVENT, KATCP_SENSOR_FLOAT, mode, flush);
   if(sn == NULL){
     return -1;
   }
 
-  if(create_sensor_double_katcp(d, sn, min, max, min, max) < 0){
+  if(create_sensor_double_katcp(d, sn, nom_min, nom_max, warn_min, warn_max) < 0){
     destroy_sensor_katcp(d, sn);
     return -1;
   }
@@ -3010,6 +3008,11 @@ int register_multi_double_sensor_katcp(struct katcp_dispatch *d, int mode, char 
   return 0;
 }
 
+int register_multi_double_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, double min, double max, struct katcp_acquire *a, int (*extract)(struct katcp_dispatch *d, struct katcp_sensor *sn), int (*flush)(struct katcp_dispatch *d, struct katcp_sensor *sn))
+{
+  return declare_multi_double_sensor_katcp(d, mode, name, description, units, min, max, min, max, a, extract, flush);
+}
+
 #endif
 
 /* discrete registration *************************************************/
@@ -3019,7 +3022,7 @@ int register_discrete_sensor_katcp(struct katcp_dispatch *d, int mode, char *nam
   struct katcp_sensor *sn;
   struct katcp_acquire *a;
 
-  sn = create_sensor_katcp(d, name, description, units, KATCP_STRATEGY_EVENT, KATCP_SENSOR_DISCRETE, mode);
+  sn = create_sensor_katcp(d, name, description, units, KATCP_STRATEGY_EVENT, KATCP_SENSOR_DISCRETE, mode, NULL);
   if(sn == NULL){
     return -1;
   }
@@ -3938,8 +3941,9 @@ int match_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_notice *n, vo
   }
 #endif
 
-  /* WARNING: force mode to be 0, but what about sensor availability in various modes ? */
-  sn = create_sensor_katcp(d, combine, description, units, KATCP_STRATEGY_EVENT, code, 0);
+  /* WARNING: force mode to be 0, but what about sensor availability in various modes ? */ 
+  /* lesser concern are the flush routines - they are adminish, understandable if they are not proxied */
+  sn = create_sensor_katcp(d, combine, description, units, KATCP_STRATEGY_EVENT, code, 0, NULL);
   free(combine);
 
   if(sn == NULL){
@@ -4458,7 +4462,7 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
 
 #ifdef KATCP_USE_FLOATS
       case KATCP_SENSOR_FLOAT : 
-        if(register_double_sensor_katcp(d, 0, label, description, units, NULL, NULL, NULL, -10e18, 10e18) < 0){
+        if(register_double_sensor_katcp(d, 0, label, description, units, NULL, NULL, NULL, -10e18, 10e18, NULL) < 0){
           log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to register integer sensor %s", label);
           return KATCP_RESULT_FAIL;
         }
