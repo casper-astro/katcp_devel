@@ -77,7 +77,7 @@ int read_fd_hwsensor_tbs(int fd)
     return -1;
 
   if (lseek(fd, 0, SEEK_SET) < 0){
-#ifdef DEBUG
+#ifdef KATCP_STDERR_ERRORS
     fprintf(stderr, "hwmon: cannot lseek fd: %d\n", fd);
 #endif
     return -1;
@@ -93,6 +93,7 @@ int read_fd_hwsensor_tbs(int fd)
 int read_hwsensor_tbs(struct katcp_dispatch *d, struct katcp_acquire *a)
 {
   struct tbs_hwsensor *hs;
+  int value;
 
   if (a == NULL)
     return -1;
@@ -101,7 +102,12 @@ int read_hwsensor_tbs(struct katcp_dispatch *d, struct katcp_acquire *a)
   if (hs == NULL)
     return -1;
 
-  return read_fd_hwsensor_tbs((hs->h_mult * hs->h_adc_fd) / hs->h_div);
+  value = read_fd_hwsensor_tbs(hs->h_adc_fd);
+  if(value == (-1)){
+    return -1;
+  }
+
+  return (hs->h_mult * value) / hs->h_div;
 }
 
 int extract_hwsensor_tbs(struct katcp_dispatch *d, struct katcp_sensor *sn)
@@ -229,7 +235,7 @@ struct tbs_hwsensor *create_hwsensor_tbs(struct katcp_dispatch *d, char *name, c
 
   hs = alloc_hwsensor_tbs();
   if (hs == NULL){
-#ifdef DEBUG
+#ifdef KATCP_STDERR_ERRORS
     fprintf(stderr, "logic error, couldn't malloc\n");
 #endif
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "memory allocation failure");
@@ -271,7 +277,7 @@ struct tbs_hwsensor *create_hwsensor_tbs(struct katcp_dispatch *d, char *name, c
 
   hs->h_adc_fd = open(adc, O_RDONLY);
   if (hs->h_adc_fd < 0){
-#if DEBUG>1
+#if KATCP_STDERR_ERRORS
     fprintf(stderr, "hwmon: create hwsensor could not open %s (%s)\n", adc, strerror(errno));
 #endif
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not open %s (%s)", adc, strerror(errno));
@@ -286,7 +292,7 @@ struct tbs_hwsensor *create_hwsensor_tbs(struct katcp_dispatch *d, char *name, c
       hs->h_min = read_fd_hwsensor_tbs(minfd);
       close(minfd);
     } else {
-#if DEBUG>1
+#if KATCP_STDERR_ERRORS
       fprintf(stderr, "hwmon: create hwsensor could not open %s (%s)\n", min, strerror(errno));
 #endif
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not open %s (%s)", min, strerror(errno));
@@ -299,7 +305,7 @@ struct tbs_hwsensor *create_hwsensor_tbs(struct katcp_dispatch *d, char *name, c
       hs->h_max = read_fd_hwsensor_tbs(maxfd);
       close(maxfd);
     } else {
-#if DEBUG>1
+#if KATCP_STDERR_ERRORS
       fprintf(stderr, "hwmon: create hwsensor could not open %s (%s)\n", max, strerror(errno));
 #endif
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not open %s (%s)", max, strerror(errno));
