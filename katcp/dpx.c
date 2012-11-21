@@ -17,6 +17,8 @@
 #include <katpriv.h>
 #include <katcl.h>
 
+#ifdef KATCP_EXPERIMENTA
+
 #define KATCP_MAP_FLAG_NONE       0
 #define KATCP_MAP_FLAG_HIDDEN   0x1
 
@@ -1099,3 +1101,5 @@ int list_duplex_cmd_katcp(struct katcp_dispatch *d, int argc)
 
   return KATCP_RESULT_OK;
 }
+
+#endif

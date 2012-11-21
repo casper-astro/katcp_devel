@@ -538,8 +538,10 @@ int prepare_core_loop_katcp(struct katcp_dispatch *dl)
 
   register_flag_mode_katcp(dl, "?system-info",  "report server information (?system-info)", &system_info_cmd_katcp, 0, 0);
 
+#ifdef KATCP_EXPERIMENTAL
   register_flag_mode_katcp(dl, "?listen-duplex", "accept new duplex connections on given interface (?listen-duplex [interface:]port)", &listen_duplex_cmd_katcp, 0, 0);
   register_flag_mode_katcp(dl, "?list-duplex",  "report duplex information (?list-duplex)", &list_duplex_cmd_katcp, 0, 0);
+#endif
 
   time(&(s->s_start));
 
@@ -602,10 +604,12 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
       run = (-1);
     }
 
+#ifdef KATCP_EXPERIMENTAL
     /* WARNING: new code */
     if(load_flat_katcp(dl) < 0){
       run = (-1);
     }
+#endif
 
 
     if(run < 0){
@@ -673,8 +677,10 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
       wait_jobs_katcp(dl);
     }
 
+#ifdef KATCP_EXPERIMENTAL
     /* WARNING: new logic */
     run_flat_katcp(dl);
+#endif
 
     run_shared_katcp(dl);
     run_jobs_katcp(dl);
