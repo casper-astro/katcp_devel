@@ -17,7 +17,7 @@
 #include <katpriv.h>
 #include <katcl.h>
 
-#ifdef KATCP_EXPERIMENTA
+#ifdef KATCP_EXPERIMENTAL
 
 #define KATCP_MAP_FLAG_NONE       0
 #define KATCP_MAP_FLAG_HIDDEN   0x1

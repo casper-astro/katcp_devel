@@ -8,7 +8,7 @@ KATCP ?= katcp
 CFLAGS += -Wall
 #CFLAGS += -O2
 
-# where the C implementation has diverged from the standard,
+# where the C implementation has diverged from the katcp standard,
 # force standard behaviour. Currently only one case: log-level affects
 # all connections immediately in standard, otherwise local connection only
 CFLAGS += -DKATCP_STRICT_CONFORMANCE
@@ -27,17 +27,20 @@ CFLAGS += -DKATCP_USE_FLOATS
 # resistant to failures, but will also notice failures sooner
 CFLAGS += -DKATCP_CONSISTENCY_CHECKS
 
-# log certain noncritical failures to stderr 
+# log selected noncritical failures to stderr 
 CFLAGS += -DKATCP_STDERR_ERRORS
 
-# include newer, broken or nonfunctional code
+# enable the ability to manage katcp subprocesses
+CFLAGS += -DKATCP_SUBPROCESS
+
+# enable newer, broken or nonfunctional code
 CFLAGS += -DKATCP_EXPERIMENTAL
 
 # pick a protocol reversion from the list. Making up
 # your own major values doesn't work unless you also implement what 
 # the protocol requires
-#CFLAGS += -DKATCP_PROTOCOL_MAJOR_VERSION=5 -DKATCP_PROTOCOL_MINOR_VERSION=0
-CFLAGS += -DKATCP_PROTOCOL_MAJOR_VERSION=4 -DKATCP_PROTOCOL_MINOR_VERSION=9
+CFLAGS += -DKATCP_PROTOCOL_MAJOR_VERSION=5 -DKATCP_PROTOCOL_MINOR_VERSION=0
+#CFLAGS += -DKATCP_PROTOCOL_MAJOR_VERSION=4 -DKATCP_PROTOCOL_MINOR_VERSION=9
 
 # amount of debugging logic to enable 
 #CFLAGS += -DDEBUG=4

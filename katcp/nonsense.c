@@ -2276,17 +2276,26 @@ static struct katcp_sensor *create_sensor_katcp(struct katcp_dispatch *d, char *
   s = d->d_shared;
 
   if(name == NULL){
+#ifdef KATCP_STDERR_ERRORS
+    fprintf(stderr, "sensor: require a sensor name\n");
+#endif
     return NULL;
   }
 
   tmp = realloc(s->s_sensors, sizeof(struct katcp_sensor *) * (s->s_tally + 1));
   if(tmp == NULL){
+#ifdef KATCP_STDERR_ERRORS
+    fprintf(stderr, "sensor: allocation of sensor vector at number %u failed", s->s_tally);
+#endif
     return NULL;
   }
   s->s_sensors = tmp;
 
   sn = malloc(sizeof(struct katcp_sensor));
   if(sn == NULL){
+#ifdef KATCP_STDERR_ERRORS
+    fprintf(stderr, "sensor: unable to allocate sensor number %u", s->s_tally);
+#endif
     return NULL;
   }
 
@@ -2317,6 +2326,9 @@ static struct katcp_sensor *create_sensor_katcp(struct katcp_dispatch *d, char *
 
   sn->s_name = strdup(name);
   if(sn->s_name == NULL){
+#ifdef KATCP_STDERR_ERRORS
+    fprintf(stderr, "sensor: unable to duplicate name %s", name);
+#endif
     destroy_sensor_katcp(d, sn);
     return NULL;
   }
@@ -2324,6 +2336,9 @@ static struct katcp_sensor *create_sensor_katcp(struct katcp_dispatch *d, char *
   if(description){
     sn->s_description = strdup(description);
     if(sn->s_description == NULL){
+#ifdef KATCP_STDERR_ERRORS
+    fprintf(stderr, "sensor: unable to duplicate sensor description \"%s\"", description);
+#endif
       destroy_sensor_katcp(d, sn);
       return NULL;
     }
@@ -2331,6 +2346,9 @@ static struct katcp_sensor *create_sensor_katcp(struct katcp_dispatch *d, char *
   if(units){
     sn->s_units = strdup(units);
     if(sn->s_units == NULL){
+#ifdef KATCP_STDERR_ERRORS
+    fprintf(stderr, "sensor: unable to duplicate senor units field %s", units);
+#endif
       destroy_sensor_katcp(d, sn);
       return NULL;
     }
@@ -2842,7 +2860,7 @@ int declare_integer_sensor_katcp(struct katcp_dispatch *d, int mode, char *name,
     return -1;
   }
 
-  return -1;
+  return 0;
 }
 
 int register_integer_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, int (*get)(struct katcp_dispatch *d, struct katcp_acquire *a), void *local, void (*release)(struct katcp_dispatch *d, struct katcp_acquire *a), int min, int max, int (*flush)(struct katcp_dispatch *d, struct katcp_sensor *sn))
@@ -3869,6 +3887,7 @@ char *assemble_sensor_name_katcp(struct katcp_notice *n, char *suffix)
 }
 #endif
 
+#ifdef KATCP_SUBPROCESS
 int match_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 {
   struct katcp_sensor *sn;
@@ -4276,6 +4295,7 @@ int job_suspend_sensor_katcp(struct katcp_dispatch *d, struct katcp_notice *n, v
 
   return result;
 }
+#endif
 
 
 /***************************************************************************/
@@ -4284,16 +4304,18 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   struct katcp_shared *s;
   struct katcp_sensor *sn;
-  struct katcp_dispatch *dl;
   struct katcp_nonsense *ns;
+#ifdef KATCP_SUBPROCESS
+  struct katcp_dispatch *dl;
   struct katcp_job *jb;
+  struct katcl_parse *p;
+#endif
   struct katcp_acquire *a;
   struct katcp_integer_acquire *ia;
   struct katcp_discrete_acquire *dsa;
 #ifdef KATCP_USE_FLOATS
   struct katcp_double_acquire *doa;
 #endif
-  struct katcl_parse *p;
   int i, j, got, code;
   char *name, *type, *label, *value, *description, *units, *status;
 
@@ -4351,6 +4373,7 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
     } 
     return KATCP_RESULT_OK;
 
+#ifdef KATCP_SUBPROCESS
   } else if(!strcmp(name, "relay")){
 
     name = arg_string_katcp(d, 2);
@@ -4397,6 +4420,7 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
 
     log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "initialised sensor tracking for subordinate %s", jb->j_url->u_str);
     return KATCP_RESULT_OK;
+#endif
 
   } else if(!strcmp(name, "destroy")){
     label = arg_string_katcp(d, 2);

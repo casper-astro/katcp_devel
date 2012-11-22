@@ -9,6 +9,7 @@ General purpose components
 
   katcp       - the katcp library itself
   cmd         - send arbitrary katcp commands to a remote server
+  par         - similar to cmd, but talk to multiple devices concurrently 
   log         - a utility to monitor a remote katcp server
   sq          - simple katcp sensor query utility (block until 
                 a sensor changes to a certain status field)

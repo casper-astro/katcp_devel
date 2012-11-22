@@ -317,6 +317,7 @@ struct katcp_map{
   unsigned int m_size;
 };
 
+#ifdef KATCP_SUBPROCESS
 struct katcp_job{
   unsigned int j_magic;
   struct katcp_url *j_url;
@@ -340,6 +341,7 @@ struct katcp_job{
 
   struct katcp_map *j_map;
 };
+#endif
 
 #if 0
 #define KATCP_TIME_OTHER   0
@@ -550,10 +552,12 @@ struct katcp_stack {
   int s_count;
 };
 
+#ifdef KATCP_SUBPROCESS
 struct katcp_dynamic_mode{
   int d_magic;
   char *d_cmd;
 };
+#endif
 
 void exchange_katcl(struct katcl_line *l, int fd);
 

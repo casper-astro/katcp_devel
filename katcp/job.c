@@ -1,6 +1,8 @@
 /* (c) 2010,2011 SKA SA */
 /* Released under the GNU GPLv3 - see COPYING */
 
+#ifdef KATCP_SUBPROCESS
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -2532,4 +2534,6 @@ int main()
 
   return 0;
 }
+#endif
+
 #endif
