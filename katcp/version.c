@@ -279,7 +279,7 @@ int print_versions_katcp(struct katcp_dispatch *d, int initial)
   for(i = 0; i < s->s_amount; i++){
     v = s->s_versions[i];
 
-#if 1
+#if KATCP_PROTOCOL_MAJOR_VERSION <= 4
     if(i == 0){
       switch(initial){
         case KATCP_PRINT_VERSION_CONNECT : 
