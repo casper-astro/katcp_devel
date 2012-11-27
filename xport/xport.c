@@ -39,24 +39,16 @@
 #define STATE_DOWN      2
 #define STATE_STARTING  3
 
-struct roach{
-  char *r_name;
-  struct sockaddr_in r_sa;
-  int r_state;
-};
-
 struct state{
-  struct roach **s_vector;
-  unsigned int s_count;
-  unsigned int s_current;
+  char *s_name;
+  struct sockaddr_in s_sa;
+
+  int s_state;
 
   int s_fd;
+
   struct katcl_line *s_up;
 };
-
-/*********************************************************************/
-
-void free_roach(struct roach *r);
 
 /*********************************************************************/
 
@@ -68,12 +60,8 @@ void destroy_state(struct state *s)
     return;
   }
 
-  if(s->s_vector){
-    for(i = 0; i < s->s_count; i++){
-      free_roach(s->s_vector[i]);
-      s->s_vector[i] = NULL;
-    }
-    free(s->s_vector);
+  if(s->s_name){
+    free(s->s_name);
   }
 
   if(s->s_fd >= 0){
@@ -97,9 +85,11 @@ struct state *create_state(int fd)
     return NULL;
   }
 
-  s->s_vector = NULL;
-  s->s_count = 0;
-  s->s_current = 0;
+  s->s_name = NULL;
+  /* s_sa */
+
+  s->s_state = 0;
+  s->s_fd = (-1);
 
   s->s_up = create_katcl(fd);
   if(s->s_up == NULL){
@@ -112,68 +102,35 @@ struct state *create_state(int fd)
 
 /*********************************************************************/
 
-void free_roach(struct roach *r)
-{
-  if(r == NULL){
-    return;
-  }
-
-  if(r->r_name){
-    free(r->r_name);
-    r->r_name = NULL;
-  }
-
-  free(r);
-}
-
 int add_roach(struct state *s, char *name)
 {
-  struct roach *r, **tmp;
   struct hostent *he;
 
-  r = malloc(sizeof(struct roach));
-  if(r == NULL){
-    sync_message_katcl(s->s_up, KATCP_LEVEL_ERROR, NAME, "unable to allocate %d bytes", sizeof(struct roach));
-    return -1;
-  }
+  s->s_state = STATE_UNKNOWN;
+  s->s_name = strdup(name);
 
-  r->r_state = STATE_UNKNOWN;
-  r->r_name = strdup(name);
-
-  if(r->r_name == NULL){
+  if(s->s_name == NULL){
     sync_message_katcl(s->s_up, KATCP_LEVEL_ERROR, NAME, "unable to duplicate string %s", name);
-    free_roach(r);
     return -1;
   }
 
-  if(inet_aton(name, &(r->r_sa.sin_addr)) == 0){
+  if(inet_aton(name, &(s->s_sa.sin_addr)) == 0){
     he = gethostbyname(name);
     if((he == NULL) || (he->h_addrtype != AF_INET)){
       sync_message_katcl(s->s_up, KATCP_LEVEL_ERROR, NAME, "unable to resolve roach name %s", name);
-      free_roach(r);
       return -1;
     } else {
-      r->r_sa.sin_addr = *(struct in_addr *) he->h_addr;
+      s->s_sa.sin_addr = *(struct in_addr *) he->h_addr;
     }
   }
 
-  r->r_sa.sin_port = htons(DEFAULT_PORT);
-  r->r_sa.sin_family = AF_INET;
-
-  tmp = realloc(s->s_vector, sizeof(struct roach *) * (s->s_count + 1));
-  if(tmp == NULL){
-    return -1;
-  }
-
-  s->s_vector = tmp;
-
-  s->s_vector[s->s_count] = r;
-  s->s_count++;
+  s->s_sa.sin_port = htons(DEFAULT_PORT);
+  s->s_sa.sin_family = AF_INET;
 
   return 0;
 }
 
-int issue_read(struct state *s, struct roach *r, unsigned int address)
+int issue_read(struct state *s, unsigned int address)
 {
   char buffer[3];
   int wr;
@@ -182,10 +139,10 @@ int issue_read(struct state *s, struct roach *r, unsigned int address)
   buffer[1] = address & 0xff;
   buffer[2] = (address >> 8) & 0xff;
 
-  wr = sendto(s->s_fd, buffer, 3, MSG_DONTWAIT | MSG_NOSIGNAL, &(r->r_sa), sizeof(struct sockaddr_in));
+  wr = send(s->s_fd, buffer, 3, MSG_DONTWAIT | MSG_NOSIGNAL);
 
   if(wr < 0){
-    sync_message_katcl(s->s_up, KATCP_LEVEL_ERROR, NAME, "unable to issue read to roach %s", r->r_name, strerror(errno));
+    sync_message_katcl(s->s_up, KATCP_LEVEL_ERROR, NAME, "unable to issue read to roach %s", s->s_name, strerror(errno));
     return -1;
   }
 
@@ -197,7 +154,7 @@ int issue_read(struct state *s, struct roach *r, unsigned int address)
   return 0;
 }
 
-int issue_write(struct state *s, struct roach *r, unsigned int address, unsigned int value)
+int issue_write(struct state *s, unsigned int address, unsigned int value)
 {
   char buffer[5];
   int wr;
@@ -208,10 +165,10 @@ int issue_write(struct state *s, struct roach *r, unsigned int address, unsigned
   buffer[3] = value & 0xff;
   buffer[4] = (value >> 8) & 0xff;
 
-  wr = sendto(s->s_fd, buffer, 5, MSG_DONTWAIT | MSG_NOSIGNAL, &(r->r_sa), sizeof(struct sockaddr_in));
+  wr = send(s->s_fd, buffer, 5, MSG_DONTWAIT | MSG_NOSIGNAL);
 
   if(wr < 0){
-    sync_message_katcl(s->s_up, KATCP_LEVEL_ERROR, NAME, "unable to issue read to roach %s", r->r_name, strerror(errno));
+    sync_message_katcl(s->s_up, KATCP_LEVEL_ERROR, NAME, "unable to issue read to roach %s", s->s_name, strerror(errno));
     return -1;
   }
 
@@ -225,11 +182,16 @@ int issue_write(struct state *s, struct roach *r, unsigned int address, unsigned
 
 int setup_network(struct state *s)
 {
-  s->s_fd = socket(AF_INET, SOCK_DGRAM, 0);
+  s->s_fd = socket(AF_INET, SOCK_STREAM, 0);
 
   if(s->s_fd < 0){
     sync_message_katcl(s->s_up, KATCP_LEVEL_ERROR, NAME, "unable to allocate a socket: %s", strerror(errno));
 
+    return -1;
+  }
+
+  if(connect(s->s_fd, (struct sockaddr *)(&(s->s_sa)), sizeof(struct sockaddr_in)) < 0){
+    sync_message_katcl(s->s_up, KATCP_LEVEL_ERROR, NAME, "unable to connect to %s: %s", s->s_name, strerror(errno));
     return -1;
   }
 
@@ -266,7 +228,6 @@ void usage(char *app)
 int main(int argc, char **argv)
 {
   struct state *ss;
-  struct roach *r;
   struct sockaddr_in sa;
   fd_set fsr, fsw;
   char *cmd;
@@ -389,10 +350,9 @@ int main(int argc, char **argv)
     }
 
     if(FD_ISSET(ss->s_fd, &fsw)){
-      r = ss->s_vector[ss->s_current];
-      switch(r->r_state){
+      switch(ss->s_state){
         case STATE_UNKNOWN :
-          if(issue_read(ss, r, REGISTER_POWERSTATE) < 0){
+          if(issue_read(ss, REGISTER_POWERSTATE) < 0){
 
           }
           break;
@@ -401,7 +361,7 @@ int main(int argc, char **argv)
 
     if(FD_ISSET(ss->s_fd, &fsr)){
       len = sizeof(struct sockaddr_in);
-      result = recvfrom(ss->s_fd, buffer, BUFFER, 0, &sa, &len);
+      result = recv(ss->s_fd, buffer, BUFFER, 0);
       if(result < 0){
         sync_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, NAME, "receive failed: %s", strerror(errno));
       }
@@ -419,11 +379,6 @@ int main(int argc, char **argv)
     }
 
     sleep(1);
-
-    ss->s_current++;
-    if(ss->s_current >= ss->s_count){
-      ss->s_current = 0;
-    }
 
   }
 
