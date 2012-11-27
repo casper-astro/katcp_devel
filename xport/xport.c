@@ -367,10 +367,17 @@ int main(int argc, char **argv)
       result = recv(ss->s_fd, ss->s_buffer + ss->s_have, BUFFER - ss->s_have, 0);
       if(result < 0){
         sync_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, NAME, "receive failed: %s", strerror(errno));
-      }
 
-      if(result == 0){
-        sync_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, NAME, "empty packet from");
+        close(ss->s_fd);
+        ss->s_fd = (-1);
+
+      } else {
+
+        if(result == 0){
+          sync_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, NAME, "empty packet from");
+        }
+
+        ss->s_have += result;
       }
     }
 
