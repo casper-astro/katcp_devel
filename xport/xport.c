@@ -335,12 +335,13 @@ int main(int argc, char **argv)
     FD_SET(ss->s_fd, &fsw);
     FD_SET(ss->s_fd, &fsr);
 
+    fd = fileno_katcl(ss->s_up);
+    if(fd > mfd){
+      mfd = fd;
+    }
+    FD_SET(fd, &fsr);
     if(flushing_katcl(ss->s_up)){
-      fd = fileno_katcl(ss->s_up);
       FD_SET(fd, &fsw);
-      if(fd > mfd){
-        mfd = fd;
-      }
     }
 
     result = select(mfd + 1, &fsr, &fsw, NULL, NULL);
@@ -361,7 +362,18 @@ int main(int argc, char **argv)
         return 4;
     }
 
-    
+    fd = fileno_katcl(ss->s_up);
+    if(FD_ISSET(fd, &fsr)){
+      result = read_katcl(ss->s_up);
+      if(result > 0){
+        /* TODO: shutdown roach here */
+        run = 0;
+      }
+
+      /* discard all upstream requests */
+      while(have_katcl(ss->s_up) > 0);
+    }
+
     if(FD_ISSET(ss->s_fd, &fsr)){
       len = sizeof(struct sockaddr_in);
       result = recv(ss->s_fd, ss->s_buffer + ss->s_have, BUFFER - ss->s_have, 0);
