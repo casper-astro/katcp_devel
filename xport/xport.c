@@ -39,11 +39,20 @@
 #define STATE_DOWN      2
 #define STATE_STARTING  3
 
+#define BUFFER 64
+
+
 struct state{
   char *s_name;
   struct sockaddr_in s_sa;
 
   int s_state;
+  int s_address;
+  int s_value;
+
+  unsigned char s_buffer[BUFFER];
+  unsigned int s_have;
+  unsigned int s_done;
 
   int s_fd;
 
@@ -54,8 +63,6 @@ struct state{
 
 void destroy_state(struct state *s)
 {
-  int i;
-
   if(s == NULL){
     return;
   }
@@ -63,6 +70,9 @@ void destroy_state(struct state *s)
   if(s->s_name){
     free(s->s_name);
   }
+
+  s->s_have = 0;
+  s->s_done = 0;
 
   if(s->s_fd >= 0){
     close(s->s_fd);
@@ -89,7 +99,12 @@ struct state *create_state(int fd)
   /* s_sa */
 
   s->s_state = 0;
+  s->s_address = (-1);
+  s->s_value = (-1);
   s->s_fd = (-1);
+
+  s->s_have = 0;
+  s->s_done = 0;
 
   s->s_up = create_katcl(fd);
   if(s->s_up == NULL){
@@ -151,6 +166,8 @@ int issue_read(struct state *s, unsigned int address)
     return -1;
   }
 
+  s->s_address = address;
+
   return 0;
 }
 
@@ -182,17 +199,20 @@ int issue_write(struct state *s, unsigned int address, unsigned int value)
 
 int setup_network(struct state *s)
 {
-  s->s_fd = socket(AF_INET, SOCK_STREAM, 0);
-
   if(s->s_fd < 0){
-    sync_message_katcl(s->s_up, KATCP_LEVEL_ERROR, NAME, "unable to allocate a socket: %s", strerror(errno));
 
-    return -1;
-  }
+    s->s_fd = socket(AF_INET, SOCK_STREAM, 0);
 
-  if(connect(s->s_fd, (struct sockaddr *)(&(s->s_sa)), sizeof(struct sockaddr_in)) < 0){
-    sync_message_katcl(s->s_up, KATCP_LEVEL_ERROR, NAME, "unable to connect to %s: %s", s->s_name, strerror(errno));
-    return -1;
+    if(s->s_fd < 0){
+      sync_message_katcl(s->s_up, KATCP_LEVEL_ERROR, NAME, "unable to allocate a socket: %s", strerror(errno));
+
+      return -1;
+    }
+
+    if(connect(s->s_fd, (struct sockaddr *)(&(s->s_sa)), sizeof(struct sockaddr_in)) < 0){
+      sync_message_katcl(s->s_up, KATCP_LEVEL_ERROR, NAME, "unable to connect to %s: %s", s->s_name, strerror(errno));
+      return -1;
+    }
   }
 
   return 0;
@@ -223,19 +243,17 @@ void usage(char *app)
   printf("  command and parameters have to be given as single quoted strings\n");
 }
 
-#define BUFFER 64
-
 int main(int argc, char **argv)
 {
   struct state *ss;
   struct sockaddr_in sa;
   fd_set fsr, fsw;
   char *cmd;
-  int i, j, c, mfd, fd, verbose, result, status, len, run;
+  int i, j, c, mfd, fd, verbose, result, status, len, run, want;
   sigset_t mask_current, mask_previous;
+  unsigned int value;
   struct sigaction action_current, action_previous;
   pid_t pid;
-  char buffer[BUFFER];
 
   ss = create_state(STDOUT_FILENO);
   if(ss == NULL){
@@ -344,9 +362,57 @@ int main(int argc, char **argv)
     }
 
     
-    fd = fileno_katcl(ss->s_up);
-    if(FD_ISSET(fd, &fsw)){
-      result = write_katcl(ss->s_up);
+    if(FD_ISSET(ss->s_fd, &fsr)){
+      len = sizeof(struct sockaddr_in);
+      result = recv(ss->s_fd, ss->s_buffer + ss->s_have, BUFFER - ss->s_have, 0);
+      if(result < 0){
+        sync_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, NAME, "receive failed: %s", strerror(errno));
+      }
+
+      if(result == 0){
+        sync_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, NAME, "empty packet from");
+      }
+    }
+
+    want = ss->s_done;
+    while(want < ss->s_have){
+
+      switch(ss->s_buffer[want]){
+        case 0x1 : 
+
+          if((want + 2) < ss->s_have){
+            ss->s_value = (ss->s_buffer[want + 1]) + (ss->s_buffer[want + 2] * 256);
+            if(ss->s_address >= 0){
+              log_message_katcl(ss->s_up, KATCP_LEVEL_TRACE, NAME, "read[0x%04x]=0x%04x", ss->s_address, ss->s_value);
+            } else {
+              log_message_katcl(ss->s_up, KATCP_LEVEL_WARN, NAME, "received xport read data despite no read outstanding");
+            }
+            ss->s_address = (-1);
+          }
+
+          want += 3;
+          break;
+
+        case 0x2 : 
+          want++;
+          break;
+
+        default :
+          log_message_katcl(ss->s_up, KATCP_LEVEL_TRACE, NAME, "got back unknown message type 0x%x", ss->s_buffer[0]);
+          want++;
+          break;
+      }
+
+    }
+
+    if(want <= ss->s_have){
+      ss->s_done = want;
+    }
+
+    if(ss->s_done > 0){
+      memmove(ss->s_buffer, ss->s_buffer + ss->s_done, BUFFER - ss->s_done);
+      ss->s_have -= ss->s_done;
+      ss->s_done = 0;
     }
 
     if(FD_ISSET(ss->s_fd, &fsw)){
@@ -359,24 +425,11 @@ int main(int argc, char **argv)
       }
     }
 
-    if(FD_ISSET(ss->s_fd, &fsr)){
-      len = sizeof(struct sockaddr_in);
-      result = recv(ss->s_fd, buffer, BUFFER, 0);
-      if(result < 0){
-        sync_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, NAME, "receive failed: %s", strerror(errno));
-      }
-
-      if(result == 0){
-        sync_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, NAME, "empty packet from");
-      }
-
-      switch(buffer[0]){
-        default :
-          log_message_katcl(ss->s_up, KATCP_LEVEL_TRACE, NAME, "got back message code 0x%x", buffer[0]);
-          break;
-      }
-
+    fd = fileno_katcl(ss->s_up);
+    if(FD_ISSET(fd, &fsw)){
+      result = write_katcl(ss->s_up);
     }
+
 
     sleep(1);
 
