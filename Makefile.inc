@@ -16,7 +16,7 @@ CFLAGS += -DKATCP_STRICT_CONFORMANCE
 # how many messages to hold before forcing a flush, only useful 
 # on memory constrained systems. When this value is unset the 
 # system buffers as much as needed
-CFLAGS += -DKATCP_FLUSH_THRESHOLD=4
+#CFLAGS += -DKATCP_FLUSH_THRESHOLD=4
 
 # enable floating point support (floating point sensor type)
 # unless you don't want to use your fpu (or don't have one) enable this
@@ -39,8 +39,8 @@ CFLAGS += -DKATCP_EXPERIMENTAL
 # pick a protocol reversion from the list. Making up
 # your own major values doesn't work unless you also implement what 
 # the protocol requires
-CFLAGS += -DKATCP_PROTOCOL_MAJOR_VERSION=5 -DKATCP_PROTOCOL_MINOR_VERSION=0
-#CFLAGS += -DKATCP_PROTOCOL_MAJOR_VERSION=4 -DKATCP_PROTOCOL_MINOR_VERSION=9
+#CFLAGS += -DKATCP_PROTOCOL_MAJOR_VERSION=5 -DKATCP_PROTOCOL_MINOR_VERSION=0
+CFLAGS += -DKATCP_PROTOCOL_MAJOR_VERSION=4 -DKATCP_PROTOCOL_MINOR_VERSION=9
 
 # amount of debugging logic to enable 
 #CFLAGS += -DDEBUG=4

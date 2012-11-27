@@ -9,7 +9,6 @@ General purpose components
 
   katcp       - the katcp library itself
   cmd         - send arbitrary katcp commands to a remote server
-  par         - similar to cmd, but talk to multiple devices concurrently 
   log         - a utility to monitor a remote katcp server
   sq          - simple katcp sensor query utility (block until 
                 a sensor changes to a certain status field)
@@ -19,6 +18,7 @@ Utilities for particular tasks, probably of lesser interest to most
 
   bulkread    - a utlity to perform a ?bulkread request
   msg         - something to generate katcp log messages (glue logic)
+  par         - similar to cmd, but talk to multiple devices concurrently 
 
   tcpborphserver3 
               - roach2 server using memory mapped logic. Requires a kernel
