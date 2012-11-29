@@ -305,8 +305,8 @@ int load_buffer(struct state *ss, int force)
   int result;
 
   if(force == 0){ 
-    if(!(FD_ISSET(ss->s_fd, &(ss->s_fsw)))){
-      return 0;
+    if(!(FD_ISSET(ss->s_fd, &(ss->s_fsr)))){
+      return ss->s_have;
     }
   }
 
@@ -336,6 +336,10 @@ int find_read_reply(struct state *ss)
   int discard;
   discard = 0;
 
+#ifdef DEBUG
+  fprintf(stderr, "looking for reply: done=%u, have=%u\n", ss->s_done, ss->s_have);
+#endif
+
   while(ss->s_done < ss->s_have){
     if(ss->s_buffer[ss->s_done] == 0x1){
       trim_buffer(ss);
@@ -352,7 +356,7 @@ int find_read_reply(struct state *ss)
     ss->s_done++;
   }
 
-  return discard;
+  return (discard == 0) ? 1 : discard;
 }
 
 void clear_io_state(struct state *ss)
@@ -472,9 +476,22 @@ int decode_powerstatus_item(struct state *ss, int tag)
 {
   int result, value;
 
+  result = load_buffer(ss, 0);
+  if(result < 0){
+    return ITEM_FAIL;
+  }
+
+  if(result == 0){ /* no bytes available */
+    add_fd(ss, ss->s_fd, ADD_READ);
+    return ITEM_STAY;
+  }
+
   result = find_read_reply(ss);
+#ifdef DEBUG
+    fprintf(stderr, "read reply is %d", result);
+#endif
   if(result != 0){
-    add_fd(ss, ss->s_fd, ADD_WRITE);
+    add_fd(ss, ss->s_fd, ADD_READ);
     return ITEM_STAY;
   }
 
@@ -632,7 +649,7 @@ int main(int argc, char **argv)
 
   /* TODO: select different tables */
 
-  load_table(ss, poweron_table, 3);
+  load_table(ss, poweron_table, 4);
 
   gettimeofday(&now, NULL);
 
