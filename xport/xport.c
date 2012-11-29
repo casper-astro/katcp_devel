@@ -26,27 +26,42 @@
 #include "katcl.h"
 #include "katpriv.h"
 
-#define REGISTER_POWERSTATE  0x280
-
 #define DEBUG
 
-#define NAME "xport"
+#define ITEM_STAY              0x0
+#define ITEM_OK                0x1
+#define ITEM_FAIL              0x2
+#define ITEM_ALT               0x3
 
-#define DEFAULT_PORT 10001
+#define REGISTER_POWERSTATE  0x280
+#define REGISTER_POWERUP     0x281
+#define REGISTER_POWERDOWN   0x282
 
-#define STATE_UNKNOWN   0
-#define STATE_UP        1
-#define STATE_DOWN      2
-#define STATE_STARTING  3
+#define POWER_OFF                0
+#define POWER_STARTING           1
+#define POWER_ON                 2
+#define POWER_NA                 3  
+
+#define NAME                "xport"
+
+#define DEFAULT_PORT         10001
+#define DEFAULT_WAIT            10
+
+#define ADD_READ               0x1
+#define ADD_WRITE              0x2
 
 #define BUFFER 64
 
+struct item;
 
 struct state{
   char *s_name;
   struct sockaddr_in s_sa;
 
-  int s_state;
+  fd_set s_fsr, s_fsw;
+  int s_max;
+
+  int s_power;
   int s_address;
   int s_value;
 
@@ -57,95 +72,127 @@ struct state{
   int s_fd;
 
   struct katcl_line *s_up;
+
+  struct item *s_table;
+  unsigned int s_size;
+  unsigned int s_index;
+};
+
+struct item{
+  int (*i_call)(struct state *ss, int tag);
+  unsigned int i_ok;
+  unsigned int i_fail;
+  unsigned int i_alt;
+
+  int i_tag;
 };
 
 /*********************************************************************/
+/* setup routines ****************************************************/
 
-void destroy_state(struct state *s)
+void destroy_state(struct state *ss)
 {
-  if(s == NULL){
+  if(ss == NULL){
     return;
   }
 
-  if(s->s_name){
-    free(s->s_name);
+  if(ss->s_name){
+    free(ss->s_name);
   }
 
-  s->s_have = 0;
-  s->s_done = 0;
+  ss->s_have = 0;
+  ss->s_done = 0;
 
-  if(s->s_fd >= 0){
-    close(s->s_fd);
+  if(ss->s_fd >= 0){
+    close(ss->s_fd);
   }
 
-  if(s->s_up){
-    destroy_katcl(s->s_up, 0);
-    s->s_up = NULL;
+  if(ss->s_up){
+    destroy_katcl(ss->s_up, 0);
+    ss->s_up = NULL;
   }
 
-  free(s);
+  free(ss);
 }
 
 struct state *create_state(int fd)
 {
-  struct state *s;
+  struct state *ss;
 
-  s = malloc(sizeof(struct state));
-  if(s == NULL){
+  ss = malloc(sizeof(struct state));
+  if(ss == NULL){
     return NULL;
   }
 
-  s->s_name = NULL;
-  /* s_sa */
+  ss->s_name = NULL;
+  /* s_sa, fd sets */
 
-  s->s_state = 0;
-  s->s_address = (-1);
-  s->s_value = (-1);
-  s->s_fd = (-1);
+  ss->s_max = (-1);
 
-  s->s_have = 0;
-  s->s_done = 0;
+  ss->s_power = 0;
+  ss->s_address = (-1);
+  ss->s_value = (-1);
 
-  s->s_up = create_katcl(fd);
-  if(s->s_up == NULL){
-    destroy_state(s);
+  /* buffer */
+  ss->s_have = 0;
+  ss->s_done = 0;
+
+  ss->s_fd = (-1);
+
+  ss->s_up = NULL;
+
+  ss->s_table = NULL;
+  ss->s_size = 0;
+  ss->s_index = 0;
+
+  ss->s_up = create_katcl(fd);
+  if(ss->s_up == NULL){
+    destroy_state(ss);
     return NULL;
   }
 
-  return s;
+  return ss;
 }
 
-/*********************************************************************/
-
-int add_roach(struct state *s, char *name)
+int add_roach(struct state *ss, char *name)
 {
   struct hostent *he;
 
-  s->s_state = STATE_UNKNOWN;
-  s->s_name = strdup(name);
+  ss->s_power = POWER_NA;
+  ss->s_name = strdup(name);
 
-  if(s->s_name == NULL){
-    sync_message_katcl(s->s_up, KATCP_LEVEL_ERROR, NAME, "unable to duplicate string %s", name);
+  if(ss->s_name == NULL){
+    sync_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, NAME, "unable to duplicate string %s", name);
     return -1;
   }
 
-  if(inet_aton(name, &(s->s_sa.sin_addr)) == 0){
+  if(inet_aton(name, &(ss->s_sa.sin_addr)) == 0){
     he = gethostbyname(name);
     if((he == NULL) || (he->h_addrtype != AF_INET)){
-      sync_message_katcl(s->s_up, KATCP_LEVEL_ERROR, NAME, "unable to resolve roach name %s", name);
+      sync_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, NAME, "unable to resolve roach name %s", name);
       return -1;
     } else {
-      s->s_sa.sin_addr = *(struct in_addr *) he->h_addr;
+      ss->s_sa.sin_addr = *(struct in_addr *) he->h_addr;
     }
   }
 
-  s->s_sa.sin_port = htons(DEFAULT_PORT);
-  s->s_sa.sin_family = AF_INET;
+  ss->s_sa.sin_port = htons(DEFAULT_PORT);
+  ss->s_sa.sin_family = AF_INET;
 
   return 0;
 }
 
-int issue_read(struct state *s, unsigned int address)
+void load_table(struct state *ss, struct item *table, unsigned int size)
+{
+  ss->s_table = table;
+  ss->s_size = size;
+  ss->s_index = 0;
+}
+
+/*********************************************************************/
+/* support logic *****************************************************/
+
+int issue_read(struct state *ss, unsigned int address)
 {
   char buffer[3];
   int wr;
@@ -154,24 +201,31 @@ int issue_read(struct state *s, unsigned int address)
   buffer[1] = address & 0xff;
   buffer[2] = (address >> 8) & 0xff;
 
-  wr = send(s->s_fd, buffer, 3, MSG_DONTWAIT | MSG_NOSIGNAL);
+  wr = send(ss->s_fd, buffer, 3, MSG_DONTWAIT | MSG_NOSIGNAL);
 
   if(wr < 0){
-    sync_message_katcl(s->s_up, KATCP_LEVEL_ERROR, NAME, "unable to issue read to roach %s", s->s_name, strerror(errno));
-    return -1;
+    switch(errno){
+      case EAGAIN :
+      case EINTR : 
+        return 1;
+      default :
+        sync_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, NAME, "unable to issue read to roach %s", ss->s_name, strerror(errno));
+        return -1;
+    }
   }
 
   if(wr != 3){
-    sync_message_katcl(s->s_up, KATCP_LEVEL_ERROR, NAME, "incomplete io to roach %s");
+    sync_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, NAME, "incomplete io to roach %s");
     return -1;
   }
 
-  s->s_address = address;
+  ss->s_address = address;
+  ss->s_value = (-1);
 
   return 0;
 }
 
-int issue_write(struct state *s, unsigned int address, unsigned int value)
+int issue_write(struct state *ss, unsigned int address, unsigned int value)
 {
   char buffer[5];
   int wr;
@@ -182,55 +236,290 @@ int issue_write(struct state *s, unsigned int address, unsigned int value)
   buffer[3] = value & 0xff;
   buffer[4] = (value >> 8) & 0xff;
 
-  wr = send(s->s_fd, buffer, 5, MSG_DONTWAIT | MSG_NOSIGNAL);
+  wr = send(ss->s_fd, buffer, 5, MSG_DONTWAIT | MSG_NOSIGNAL);
 
   if(wr < 0){
-    sync_message_katcl(s->s_up, KATCP_LEVEL_ERROR, NAME, "unable to issue read to roach %s", s->s_name, strerror(errno));
+    sync_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, NAME, "unable to issue read to roach %s", ss->s_name, strerror(errno));
     return -1;
   }
 
   if(wr != 5){
-    sync_message_katcl(s->s_up, KATCP_LEVEL_ERROR, NAME, "incomplete io to roach %s");
+    sync_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, NAME, "incomplete io to roach %s");
     return -1;
   }
 
+  ss->s_address = address;
+  ss->s_value = value;
+
   return 0;
 }
 
-int setup_network(struct state *s)
+static void init_fd(struct state *ss)
 {
-  if(s->s_fd < 0){
+  int fd;
 
-    s->s_fd = socket(AF_INET, SOCK_STREAM, 0);
+  FD_ZERO(&(ss->s_fsr));
+  FD_ZERO(&(ss->s_fsw));
 
-    if(s->s_fd < 0){
-      sync_message_katcl(s->s_up, KATCP_LEVEL_ERROR, NAME, "unable to allocate a socket: %s", strerror(errno));
+  fd = fileno_katcl(ss->s_up);
+  ss->s_max = fd;
 
-      return -1;
-    }
+  FD_SET(fd, &(ss->s_fsr));
+  if(flushing_katcl(ss->s_up)){
+    FD_SET(fd, &(ss->s_fsw));
+  }
+}
 
-    if(connect(s->s_fd, (struct sockaddr *)(&(s->s_sa)), sizeof(struct sockaddr_in)) < 0){
-      sync_message_katcl(s->s_up, KATCP_LEVEL_ERROR, NAME, "unable to connect to %s: %s", s->s_name, strerror(errno));
-      return -1;
+void add_fd(struct state *ss, int fd, unsigned int flag)
+{
+  if(ss->s_max < 0){
+    init_fd(ss);
+  }
+
+  if(flag & ADD_READ){
+    FD_SET(fd, &(ss->s_fsr));
+  }
+
+  if(flag & ADD_WRITE){
+    FD_SET(fd, &(ss->s_fsw));
+  }
+
+  if(ss->s_max < fd){
+    ss->s_max = fd;
+  }
+}
+
+void trim_buffer(struct state *ss)
+{
+  if(ss->s_done == 0){
+    return;
+  }
+
+  memmove(ss->s_buffer, ss->s_buffer + ss->s_done, BUFFER - ss->s_done);
+  ss->s_have -= ss->s_done;
+  ss->s_done = 0;
+}
+
+int load_buffer(struct state *ss, int force)
+{
+  int result;
+
+  if(force == 0){ 
+    if(!(FD_ISSET(ss->s_fd, &(ss->s_fsw)))){
+      return 0;
     }
   }
 
-  return 0;
+  trim_buffer(ss);
+
+  result = recv(ss->s_fd, ss->s_buffer + ss->s_have, BUFFER - ss->s_have, 0);
+  if(result < 0){
+    switch(errno){
+      case EAGAIN :
+      case EINTR  :
+        return ss->s_have;
+      default :
+        log_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, NAME, "read from %s failed: %s", ss->s_name, strerror(errno));
+        close(ss->s_fd);
+        ss->s_fd = (-1);
+        return -1;
+    }
+  } 
+
+  ss->s_have += result;
+
+  return ss->s_have;
 }
 
-/*******************************************************************************/
+int find_read_reply(struct state *ss)
+{
+  int discard;
+  discard = 0;
+
+  while(ss->s_done < ss->s_have){
+    if(ss->s_buffer[ss->s_done] == 0x1){
+      trim_buffer(ss);
+      if(ss->s_have >= 3){
+        ss->s_value = (ss->s_buffer[1]) + (ss->s_buffer[2] * 256);
+        ss->s_done = 3;
+        return 0;
+      } else {
+        return 1;
+      }
+    } else {
+      discard--;
+    }
+    ss->s_done++;
+  }
+
+  return discard;
+}
+
+void clear_io_state(struct state *ss)
+{
+  ss->s_address = (-1);
+  ss->s_value = (-1);
+}
+
+/*********************************************************************/
+/* state stuff *******************************************************/
+
+int setup_network_item(struct state *ss, int tag)
+{
+  int result;
+#ifndef SOCK_NONBLOCK
+  int flags;
+#endif
+
+  if(ss->s_fd >= 0){
+    return ITEM_ALT;
+  }
+
+#ifdef SOCK_NONBLOCK
+  ss->s_fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
+#else
+  ss->s_fd = socket(AF_INET, SOCK_STREAM, 0);
+  flags = fcntl(fd, F_GETFL, NULL);
+  if(flags >= 0){
+    flags = fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+  }
+#endif
+
+  if(ss->s_fd < 0){
+    sync_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, NAME, "unable to allocate a socket: %s", strerror(errno));
+
+    return ITEM_FAIL;
+  }
+
+  result = connect(ss->s_fd, (struct sockaddr *)(&(ss->s_sa)), sizeof(struct sockaddr_in));
+  if(result < 0){
+    if(errno != EINPROGRESS){
+      sync_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, NAME, "unable to connect to %s: %s", ss->s_name, strerror(errno));
+      close(ss->s_fd);
+      ss->s_fd = (-1);
+      return ITEM_FAIL;
+    }
+  }
+
+  add_fd(ss, ss->s_fd, ADD_WRITE);
+
+  return ITEM_OK;
+}
+
+int complete_network_item(struct state *ss, int tag)
+{
+  unsigned int len;
+  int code, result;
+
+  if(ss->s_fd < 0){
+    return ITEM_FAIL;
+  }
+  
+  if(!FD_ISSET(ss->s_fd, &(ss->s_fsw))){
+    add_fd(ss, ss->s_fd, ADD_WRITE);
+    return ITEM_STAY;
+  }
+
+  len = sizeof(int);
+  result = getsockopt(ss->s_fd, SOL_SOCKET, SO_ERROR, &code, &len);
+
+  if(result != 0){
+    return ITEM_FAIL;
+  }
+
+  switch(code){
+    case 0 :
+      log_message_katcl(ss->s_up, KATCP_LEVEL_DEBUG, NAME, "async connect to %s succeeded", ss->s_name);
+      return ITEM_OK;
+
+    case EINPROGRESS : 
+      log_message_katcl(ss->s_up, KATCP_LEVEL_DEBUG, NAME, "still waiting for async connect to complete");
+      add_fd(ss, ss->s_fd, ADD_WRITE);
+      return ITEM_STAY;
+
+    default :
+      log_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, NAME, "connect to %s failed: %s", ss->s_name, strerror(code));
+      return ITEM_FAIL;
+  }
+}
+
+int request_read_item(struct state *ss, int tag)
+{
+  int result;
+
+  /* WARNING: what about clearning out garbage at the start ? */
+
+  if(ss->s_fd < 0){
+    return ITEM_FAIL;
+  }
+
+  result = issue_read(ss, tag);
+  if(result < 0){
+    log_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, NAME, "write to %s failed: %s", ss->s_name, strerror(errno));
+    return ITEM_FAIL;
+  }
+
+  if(result > 0){
+    add_fd(ss, ss->s_fd, ADD_WRITE);
+    return ITEM_STAY;
+  }
+
+  add_fd(ss, ss->s_fd, ADD_READ);
+  return ITEM_OK;
+}
+
+int decode_powerstatus_item(struct state *ss, int tag)
+{
+  int result, value;
+
+  result = find_read_reply(ss);
+  if(result != 0){
+    add_fd(ss, ss->s_fd, ADD_WRITE);
+    return ITEM_STAY;
+  }
+
+  if(ss->s_address != REGISTER_POWERSTATE){
+    log_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, NAME, "logic error, expected to see reply to powerstate read not 0x%x", ss->s_address);
+    clear_io_state(ss);
+    return ITEM_FAIL;
+  }
+
+  value = ss->s_value;
+
+  log_message_katcl(ss->s_up, KATCP_LEVEL_TRACE, NAME, "powerstate value is 0x%04x", value);
+
+  value = value & 0x7;
+  if(value & 0x4){
+    ss->s_power = POWER_OFF;
+    log_message_katcl(ss->s_up, KATCP_LEVEL_INFO, NAME, "roach %s is currently down", ss->s_name);
+  } else {
+    if(value == 3){
+      ss->s_power = POWER_ON;
+      log_message_katcl(ss->s_up, KATCP_LEVEL_INFO, NAME, "roach %s is currently on", ss->s_name);
+    } else {
+      ss->s_power = POWER_STARTING;
+      log_message_katcl(ss->s_up, KATCP_LEVEL_INFO, NAME, "roach %s starting up", ss->s_name);
+    }
+  }
+
+  clear_io_state(ss);
+
+  return ITEM_OK;
+}
+
+/*********************************************************************/
+/* main and friends **************************************************/
 
 void usage(char *app)
 {
-  printf("usage: %s [flags] [command-string]*\n", app);
+  printf("usage: %s [flags] xport\n", app);
   printf("-h                 this help\n");
   printf("-v                 increase verbosity\n");
   printf("-q                 run quietly\n");
-#if 0
-  printf("-k                 emit katcp log messages\n");
-  printf("-r                 toggle printing of reply messages\n");
-  printf("-i                 toggle printing of inform messages\n");
-#endif
+
+  printf("-U                 power up\n");
+  printf("-Q                 query power status\n");
+  printf("-D                 power down\n");
 
   printf("return codes:\n");
   printf("0     command completed successfully\n");
@@ -238,27 +527,31 @@ void usage(char *app)
   printf("3     network problems\n");
   printf("2     usage problems\n");
   printf("4     internal errors\n");
-
-  printf("notes:\n");
-  printf("  command and parameters have to be given as single quoted strings\n");
 }
+
+struct item poweron_table[4] = {
+  { setup_network_item, 1, 0, 0, 0 },
+  { complete_network_item, 2, 0, 0, 0 }, 
+  { request_read_item, 3, 0, 0, REGISTER_POWERSTATE },
+  { decode_powerstatus_item, -1, 0, 0, 0 }
+};
 
 int main(int argc, char **argv)
 {
   struct state *ss;
-  struct sockaddr_in sa;
-  fd_set fsr, fsw;
   char *cmd;
-  int i, j, c, mfd, fd, verbose, result, status, len, run, want;
-  sigset_t mask_current, mask_previous;
-  unsigned int value;
-  struct sigaction action_current, action_previous;
-  pid_t pid;
+  int i, j, c, mfd, fd, verbose, result, status, len, run, want, power, code;
+  unsigned int value, address;
+  struct timeval now, stop, delta;
+  int *(call)(struct state *s, int tag);
+  struct item *ix;
 
   ss = create_state(STDOUT_FILENO);
   if(ss == NULL){
     return 4;
   }
+
+  power = POWER_ON;
 
 #if 0
   char *app, *parm, *cmd, *copy, *ptr, *servers;
@@ -289,6 +582,22 @@ int main(int argc, char **argv)
         case 'h' :
           usage(NAME);
           return 0;
+
+        case 'D' :
+          power = POWER_OFF;
+          j++;
+          break;
+
+        case 'U' :
+          power = POWER_ON;
+          j++;
+          break;
+          
+        case 'Q' :
+          power = POWER_NA;
+          j++;
+          break;
+          
 
         case 'v' : 
           verbose++;
@@ -321,59 +630,107 @@ int main(int argc, char **argv)
     }
   }
 
-  if(setup_network(ss) < 0){
-    return 3;
+  /* TODO: select different tables */
+
+  load_table(ss, poweron_table, 3);
+
+  gettimeofday(&now, NULL);
+
+  delta.tv_sec = DEFAULT_WAIT;
+  delta.tv_usec = 0;
+
+  add_time_katcp(&stop, &now, &delta);
+
+  run = 1;
+
+  if(ss->s_table == NULL){
+    log_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, NAME, "need a table to be loaded");
+    run = 0;
   }
 
-  for(run = 1; run;){
+  while(run > 0){
 
-    FD_ZERO(&fsr);
-    FD_ZERO(&fsw);
-
-    mfd = ss->s_fd;
-
-    FD_SET(ss->s_fd, &fsw);
-    FD_SET(ss->s_fd, &fsr);
-
-    fd = fileno_katcl(ss->s_up);
-    if(fd > mfd){
-      mfd = fd;
-    }
-    FD_SET(fd, &fsr);
-    if(flushing_katcl(ss->s_up)){
-      FD_SET(fd, &fsw);
+    if(ss->s_index >= ss->s_size){
+      log_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, NAME, "bad state return code %d", code);
+      /* break better */
+      return 1;
     }
 
-    result = select(mfd + 1, &fsr, &fsw, NULL, NULL);
-    switch(result){
-      case -1 :
-        switch(errno){
-          case EAGAIN :
-          case EINTR  :
-            continue; /* WARNING */
-          default  :
-            sync_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, NAME, "select failed: %s", strerror(errno));
-            return 4;
-        }
+    ix = &(ss->s_table[ss->s_index]);
+
+    code = (*(ix->i_call))(ss, ix->i_tag);
+
+    switch(code){
+      case ITEM_STAY : 
+        /* do nothing */
         break;
-      case  0 :
-        sync_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, NAME, "requests timed out despite having no timeout");
-        /* could terminate cleanly here, but ... */
-        return 4;
+      case ITEM_OK : 
+        ss->s_index = ix->i_ok;
+        break;
+      case ITEM_FAIL :
+        ss->s_index = ix->i_fail;
+        break;
+      case ITEM_ALT : 
+        ss->s_index = ix->i_alt;
+        break;
+      default :
+        log_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, NAME, "bad state return code %d", code);
+        return 1;
     }
 
-    fd = fileno_katcl(ss->s_up);
-    if(FD_ISSET(fd, &fsr)){
-      result = read_katcl(ss->s_up);
-      if(result > 0){
-        /* TODO: shutdown roach here */
-        run = 0;
+    if(ss->s_index >= ss->s_size){
+      log_message_katcl(ss->s_up, KATCP_LEVEL_INFO, NAME, "entered terminal state with code %d", code);
+      ss->s_max = (-1);
+      run = 0;
+    }
+
+#ifdef DEBUG
+    sleep(1);
+#endif
+
+    if(ss->s_max >= 0){
+      result = select(ss->s_max + 1, &(ss->s_fsr), &(ss->s_fsw), NULL, &delta);
+      switch(result){
+        case -1 :
+          switch(errno){
+            case EAGAIN :
+            case EINTR  :
+              continue; /* WARNING */
+            default  :
+              sync_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, NAME, "select failed: %s", strerror(errno));
+              return 4;
+          }
+          break;
+#if 0
+        case  0 :
+          sync_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, NAME, "requests timed out despite having no timeout");
+          /* could terminate cleanly here, but ... */
+          return 4;
+#endif
       }
 
-      /* discard all upstream requests */
-      while(have_katcl(ss->s_up) > 0);
+      /* this falls into the housekeeping category */
+      fd = fileno_katcl(ss->s_up);
+      if(FD_ISSET(fd, &(ss->s_fsr))){
+        result = read_katcl(ss->s_up);
+        if(result > 0){
+          /* TODO: shutdown roach here */
+          run = 0;
+        }
+
+        /* discard all upstream requests */
+        while(have_katcl(ss->s_up) > 0);
+      }
+
+      if(FD_ISSET(fd, &(ss->s_fsw))){
+        result = write_katcl(ss->s_up);
+      }
+
+      ss->s_max = (-1);
     }
 
+
+#if 0
     if(FD_ISSET(ss->s_fd, &fsr)){
       len = sizeof(struct sockaddr_in);
       result = recv(ss->s_fd, ss->s_buffer + ss->s_have, BUFFER - ss->s_have, 0);
@@ -402,11 +759,69 @@ int main(int argc, char **argv)
           if((want + 2) < ss->s_have){
             ss->s_value = (ss->s_buffer[want + 1]) + (ss->s_buffer[want + 2] * 256);
             if(ss->s_address >= 0){
-              log_message_katcl(ss->s_up, KATCP_LEVEL_TRACE, NAME, "read[0x%04x]=0x%04x", ss->s_address, ss->s_value);
+
+              address = ss->s_address;
+              ss->s_address = (-1);
+
+              value = ss->s_value;
+              ss->s_value = (-1);
+
+              log_message_katcl(ss->s_up, KATCP_LEVEL_TRACE, NAME, "read[0x%04x]=0x%04x", address, value);
+
+              switch(address){
+                case REGISTER_POWERSTATE :
+
+                  value = value & 0x7;
+                  if(value & 0x4){
+                    ss->s_power = POWER_OFF;
+                    log_message_katcl(ss->s_up, KATCP_LEVEL_INFO, NAME, "roach %s is currently down", ss->s_name);
+                  } else {
+                    if(value == 3){
+                      ss->s_power = POWER_ON;
+                      log_message_katcl(ss->s_up, KATCP_LEVEL_INFO, NAME, "roach %s is currently on", ss->s_name);
+                    } else {
+                      ss->s_power = POWER_STARTING;
+                    }
+                  }
+
+
+                  switch(power){
+                    case POWER_ON : 
+                      if(ss->s_power == POWER_OFF){
+                        log_message_katcl(ss->s_up, KATCP_LEVEL_INFO, NAME, "powering down roach %s", ss->s_name);
+                        issue_write(ss, REGISTER_POWERUP, 0xffff);
+                      } else {
+                        if(ss->s_power == POWER_ON){
+                          run = 0; /* success */
+                        }
+                      }
+                      break;
+                    case POWER_OFF :
+                      if(ss->s_power != POWER_OFF){
+                        log_message_katcl(ss->s_up, KATCP_LEVEL_INFO, NAME, "powering roach %s off", ss->s_name);
+                        issue_write(ss, REGISTER_POWERDOWN, 0xffff);
+                      } else {
+                        run = 0; /* success */
+                      }
+                      break;
+
+                    case POWER_NA : 
+                      run = 0; /* query good enough */
+                      break;
+                    
+                    default : 
+                      /* case POWER_STARTING : */
+                      /* do nothing */
+                      break;
+                  }
+
+                break;
+
+              }
+
             } else {
-              log_message_katcl(ss->s_up, KATCP_LEVEL_WARN, NAME, "received xport read data despite no read outstanding");
+              log_message_katcl(ss->s_up, KATCP_LEVEL_INFO, NAME, "received xport read data despite no read outstanding");
             }
-            ss->s_address = (-1);
           }
 
           want += 3;
@@ -424,6 +839,7 @@ int main(int argc, char **argv)
 
     }
 
+
     if(want <= ss->s_have){
       ss->s_done = want;
     }
@@ -435,161 +851,34 @@ int main(int argc, char **argv)
     }
 
     if(FD_ISSET(ss->s_fd, &fsw)){
-      switch(ss->s_state){
-        case STATE_UNKNOWN :
+      switch(ss->s_power){
+        case POWER_NA :
           if(issue_read(ss, REGISTER_POWERSTATE) < 0){
 
           }
           break;
       }
     }
-
-    fd = fileno_katcl(ss->s_up);
-    if(FD_ISSET(fd, &fsw)){
-      result = write_katcl(ss->s_up);
-    }
-
-
-    sleep(1);
-
-  }
-
-
-#if 0
-  sigemptyset(&mask_current);
-#if 0
-  sigaddset(&mask_current, SIGTERM);
 #endif
 
-  for(ss->s_finished = 0; ss->s_finished < ss->s_count;){
 
-
-
-    for(i = 0; i < ss->s_count; i++){
-      cx = ss->s_vector[i];
-      if(cx->c_line){
-        fd = fileno_katcl(cx->c_line);
-        if(fd > mfd){
-          mfd = fd;
-        }
-        FD_SET(fd, &fsr);
-      } 
-    }
-
-    result = pselect(mfd + 1, &fsr, &fsw, NULL, NULL, &mask_current);
-#ifdef DEBUG
-    fprintf(stderr, "select returns %d\n", result);
-#endif
-    switch(result){
-      case -1 :
-        switch(errno){
-          case EAGAIN :
-          case EINTR  :
-            continue; /* WARNING */
-          default  :
-            sync_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, KCPCON_NAME, "select failed: %s", strerror(errno));
-            return 4;
-        }
-        break;
-      case  0 :
-        sync_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, KCPCON_NAME, "requests timed out despite having no timeout");
-        /* could terminate cleanly here, but ... */
-        return 4;
-    }
-
-
-    fd = fileno_katcl(ss->s_up);
-    if(FD_ISSET(fd, &fsw)){
-      result = write_katcl(ss->s_up);
-    }
-
-    for(i = 0; i < ss->s_count; i++){
-      cx = ss->s_vector[i];
-      if(cx->c_line){
-        fd = fileno_katcl(cx->c_line);
-
-        if(FD_ISSET(fd, &fsr)){ /* get things */
-          result = read_katcl(cx->c_line);
-          if(result){
-            if(result < 0){
-              sync_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, KCPCON_NAME, "read failed: %s", strerror(error_katcl(cx->c_line)));
-            } else {
-              log_message_katcl(ss->s_up, KATCP_LEVEL_INFO, KCPCON_NAME, "subordinate job %u ended", cx->c_pid);
-            }
-            destroy_katcl(cx->c_line, 1);
-            cx->c_line = NULL;
-            ss->s_finished++;
-            continue; /* WARNING */
-          }
-        }
-
-        while(have_katcl(cx->c_line) > 0){ /* compute */
-          cmd = arg_string_katcl(cx->c_line, 0);
-          if(cmd){
-#ifdef DEBUG
-            fprintf(stderr, "reading message <%s ...>\n", cmd);
-#endif
-            switch(cmd[0]){
-              case KATCP_INFORM : 
-#if 0
-                if(!strcmp(KATCP_VERSION_CONNECT_INFORM, cmd)){
-                }
-                if(!strcmp(KATCP_VERSION_INFORM, cmd)){
-                }
-                if(!strcmp(KATCP_BUILD_STATE_INFORM, cmd)){
-                }
-#endif
-                relay_katcl(cx->c_line, ss->s_up);
-                break;
-            }
-          }
-        }
-      }
-    }
-
-    /* the position of this logic is rather intricate */
-    if(got_child_signal){
-      got_child_signal = 0;
-      while((pid = waitpid(WAIT_ANY, &status, WNOHANG)) > 0){
-        for(i = 0; i < ss->s_count; i++){
-          cx = ss->s_vector[i];
-          if(cx->c_pid == pid){
-
-            if (WIFEXITED(status)) {
-              result = WEXITSTATUS(status);
-              log_message_katcl(ss->s_up, KATCP_LEVEL_INFO, KCPCON_NAME, "subordinate job[%u] %u exited with code %d", i, cx->c_pid, result);
-              cx->c_status = (result > 4) ? 4 : result;
-            } else if (WIFSIGNALED(status)) {
-              result = WTERMSIG(status);
-              log_message_katcl(ss->s_up, KATCP_LEVEL_WARN, KCPCON_NAME, "subordinate job[%u] %u killed by signal %d", i, cx->c_pid, result);
-              cx->c_status = 4;
-            } else {
-              log_message_katcl(ss->s_up, KATCP_LEVEL_WARN, KCPCON_NAME, "subordinate job[%u] %u return unexpected status %d", i, cx->c_pid, status);
-              cx->c_status = 4;
-            }
-
-            if(cx->c_status > ss->s_code){
-              ss->s_code = cx->c_status;
-            }
-
-            cx->c_pid = (-1);
-          }
-        }
-      }
+    gettimeofday(&now, NULL);
+    if(cmp_time_katcp(&now, &stop) > 0){
+      log_message_katcl(ss->s_up, KATCP_LEVEL_WARN, NAME, "operations timed out");
+      run = -1;
+    } else {
+      sub_time_katcp(&delta, &stop, &now);
     }
   }
-
-
-  /* WARNING: pointlessly fussy */
-  sigaction(SIGCHLD, &action_previous, NULL);
-  sigprocmask(SIG_BLOCK, &mask_previous, NULL);
-
-#endif
 
   /* force drain */
   while(write_katcl(ss->s_up) == 0);
   destroy_state(ss);
 
-  return result;
+  if(code == ITEM_OK){
+    return 0;
+  } else {
+    return 1;
+  }
 }
 
