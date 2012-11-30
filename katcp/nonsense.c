@@ -2319,7 +2319,7 @@ static struct katcp_sensor *create_sensor_katcp(struct katcp_dispatch *d, char *
 
   sn->s_acquire = NULL;
   sn->s_extract = NULL;
-  sn->s_flush   = NULL;
+  sn->s_flush   = flush;
 
   s->s_sensors[s->s_tally] = sn;
   s->s_tally++;
