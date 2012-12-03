@@ -11,7 +11,6 @@ declare -a vector
 case "$1" in
   start)
     cmd=U
-    cmd=${startcmd}
     ;;
   stop)
     cmd=D
@@ -22,7 +21,7 @@ case "$1" in
     ;;
 esac
 
-i=0; for name in ${ROACHES} ; do vector[$i]=$(echo kcpxport -${cmd} ${name}" ; i=$[i+1] ; done
+i=0; for name in ${ROACHES} ; do vector[$i]=$(echo kcpxport -${cmd} ${name}x" ; i=$[i+1] ; done
 
 echo "${vector[@]}"
 
