@@ -6,4 +6,4 @@ source functions.sh
 
 kcs_arg_check $# 1
 
-kcpcmd -r -k get-quant-snapshot ${1} | sed -e 's/^#get-quant-snapshot/#return ok/'
+kcpcmd -t 27 -r -k get-quant-snapshot $* | sed -e 's/^#get-quant-snapshot/#k7-quant-snap-shot/'

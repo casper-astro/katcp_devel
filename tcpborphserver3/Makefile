@@ -8,9 +8,12 @@ LIB = -L$(KATCP) -lkatcp -ldl -lz
 CFLAGS += -fPIC
 CFLAGS += -ggdb
 #CFLAGS += -DDEBUG=2
+#CFLAGS += -DDEBUG
+#CFLAGS += -DPROFILE
+#CFLAGS += -DFAILFAST
 
 SERVER = tcpborphserver3
-SRC = main.c raw.c loadbof.c tg.c tapper.c hwmon.c upload.c subprocess.c
+SRC = main.c raw.c loadbof.c tg.c tapper.c hwmon.c upload.c subprocess.c ev.c
 
 OBJ = $(patsubst %.c,%.o,$(SRC))
 all: $(SERVER)

@@ -2715,6 +2715,31 @@ int register_double_sensor_katcp(struct katcp_dispatch *d, int mode, char *name,
 
   return 0;
 }
+
+/* double registration with one acquire handling multiple sensors *******/
+
+int register_multi_double_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, double min, double max, struct katcp_acquire *a, int (*extract)(struct katcp_dispatch *d, struct katcp_sensor *sn))
+{
+  struct katcp_sensor *sn;
+
+  sn = create_sensor_katcp(d, name, description, units, KATCP_STRATEGY_EVENT, KATCP_SENSOR_FLOAT, mode);
+  if(sn == NULL){
+    return -1;
+  }
+
+  if(create_sensor_double_katcp(d, sn, min, max) < 0){
+    destroy_sensor_katcp(d, sn);
+    return -1;
+  }
+
+  if(link_acquire_katcp(d, a, sn, extract)){
+    destroy_sensor_katcp(d, sn);
+    return -1;
+  }
+
+  return 0;
+}
+
 #endif
 
 /* discrete registration *************************************************/
@@ -2920,7 +2945,7 @@ int force_acquire_katcp(struct katcp_dispatch *d, struct katcp_sensor *sn)
     return -1;
   }
  
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "forcing acquisition of sensor %s considered bad form", sn->s_name);
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "forcing acquisition of sensor %s considered bad form", sn->s_name);
 
   a = sn->s_acquire;
   ns = match_nonsense_katcp(d, sn);
@@ -3794,8 +3819,8 @@ int match_sensor_status_katcp(struct katcp_dispatch *d, struct katcp_notice *n, 
   value = get_string_parse_katcl(p, 5);
 
   if((name == NULL) || 
-     (status == NULL) || 
-     (value == NULL)){
+     ((status == NULL) &&
+     (value == NULL))){
     log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "insufficient parameters reported by sensor status");
     return -1;
   }
@@ -3820,20 +3845,24 @@ int match_sensor_status_katcp(struct katcp_dispatch *d, struct katcp_notice *n, 
     return -1;
   }
 
-  if(scan_value_sensor_katcp(sn, value) < 0){
-    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to scan value %s for sensor %s", value, name);
-    return -1;
+  if(value){
+    if(scan_value_sensor_katcp(sn, value) < 0){
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to scan value %s for sensor %s", value, name);
+      return -1;
+    }
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "updated sensor %s to value %s", name, value);
   }
 
-  code = status_code_sensor_katcl(status);
-  if(code < 0){
-    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "saw bad status %s for sensor %s", status, name);
-    return 1;
+  if(status){
+    code = status_code_sensor_katcl(status);
+    if(code < 0){
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "saw bad status %s for sensor %s", status, name);
+      return 1;
+    }
+    set_status_sensor_katcp(sn, code);
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "updated sensor %s to status %s", name, status);
   }
 
-  set_status_sensor_katcp(sn, code);
-
-  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "updated sensor %s to value %s with status %s", name, status, value);
 
   propagate_acquire_katcp(d, a);
 

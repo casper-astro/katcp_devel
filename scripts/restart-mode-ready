@@ -2,7 +2,10 @@
 
 set -e
 source functions.sh
+source sensors.sh
 
-kcs_mode_sensors ready
+await_mode_sensors
+
+change_mode_sensors ${KATCP_MODE} ready
 
 

@@ -405,6 +405,9 @@ struct katcp_shared{
   unsigned int s_modal;
 #endif
 
+  int (*s_prehook)(struct katcp_dispatch *d, int argc);
+  int (*s_posthook)(struct katcp_dispatch *d, int argc);
+
   struct katcp_cmd *s_commands;
   struct katcp_sensor *s_mode_sensor;
   unsigned int s_mode;
@@ -439,6 +442,11 @@ struct katcp_shared{
   struct katcp_notice **s_notices;
   unsigned int s_pending;
   unsigned int s_woken;
+
+  struct katcp_group **s_groups;
+  struct katcp_group *s_fallback;
+  struct katcp_flat *s_this;
+  unsigned int s_members;
 
 #if 0
   int s_version_major;
@@ -613,6 +621,10 @@ int submit_to_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, struct ka
 int notice_to_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, struct katcp_notice *n);
 int ended_jobs_katcp(struct katcp_dispatch *d);
 
+/* flat stuff */
+int run_flat_katcp(struct katcp_dispatch *d);
+int load_flat_katcp(struct katcp_dispatch *d);
+
 /* parse: setup */
 struct katcl_parse *create_parse_katcl();
 struct katcl_parse *create_referenced_parse_katcl();
@@ -666,6 +678,9 @@ int add_args_parse_katcl(struct katcl_parse *p, int flags, char *fmt, ...);
 int dump_parse_katcl(struct katcl_parse *p, char *prefix, FILE *fp);
 
 int finalize_parse_katcl(struct katcl_parse *p);
+
+/* */
+int inform_client_connections_katcp(struct katcp_dispatch *d, char *type);
 
 /* queue logic */
 #if 0

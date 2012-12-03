@@ -11,9 +11,5 @@
 
   - add timestamp to client connect
   - maybe report disconnects too
-  - add center frequency and bandwidth sensors
   - improve center frequency selection 
-
-  - document k7-quant-snap-shot
-
-  - Roll out changes to site
+  - searchable arb structures so that we can clear tgtaps on progdev

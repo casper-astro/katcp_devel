@@ -6,16 +6,23 @@ General purpose components
 
   katcp       - the katcp library itself
   cmd         - send arbitrary katcp commands to a remote server
-  examples    - simple examples (may be out of date)
-  sq          - katcp sensor query utility
   log         - a utility to monitor a remote katcp server
+  sq          - simple katcp sensor query utility (block until 
+                a sensor changes to a certain status field)
+  examples    - simple examples 
 
-Utilities for particular tasks
+Utilities for particular tasks, probably of lesser interest to most
 
   bulkread    - a utlity to perform a ?bulkread request
+  msg         - something to generate katcp log messages (glue logic)
+
+  tcpborphserver3 
+              - roach2 server using memory mapped logic. Requires a kernel
+                with a mmap driver and a roach2
 
   fmon        - fengine monitoring utility to poll gateware status registers (used by kcs)
   tmon        - monitor a local ntp server via katcp (used by kcs)
-
   scripts     - supporting logic to interface kcs to corr (used by kcs, temporary hack)
   kcs         - a control server using katcp (incomplete)
+
+  wops        - incomplete (ignore)

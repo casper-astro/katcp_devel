@@ -1,10 +1,14 @@
 ?setenv PATH /usr/local/lib/kcs/scripts:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/sbin:/usr/sbin
 ?chdir /usr/local/lib/kcs
 ?define mode ready restart-mode-ready warn
-?define mode wbc restart-mode-wbc nominal
-?define mode wbc8k restart-mode-wbc8k nominal
+?define mode c16n400M1k restart-mode-c16n400M1k nominal
+?define mode c16n400M8k restart-mode-c16n400M8k nominal
 ?define mode bwbc4a restart-mode-bwbc4a nominal
-?define mode nbc restart-mode-nbc nominal
+?define mode c16n2M4k restart-mode-c16n2M4k nominal
+?define mode c16n3M8k restart-mode-c16n3M8k nominal
+?define mode c16n7M4k restart-mode-c16n7M4k nominal
+?define mode c16n13M4k restart-mode-c16n13M4k nominal
+?define mode c16n25M4k restart-mode-c16n25M4k nominal
 ?job process tmon exec://tmon
 ?forget ?halt
 ?forget ?restart
@@ -23,7 +27,7 @@
 ?process ?k7-delay set\_the\_delay\_and\_fringe\_correction\_(?k7-delay\_board-input\_time\_delay-value\_delay-rate\_fringe-offset\_fringe-rate)
 ?process ?k7-snap-shot retrieve\_a\_processing\_pipeline\_data\_block\_(?k7-snap-shot\_[adc\_board-input|quant\_[count]])
 ?process ?k7-adc-snap-shot retrieve\_an\_adc\_snapshot\_(?k7-adc-snap-shot\_[pps|now]\_threshold\_input+)
-?process ?k7-quant-snap-shot retrieve\_a\_quantiser\_snapshot\_(?k7-quant-snap-shot\_[count])
+?process ?k7-quant-snap-shot retrieve\_a\_quantiser\_snapshot\_(?k7-quant-snap-shot\_board-input\_[count])
 ?process ?k7-gain sets\_the\_digital\_gain\_(?k7-gain\_board-input\_values)
 ?process ?k7-frequency-select select\_a\_frequency\_for\_fine\_channelisation\_(?k7-frequency-select\_center-frequency)
 ?process ?xport roach\_start\_and\_stop\_routines
@@ -31,5 +35,6 @@
 ?hide ?test-reload-rf-gain ?enable-sensors
 ?xport start
 ?mode ready
-?mode wbc
-?enable-sensors
+?enable-sensors static 
+?mode c16n400M1k
+?enable-sensors dynamic

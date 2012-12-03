@@ -108,6 +108,9 @@ struct katcp_url;
 #define KATCP_BUILD_STATE_INFORM       "#build-state"
 #define KATCP_VERSION_INFORM           "#version"
 
+#define KATCP_CLIENT_CONNECT           "#client-connected"
+#define KATCP_CLIENT_DISCONNECT        "#client-disconnected"
+
 /******************* core api ********************/
 
 /* create a dispatch handler */
@@ -327,6 +330,8 @@ struct katcp_acquire *setup_double_acquire_katcp(struct katcp_dispatch *d, doubl
 
 int set_double_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a, double value);
 
+int register_multi_double_sensor_katcp(struct katcp_dispatch *d, int mode, char *name, char *description, char *units, double min, double max, struct katcp_acquire *a, int (*extract)(struct katcp_dispatch *d, struct katcp_sensor *sn));
+
 #endif
 
 /***************************************************************************/
@@ -378,6 +383,13 @@ int query_mode_katcp(struct katcp_dispatch *d);
 char *query_mode_name_katcp(struct katcp_dispatch *d);
 int query_mode_code_katcp(struct katcp_dispatch *d, char *name);
 void *need_current_mode_katcp(struct katcp_dispatch *d, unsigned int mode);
+
+/* intercept any command, needed in tcpborphserver for trivial reasons */
+
+#define KATCP_HOOK_PRE  0
+#define KATCP_HOOK_POST 1
+
+int hook_commands_katcp(struct katcp_dispatch *d, unsigned int type, int (*hook)(struct katcp_dispatch *d, int argc));
 
 /* timing callbacks */
 
@@ -519,6 +531,9 @@ struct katcp_arb *find_arb_katcp(struct katcp_dispatch *d, char *name);
 
 void mode_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a, unsigned int mode);
 void *data_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a);
+char *name_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a);
+int fileno_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a);
+
 
 /*katcp_type functions*/
 
@@ -607,6 +622,10 @@ struct katcp_tag;
 int tag_data_katcp(struct katcp_dispatch *d, struct katcp_tag *t, void *data, struct katcp_type *type);
 
 int search_cmd_katcp(struct katcp_dispatch *d, int argc);
+
+/* duplex related logic */
+int listen_duplex_cmd_katcp(struct katcp_dispatch *d, int argc);
+int list_duplex_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 #endif
 

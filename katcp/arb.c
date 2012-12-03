@@ -108,6 +108,15 @@ void mode_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a, unsigned int 
   a->a_mode = mode & (KATCP_ARB_READ | KATCP_ARB_WRITE);
 }
 
+char *name_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a)
+{
+  if(a == NULL){
+    return NULL;
+  }
+
+  return a->a_name;
+}
+
 void *data_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a)
 {
   if(a == NULL){
@@ -115,6 +124,15 @@ void *data_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a)
   }
 
   return a->a_data;
+}
+
+int fileno_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a)
+{
+  if(a == NULL){
+    return -1;
+  }
+
+  return a->a_fd;
 }
 
 struct katcp_arb *find_arb_katcp(struct katcp_dispatch *d, char *name)

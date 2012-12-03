@@ -28,7 +28,7 @@
 #define KATCP_HALT_WAIT       1
 #define KATCP_BRIEF_WAIT  10000   /* 10 ms */
 
-static int inform_client_connect_katcp(struct katcp_dispatch *d)
+int inform_client_connections_katcp(struct katcp_dispatch *d, char *type)
 {
   int i;
   struct katcp_shared *s;
@@ -51,7 +51,7 @@ static int inform_client_connect_katcp(struct katcp_dispatch *d)
       fprintf(stderr, "multi[%d]: informing %p of new connection\n", i, d);
 #endif
 
-      send_katcp(dx, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#client-connected", KATCP_FLAG_LAST | KATCP_FLAG_STRING, d->d_name);
+      send_katcp(dx, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, type, KATCP_FLAG_LAST | KATCP_FLAG_STRING, d->d_name);
     }
   }
 
@@ -248,6 +248,8 @@ void add_client_server_katcp(struct katcp_dispatch *dl, int fd, char *label)
   }
 #endif
 
+  log_message_katcp(dl, KATCP_LEVEL_INFO, NULL, "new client connection %s", label);
+
   fcntl(fd, F_SETFD, FD_CLOEXEC);
 
   dx = s->s_clients[s->s_used];
@@ -256,8 +258,12 @@ void add_client_server_katcp(struct katcp_dispatch *dl, int fd, char *label)
   reset_katcp(dx, fd);
   name_katcp(dx, "%s", label);
 
-  inform_client_connect_katcp(dx); /* do before creation to avoid seeing own creation message */
+  inform_client_connections_katcp(dx, KATCP_CLIENT_CONNECT); /* will not send to itself */
+
+  print_versions_katcp(dx, KATCP_PRINT_VERSION_CONNECT);
+#if 0
   on_connect_katcp(dx);
+#endif
 }
 
 void perforate_client_server_katcp(struct katcp_dispatch *dl)
@@ -272,7 +278,9 @@ void perforate_client_server_katcp(struct katcp_dispatch *dl)
     dx = s->s_clients[(unsigned int)rand() % s->s_count];
 
     terminate_katcp(dx, KATCP_EXIT_QUIT);
+#if 0
     on_disconnect_katcp(dx, "displaced by new client connection");
+#endif
   }
 }
 
@@ -431,7 +439,7 @@ int system_info_cmd_katcp(struct katcp_dispatch *d, int argc)
 
   hours   = (delta / 3600);
   minutes = (delta / 60)     - (hours * 60);
-  seconds = (delta)          - (minutes * 60);
+  seconds = (delta)          - (((hours * 60) + minutes) * 60);
 
   strftime(buffer, BUFFER - 1, "%Y-%m-%dT%H:%M:%S", when);
 
@@ -532,6 +540,9 @@ int prepare_core_loop_katcp(struct katcp_dispatch *dl)
 
   register_flag_mode_katcp(dl, "?system-info",  "report server information (?system-info)", &system_info_cmd_katcp, 0, 0);
 
+  register_flag_mode_katcp(dl, "?listen-duplex", "accept new duplex connections on given interface (?listen-duplex [interface:]port)", &listen_duplex_cmd_katcp, 0, 0);
+  register_flag_mode_katcp(dl, "?list-duplex",  "report duplex information (?list-duplex)", &list_duplex_cmd_katcp, 0, 0);
+
   time(&(s->s_start));
 
   /* used to randomly select a client to displace when a new connection arrives and table is full */
@@ -549,6 +560,7 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
   struct timespec delta;
   struct katcp_shared *s;
   char label[LABEL_BUFFER];
+  long opts;
 
   s = dl->d_shared;
 
@@ -591,6 +603,12 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
     if(load_shared_katcp(dl) < 0){ /* want to shut down */
       run = (-1);
     }
+
+    /* WARNING: new code */
+    if(load_flat_katcp(dl) < 0){
+      run = (-1);
+    }
+
 
     if(run < 0){
 
@@ -657,6 +675,9 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
       wait_jobs_katcp(dl);
     }
 
+    /* WARNING: new logic */
+    run_flat_katcp(dl);
+
     run_shared_katcp(dl);
     run_jobs_katcp(dl);
     run_notices_katcp(dl);
@@ -674,6 +695,13 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
 
           add_client_server_katcp(dl, nfd, label);
         }
+
+#if 1
+        opts = fcntl(nfd, F_GETFL, NULL);
+        if(opts >= 0){
+          opts = fcntl(nfd, F_SETFL, opts | O_NONBLOCK);
+        }
+#endif
 
       } else {
         /* WARNING: will run a busy loop, terminating one entry each cycle until space becomes available. We expect an exit to happen quickly, otherwise this could empty out all clients (though there is a backoff, since we pick a slot randomly) */

@@ -381,6 +381,7 @@ void *get_multi_katcp(struct katcp_dispatch *d)
 
 /********************/
 
+#if 0
 void on_disconnect_katcp(struct katcp_dispatch *d, char *fmt, ...)
 {
   va_list args;
@@ -397,6 +398,8 @@ void on_disconnect_katcp(struct katcp_dispatch *d, char *fmt, ...)
 #endif
 
   if(exiting_katcp(d)){ /* ensures that we only run once */
+
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s disconnecting", d->d_name);
 
     append_string_katcp(d, KATCP_FLAG_FIRST, KATCP_DISCONNECT_INFORM);
 
@@ -429,7 +432,9 @@ void on_disconnect_katcp(struct katcp_dispatch *d, char *fmt, ...)
     }
   }
 }
+#endif
 
+#if 0
 void on_connect_katcp(struct katcp_dispatch *d)
 {
   /* prints initial inform messages, could possibly be made dynamic */
@@ -464,6 +469,7 @@ void on_connect_katcp(struct katcp_dispatch *d)
   }
 #endif
 }
+#endif
 
 #if 0
 pid_t spawn_child_katcp(struct katcp_dispatch *d, char *name, int (*run)(void *data), void *data, void (*call)(struct katcp_dispatch *d, int status))
@@ -759,11 +765,42 @@ int continue_katcp(struct katcp_dispatch *d, int when, int (*call)(struct katcp_
   return 0;
 }
 
+int hook_commands_katcp(struct katcp_dispatch *d, unsigned int type, int (*hook)(struct katcp_dispatch *d, int argc))
+{
+  struct katcp_shared *s;
+
+  if(d->d_shared == NULL){
+    return -1;
+  }
+
+  s = d->d_shared;
+
+  switch(type){
+    case KATCP_HOOK_PRE : 
+      s->s_prehook = hook;
+      break;
+    case KATCP_HOOK_POST : 
+      s->s_posthook = hook;
+      break;
+    default :
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unknown hook of type %d", type);
+      return -1;
+  }
+
+  return 0;
+}
+
 int lookup_katcp(struct katcp_dispatch *d)
 {
-  char *s;
-  int r;
   struct katcp_cmd *search;
+  struct katcp_shared *s;
+  char *str;
+  int r;
+
+  s = d->d_shared;
+  if(s == NULL){
+    return -1;
+  }
 
 #ifdef REPORT
   if((d == NULL) || (d->d_shared == NULL)){
@@ -791,17 +828,20 @@ int lookup_katcp(struct katcp_dispatch *d)
 
   /* now (r  > 0) */
 
-  s = arg_string_katcl(d->d_line, 0);
+  str = arg_string_katcl(d->d_line, 0);
 
   for(search = d->d_shared->s_commands; search; search = search->c_next){
 #ifdef DEBUG
-    fprintf(stderr, "dispatch: checking %s against %s\n", s, search->c_name);
+    fprintf(stderr, "dispatch: checking %s against %s\n", str, search->c_name);
 #endif
-    if(((search->c_mode == 0) || (search->c_mode == d->d_shared->s_mode)) && ((search->c_flags & KATCP_CMD_WILDCARD) || (!strcmp(search->c_name, s)))){
+    if(((search->c_mode == 0) || (search->c_mode == d->d_shared->s_mode)) && ((search->c_flags & KATCP_CMD_WILDCARD) || (!strcmp(search->c_name, str)))){
 #ifdef DEBUG
-      fprintf(stderr, "dispatch: found match for <%s>\n", s);
+      fprintf(stderr, "dispatch: found match for <%s>\n", str);
 #endif
       d->d_current = search->c_call;
+      if(s->s_prehook){
+        (*(s->s_prehook))(d, arg_count_katcl(d->d_line));
+      }
       return 1; /* found */
     }
   }
@@ -812,7 +852,8 @@ int lookup_katcp(struct katcp_dispatch *d)
 int call_katcp(struct katcp_dispatch *d)
 {
   int r, n;
-  char *s;
+  struct katcp_shared *s;
+  char *str;
 
 #ifdef REPORT
   if(d == NULL){
@@ -821,9 +862,14 @@ int call_katcp(struct katcp_dispatch *d)
   }
 #endif
 
+  s = d->d_shared;
+  if(s == NULL){
+    return -1;
+  }
+
   d->d_ready = KATCP_READY_MAGIC;
 
-  s = arg_string_katcl(d->d_line, 0);
+  str = arg_string_katcl(d->d_line, 0);
   n = arg_count_katcl(d->d_line);
   r = KATCP_RESULT_FAIL;
 
@@ -838,34 +884,37 @@ int call_katcp(struct katcp_dispatch *d)
       extra_response_katcp(d, r, NULL);
     }
     if(r != KATCP_RESULT_YIELD){
+      if(s->s_posthook){
+        (*(s->s_posthook))(d, n);
+      }
       d->d_current = NULL;
     }
     if(r == KATCP_RESULT_PAUSE){
       if(d->d_count <= 0){
-        log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "request %s is pausing task %p without having notices pending", s, d);
+        log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "request %s is pausing task %p without having notices pending", str, d);
       }
       d->d_pause = 1;
     }
   } else { /* force a fail for unknown commands */
 #ifdef REPORT
-    fprintf(stderr, "call: no dispatch function for %s\n", s);
+    fprintf(stderr, "call: no dispatch function for %s\n", str);
 #endif
-    switch(s[0]){
+    switch(str[0]){
       case KATCP_REQUEST :
-        if(s[1] != '\0'){
+        if(str[1] != '\0'){
           extra_response_katcp(d, KATCP_RESULT_INVALID, "unknown command");
 #if 0
           send_katcp(d, 
               KATCP_FLAG_FIRST | KATCP_FLAG_MORE | KATCP_FLAG_STRING, "!", 
-              KATCP_FLAG_STRING, s + 1, 
+              KATCP_FLAG_STRING, str + 1, 
               KATCP_FLAG_STRING, KATCP_INVALID, 
               KATCP_FLAG_LAST | KATCP_FLAG_STRING, "unknown command");
 #endif
         }
         break;
       case KATCP_REPLY :
-        if(s[1] != '\0'){
-          log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unexpected reply %s", s + 1);
+        if(str[1] != '\0'){
+          log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unexpected reply %s", str + 1);
         }
         break;
       default :
@@ -1522,7 +1571,7 @@ int extra_response_katcp(struct katcp_dispatch *d, int code, char *fmt, ...)
   char *result;
 
   if(code > KATCP_RESULT_OK){
-    return 0;
+    return code;
   }
 
 #if 0
@@ -1547,7 +1596,7 @@ int extra_response_katcp(struct katcp_dispatch *d, int code, char *fmt, ...)
     append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, result);
   }
 
-  return 0;
+  return KATCP_RESULT_OWN;
 }
 
 int basic_inform_katcp(struct katcp_dispatch *d, char *name, char *arg)
@@ -1820,7 +1869,9 @@ int dispatch_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   struct katcp_shared *s;
   struct katcp_dispatch *dx;
-  unsigned int i;
+  struct katcl_line *lx;
+
+  unsigned int i, t;
   char *name, *level;
 
   s = d->d_shared;
@@ -1839,9 +1890,16 @@ int dispatch_cmd_katcp(struct katcp_dispatch *d, int argc)
       dx = s->s_clients[i];
       level = log_to_string_katcl(dx->d_level);
 
-      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "dispatch %s (%s) logging %s with %d notices and %d sensors", dx->d_name, (dx == d) ? "this" : "other", level ? level : "unknown", dx->d_count, dx->d_size);
+      lx = dx->d_line;
+
+      /* WARNING: we are groping through data structures which are private */
+
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "dispatch %s (%s) logging %s with %d notices, %d sensors", dx->d_name, (dx == d) ? "this" : "other", level ? level : "unknown", dx->d_count, dx->d_size);
+      t = size_queue_katcl(lx->l_queue);
+      if((t > 0) || (lx->l_pending > 0)){
+        log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "dispatch %s is flushing %u messages where %u output bytes are pending before offset %u in argument %u", dx->d_name, t, lx->l_pending, lx->l_offset, lx->l_arg);
+      }
     }
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%d clients", s->s_number);
     return KATCP_RESULT_OK;
   } else {
     return KATCP_RESULT_FAIL;

@@ -17,7 +17,7 @@ fringe=$(echo 57.29578*${5} | bc -l | sed -e 's/^\./0./')
 # rads/ms to rotations/second: 1000/(2*3.14159265358979323846
 frate=$(echo 159.154943091*${6} | bc -l | sed -e 's/^\./0./')
 
-kcpmsg -s delay -l info     "${antpol} load time ${2}ms mapped to ${time}s"
+kcpmsg -s delay -l debug     "${antpol} load time ${2}ms mapped to ${time}s"
 kcpmsg -s delay -l debug -m "delay ${3}ms mapped to ${delay}s" "delay rate is ${4}s/s or ms/ms" "fringe offset ${5}rad mapped to ${fringe}deg" "fringe rate ${6}rads/ms mapped to ${frate}rotations/s"
 
 status=1
