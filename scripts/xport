@@ -20,7 +20,7 @@ case "$1" in
     ;;
 esac
 
-i=0; for name in ${ROACHES} ; do vector[$i]=$(echo kcpxport -${cmd} ${name}x" ; i=$[i+1] ; done
+i=0; for name in ${ROACHES} ; do vector[$i]=$(echo kcpxport -${cmd} ${name}x) ; i=$[i+1] ; done
 
 kcpcon "${vector[@]}"
 
