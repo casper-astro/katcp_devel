@@ -414,6 +414,8 @@ int setup_hwmon_tbs(struct katcp_dispatch *d)
                                "dummy_max");
 #endif
 
+  /* TODO: if input 7 on 50 is nonzero, we have a roach2r2 board, otherwise older */
+
   rtn += register_hwmon_tbs(d, "raw.temp.ambient", 
                                "Ambient board temperature",
                                "millidegrees",
@@ -486,6 +488,7 @@ int setup_hwmon_tbs(struct katcp_dispatch *d)
                                "/sys/bus/i2c/devices/0-004e/temp1_max",
                                1, 1);
 
+  /* most voltages live on 50. They start here */
 
   rtn += register_hwmon_tbs(d, "raw.voltage.1v",
                                "1v voltage rail",
@@ -538,7 +541,26 @@ int setup_hwmon_tbs(struct katcp_dispatch *d)
   rtn += register_hwmon_tbs(d, "raw.voltage.12v",
                                "12v voltage rail",
                                "millivolts",
-                               "/sys/bus/i2c/devices/0-0050/in12_input",
+                               /* on rev1 this would be not connected */
+                               "/sys/bus/i2c/devices/0-0050/in6_input",
+                               NULL,
+                               NULL,
+                               1, 1);
+
+  rtn += register_hwmon_tbs(d, "raw.voltage.3v3aux",
+                               "auxiliary 3.3v voltage rail",
+                               "millivolts",
+                               /* on rev1 this would be 12V */
+                               "/sys/bus/i2c/devices/0-0050/in7_input",
+                               NULL,
+                               NULL,
+                               1, 1);
+
+  rtn += register_hwmon_tbs(d, "raw.voltage.5aux",
+                               "auxiliary 5v voltage rail",
+                               "millivolts",
+                               /* on rev1 this would be 12V */
+                               "/sys/bus/i2c/devices/0-0051/in6_input",
                                NULL,
                                NULL,
                                1, 1);
@@ -585,10 +607,18 @@ int setup_hwmon_tbs(struct katcp_dispatch *d)
                                "/sys/bus/i2c/devices/0-0051/in4_crit",
                                40, 1);
 
+  rtn += register_hwmon_tbs(d, "raw.current.5v",
+                               "5v rail current",
+                               "milliamps",
+                               "/sys/bus/i2c/devices/0-0051/curr1_input",
+                               NULL,
+                               NULL, 
+                               1, 1);
+
   rtn += register_hwmon_tbs(d, "raw.current.12v",
                                "12v rail current",
                                "milliamps",
-                               "/sys/bus/i2c/devices/0-0051/in12_input",
+                               "/sys/bus/i2c/devices/0-0050/curr1_input",
                                NULL,
                                NULL, 
                                1, 1);
