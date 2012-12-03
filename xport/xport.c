@@ -485,7 +485,7 @@ int setup_network_item(struct state *ss, int tag)
 {
   int result;
 #ifndef SOCK_NONBLOCK
-  int flags;
+  int flags, fd;
 #endif
 
   if(ss->s_fd >= 0){
