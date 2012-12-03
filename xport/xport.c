@@ -272,7 +272,7 @@ int issue_write(struct state *ss, unsigned int address, unsigned int value)
   char buffer[5];
   int wr;
 
-  buffer[0] = 0x01;
+  buffer[0] = 0x02;
   buffer[1] = address & 0xff;
   buffer[2] = (address >> 8) & 0xff;
   buffer[3] = value & 0xff;
@@ -702,7 +702,7 @@ int decode_powerstatus_item(struct state *ss, int tag)
 
   result = find_read_reply(ss);
 #ifdef DEBUG
-    fprintf(stderr, "read reply is %d", result);
+    fprintf(stderr, "read reply is %d\n", result);
 #endif
   if(result <= 0){
     add_fd(ss, ss->s_fd, ADD_READ);
@@ -1023,6 +1023,11 @@ int main(int argc, char **argv)
     default :
       sync_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, NAME, "logic problem - bad power request type");
       return 4;
+  }
+
+  if(ss->s_name == NULL){
+    sync_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, NAME, "need a roach xport to talk to");
+    return 2;
   }
 
 
