@@ -484,7 +484,9 @@ int main(int argc, char **argv)
             if(result < 0){
               sync_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, KCPCON_NAME, "read failed: %s", strerror(error_katcl(cx->c_line)));
             } else {
-              log_message_katcl(ss->s_up, KATCP_LEVEL_DEBUG, KCPCON_NAME, "subordinate job %u ended", cx->c_pid);
+              if(cx->c_pid > 0){
+                log_message_katcl(ss->s_up, KATCP_LEVEL_DEBUG, KCPCON_NAME, "subordinate job %u ended", cx->c_pid);
+              }
             }
             destroy_katcl(cx->c_line, 1);
             cx->c_line = NULL;
