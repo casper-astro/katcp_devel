@@ -441,7 +441,7 @@ int find_write_reply(struct state *ss)
 #endif
 
   while(ss->s_done < ss->s_have){
-    if(ss->s_buffer[ss->s_done] == 0x2){
+    if(ss->s_buffer[ss->s_done] == 0x1){
       ss->s_done++;
       trim_buffer(ss);
       return 1;
@@ -860,12 +860,12 @@ struct item poweron_table[11] = {
   { complete_network_item,    3,  1,  0,  0 },   /* 2 */ 
   { request_ping_item,        4,  1,  0,  0 },   /* 3 */
   { decode_ping_item,         5,  1,  0,  0 },   /* 4 */
-  { request_read_item,        6,  0,  0,  REGISTER_POWERSTATE }, /* 5 */
-  { decode_powerstatus_item,  7,  0,  0,  0 },   /* 6 */
-  { turn_on_item,             8,  0, 10,  0 },   /* 7 */
-  { complete_write_item,      9,  0,  0,  0 },   /* 8 */
-  { sleep_item,               5,  0,  0,  5 },   /* 9 - poll pause, wait, then retry */
-  { sleep_item,              -1,  0,  0, 10 }   /* 10 - final pause, bit of time to boot up */
+  { request_read_item,        6,  1,  0,  REGISTER_POWERSTATE }, /* 5 */
+  { decode_powerstatus_item,  7,  1,  0,  0 },   /* 6 */
+  { turn_on_item,             8,  1, 10,  0 },   /* 7 */
+  { complete_write_item,      9,  1,  0,  0 },   /* 8 */
+  { sleep_item,               5,  1,  0,  5 },   /* 9 - poll pause, wait, then retry */
+  { sleep_item,              -1,  1,  0, 10 }   /* 10 - final pause, bit of time to boot up */
 };
 
 struct item powerdown_table[9] = {
@@ -874,10 +874,10 @@ struct item powerdown_table[9] = {
   { complete_network_item,    3,  1,  0,  0 },   /* 2 */ 
   { request_ping_item,        4,  1,  0,  0 },   /* 3 */
   { decode_ping_item,         5,  1,  0,  0 },   /* 4 */
-  { request_read_item,        6,  0,  0,  REGISTER_POWERSTATE }, /* 5 */
-  { decode_powerstatus_item,  7,  0,  0,  0 },   /* 6 */
-  { turn_off_item,            8,  0, -1,  0 },   /* 7 */
-  { complete_write_item,     -1,  0,  0,  0 },   /* 8 */
+  { request_read_item,        6,  1,  0,  REGISTER_POWERSTATE }, /* 5 */
+  { decode_powerstatus_item,  7,  1,  0,  0 },   /* 6 */
+  { turn_off_item,            8,  1, -1,  0 },   /* 7 */
+  { complete_write_item,     -1,  1,  0,  0 },   /* 8 */
 };
 
 struct item powerquery_table[7] = {
