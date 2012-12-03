@@ -4,8 +4,7 @@ set -e
 
 source functions.sh
 
-startcmd="\0002\0201\0002\0377\0377"
-stopcmd="\0002\0202\0002\0377\0377"
+ROACHES=$(grep '^ *servers_' /etc/corr/* | cut -f2 -d= | tr , '\n'  | tr -d ' '  | sort -u)
 
 case "$1" in
   start)

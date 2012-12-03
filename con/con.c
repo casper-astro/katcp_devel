@@ -21,8 +21,6 @@
 #include "katcl.h"
 #include "katpriv.h"
 
-#define DEBUG
-
 #define KCPCON_NAME "concurrent"
 
 #define BUFFER 1024

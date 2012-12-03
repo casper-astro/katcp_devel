@@ -1083,7 +1083,7 @@ int main(int argc, char **argv)
     }
 
     if(ss->s_index >= ss->s_size){
-      log_message_katcl(ss->s_up, KATCP_LEVEL_INFO, NAME, "entered terminal state with code %d", code);
+      log_message_katcl(ss->s_up, KATCP_LEVEL_DEBUG, NAME, "entered terminal state with code %d", code);
       run = 0;
       continue; /* break out of while loop */
     }
