@@ -19,13 +19,9 @@
 #include "katcl.h"
 #include "katcp.h"
 
-#if 0
-#define KATCP_FLUSH_THRESHOLD 4 
-#endif
-
 /****************************************************************/
 
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
 static void sane_line_katcl(struct katcl_line *l)
 {
   struct katcl_parse *p;
@@ -222,7 +218,7 @@ int read_katcl(struct katcl_line *l)
   fprintf(stderr, "line: invoking read on line %p\n", l);
 #endif
 
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
   if(l->l_next == NULL){
     fprintf(stderr, "line: logic failure, l_next should always be valid\n");
     abort();
@@ -635,7 +631,7 @@ int append_parse_katcl(struct katcl_line *l, struct katcl_parse *p)
 {
   int result;
 
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
 
   if(p->p_magic != KATCL_PARSE_MAGIC){
     fprintf(stderr, "problem: attempting to append parse %p with bad magic %x to line\n", p, p->p_magic);
@@ -825,7 +821,7 @@ int write_katcl(struct katcl_line *l)
           continue; /* WARNING */
         } 
 
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
         if(p->p_magic != KATCL_PARSE_MAGIC){
           fprintf(stderr, "write: bad magic returned from get_head (%x, expected %x)\n", p->p_magic, KATCL_PARSE_MAGIC);
           abort();
@@ -837,7 +833,7 @@ int write_katcl(struct katcl_line *l)
           continue; /* WARNING */
         }
 
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
         if(l->l_arg >= p->p_got){
           fprintf(stderr, "write: logic problem: arg=%u >= got=%u\n", l->l_arg, p->p_got);
           abort();
@@ -846,7 +842,7 @@ int write_katcl(struct katcl_line *l)
 
         la = &(p->p_args[l->l_arg]);
 
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
         if((la->a_begin + l->l_offset) > la->a_end){
           fprintf(stderr, "write: logic problem: offset=%u extends beyond argument %u (%u-%u)\n", l->l_offset, l->l_arg, la->a_begin, la->a_end);
           abort();
@@ -855,7 +851,7 @@ int write_katcl(struct katcl_line *l)
 
         if((la->a_begin + l->l_offset) >= la->a_end){ /* done ? */
           if(l->l_offset == 0){ /* special case - null arg */
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
             if(l->l_arg == 0){
               fprintf(stderr, "write: problem - arg0 is null\n");
               abort();
@@ -909,7 +905,7 @@ int write_katcl(struct katcl_line *l)
           continue;
         }
 
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
         if(p->p_magic != KATCL_PARSE_MAGIC){
           fprintf(stderr, "write: bad magic returned from get_head (%x, expected %x)\n", p->p_magic, KATCL_PARSE_MAGIC);
           abort();

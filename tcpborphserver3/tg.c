@@ -836,7 +836,7 @@ int run_io_tap(struct katcp_dispatch *d, struct katcp_arb *a, unsigned int mode)
 
   tr = get_current_mode_katcp(d);
 
-  if(tr && (tr->r_fpga == TBS_FPGA_MAPPED)){ /* WARNING: should destroy, not hang around. We are counting on the run_timer to kill things, returning -1 not advisable as that only does a partial destroy */
+  if(tr && (tr->r_fpga == TBS_FPGA_MAPPED)){ /* WARNING: actually we should never run if fpga not mapped */
 
     if(mode & KATCP_ARB_READ){
       result = receive_ip_kernel(d, gs);

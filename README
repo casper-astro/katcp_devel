@@ -2,10 +2,14 @@
 This package contains a C katcp library implementation and selected applications using it. 
 Unless otherwise noted the code base is released under the terms described in COPYING
 
+The Makefile.inc file in this directory contains a number of options, edit to your needs
+
+
 General purpose components
 
   katcp       - the katcp library itself
   cmd         - send arbitrary katcp commands to a remote server
+  par         - similar to cmd, but talk to multiple devices concurrently 
   log         - a utility to monitor a remote katcp server
   sq          - simple katcp sensor query utility (block until 
                 a sensor changes to a certain status field)

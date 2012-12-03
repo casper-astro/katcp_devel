@@ -549,7 +549,7 @@ int load_shared_katcp(struct katcp_dispatch *d)
   }
 #endif
 
-  result = 0;
+  result = exiting_katcp(d) ? (-1) : 0;
 
   /* WARNING: all clients contiguous */
   for(i = 0; i < s->s_used; i++){
@@ -688,6 +688,9 @@ int ended_shared_katcp(struct katcp_dispatch *d)
 #ifdef DEBUG
       fprintf(stderr, "ended[%d]: unsolicted disconnect with code %d\n", i, status);
 #endif
+
+      basic_inform_katcp(dx, KATCP_DISCONNECT_INFORM, (status == KATCP_EXIT_RESTART) ? "restart" : "shutdown");
+
       terminate_katcp(dx, status); /* have the shutdown code go others */
 #if 0
       on_disconnect_katcp(dx, NULL);
@@ -884,12 +887,10 @@ int mode_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
 
   if(name && strcmp(actual, name)){
-    extra_response_katcp(d, KATCP_RESULT_FAIL, actual);
-  } else {
-    extra_response_katcp(d, KATCP_RESULT_OK, actual);
-  }
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, actual);
+  } 
 
-  return KATCP_RESULT_OWN;
+  return extra_response_katcp(d, KATCP_RESULT_OK, actual);
 }
 
 /***********************************************************************/
@@ -1372,6 +1373,7 @@ char *query_mode_name_katcp(struct katcp_dispatch *d)
 
 /***************************************************************************/
 
+#ifdef KATCP_SUBPROCESS
 void destroy_dynamic_mode_katcp(struct katcp_dynamic_mode *dm);
 
 struct katcp_dynamic_mode *create_dynamic_mode_katcp(char *cmd)
@@ -1484,11 +1486,14 @@ struct katcp_notice *prepare_dynamic_mode_katcp(struct katcp_dispatch *d, char *
 
   return halt;
 }
+#endif
 
 int define_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   struct katcp_shared *s;
+#ifdef KATCP_SUBPROCESS
   struct katcp_dynamic_mode *dm;
+#endif
   char *name, *label, *script, *tmp;
   unsigned int m, status;
   int result;
@@ -1532,6 +1537,7 @@ int define_cmd_katcp(struct katcp_dispatch *d, int argc)
 
     m = count_modes_katcp(d);
 
+#ifdef KATCP_SUBPROCESS
     if(script){
       dm = create_dynamic_mode_katcp(script);
       if(dm == NULL){
@@ -1544,8 +1550,11 @@ int define_cmd_katcp(struct katcp_dispatch *d, int argc)
         destroy_dynamic_mode_katcp(dm);
       }
     } else {
+#endif
       result = store_sensor_mode_katcp(d, m, label, NULL, NULL, NULL, NULL, NULL, status);
+#ifdef KATCP_SUBPROCESS
     }
+#endif
 
     if(result < 0){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate mode %s", label);

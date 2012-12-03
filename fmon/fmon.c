@@ -1977,9 +1977,9 @@ int check_basic_xengine_fmon(struct fmon_state *f)
 
     if(f->f_xe_errors[i] < total){
       sync_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_server, "encountered xengine%d errors: vector-accumulator=%u reorder=%u", i, vector_error, reorder_error);
-      f->f_xe_errors[i] = total;
       problems++;
     }
+    f->f_xe_errors[i] = total;
 
   }
 
@@ -2013,9 +2013,9 @@ int check_basic_xengine_fmon(struct fmon_state *f)
 
       if(f->f_xp_errors[i] < total){
         sync_message_katcl(f->f_report, KATCP_LEVEL_INFO, f->f_server, "encountered xengine port%d errors: rx=%u, gbe-rx=%u, gbe-tx=%u", i, rx_error, gbe_rx_error, gbe_tx_error);
-        f->f_xe_errors[i] = total;
         problems++;
       }
+      f->f_xp_errors[i] = total;
     }
   }
 

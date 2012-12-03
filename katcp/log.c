@@ -130,8 +130,8 @@ int vlog_message_katcl(struct katcl_line *cl, int level, char *name, char *fmt, 
 
   logstring = log_to_string_katcl(level);
   if(logstring == NULL){
-#ifdef DEBUG
-    fprintf(stderr, "log: bad log level\n");
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "log: using unknown log level %d in log function call\n", level);
     abort();
 #endif
     return -1;
@@ -144,7 +144,11 @@ int vlog_message_katcl(struct katcl_line *cl, int level, char *name, char *fmt, 
 
   result[0] = append_string_katcl(cl, KATCP_FLAG_FIRST, KATCP_LOG_INFORM);
   result[1] = append_string_katcl(cl, 0, logstring);
-  result[2] = append_args_katcl(cl, 0, "%lu%03d", now.tv_sec, milli);
+#if KATCP_PROTOCOL_MAJOR_VERSION >= 5   
+    result[2] = append_args_katcl(cl, 0, "%lu.%03d", now.tv_sec, milli);
+#else 
+    result[2] = append_args_katcl(cl, 0, "%lu%03d", now.tv_sec, milli);
+#endif
   result[3] = append_string_katcl(cl, 0, subsystem);
 
 #if DEBUG > 1

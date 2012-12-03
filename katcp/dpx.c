@@ -17,6 +17,8 @@
 #include <katpriv.h>
 #include <katcl.h>
 
+#ifdef KATCP_EXPERIMENTAL
+
 #define KATCP_MAP_FLAG_NONE       0
 #define KATCP_MAP_FLAG_HIDDEN   0x1
 
@@ -35,6 +37,7 @@
 /********************************************************************/
 
 struct katcp_group{
+  /* a set of flats which belong together, probably spawned off the same listener, probably same set of commands, probably same "mode" */
   char *g_name;
   struct katcp_cmd_map *g_map;
 
@@ -45,6 +48,7 @@ struct katcp_group{
 };
 
 struct katcp_flat{
+  /* a client instance, intended to replace what was job and dispatch previously */
   unsigned int f_magic;
   char *f_name;          /* locate the thing by name */
 
@@ -64,11 +68,20 @@ struct katcp_flat{
 
   struct katcl_queue *f_backlog; /* backed up requests from the remote end, shouldn't happen */
 
-  struct katcp_cmd_map *f_map;
+  struct katcp_cmd_map *f_map;   /* local command instance to override others */
   struct katcp_group *f_group;
+
+  /* TODO: */
+  
+  /* notices, sensors */
+
+  /* a sensor could probably be a special type of notice */
 };
 
+/*******************************************************************************/
+
 struct katcp_cmd_item{
+  /* a single command */
   char *i_name;
   char *i_help;
   int (*i_call)(struct katcp_dispatch *d, int argc);
@@ -80,6 +93,7 @@ struct katcp_cmd_item{
 #include <avltree.h>
 
 struct katcp_cmd_map{
+  /* "table" of commands */
   char *m_name;
   unsigned int m_refs;
   struct avl_tree *m_tree;
@@ -466,7 +480,7 @@ struct katcp_cmd_item *locate_cmd_item(struct katcp_flat *f, struct katcl_parse 
 
 /* */
 
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
 static void sane_flat_katcp(struct katcp_flat *f)
 {
   if(f->f_magic != FLAT_MAGIC){
@@ -527,7 +541,7 @@ static void destroy_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *f)
     gx = f->f_group;
 
     if((gx == NULL) || (gx->g_count == 0)){
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
       fprintf(stderr, "dpx: major logic problem: malformed or empty group at %p\n", gx);
       abort();
 #endif
@@ -696,7 +710,7 @@ int load_flat_katcp(struct katcp_dispatch *d)
 
       switch(f->f_state){
         case FLAT_STATE_GONE :
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
           fprintf(stderr, "flat: problem: state %u should have been removed already\n", f->f_state);
           abort();
 #endif
@@ -1087,3 +1101,5 @@ int list_duplex_cmd_katcp(struct katcp_dispatch *d, int argc)
 
   return KATCP_RESULT_OK;
 }
+
+#endif

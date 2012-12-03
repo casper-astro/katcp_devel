@@ -74,10 +74,16 @@ int run_chassis_tbs(struct katcp_dispatch *d, struct katcp_arb *a, unsigned int 
   if(mode & KATCP_ARB_READ){
     rr = read(fd, &event, sizeof(struct input_event));
     if(rr == sizeof(struct input_event)){
-#ifdef DEBUG
       log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "input event type=%d, code=%d, value=%d", event.type, event.code, event.value);
-#endif
-      /* TODO: one of: shut down server, emit message, invoke callback */
+      if(event.type == EV_KEY && (event.value > 0)){
+        switch(event.code){
+          case KEY_POWER : 
+          case KEY_SYSRQ :
+            log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "power button pressed, shutting down");
+            terminate_katcp(d, KATCP_EXIT_HALT);
+            break;
+        }
+      }
     }
   }
 
@@ -176,7 +182,9 @@ int hook_led_cmd(struct katcp_dispatch *d, int argc, int value)
 {
   struct tbs_raw *tr;
 
+#if 0
   log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "running tbs hook function with value %d", value);
+#endif
 
   tr = get_mode_katcp(d, TBS_MODE_RAW);
   if(tr == NULL){
@@ -243,7 +251,7 @@ int led_chassis_cmd(struct katcp_dispatch *d, int argc)
   } else if(!strcmp(name, "green")){
     code = LED_MISC;
   } else {
-    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unsupported led %s", name);
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unsupported led colour %s", name);
     return KATCP_RESULT_FAIL;
   }
 
@@ -257,6 +265,8 @@ int led_chassis_cmd(struct katcp_dispatch *d, int argc)
       value = 1;
     }
   }
+
+  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "%s led code %d", value ? "setting" : "clearing", code);
 
   if(write_event_tbs(d, tr->r_chassis, EV_LED, code, value) < 0){
     return KATCP_RESULT_FAIL;

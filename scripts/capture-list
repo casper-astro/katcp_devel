@@ -2,25 +2,43 @@
 
 source functions.sh
 
+list_source()
+{
+  source=$1
+  host=${2%:*}
+  port=${2##*:}
+
+  if [ -z "${host}" ] ; then
+    host=unknown
+  fi
+
+  if [ -z "${port}" ] ; then
+    port=unknown
+  fi
+
+  echo "#capture-list ${source} ${host} ${port}"
+}
+
 if [ -n "${KCS_CORR_RX}" ] ; then
-  rxip=${KCS_CORR_RX%:*}
-  rxport=${KCS_CORR_RX##*:}
+  list_source k7 ${KCS_CORR_RX}
 else
   if [ ! -f ${CORR_CONFIG}/${KATCP_MODE} ] ; then
     kcs_warn "no configuration for ${KATCP_MODE}"
   fi
   rxip=$(grep ^rx_udp_ip ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
   rxport=$(grep ^rx_udp_port ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
+  list_source k7 ${rxip}:${rxport}
 fi
 
-if [ -z "${rxip}" ] ; then
-  rxip=unknown
+if [ -n "${KCS_BF_COUNT}" ] ; then
+  beam=0
+  while [ "${beam}" -lt "${KCS_BF_COUNT}" ] ; do
+    bf_rx=KCS_BF${beam}
+    if [ -n "${!bf_rx}" ]; then
+      list_source bf${beam} ${!bf_rx}
+    fi 
+    beam=$[beam+1]
+  done
 fi
-
-if [ -z "${rxport}" ] ; then
-  rxport=unknown
-fi
-
-echo "#capture-list k7 ${rxip} ${rxport}"
 
 exit 0

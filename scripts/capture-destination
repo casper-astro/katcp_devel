@@ -1,9 +1,10 @@
 #!/bin/bash
 
 source functions.sh
+source beamformer.sh
 
 if [ $# -lt 3 ] ; then
-  kcs_error "require three parameters: k7 ip port"
+  kcs_error "require three parameters: stream ip port"
   exit 1
 fi
 
@@ -11,13 +12,27 @@ output=$1
 host=$2
 port=$3
 
-if [ "$output" != "k7" ] ; then
-  kcs_error "only know about k7 destination"
-  exit 1
-fi
+case "${output}" in
+  k7)
+    kcpcmd -s localhost:7147 -k -i -r setenv KCS_CORR_RX $host:$port
+    kcs_info "set k7 destination to $host:$port"
+    ;;
+  bf*)
+    if ! set_bf_rx ${output} ${host} ${port} $(grep ^servers_x.*roach ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= ) ; then
+      kcs_error "unable to set beam destination for ${output}"
+      if [ -n "${KCS_BF_COUNT}" ] ; then
+        if [ "${KCS_BF_COUNT}" -gt "0" ] ; then
+          kcs_info "valid beam names are bf0 to bf$[$KCS_BF_COUNT-1]"
+        fi
+      fi
+      exit 1
+    fi
 
-kcpcmd -s localhost:7147 -k -i -r setenv KCS_CORR_RX $host:$port
-
-kcs_info "set k7 destination to $host:$port"
+    ;;
+  *)
+    kcs_error "unsupported data stream ${output}"
+    exit 1
+    ;;
+esac
 
 exit 0

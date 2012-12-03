@@ -18,8 +18,6 @@
 #include "katcl.h"
 #include "katpriv.h"
 
-#define DEBUG
-
 #define KCPPAR_NAME "kcppar"
 
 #define BUFFER 1024
@@ -425,17 +423,14 @@ void usage(char *app)
 {
   printf("usage: %s [flags] [-s server[,server]* -x command args*]*\n", app);
   printf("-h                 this help\n");
-  printf("-v                 increase verbosity\n");
+  printf("-i                 inhibit relaying of downstream inform messages\n");
+  printf("-l label           assign log messages a given label\n");
+  printf("-m                 munge replies into log messages\n");
+  printf("-n                 suppress relaying of downstream version information\n");
   printf("-q                 run quietly\n");
-#if 0
-  printf("-k                 emit katcp log messages\n");
-#endif
   printf("-s server:port     specify server:port\n");
-  printf("-t seconds         set timeout (in ms)\n");
-  printf("-r                 toggle printing of reply messages\n");
-  printf("-i                 toggle printing of inform messages\n");
-  printf("-m                 munge replies into log messages (requires -k)\n");
-  printf("-n                 suppress version information emitted on connect\n");
+  printf("-t timeout         set timeout (in ms)\n");
+  printf("-v                 increase verbosity\n");
 
   printf("return codes:\n");
   printf("0     command completed successfully\n");
@@ -460,9 +455,9 @@ int main(int argc, char **argv)
   struct timeval delta, start, stop;
   fd_set fsr, fsw;
 
-  char *app, *parm, *cmd, *copy, *ptr, *servers;
-  int i, j, c, fd, mfd;
-  int verbose, result, status, base, info, reply, timeout, pos, flags, show;
+  char *app, *parm, *cmd, *copy, *ptr, *servers, *extra, *label;
+  int i, j, c, fd, mfd, count;
+  int verbose, result, status, base, info, timeout, pos, flags, show, munge, once;
   int xmit, code;
   unsigned int len;
   
@@ -471,8 +466,9 @@ int main(int argc, char **argv)
     servers = "localhost:7147";
   }
   
+  once = 1;
+  munge = 0;
   info = 1;
-  reply = 1;
   verbose = 1;
   i = j = 1;
   app = argv[0];
@@ -482,6 +478,9 @@ int main(int argc, char **argv)
   k = NULL;
   show = 1;
   parm = NULL;
+  extra = NULL;
+  label = KCPPAR_NAME;
+  count = 0;
 
   k = create_katcl(STDOUT_FILENO);
   if(k == NULL){
@@ -491,7 +490,7 @@ int main(int argc, char **argv)
 
   ss = create_set();
   if(ss == NULL){
-    sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPPAR_NAME, "unable to set up command set data structures");
+    sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "unable to set up command set data structures");
     return 4;
   }
 
@@ -505,24 +504,13 @@ int main(int argc, char **argv)
         case 'h' :
           usage(app);
           return 0;
-
-        case 'v' : 
-          verbose++;
-          j++;
-          break;
-        case 'q' : 
-          verbose = 0;
-          info = 0;
-          reply = 0;
-          j++;
-          break;
-
         case 'i' : 
           info = 1 - info;
           j++;
           break;
-        case 'r' : 
-          reply = 1 - reply;
+
+        case 'm' : 
+          munge = 1;
           j++;
           break;
 
@@ -531,22 +519,18 @@ int main(int argc, char **argv)
           j++;
           break;
 
+
+        case 'q' : 
+          verbose = 0;
+          j++;
+          break;
+
         case 'x' : 
           xmit = 0;
           j++;
           break;
 
-#if 0
-        case 'k' : 
-          k = create_katcl(STDOUT_FILENO);
-          if(k == NULL){
-            fprintf(stderr, "%s: unable to create katcp message logic\n", app);
-            return 4;
-          }
-          j++;
-          break;
-#endif
-
+        case 'l' :
         case 's' :
         case 't' :
 
@@ -556,11 +540,14 @@ int main(int argc, char **argv)
             i++;
           }
           if (i >= argc) {
-            sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPPAR_NAME, "argument needs a parameter");
+            sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "argument needs a parameter");
             return 2;
           }
 
           switch(c){
+            case 'l' :
+              label = argv[i] + j;
+              break;
             case 's' :
               servers = argv[i] + j;
               break;
@@ -573,6 +560,11 @@ int main(int argc, char **argv)
           j = 1;
           break;
 
+        case 'v' : 
+          verbose++;
+          j++;
+          break;
+
         case '-' :
           j++;
           break;
@@ -581,9 +573,7 @@ int main(int argc, char **argv)
           i++;
           break;
         default:
-          if(k){
-            sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPPAR_NAME, "unknown option -%c", argv[i][j]);
-          }
+          sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "unknown option -%c", argv[i][j]);
           return 2;
       }
     } else {
@@ -598,9 +588,7 @@ int main(int argc, char **argv)
       if(xmit == 0){
         px = create_referenced_parse_katcl();
         if(px == NULL){
-          if(k){
-            sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPPAR_NAME, "unable to create parse instance for <%s ...>", argv[i]);
-          }
+          sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "unable to create parse instance for <%s ...>", argv[i]);
           return 4;
         }
 
@@ -613,9 +601,7 @@ int main(int argc, char **argv)
           default :
             copy = malloc(strlen(argv[i]) + 1);
             if(copy == NULL){
-              if(k){
-                sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPPAR_NAME, "unable to allocate temporary storage for %s", argv[i]);
-              }
+              sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "unable to allocate temporary storage for %s", argv[i]);
               return 4;
             }
             copy[0] = KATCP_REQUEST;
@@ -635,9 +621,7 @@ int main(int argc, char **argv)
       }
 
       if(add_string_parse_katcl(px, flags, ptr) < 0){
-        if(k){
-          sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPPAR_NAME, "unable to add parameter %s", ptr);
-        }
+        sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "unable to add parameter %s", ptr);
         return 4;
       }
 
@@ -646,9 +630,7 @@ int main(int argc, char **argv)
         fprintf(stderr, "par: loading command for servers %s\n", servers);
 #endif
         if(load_parse_set(ss, servers, px) < 0){
-          if(k){
-            sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPPAR_NAME, "unable to load command into server set %s", servers);
-          }
+          sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "unable to load command into server set %s", servers);
           return 4;
         }
       }
@@ -674,9 +656,7 @@ int main(int argc, char **argv)
   add_time_katcp(&stop, &start, &delta);
 
   if(activate_remotes(ss, k) < 0){
-    if(k){
-      sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPPAR_NAME, "unable to initiate connections to remote servers");
-    }
+    sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "unable to initiate connections to remote servers");
     return 3;
   }
 
@@ -733,16 +713,12 @@ int main(int argc, char **argv)
           case EINTR  :
             continue; /* WARNING */
           default  :
-            if(k){
-              sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPPAR_NAME, "select failed: %s", strerror(errno));
-            }
+            sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "select failed: %s", strerror(errno));
             return 4;
         }
         break;
       case  0 :
-        if(k){
-          sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPPAR_NAME, "requests timed out after %dms", timeout);
-        } 
+        sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "requests timed out after %dms", timeout);
         /* could terminate cleanly here, but ... */
         return 3;
     }
@@ -750,7 +726,7 @@ int main(int argc, char **argv)
     if(k){
       fd = fileno_katcl(k);
       if(FD_ISSET(fd, &fsw)){
-        result = write_katcl(k);
+        write_katcl(k); /* WARNING: ignores write failures - unable to do much about it */
       }
     }
 
@@ -759,7 +735,7 @@ int main(int argc, char **argv)
       if(rx->r_line){
         fd = fileno_katcl(rx->r_line);
       } else {
-        fd = (-1); /* WARNING: live dangerously */
+        fd = (-1); /* WARNING: live dangerously, will cause select to core dump if logic is incorrect */
       }
 
       switch(rx->r_state){
@@ -770,25 +746,21 @@ int main(int argc, char **argv)
             if(result == 0){
               switch(code){
                 case 0 :
-                  if(k){
-                    log_message_katcl(k, KATCP_LEVEL_DEBUG, NULL, "async connect to %s succeeded", rx->r_name);
+                  if(verbose){
+                    log_message_katcl(k, KATCP_LEVEL_DEBUG, label, "async connect to %s succeeded", rx->r_name);
                   }
                   if(next_request(rx) < 0){
-                    sync_message_katcl(k, KATCP_LEVEL_ERROR, NULL, "failed to load request for destination %s", rx->r_name);
+                    log_message_katcl(k, KATCP_LEVEL_ERROR, label, "failed to load request for destination %s", rx->r_name);
                     update_state(ss, rx, RX_BAD);
                   } else {
                     update_state(ss, rx, RX_UP);
                   }
                   break;
                 case EINPROGRESS :
-                  if(k){ 
-                    log_message_katcl(k, KATCP_LEVEL_WARN, NULL, "saw an in progress despite write set being ready on job %s", rx->r_name);
-                  }
+                  log_message_katcl(k, KATCP_LEVEL_WARN, label, "saw an in progress despite write set being ready on job %s", rx->r_name);
                   break;
                 default :
-                  if(k){
-                    sync_message_katcl(k, KATCP_LEVEL_ERROR, NULL, "unable to connect to %s: %s", rx->r_name, strerror(code));
-                  }
+                  log_message_katcl(k, KATCP_LEVEL_ERROR, label, "unable to connect to %s: %s", rx->r_name, strerror(code));
                   update_state(ss, rx, RX_BAD);
                   break;
               }
@@ -800,9 +772,7 @@ int main(int argc, char **argv)
           if(FD_ISSET(fd, &fsw)){ /* flushing things */
             result = write_katcl(rx->r_line);
             if(result < 0){
-              if(k){
-                sync_message_katcl(k, KATCP_LEVEL_ERROR, NULL, "unable to write to %s", rx->r_name);
-              }
+              log_message_katcl(k, KATCP_LEVEL_ERROR, label, "unable to write to %s: %s", rx->r_name, strerror(error_katcl(rx->r_line)));
               update_state(ss, rx, RX_BAD);
             }
           }
@@ -810,9 +780,11 @@ int main(int argc, char **argv)
           if(FD_ISSET(fd, &fsr)){ /* get things */
             result = read_katcl(rx->r_line);
             if(result){
-              if(k){
-                sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPPAR_NAME, "read failed: %s", (result < 0) ? strerror(error_katcl(rx->r_line)) : "connection terminated");
-              } 
+              if(result < 0){
+                log_message_katcl(k, KATCP_LEVEL_ERROR, label, "read from %s failed: %s", rx->r_name, strerror(error_katcl(rx->r_line)));
+              } else {
+                log_message_katcl(k, KATCP_LEVEL_WARN, label, "%s disconnected", rx->r_name);
+              }
             }
           }
 
@@ -826,18 +798,18 @@ int main(int argc, char **argv)
 #endif
               switch(cmd[0]){
                 case KATCP_INFORM : 
-                  if(k){
-#if 0
-                    if(!strcmp(KATCP_VERSION_CONNECT_INFORM, cmd)){
-                      display = 0;
+                  if(info){
+                    if(show == 0){
+                      if(!strcmp(KATCP_VERSION_CONNECT_INFORM, cmd)){
+                        break;
+                      }
+                      if(!strcmp(KATCP_VERSION_INFORM, cmd)){
+                        break;
+                      }
+                      if(!strcmp(KATCP_BUILD_STATE_INFORM, cmd)){
+                        break;
+                      }
                     }
-                    if(!strcmp(KATCP_VERSION_INFORM, cmd)){
-                      display = 0;
-                    }
-                    if(!strcmp(KATCP_BUILD_STATE_INFORM, cmd)){
-                      display = 0;
-                    }
-#endif
                     relay_katcl(rx->r_line, k);
                   }
                   break;
@@ -850,39 +822,46 @@ int main(int argc, char **argv)
                     case '\t' :
                     case '\\' :
                     case '\0' :
-                      if(k){
-                        sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPPAR_NAME, "unreasonable response message");
-                      } 
+                      log_message_katcl(k, KATCP_LEVEL_ERROR, label, "unreasonable response message from %s", rx->r_name);
                       update_state(ss, rx, RX_BAD);
                       break;
                     default : 
                       ptr = cmd + 1;
                       if(strcmp(ptr, rx->r_match)){
-                        if(k){
-                          sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPPAR_NAME, "did not issue request matching response %s", ptr);
-                        } 
+                        log_message_katcl(k, KATCP_LEVEL_ERROR, label, "downstream %s returned response %s which was never requested", rx->r_name, ptr);
                         update_state(ss, rx, RX_BAD);
                       } else {
                         parm = arg_string_katcl(rx->r_line, 1);
-                        if(parm && !strcmp(parm, KATCP_OK)){
-                          if(k){
-                            log_message_katcl(k, KATCP_LEVEL_TRACE, KCPPAR_NAME, "request %s to %s returned ok", ptr, rx->r_name);
-                          } 
-                          result = next_request(rx);
-                          if(result){
-                            if(result < 0){
-                              if(k){
-                                sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPPAR_NAME, "unable to queue request %s to %s", ptr, rx->r_name);
-                              } 
-                              update_state(ss, rx, RX_BAD);
-                            } else {
-                              update_state(ss, rx, RX_OK);
+                        if(parm){
+                          if(strcmp(parm, KATCP_OK) == 0){
+                            count++;
+                            if(munge){
+                              log_message_katcl(k, KATCP_LEVEL_INFO, label, "%s %s ok", rx->r_name, ptr);
                             } 
+                            if(verbose > 1){
+                              log_message_katcl(k, KATCP_LEVEL_TRACE, label, "request %s to %s returned ok", ptr, rx->r_name);
+                            }
+                            result = next_request(rx);
+                            if(result){
+                              if(result < 0){
+                                sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "unable to queue request %s to %s", ptr, rx->r_name);
+                                update_state(ss, rx, RX_BAD);
+                              } else {
+                                update_state(ss, rx, RX_OK);
+                              } 
+                            }
+                          } else {
+                            if(munge){
+                              extra = arg_string_katcl(rx->r_line, 2);
+                              log_message_katcl(k, KATCP_LEVEL_ERROR, label, "%s %s %s (%s)", rx->r_name, ptr, parm, extra ? extra : "no extra information");
+                            } 
+                            if(verbose > 0){
+                              log_message_katcl(k, KATCP_LEVEL_ERROR, label, "downstream %s unable to process %s with status %s (%s)", rx->r_name, cmd, parm, extra ? extra : "no extra information");
+                            }
+                            update_state(ss, rx, RX_FAIL);
                           }
                         } else {
-                          if(k){
-                            sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPPAR_NAME, "request %s to %s failed", cmd, rx->r_name);
-                          } 
+                          log_message_katcl(k, KATCP_LEVEL_ERROR, label, "response %s without status from %s", cmd, rx->r_name);
                           update_state(ss, rx, RX_FAIL);
                         }
                       }
@@ -890,15 +869,14 @@ int main(int argc, char **argv)
                   }
                   break;
                 case KATCP_REQUEST : 
-                  if(k){
-                    sync_message_katcl(k, KATCP_LEVEL_WARN, KCPPAR_NAME, "encountered unanswerable request %s", cmd);
-                  } 
+                  log_message_katcl(k, KATCP_LEVEL_WARN, label, "encountered unanswerable request %s", cmd);
                   update_state(ss, rx, RX_BAD);
                   break;
                 default :
-                  if(k){
-                    sync_message_katcl(k, KATCP_LEVEL_WARN, KCPPAR_NAME, "read malformed message %s", cmd);
-                  } 
+                  if(once){
+                    log_message_katcl(k, KATCP_LEVEL_WARN, label, "read malformed message %s from %s", cmd, rx->r_name);
+                    once = 1;
+                  }
                   break;
               }
 
@@ -919,10 +897,21 @@ int main(int argc, char **argv)
 
   destroy_set(ss);
 
-  if(k){
-    while(write_katcl(k) == 0);
-    destroy_katcl(k, 0);
+  if(verbose){
+    if(status > 0){
+      log_message_katcl(k, KATCP_LEVEL_WARN, label, "command sequence failed after operation %d", count);
+    } else {
+      if(count > 0){
+        log_message_katcl(k, KATCP_LEVEL_INFO, label, "%d operations ok", count);
+      } else {
+        log_message_katcl(k, KATCP_LEVEL_INFO, label, "did nothing successfully");
+      }
+    }
   }
+
+  /* flush, allows us to get away with deferring writes to stdout */
+  while(write_katcl(k) == 0);
+  destroy_katcl(k, 0);
 
   return status;
 }

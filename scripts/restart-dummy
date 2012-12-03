@@ -1,0 +1,12 @@
+#!/bin/bash
+
+set -ex
+
+source functions.sh
+
+TARGET_MODE=b16n400M1k
+
+kcs_load_config ${TARGET_MODE}
+
+kcppar -n -v -m -s ${var_servers_f} -x progdev ${var_bitstream_f} -s ${var_servers_x} -x progdev ${var_bitstream_x}
+

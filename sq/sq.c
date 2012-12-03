@@ -26,7 +26,19 @@
 
 #define NAME "sq"
 
-char *sensor_status_names[SENSOR_NAMES_COUNT] = { "unknown", "nominal", "warn", "error", "failure" };
+
+#if KATCP_PROTOCOL_MAJOR_VERSION >= 5   
+#if KATCP_STATA_COUNT != 7
+#error incorret number of status fields
+#endif
+char *sensor_status_names[KATCP_STATA_COUNT] = { "unknown", "nominal", "warn", "error", "failure", "unreachable", "inactive"};
+#else
+#if KATCP_STATA_COUNT != 5
+#error incorret number of status fields
+#endif
+char *sensor_status_names[KATCP_STATA_COUNT] = { "unknown", "nominal", "warn", "error", "failure" };
+#endif
+
 volatile int up_running;
 
 void handle_alarm(int signal)

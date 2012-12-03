@@ -32,12 +32,13 @@ int halt_cmd_katcp(struct katcp_dispatch *d, int argc);
 int restart_cmd_katcp(struct katcp_dispatch *d, int argc);
 int log_level_cmd_katcp(struct katcp_dispatch *d, int argc);
 int log_default_cmd_katcp(struct katcp_dispatch *d, int argc);
+int log_local_cmd_katcp(struct katcp_dispatch *d, int argc);
 int log_record_cmd_katcp(struct katcp_dispatch *d, int argc);
 int watchdog_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 /************ paranoia checks ***********************************/
 
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
 static void sane_katcp(struct katcp_dispatch *d)
 {
   if(d == NULL){
@@ -132,6 +133,7 @@ struct katcp_dispatch *setup_katcp(int fd)
   register_katcp(d, "?restart",           "restarts the system (?restart)", &restart_cmd_katcp);
   register_katcp(d, "?help",              "displays this help (?help [command])", &help_cmd_katcp);
   register_katcp(d, "?log-level",         "sets the minimum reported log priority (?log-level [priority])", &log_level_cmd_katcp);
+  register_katcp(d, "?log-limit",         "sets the minimum reported log priority for the current connection (?log-local [priority])", &log_local_cmd_katcp);
   register_katcp(d, "?log-default",       "sets the minimum reported log priority for all new connections (?log-default [priority])", &log_default_cmd_katcp);
   register_katcp(d, "?log-record",        "generate a log entry (?log-record [priority] message)", &log_record_cmd_katcp);
   register_katcp(d, "?watchdog",          "pings the system (?watchdog)", &watchdog_cmd_katcp);
@@ -390,7 +392,7 @@ void on_disconnect_katcp(struct katcp_dispatch *d, char *fmt, ...)
   fprintf(stderr, "disconnect: run=%d\n", d->d_run);
 #endif
 
-#ifdef PARANOID
+#ifdef KATCP_CONSISTENCY_CHECKS
   if(d->d_run > 0){
     fprintf(stderr, "disconnect: not yet terminated\n");
     abort();
@@ -578,7 +580,7 @@ int deregister_command_katcp(struct katcp_dispatch *d, char *match)
     c = nxt;
   }
 
-#ifdef REPORT
+#ifdef KATCP_STDERR_ERRORS
   fprintf(stderr, "no match found for %s while deregistering command\n", match);
 #endif
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "no match found for %s", ptr);
@@ -666,7 +668,7 @@ int register_flag_mode_katcp(struct katcp_dispatch *d, char *match, char *help, 
   s = d->d_shared;
 
   if(mode >= s->s_size){
-#ifdef REPORT
+#ifdef KATCP_STDERR_ERRORS
     fprintf(stderr, "register: registering command for oversized mode number %u\n", mode);
 #endif
     log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "mode number %d is not within range", mode);
@@ -802,7 +804,7 @@ int lookup_katcp(struct katcp_dispatch *d)
     return -1;
   }
 
-#ifdef REPORT
+#ifdef KATCP_STDERR_ERRORS
   if((d == NULL) || (d->d_shared == NULL)){
     fprintf(stderr, "lookup: state is null\n");
     return -1;
@@ -855,7 +857,7 @@ int call_katcp(struct katcp_dispatch *d)
   struct katcp_shared *s;
   char *str;
 
-#ifdef REPORT
+#ifdef KATCP_STDERR_ERRORS
   if(d == NULL){
     fprintf(stderr, "call: null dispatch argument\n");
     return -1;
@@ -896,7 +898,7 @@ int call_katcp(struct katcp_dispatch *d)
       d->d_pause = 1;
     }
   } else { /* force a fail for unknown commands */
-#ifdef REPORT
+#ifdef KATCP_STDERR_ERRORS
     fprintf(stderr, "call: no dispatch function for %s\n", str);
 #endif
     switch(str[0]){
@@ -1093,7 +1095,7 @@ int terminate_katcp(struct katcp_dispatch *d, int code)
   d->d_run = (-1);
 
   if(code < 0){
-#ifdef REPORT
+#ifdef KATCP_STDERR_ERRORS
     fprintf(stderr, "terminate: logic failure: values no longer negative\n");
 #endif
     d->d_exit = KATCP_EXIT_ABORT;
@@ -1283,14 +1285,18 @@ int log_level_katcp(struct katcp_dispatch *d, unsigned int level)
 
 int log_level_generic_katcp(struct katcp_dispatch *d, int argc, int global)
 {
-  int ok, code;
+  int ok, code, i;
   char *requested, *got;
   struct katcp_shared *s;
+  struct katcp_dispatch *dx;
 
   s = d->d_shared;
   if(s == NULL){
     return KATCP_RESULT_FAIL;
   }
+
+  code = (-1); /* assume the worst */
+  got = NULL;
 
   if(argc > 1){
     ok = 0;
@@ -1299,29 +1305,46 @@ int log_level_generic_katcp(struct katcp_dispatch *d, int argc, int global)
     if(requested){
       if(!strcmp(requested, "all")){
         ok = 1;
-        if(global){
-          s->s_default = KATCP_LEVEL_TRACE;
-        } else {
-          d->d_level = KATCP_LEVEL_TRACE;
+        code = KATCP_LEVEL_TRACE;
+      } else {
+        code = log_to_code_katcl(requested);
+        if(code >= 0){
+          ok = 1;
         }
       }
-      code = log_to_code_katcl(requested);
       if(code >= 0){
-        ok = 1;
-        if(global){
-          s->s_default = code;
-        } else {
-          d->d_level = code;
+        switch(global){
+          case 0 :
+            d->d_level = code;
+            break;
+          case 1 : 
+            s->s_default = code;
+            break;
+          case 2 : /* change all, immediately */
+            for(i = 0; i < s->s_used; i++){
+              dx = s->s_clients[i];
+              if(dx){
+                dx->d_level = code;
+              }
+            }
+            s->s_default = code;
+            break;
         }
       }
     }
   } else {
+    code = d->d_level;
     ok = 1;
     requested = NULL;
   }
 
-  got = log_to_string_katcl(global ? s->s_default : d->d_level);
-  if(got == NULL){
+  if(code >= 0){
+    got = log_to_string_katcl(code);
+    if(got == NULL){
+      ok = 0;
+    }
+  } else {
+    got = NULL;
     ok = 0;
   }
 
@@ -1330,13 +1353,6 @@ int log_level_generic_katcp(struct katcp_dispatch *d, int argc, int global)
     prepend_reply_katcp(d);
     append_string_katcp(d, KATCP_FLAG_STRING, KATCP_OK);
     append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, got);
-
-#if 0
-    send_katcp(d, 
-      KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "!log-level", 
-                         KATCP_FLAG_STRING, KATCP_OK,
-      KATCP_FLAG_LAST  | KATCP_FLAG_STRING, got);
-#endif
 
   } else {
     if(requested){
@@ -1350,12 +1366,21 @@ int log_level_generic_katcp(struct katcp_dispatch *d, int argc, int global)
 
 int log_level_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
+#ifdef KATCP_STRICT_CONFORMANCE
+  return log_level_generic_katcp(d, argc, 2);
+#else
   return log_level_generic_katcp(d, argc, 0);
+#endif
 }
 
 int log_default_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   return log_level_generic_katcp(d, argc, 1);
+}
+
+int log_local_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  return log_level_generic_katcp(d, argc, 0);
 }
 
 int log_record_cmd_katcp(struct katcp_dispatch *d, int argc)
@@ -1443,7 +1468,7 @@ int log_relay_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
 
   s = d->d_shared;
   if(s == NULL){
-#ifdef REPORT
+#ifdef KATCP_STDERR_ERRORS
     fprintf(stderr, "log: no shared state available\n");
 #endif
     return -1;
@@ -1504,7 +1529,7 @@ int log_message_katcp(struct katcp_dispatch *d, unsigned int priority, char *nam
 
   s = d->d_shared;
   if(s == NULL){
-#ifdef REPORT
+#ifdef KATCP_STDERR_ERRORS
     fprintf(stderr, "log: no shared state available\n");
 #endif
     return -1;
@@ -1700,7 +1725,7 @@ static int prepend_generic_katcp(struct katcp_dispatch *d, int reply)
 
   message = arg_string_katcl(d->d_line, 0);
   if((message == NULL) || (message[0] != KATCP_REQUEST)){
-#ifdef REPORT
+#ifdef KATCP_STDERR_ERRORS
     fprintf(stderr, "prepend: arg0 is unavailable (%p)\n", message);
 #endif
     return -1;

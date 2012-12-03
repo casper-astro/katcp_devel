@@ -175,15 +175,27 @@ struct katcp_sensor{
 #ifdef KATCP_USE_FLOATS
 struct katcp_double_sensor{
   double ds_current;
-  double ds_min;
-  double ds_max;
+
+  int ds_checks;
+
+  double ds_nominal_min;
+  double ds_nominal_max;
+
+  double ds_warning_min;
+  double ds_warning_max;
 };
 #endif
 
 struct katcp_integer_sensor{
   int is_current;
-  int is_min;
-  int is_max;
+
+  int is_checks;
+
+  int is_nominal_min;
+  int is_nominal_max;
+
+  int is_warning_min;
+  int is_warning_max;
 };
 
 struct katcp_discrete_sensor{
@@ -305,6 +317,7 @@ struct katcp_map{
   unsigned int m_size;
 };
 
+#ifdef KATCP_SUBPROCESS
 struct katcp_job{
   unsigned int j_magic;
   struct katcp_url *j_url;
@@ -328,6 +341,7 @@ struct katcp_job{
 
   struct katcp_map *j_map;
 };
+#endif
 
 #if 0
 #define KATCP_TIME_OTHER   0
@@ -538,19 +552,24 @@ struct katcp_stack {
   int s_count;
 };
 
+#ifdef KATCP_SUBPROCESS
 struct katcp_dynamic_mode{
   int d_magic;
   char *d_cmd;
 };
+#endif
 
 void exchange_katcl(struct katcl_line *l, int fd);
 
 int dispatch_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 void component_time_katcp(struct timeval *result, unsigned int ms);
+int string_to_tv_katcp(struct timeval *tv, char *string);
+
 int sub_time_katcp(struct timeval *delta, struct timeval *alpha, struct timeval *beta);
 int add_time_katcp(struct timeval *sigma, struct timeval *alpha, struct timeval *beta);
 int cmp_time_katcp(struct timeval *alpha, struct timeval *beta);
+
 
 int startup_shared_katcp(struct katcp_dispatch *d);
 void shutdown_shared_katcp(struct katcp_dispatch *d);

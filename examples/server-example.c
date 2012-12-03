@@ -28,7 +28,7 @@ int simple_integer_check_sensor(struct katcp_dispatch *d, struct katcp_acquire *
   set_status_sensor_katcp(s, KATCP_STATUS_NOMINAL);
 #endif
 
-  return ((int)time(NULL)) / 10;
+  return ((((int)time(NULL)) / 10) % 7) - 3;
 }
 
 /* check command 1: generates its own reply, with binary and integer output */
@@ -65,6 +65,7 @@ int pause_check_cmd(struct katcp_dispatch *d, int argc)
   return KATCP_RESULT_PAUSE;
 }
 
+#ifdef KATCP_SUBPROCESS
 int subprocess_check_callback(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 {
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "was woken by child process exit");
@@ -110,6 +111,7 @@ int subprocess_check_cmd(struct katcp_dispatch *d, int argc)
   /* suspend, rely on the call back to resume this task */
   return KATCP_RESULT_PAUSE;
 }
+#endif
 
 int main(int argc, char **argv)
 {
@@ -136,7 +138,7 @@ int main(int argc, char **argv)
   add_version_katcp(d, "mylabel", 0, "myversion", "mybuildtime");
 
   /* example sensor */
-  if(register_integer_sensor_katcp(d, 0, "check.integer.simple", "unix time in decaseconds", "Ds", &simple_integer_check_sensor, NULL, NULL, 0, INT_MAX, NULL)){
+  if(declare_integer_sensor_katcp(d, 0, "check.integer.simple", "integers where -1,0,1 is nominal, -2,2 is warning and the rest error", "none", &simple_integer_check_sensor, NULL, NULL, -1, 1, -2, 2, NULL)){
     fprintf(stderr, "server: unable to register sensors\n");
     return 1;
   }
@@ -149,7 +151,9 @@ int main(int argc, char **argv)
   result += register_katcp(d, "?check-ok",    "return ok", &ok_check_cmd);
   result += register_katcp(d, "?check-fail",  "return fail", &fail_check_cmd);
   result += register_katcp(d, "?check-pause", "pauses", &pause_check_cmd);
+#ifdef KATCP_SUBPROCESS
   result += register_katcp(d, "?check-subprocess", "runs sleep 10 as a subprocess and waits for completion", &subprocess_check_cmd);
+#endif
 
   if(result < 0){
     fprintf(stderr, "server: unable to register commands\n");

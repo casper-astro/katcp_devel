@@ -277,6 +277,8 @@ void perforate_client_server_katcp(struct katcp_dispatch *dl)
 
     dx = s->s_clients[(unsigned int)rand() % s->s_count];
 
+    basic_inform_katcp(dx, KATCP_CLIENT_DISCONNECT, "overloaded");
+
     terminate_katcp(dx, KATCP_EXIT_QUIT);
 #if 0
     on_disconnect_katcp(dx, "displaced by new client connection");
@@ -294,8 +296,7 @@ static int update_flags_katcp(struct katcp_dispatch *d, int argc, int flags)
   }
 
   if(argc < 2){
-    extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
-    return KATCP_RESULT_OWN;
+    return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
   }
 
   for(i = 1; i < argc; i++){
@@ -335,8 +336,7 @@ int forget_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
 
   if(argc < 2){
-    extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
-    return KATCP_RESULT_OWN;
+    return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
   }
 
   match = arg_string_katcp(d, 1);
@@ -362,8 +362,7 @@ int chdir_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
 
   if(argc < 2){
-    extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
-    return KATCP_RESULT_OWN;
+    return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
   }
 
   dir = arg_string_katcp(d, 1);
@@ -389,8 +388,7 @@ int setenv_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
 
   if(argc < 2){
-    extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
-    return KATCP_RESULT_OWN;
+    return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
   }
 
   label = arg_string_katcp(d, 1);
@@ -446,7 +444,9 @@ int system_info_cmd_katcp(struct katcp_dispatch *d, int argc)
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "server started at %s localtime which is T%lu:%02u:%02u ago", buffer, hours, minutes, seconds);
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%d active client %s", s->s_used, (s->s_used == 1) ? "connection" : "connections");
+#ifdef KATCP_SUBPROCESS
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%d subordinate %s", s->s_number, (s->s_number == 1) ? "job" : "jobs");
+#endif
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%d %s", s->s_tally, (s->s_tally == 1) ? "sensor" : "sensors");
 
@@ -524,24 +524,31 @@ int prepare_core_loop_katcp(struct katcp_dispatch *dl)
   /* extra commands, not really part of the standard */
   register_flag_mode_katcp(dl, "?setenv",  "sets/clears an enviroment variable (?setenv [label [value]]", &setenv_cmd_katcp, KATCP_CMD_HIDDEN, 0);
   register_flag_mode_katcp(dl, "?chdir",   "change directory (?chdir directory)", &chdir_cmd_katcp, KATCP_CMD_HIDDEN, 0);
+
   register_flag_mode_katcp(dl, "?forget",  "deregister a command (?forget command)", &forget_cmd_katcp, KATCP_CMD_HIDDEN, 0);
   register_flag_mode_katcp(dl, "?hide",    "hide a command (?hide command ...)", &hide_cmd_katcp, KATCP_CMD_HIDDEN, 0);
   register_flag_mode_katcp(dl, "?expose",  "unhide a command (?expose command ...)", &expose_cmd_katcp, KATCP_CMD_HIDDEN, 0);
 
   register_flag_mode_katcp(dl, "?dispatch","dispatch operations (?dispatch [list])", &dispatch_cmd_katcp, 0, 0);
   register_flag_mode_katcp(dl, "?notice",  "notice operations (?notice [list|watch|wake])", &notice_cmd_katcp, 0, 0);
-  register_flag_mode_katcp(dl, "?job",     "job operations (?job [list|process notice-name exec://executable-file|network notice-name katcp://net-host:remote-port|watchdog job-name|match job-name inform-message|stop job-name])", &job_cmd_katcp, 0, 0);
   register_flag_mode_katcp(dl, "?define",  "runtime definitions (?define [mode name]", &define_cmd_katcp, 0, 0);
   register_flag_mode_katcp(dl, "?arb",     "arbitrary callback manipulation (?arb [list]", &arb_cmd_katcp, 0, 0);
 
+#ifdef KATCP_SUBPROCESS
+  register_flag_mode_katcp(dl, "?job",     "job operations (?job [list|process notice-name exec://executable-file|network notice-name katcp://net-host:remote-port|watchdog job-name|match job-name inform-message|stop job-name])", &job_cmd_katcp, 0, 0);
   register_flag_mode_katcp(dl, "?process", "register a process command (?process executable help-string [mode]", &register_subprocess_cmd_katcp, 0, 0);
   register_flag_mode_katcp(dl, "?sensor",  "sensor operations (?sensor [list|create|relay job-name])", &sensor_cmd_katcp, 0, 0);
+#else
+  register_flag_mode_katcp(dl, "?sensor",  "sensor operations (?sensor [list|create])", &sensor_cmd_katcp, 0, 0);
+#endif
   register_flag_mode_katcp(dl, "?version", "version operations (?sensor [add module version [mode]|remove module])", &version_cmd_katcp, 0, 0);
 
   register_flag_mode_katcp(dl, "?system-info",  "report server information (?system-info)", &system_info_cmd_katcp, 0, 0);
 
+#ifdef KATCP_EXPERIMENTAL
   register_flag_mode_katcp(dl, "?listen-duplex", "accept new duplex connections on given interface (?listen-duplex [interface:]port)", &listen_duplex_cmd_katcp, 0, 0);
   register_flag_mode_katcp(dl, "?list-duplex",  "report duplex information (?list-duplex)", &list_duplex_cmd_katcp, 0, 0);
+#endif
 
   time(&(s->s_start));
 
@@ -597,17 +604,21 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
 
     }
 
+#ifdef KATCP_SUBPROCESS
     load_jobs_katcp(dl);
+#endif
     load_arb_katcp(dl);
 
     if(load_shared_katcp(dl) < 0){ /* want to shut down */
       run = (-1);
     }
 
+#ifdef KATCP_EXPERIMENTAL
     /* WARNING: new code */
     if(load_flat_katcp(dl) < 0){
       run = (-1);
     }
+#endif
 
 
     if(run < 0){
@@ -617,9 +628,12 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
       if(ended_shared_katcp(dl) <= 0){
         run = (-1);
       }
+
+#ifdef KATCP_SUBPROCESS
       if(ended_jobs_katcp(dl) <= 0){
         run = (-1);
       }
+#endif
 
       delta.tv_sec = KATCP_HALT_WAIT;
       delta.tv_nsec = 0;
@@ -672,14 +686,20 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
 #ifdef DEBUG
       fprintf(stderr, "multi: saw child signal\n");
 #endif
+#ifdef KATCP_SUBPROCESS
       wait_jobs_katcp(dl);
+#endif
     }
 
+#ifdef KATCP_EXPERIMENTAL
     /* WARNING: new logic */
     run_flat_katcp(dl);
+#endif
 
     run_shared_katcp(dl);
+#ifdef KATCP_SUBPROCESS
     run_jobs_katcp(dl);
+#endif
     run_notices_katcp(dl);
     run_arb_katcp(dl);
 

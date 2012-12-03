@@ -279,7 +279,7 @@ int print_versions_katcp(struct katcp_dispatch *d, int initial)
   for(i = 0; i < s->s_amount; i++){
     v = s->s_versions[i];
 
-#if 1
+#if KATCP_PROTOCOL_MAJOR_VERSION <= 4
     if(i == 0){
       switch(initial){
         case KATCP_PRINT_VERSION_CONNECT : 
@@ -355,11 +355,11 @@ int add_code_version_katcp(struct katcp_dispatch *d)
 #endif
 
   if(s->s_count > 1){
-    snprintf(buffer, BUFFER, "%s-%c", KATCP_PROTOCOL_VERSION, 'M');
+    snprintf(buffer, BUFFER - 1, "%d.%d-%c", KATCP_PROTOCOL_MAJOR_VERSION, KATCP_PROTOCOL_MINOR_VERSION, 'M');
   } else {
-    strncpy(buffer, KATCP_PROTOCOL_VERSION, BUFFER - 1);
-    buffer[BUFFER - 1] = '\0';
+    snprintf(buffer, BUFFER - 1, "%d.%d", KATCP_PROTOCOL_MAJOR_VERSION, KATCP_PROTOCOL_MINOR_VERSION);
   }
+  buffer[BUFFER - 1] = '\0';
 
   result += add_version_katcp(d, KATCP_PROTOCOL_LABEL, 0, buffer, NULL);
 

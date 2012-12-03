@@ -29,13 +29,15 @@
 void usage(char *app)
 {
   printf("Usage: %s" 
-  " [-m mode] [-p network-port]\n", app);
+  " [-b bof-dir] [-f] [-h] [-i init-script] [-l log-file] [-m mode] [-p network-port]\n", app);
 
-  printf("-m mode          mode to enter at startup\n");
-  printf("-p network-port  network port to listen on\n");
-  printf("-l log-file      log file name\n");
-  printf("-f               run in foreground (default is background)\n");
   printf("-b dir           directory containing bof files\n");
+  printf("-f               run in foreground (default is background)\n");
+  printf("-h               this help\n");
+  printf("-i file          run the specified startup script\n");
+  printf("-l file          log file name\n");
+  printf("-m mode          mode to enter at startup\n");
+  printf("-p port          network port to listen on\n");
 
 }
 
@@ -44,7 +46,7 @@ int main(int argc, char **argv)
   struct katcp_dispatch *d;
   int status;
   int i, j, c, foreground, lfd;
-  char *port, *scripts, *mode, *init, *lfile, *bofdir;
+  char *port, *mode, *init, *lfile, *bofdir;
   time_t now;
 
   port = "7147";
@@ -76,12 +78,11 @@ int main(int argc, char **argv)
           foreground = 1 - foreground;
           break;
 
+        case 'b' :
+        case 'i' :
         case 'l' :
         case 'm' :
-        case 'b' :
-        case 's' :
         case 'p' :
-        case 'i' :
           j++;
           if (argv[i][j] == '\0') {
             j = 0;
@@ -94,20 +95,17 @@ int main(int argc, char **argv)
             case 'b' :
               bofdir = argv[i] + j;
               break;
-            case 's' :
-              scripts = argv[i] + j;
+            case 'i' :
+              init = argv[i] + j;
+              break;
+            case 'l':
+              lfile = argv[i] + j;  
               break;
             case 'm' :
               mode = argv[i] + j;
               break;
             case 'p' :
               port = argv[i] + j;
-              break;
-            case 'i' :
-              init = argv[i] + j;
-              break;
-            case 'l':
-              lfile = argv[i] + j;  
               break;
           }
           i++;
