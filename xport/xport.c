@@ -1049,9 +1049,8 @@ int main(int argc, char **argv)
   for(run = 1; run > 0; ){
 
     if(ss->s_index >= ss->s_size){
-      log_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, NAME, "bad state return code %d", code);
-      /* break better */
-      return 4;
+      run = 0;
+      continue;
     }
 
     ix = &(ss->s_table[ss->s_index]);
@@ -1195,7 +1194,7 @@ int main(int argc, char **argv)
   while(write_katcl(ss->s_up) == 0);
   destroy_state(ss);
 
-  if(code == ITEM_OK){
+  if(code != ITEM_FAIL){
     return 0;
   } else {
     return 1;
