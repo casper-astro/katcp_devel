@@ -556,7 +556,7 @@ int setup_hwmon_tbs(struct katcp_dispatch *d)
                                NULL,
                                1, 1);
 
-  rtn += register_hwmon_tbs(d, "raw.voltage.5aux",
+  rtn += register_hwmon_tbs(d, "raw.voltage.5vaux",
                                "auxiliary 5v voltage rail",
                                "millivolts",
                                /* on rev1 this would be 12V */

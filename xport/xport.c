@@ -26,8 +26,6 @@
 #include "katcl.h"
 #include "katpriv.h"
 
-#define DEBUG
-
 #define ITEM_STAY              0x0
 #define ITEM_OK                0x1
 #define ITEM_FAIL              0x2
@@ -595,6 +593,7 @@ int request_ping_item(struct state *ss, int tag)
   }
 
   if(result > 0){
+    log_message_katcl(ss->s_up, KATCP_LEVEL_DEBUG, NAME, "%s not yet ready", ss->s_name);
     add_fd(ss, ss->s_fd, ADD_WRITE);
     return ITEM_STAY;
   }
