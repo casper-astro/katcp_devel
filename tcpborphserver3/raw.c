@@ -1596,7 +1596,7 @@ int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir, int argc, char **argv)
   result += register_flag_mode_katcp(d, "?tap-info",     "displays diagnostics for a tap instance (?tap-info register-name)", &tap_info_cmd, 0, TBS_MODE_RAW);
 
   result += register_flag_mode_katcp(d, "?chassis-start",  "initialise chassis interface", &start_chassis_cmd, 0, TBS_MODE_RAW);
-  result += register_flag_mode_katcp(d, "?chassis-led",    "set a chassis led", &led_chassis_cmd, 0, TBS_MODE_RAW);
+  result += register_flag_mode_katcp(d, "?chassis-led",    "set a chassis led (?chassis-led led state)", &led_chassis_cmd, 0, TBS_MODE_RAW);
 
   tr->r_chassis = chassis_init_tbs(d, TBS_ROACH_CHASSIS);
   if(tr->r_chassis){

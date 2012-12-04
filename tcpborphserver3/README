@@ -1,0 +1,142 @@
+
+This is tcpborphserver, version 3. A server designed to control
+roach2s. It speaks katcp over port 7147. You should be able to
+connect to a roach2 and type ?help to see the list of commands. 
+
+tcpborphserver links in the mainloop of the katcp library which
+can and does implement commands which are not directly relevant 
+to users who simply wish to interact with the fpga. Thus this document 
+only describes only some commands.
+
+  ?system-info
+
+    No parameters. Prints some unstructed 
+    information about the system. Mostly useful to debug
+    server internals
+
+  ?listbof
+
+    Lists gateware image files stored on the roach
+
+  ?delbof filename
+
+    Removes a gateware image file 
+
+  ?progdev filename
+
+    Programs a gateware image already stored on the roach in
+    the image directory (paths not permitted)
+ 
+  ?fpgastatus
+
+    Checks if the fpga is programmed. Will return fail in case the
+    fpga is not programmed
+
+  ?listdev
+    
+    Lists the register names provided by the currently programmed
+    gateware image
+
+  ?register name position bit-offset length
+
+    Assign a name to an fpga memory location explicitly, instead
+    of having it set in the bof (gateware image) file
+
+  ?wordread register word-offset [word-count]
+
+    Reads a 32bit word from the given offset in the named register. 
+    The word offset is counted in words, not bytes. The value returned
+    is given in hexadecimal
+
+  ?wordwrite register word-offset word
+
+    Writes a 32bit word to the given register at the word-offset. The
+    word should be given as a hexadecimal value
+
+  ?read register byte-offset count
+
+    Reads data from the given register. Reads start at the specified
+    byte-offset and attempt to read count bytes. Data is returned
+    in binary form (with escapes as per katcp specification). Not
+    all offsets and sizes are feasible, as there are alignment issues.
+
+  ?write register byte-offset data
+
+    Write the given binary data to the position byte-offset to the
+    named register
+
+  ?client-list
+
+    Lists current connections to the server
+
+  ?chassis-led led-name state
+
+    Allows you to toggle an LED on the roach chassis. Example
+
+    ?chassis-led red on
+
+    Currently the only useful led name is "red" (there is a "green"
+    too, but it gets toggled automatically). chassis-start is not
+    needed during normal operation as it should happen automatically
+
+  ?tap-info
+
+    displays some freeform information about running tap instances
+
+  ?tap-stop register-name
+
+    Stop a running tap instance
+
+  ?tap-start tap-device register-name ip-address [port [mac]]
+
+    Start a tap instance with name tap-device, which opens an fpga
+    register at register-name to loop traffic to the kernel. The kernel
+    interface is given ip-address (netmask fixed to 255.255.255.0). Port
+    is a udp port on which gateware collects data
+
+  ?sensor-list 
+
+    Display available sensors
+
+  ?sensor-value sensor
+
+    Retrieve a sensor value (rather use sensor-sampling if you 
+    wish to see periodic data)
+
+  ?sensor-sampling sensor strategy parameter
+   
+    Example
+
+    ?sensor-sampling raw.temp.fpga event
+  
+  ?watchdog
+
+    No-op, used as a ping
+
+  ?log-record [priority] message
+
+    Write a log message, goes to all connections 
+
+  ?log-level
+   
+    Sets the log level 
+
+    Example to enable lots of debug messages
+
+    ?log-level trace
+
+  ?version-list
+    
+    Display some version information
+
+  ?help
+
+    List available, nonhidden commands
+
+  ?restart
+   
+    Restart the system
+
+  ?halt 
+
+    Halt the system
