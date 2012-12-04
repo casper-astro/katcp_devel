@@ -5,14 +5,10 @@ connect to a roach2 and type ?help to see the list of commands.
 
 tcpborphserver links in the mainloop of the katcp library which
 can and does implement commands which are not directly relevant 
-to users who simply wish to interact with the fpga. Thus this document 
-only describes only some commands.
-
-  ?system-info
-
-    No parameters. Prints some unstructed 
-    information about the system. Mostly useful to debug
-    server internals
+to users who simply wish to interact with the fpga. In addition
+tcpborphserver itself may contain commands which are still under
+development, and not guaranteed to be retained. Thus this document 
+only describes only a subset of available commands
 
   ?listbof
 
@@ -26,48 +22,90 @@ only describes only some commands.
 
     Programs a gateware image already stored on the roach in
     the image directory (paths not permitted)
- 
+
+  ?upload port
+
+    Upload and program a local gateware image file to the roach. Send 
+    the local image to the tcp port on the roach, as specified. No
+    escaping of the image file required as it has its own stream, 
+    which should be closed when upload has completed. Still a bit 
+    experimental and subject to revision (there was an uploadbof command 
+    which was different). 
+
+    Example
+
+      ?upload 3000
+      !upload ok 3000
+
+    Then from a local terminal type
+
+      nc -w 2 -q 2 192.168.40.57 3000 < some-image.bof
+
+    Which will give you 
+
+      #fpga loaded
+      #fpga ready
+
   ?fpgastatus
 
     Checks if the fpga is programmed. Will return fail in case the
     fpga is not programmed
 
-  ?listdev
+  ?listdev [size]
     
     Lists the register names provided by the currently programmed
-    gateware image
+    gateware image. The optional "size" keyword will include a size
+    field in the output
 
   ?register name position bit-offset length
 
     Assign a name to an fpga memory location explicitly, instead
-    of having it set in the bof (gateware image) file
+    of having it set in the bof (gateware image) file. Experimental
+
+  ?wordwrite register word-offset word
+
+    Writes a 32bit word to the given register at the word-offset. The
+    word should be given as a hexadecimal value. Example
+
+    ?wordwrite sys_scratchpad 0 0x74657374
 
   ?wordread register word-offset [word-count]
 
     Reads a 32bit word from the given offset in the named register. 
     The word offset is counted in words, not bytes. The value returned
-    is given in hexadecimal
+    is given in hexadecimal. Example
 
-  ?wordwrite register word-offset word
-
-    Writes a 32bit word to the given register at the word-offset. The
-    word should be given as a hexadecimal value
+    ?wordread sys_scratchpad 0 
+    !wordread ok 0x74657374
 
   ?read register byte-offset count
 
     Reads data from the given register. Reads start at the specified
     byte-offset and attempt to read count bytes. Data is returned
     in binary form (with escapes as per katcp specification). Not
-    all offsets and sizes are feasible, as there are alignment issues.
+    all offsets and sizes are supported, as there are alignment 
+    alignment constraints. Example
+
+    ?read sys_scratchpad 0 4
+    !read ok test
 
   ?write register byte-offset data
 
     Write the given binary data to the position byte-offset to the
-    named register
+    named register, subject to alignment constraints
 
   ?client-list
 
     Lists current connections to the server
+
+  ?version-list
+    
+    Display some version information
+
+  ?system-info
+
+    Prints some unstructed information about the system. 
+    Mostly useful to debug server internals
 
   ?chassis-led led-name state
 
@@ -115,7 +153,7 @@ only describes only some commands.
 
   ?log-record [priority] message
 
-    Write a log message, goes to all connections 
+    Write a log message, goes to all client connections 
 
   ?log-level
    
@@ -125,18 +163,14 @@ only describes only some commands.
 
     ?log-level trace
 
-  ?version-list
-    
-    Display some version information
-
   ?help
 
     List available, nonhidden commands
 
   ?restart
    
-    Restart the system
+    Reboot the roach
 
   ?halt 
 
-    Halt the system
+    Turn off the roach
