@@ -7,8 +7,9 @@ tcpborphserver links in the mainloop of the katcp library which
 can and does implement commands which are not directly relevant 
 to users who simply wish to interact with the fpga. In addition
 tcpborphserver itself may contain commands which are still under
-development, and not guaranteed to be retained. Thus this document 
-only describes only a subset of available commands
+development, and not guaranteed to be retained. 
+
+The following commands are implemented by tcpborphserver3:
 
   ?listbof
 
@@ -49,7 +50,8 @@ only describes only a subset of available commands
   ?fpgastatus
 
     Checks if the fpga is programmed. Will return fail in case the
-    fpga is not programmed
+    fpga is not programmed. In earlier versions this command was 
+    called ?status
 
   ?listdev [size]
     
@@ -94,19 +96,6 @@ only describes only a subset of available commands
     Write the given binary data to the position byte-offset to the
     named register, subject to alignment constraints
 
-  ?client-list
-
-    Lists current connections to the server
-
-  ?version-list
-    
-    Display some version information
-
-  ?system-info
-
-    Prints some unstructed information about the system. 
-    Mostly useful to debug server internals
-
   ?chassis-led led-name state
 
     Allows you to toggle an LED on the roach chassis. Example
@@ -132,6 +121,17 @@ only describes only a subset of available commands
     interface is given ip-address (netmask fixed to 255.255.255.0). Port
     is a udp port on which gateware collects data
 
+The following commands are part of the katcp library, and with the exception
+of log-record and system-info also part of the katcp specification
+
+  ?client-list
+
+    Lists current connections to the server
+
+  ?version-list
+    
+    Display some version information
+
   ?sensor-list 
 
     Display available sensors
@@ -150,10 +150,6 @@ only describes only a subset of available commands
   ?watchdog
 
     No-op, used as a ping
-
-  ?log-record [priority] message
-
-    Write a log message, goes to all client connections 
 
   ?log-level
    
@@ -174,3 +170,13 @@ only describes only a subset of available commands
   ?halt 
 
     Turn off the roach
+
+  ?log-record [priority] message
+
+    Write a log message, goes to all client connections 
+
+  ?system-info
+
+    Prints some unstructed information about the system. 
+    Mostly useful to debug server internals
+
