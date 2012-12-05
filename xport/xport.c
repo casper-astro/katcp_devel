@@ -864,7 +864,7 @@ struct item poweron_table[11] = {
   { turn_on_item,             8,  1, 10,  0 },   /* 7 */
   { complete_write_item,      9,  1,  0,  0 },   /* 8 */
   { sleep_item,               5,  1,  0,  5 },   /* 9 - poll pause, wait, then retry */
-  { sleep_item,              -1,  1,  0, 25 }   /* 10 - final pause, bit of time to boot up */
+  { sleep_item,              -1,  1,  0, 45 }   /* 10 - final pause, bit of time to boot up */
 };
 
 struct item powerdown_table[9] = {
