@@ -88,7 +88,11 @@ struct katcp_url;
 #define KATCP_SEARCH_REQUEST  "?search"
 
 #define KATCP_LOG_INFORM               "#log"
+#if KATCP_PROTOCOL_MAJOR_VERSION >= 5   
 #define KATCP_DEVICE_CHANGED_INFORM    "#device-changed"
+#else
+#define KATCP_DEVICE_CHANGED_INFORM    "#interface-changed"
+#endif
 #define KATCP_HELP_INFORM              "#help"
 
 #define KATCP_SENSOR_LIST_INFORM       "#sensor-list"
