@@ -394,7 +394,7 @@ int write_cmd(struct katcp_dispatch *d, int argc)
   struct tbs_raw *tr;
   struct tbs_entry *te;
 
-  struct katcl_byte_bit off, len, temp;
+  struct katcl_byte_bit off, len;
 
   uint32_t *buffer;
   unsigned int blen, ptr_base, ptr_offset, i, register_bits, start_bits, copy_bits, copy_words_floor, remaining_bits;
@@ -474,10 +474,10 @@ int write_cmd(struct katcp_dispatch *d, int argc)
   if (arg_byte_bit_katcp(d, 4, &len) < 0){ 
     /* no length given, assume all data given is data  */
 
-    len.b_bit = blen * 8;
-    len.b_byte = 0;
+    len.b_bit = 0;
+    len.b_byte = blen;
 
-    /* no need to normalise len, already done */
+    word_normalise(&len);
     copy_bits = len.b_byte * 8 + len.b_bit;
 
 #ifdef DEBUG
@@ -518,6 +518,8 @@ int write_cmd(struct katcp_dispatch *d, int argc)
   
   word_normalise(&off);
 
+  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "writing to %s@0x%lx:%d: start position 0x%lx:%d, payload length 0x%lx:%d, register size 0x%lx:%d", name, te->e_pos_base, te->e_pos_offset, off.b_byte, off.b_bit, len.b_byte, len.b_bit, te->e_len_base, te->e_len_offset);
+
   ptr_base   = off.b_byte;
   ptr_offset = off.b_bit;
 
@@ -557,8 +559,18 @@ int write_cmd(struct katcp_dispatch *d, int argc)
 
   /* now sort out the left over bits */
 
-  remaining_bits = copy_bits - (copy_words_floor * 8);
+  remaining_bits = copy_bits - (copy_words_floor * 32);
+
+  if(i == 0){
+    value = buffer[i];
+    prev = prev | (value >> ptr_offset);
+    remaining_bits += ptr_offset;
+  }
+
   if(remaining_bits > 0){
+
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "have a remainder of %u, holdover is 0x%x", copy_bits, prev);
+
     /* two steps: the first case where we get to write another full destination word */
     if((ptr_offset + remaining_bits) >= 32){
 
@@ -575,6 +587,7 @@ int write_cmd(struct katcp_dispatch *d, int argc)
       remaining_bits = (ptr_offset + remaining_bits - 32);
     }
 
+
 #ifdef DEBUG
     if(remaining_bits >= 32){
       fprintf(stderr, "write: logic problem, remaining bits too large at %u", remaining_bits);
@@ -587,7 +600,7 @@ int write_cmd(struct katcp_dispatch *d, int argc)
 
       current = *((uint32_t *)(tr->r_map + ptr_base));
 
-      update = (prev & (0xffffffff << (32 - remaining))) | (current & (0xffffffff >> remaining));
+      update = (prev & (0xffffffff << (32 - remaining_bits))) | (current & (0xffffffff >> remaining_bits));
 
       log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "writing final 0x%x to position 0x%x", update, ptr_base);
 
