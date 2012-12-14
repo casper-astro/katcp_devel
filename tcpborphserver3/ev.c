@@ -47,7 +47,7 @@ int open_evdev_tbs(struct katcp_dispatch *d, char *name)
     if(ioctl(fd, EVIOCGNAME(BUFFER - 1), buffer) < 0){
       log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to acquire name for %s: %s", buffer, strerror(errno));
       close(fd);
-      return 1;
+      return -1;
     }
 
     buffer[BUFFER - 1] = '\0';
