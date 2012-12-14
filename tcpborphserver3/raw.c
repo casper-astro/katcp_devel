@@ -396,8 +396,8 @@ int write_cmd(struct katcp_dispatch *d, int argc)
 
   struct katcl_byte_bit off, len, temp;
 
-  unsigned char *buffer;
-  unsigned int blen, ptr_base, ptr_offset, i, size_have, start, want_len;
+  uint32_t *buffer;
+  unsigned int blen, ptr_base, ptr_offset, i, register_bits, start_bits, copy_bits, copy_words_floor, remaining_bits;
   uint32_t current, prev, value, update;
 
   char *name;
@@ -440,16 +440,21 @@ int write_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
+#if 0
+  /* WARNING: not strictly needed, comes later */
+  word_normalise(&off);
+#endif
+
   blen = arg_buffer_katcp(d, 3, NULL, 0); 
   if (blen < 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "cannot read buffer");
     return KATCP_RESULT_FAIL;
   }
 
-  buffer = malloc(sizeof(unsigned char) * blen);
+  buffer = malloc(sizeof(uint32_t) * ((blen + 3) / 4));
   if (buffer == NULL){
 #ifdef DEBUG
-    fprintf(stderr, "raw: write cmd cannot allocate buffer\n");
+    fprintf(stderr, "raw: write cmd cannot allocate buffer of %d bytes\n", blen);
 #endif
     return KATCP_RESULT_FAIL;
   }
@@ -463,47 +468,58 @@ int write_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
   
-  size_have     = te->e_len_base * 8 + te->e_len_offset;
-  start         = off.b_byte * 8 + off.b_bit;
+  register_bits     = (te->e_len_base * 8) + te->e_len_offset;
+  start_bits         = (off.b_byte * 8) + off.b_bit;
 
-  /* TODO: allow length to default to size of buffer */
-  if (arg_byte_bit_katcp(d, 4, &len) < 0){
+  if (arg_byte_bit_katcp(d, 4, &len) < 0){ 
+    /* no length given, assume all data given is data  */
+
     len.b_bit = blen * 8;
     len.b_byte = 0;
+
+    /* no need to normalise len, already done */
+    copy_bits = len.b_byte * 8 + len.b_bit;
+
 #ifdef DEBUG
     fprintf(stderr, "no length specified, defaulting to data %lu:%d\n", len.b_byte, len.b_bit);
 #endif
+
+  } else {
+
+    word_normalise(&len);
+    copy_bits = len.b_byte * 8 + len.b_bit;
+
+    if((blen * 8) < copy_bits){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "requested %u bits to copy, buffer only contains %u", copy_bits, blen * 8);
+      return KATCP_RESULT_FAIL;
+    }
   }
 
-  word_normalise(&len);
-
-  want_len = len.b_byte * 8 + len.b_bit;
 
   /*length check*/
 #ifdef DEBUG
-  fprintf(stderr, "size_have: %d start:%d size_now:%d want_len:%d\n", size_have, start, size_have - start, want_len);
+  fprintf(stderr, "bit checks: total register=%d start_bits=%d copy_bits=%d\n", register_bits, start_bits, copy_bits);
 #endif
 
-  if((start + want_len) > size_have){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "trying to write past the end of the register %s", name);
+  if((start_bits + copy_bits) > register_bits){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "trying to write past the end of the register %s of bits %u, start bits %u, payload %u bits", name, register_bits, start_bits, copy_bits);
     if (buffer != NULL){
       free(buffer);
     }
     return KATCP_RESULT_FAIL;
   }
   
+#ifdef DEBUG
+  fprintf(stderr, "raw write: bytes-in-buffer=%d register offset (0x%lx:%d) len(0x%lx:%d)\n", blen,  off.b_byte, off.b_bit, len.b_byte, len.b_bit); 
+#endif
+
   off.b_byte += te->e_pos_base;
   off.b_bit  += te->e_pos_offset;
   
   word_normalise(&off);
 
-#ifdef DEBUG
-  fprintf(stderr, "raw write: bytes-in-buffer=%d register start offset (0x%lx:%d) len(0x%lx:%d)\n", blen,  off.b_byte, off.b_bit, len.b_byte, len.b_bit); 
-#endif
-
   ptr_base   = off.b_byte;
   ptr_offset = off.b_bit;
-
 
   if (ptr_offset > 0){
     current = *((uint32_t *)(tr->r_map + ptr_base));
@@ -512,12 +528,20 @@ int write_cmd(struct katcp_dispatch *d, int argc)
     prev    = 0;
   }
 
-  for (i = 0; (i < blen) && (i < len.b_byte); i += 4){
+#ifdef DEBUG
+  if((off.b_byte % 4) || (off.b_bit >= 32)){
+    fprintf(stderr, "write: word normalise didn't\n");
+    abort();
+  }
+#endif
 
-    value = ((buffer[i]     << 24) & 0xff000000)
-          | ((buffer[i + 1] << 16) & 0x00ff0000)
-          | ((buffer[i + 2] <<  8) & 0x0000ff00)
-          | ((buffer[i + 3]      ) & 0x000000ff);
+  copy_words_floor = len.b_byte / 4;
+
+  /* the easy part, whole words */
+  for (i = 0; i < copy_words_floor; i++){
+
+    /* implicit is a ntohs */
+    value = buffer[i];
 
     update = prev | (value >> ptr_offset);
 
@@ -530,6 +554,49 @@ int write_cmd(struct katcp_dispatch *d, int argc)
   }
 
   /* WARNING, WARNING, WARNING: still not correct from down here onwards */
+
+  /* now sort out the left over bits */
+
+  remaining_bits = copy_bits - (copy_words_floor * 8);
+  if(remaining_bits > 0){
+    /* two steps: the first case where we get to write another full destination word */
+    if((ptr_offset + remaining_bits) >= 32){
+
+      value = buffer[i]; 
+      update = prev | (value >> ptr_offset);
+
+      log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "writing penultimate 0x%x to position 0x%x", update, ptr_base);
+
+      *((uint32_t *)(tr->r_map + ptr_base)) = update;
+
+      prev = value << (32 - ptr_offset);
+      ptr_base += 4;
+
+      remaining_bits = (ptr_offset + remaining_bits - 32);
+    }
+
+#ifdef DEBUG
+    if(remaining_bits >= 32){
+      fprintf(stderr, "write: logic problem, remaining bits too large at %u", remaining_bits);
+      abort();
+    }
+#endif
+
+    /* now write a partial destination, so need to load in some bits */
+    if(remaining_bits > 0){
+
+      current = *((uint32_t *)(tr->r_map + ptr_base));
+
+      update = (prev & (0xffffffff << (32 - remaining))) | (current & (0xffffffff >> remaining));
+
+      log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "writing final 0x%x to position 0x%x", update, ptr_base);
+
+      *((uint32_t *)(tr->r_map + ptr_base)) = update;
+
+    }
+  }
+
+#if 0
 
   if (len.b_bit > 0 && blen > len.b_byte){
 
@@ -586,6 +653,7 @@ int write_cmd(struct katcp_dispatch *d, int argc)
 
 #endif
   } 
+#endif
 
   msync(tr->r_map, tr->r_map_size, MS_SYNC);
 
