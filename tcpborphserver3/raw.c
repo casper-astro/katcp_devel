@@ -397,7 +397,7 @@ int write_cmd(struct katcp_dispatch *d, int argc)
   struct katcl_byte_bit off, len;
 
   uint32_t *buffer;
-  unsigned int blen, ptr_base, ptr_offset, i, register_bits, start_bits, copy_bits, copy_words_floor, remaining_bits;
+  unsigned int blen, ptr_base, ptr_offset, i, prefix_bits, register_bits, start_bits, copy_bits, copy_words_floor, remaining_bits;
   uint32_t current, prev, value, update;
 
   char *name;
@@ -561,26 +561,26 @@ int write_cmd(struct katcp_dispatch *d, int argc)
 
   if(copy_words_floor > 0){
     remaining_bits = ptr_offset + copy_bits - (copy_words_floor * 32);
+    prefix_bits = 0; 
   } else {
-    /* we never saw a full data word, better fetch the partial word */
-    value = buffer[i];
-    prev = prev | (value >> ptr_offset);
+    /* no full word writes completed is special, we have to account for leading bits from fpga when we write out final word */
     remaining_bits = copy_bits;
+    prefix_bits = ptr_offset;
   }
 
   if(remaining_bits > 0){
 
-    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "have %u bits outstanding (prefix %u), holdover is 0x%x", remaining_bits, ptr_offset, prev);
+    value = buffer[i];
+    prev = prev | (value >> ptr_offset);
+
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "have %u bits outstanding (prefix %u), holdover is 0x%x", remaining_bits, prefix_bits, prev);
 
     /* two steps: the first case where we get to write another full destination word */
     if((ptr_offset + remaining_bits) >= 32){
 
-      value = buffer[i]; 
-      update = prev | (value >> ptr_offset);
+      log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "writing penultimate 0x%x to position 0x%x", prev, ptr_base);
 
-      log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "writing penultimate 0x%x to position 0x%x", update, ptr_base);
-
-      *((uint32_t *)(tr->r_map + ptr_base)) = update;
+      *((uint32_t *)(tr->r_map + ptr_base)) = prev;
 
       prev = value << (32 - ptr_offset);
       ptr_base += 4;
@@ -601,7 +601,9 @@ int write_cmd(struct katcp_dispatch *d, int argc)
 
       current = *((uint32_t *)(tr->r_map + ptr_base));
 
-      update = (prev & (0xffffffff << (32 - (ptr_offset + remaining_bits)))) | (current & (0xffffffff >> (ptr_offset + remaining_bits)));
+      log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "read value 0x%x from 0x%x", current, ptr_base);
+
+      update = (prev & (0xffffffff << (32 - (prefix_bits + remaining_bits)))) | (current & (0xffffffff >> (prefix_bits + remaining_bits)));
 
       log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "writing final 0x%x to position 0x%x", update, ptr_base);
 
