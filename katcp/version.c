@@ -297,6 +297,7 @@ int print_versions_katcp(struct katcp_dispatch *d, int initial)
     }
 #endif
 
+#if KATCP_PROTOCOL_MAJOR_VERSION >= 5
     switch(initial){
       case KATCP_PRINT_VERSION_CONNECT : 
       case KATCP_PRINT_VERSION_LIST : 
@@ -315,6 +316,7 @@ int print_versions_katcp(struct katcp_dispatch *d, int initial)
         }
         break;
     }
+#endif
   }
 
   return count;
