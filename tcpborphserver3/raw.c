@@ -562,14 +562,14 @@ int write_cmd(struct katcp_dispatch *d, int argc)
   remaining_bits = copy_bits - (copy_words_floor * 32);
 
   if(i == 0){
+    /* we never saw a full data word, better fetch the partial word */
     value = buffer[i];
     prev = prev | (value >> ptr_offset);
-    remaining_bits += ptr_offset;
   }
 
   if(remaining_bits > 0){
 
-    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "have a remainder of %u, holdover is 0x%x", copy_bits, prev);
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "have %u bits outstanding (prefix %u), holdover is 0x%x", remaining_bits, ptr_offset, prev);
 
     /* two steps: the first case where we get to write another full destination word */
     if((ptr_offset + remaining_bits) >= 32){
@@ -600,7 +600,7 @@ int write_cmd(struct katcp_dispatch *d, int argc)
 
       current = *((uint32_t *)(tr->r_map + ptr_base));
 
-      update = (prev & (0xffffffff << (32 - remaining_bits))) | (current & (0xffffffff >> remaining_bits));
+      update = (prev & (0xffffffff << (32 - (ptr_offset + remaining_bits)))) | (current & (0xffffffff >> (ptr_offset + remaining_bits)));
 
       log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "writing final 0x%x to position 0x%x", update, ptr_base);
 
