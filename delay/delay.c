@@ -85,7 +85,7 @@ int main(int argc, char **argv)
   value = strtold(argv[5], &end); /* fringe */
   tmp = value * 180.0 * OVERPI;
 #ifdef FORGIVING
-  tmp = fmodl(tmp, 360.0);
+  tmp = fmodl(tmp, 180.0);
 #endif
 
   append_args_katcl(l, KATCP_FLAG_STRING , "%.16Lf", tmp);
