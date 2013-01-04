@@ -40,7 +40,7 @@ int open_evdev_tbs(struct katcp_dispatch *d, char *name)
           return -1;
         default : 
           log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "skipping device %s, error given: %s", buffer, strerror(errno));
-          break;
+          return -1;
       }
     }
 
