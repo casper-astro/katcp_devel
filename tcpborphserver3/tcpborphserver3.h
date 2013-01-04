@@ -153,14 +153,20 @@ void destroy_hwsensor_tbs(void *data);
 
 struct tbs_port_data {
   int t_port;
-  int t_rsize;
   int t_fd;
+  int t_program;
+  int t_timeout;
+  struct katcp_notice *t_notice;
+#if 0
+  int t_rsize;
   void *t_data;
+#endif
 };
 
 struct katcp_job * run_child_process_tbs(struct katcp_dispatch *d, struct katcp_url *url, int (*call)(struct katcl_line *, void *), void *data, struct katcp_notice *n); 
 
 int upload_cmd(struct katcp_dispatch *d, int argc);
+int uploadbof_cmd(struct katcp_dispatch *d, int argc);
 
 int start_chassis_cmd(struct katcp_dispatch *d, int argc);
 int led_chassis_cmd(struct katcp_dispatch *d, int argc);

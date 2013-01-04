@@ -232,6 +232,8 @@ int listbof_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "bof directory is %s", tr->r_bof_dir);
+
   return display_dir_cmd(d, tr->r_bof_dir);
 }
 
@@ -1563,6 +1565,7 @@ int make_bofdir_tbs(struct katcp_dispatch *d, struct tbs_raw *tr, char *bofdir)
     if(tr->r_bof_dir == NULL){
       return -1;
     }
+    return 0;
   } 
 
   /* try and guess */
@@ -1656,7 +1659,7 @@ int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir, int argc, char **argv)
 
   result = 0;
 
-  result += register_flag_mode_katcp(d, "?upload",       "upload a (possibly compressed) bitstream to device (?upload port)", &upload_cmd, 0, TBS_MODE_RAW);
+  result += register_flag_mode_katcp(d, "?uploadbof",    "upload a (possibly compressed) bitstream to device (?upload port filename)", &uploadbof_cmd, 0, TBS_MODE_RAW);
 
   result += register_flag_mode_katcp(d, "?register",     "name a memory location (?register name position bit-offset length)", &register_cmd, 0, TBS_MODE_RAW);
 
