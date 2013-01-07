@@ -153,11 +153,12 @@ void destroy_hwsensor_tbs(void *data);
 
 struct tbs_port_data {
   int t_port;
-  int t_fd;
+  unsigned int t_timeout;
   int t_program;
-  int t_timeout;
-  struct katcp_notice *t_notice;
+  unsigned int t_expected;
+  int t_fd;
 #if 0
+  struct katcp_notice *t_notice;
   int t_rsize;
   void *t_data;
 #endif

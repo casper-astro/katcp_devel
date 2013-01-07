@@ -36,18 +36,18 @@ void destroy_port_data_tbs(struct katcp_dispatch *d, struct tbs_port_data *pd)
     return;
   }
 
-  if(pd->t_notice){
-    /* ... */
-  }
-
   if (pd->t_fd > 0){
     close(pd->t_fd);
+    pd->t_fd = (-1);
   }
+
+  pd->t_port = 0;
+
 
   free(pd);
 }
 
-struct tbs_port_data *create_port_data_tbs(char *file, int port, int program, int timeout)
+struct tbs_port_data *create_port_data_tbs(struct katcp_dispatch *d, char *file, int port, int program, unsigned int expected, unsigned int timeout)
 {
   struct tbs_port_data *pd;
   char name[40], *ptr;
@@ -66,8 +66,10 @@ struct tbs_port_data *create_port_data_tbs(char *file, int port, int program, in
     pd->t_timeout = timeout;
   }
 
-  pd->t_fd = (-1);
   pd->t_program = program;
+  pd->t_expected = expected;
+
+  pd->t_fd = (-1);
 
   if(file == NULL){
     sprintf(name,"/dev/shm/ubf-%d",getpid());
@@ -79,18 +81,14 @@ struct tbs_port_data *create_port_data_tbs(char *file, int port, int program, in
 
   pd->t_fd = open(ptr, O_CREAT | O_TRUNC | O_RDWR, S_IRUSR | S_IWUSR);
   if (pd->t_fd < 0){
-#ifdef DEBUG
-    fprintf(stderr, "%s: open error: %s\n", __func__, strerror(errno));
-#endif
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to open file: %s", strerror(errno));
     destroy_port_data_tbs(NULL, pd);
     return NULL;
   }
 
   if(file == NULL){
     if (unlink(ptr) < 0){
-#ifdef DEBUG
-      fprintf(stderr, "%s: unlink error: %s\n", __func__, strerror(errno));
-#endif
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to remove temporary file: %s", strerror(errno));
       destroy_port_data_tbs(NULL, pd);
       return NULL;
     }
@@ -102,10 +100,9 @@ struct tbs_port_data *create_port_data_tbs(char *file, int port, int program, in
 int upload_tbs(struct katcl_line *l, void *data)
 { 
   struct tbs_port_data *pd;
-  int run, lfd, nfd, rr, wr, have;
+  int lfd, nfd, rr, wr, have;
   unsigned char buf[MTU];
   unsigned int count;
-
 
   pd = data;
 
@@ -133,12 +130,9 @@ int upload_tbs(struct katcl_line *l, void *data)
   
   count = 0;
 
-  for (run = 1; run > 0; ){
-
+  for (;;){
     rr = read(nfd, buf, MTU);
-
     if (rr == 0){
-      run = rr;
       break;
     } else if (rr < 0){
       sync_message_katcl(l, KATCP_LEVEL_ERROR, UPLOAD_LABEL, "read failed while receiving bof file: %s", strerror(errno));
@@ -186,9 +180,16 @@ int upload_tbs(struct katcl_line *l, void *data)
     alarm(UPLOAD_TIMEOUT);
   }
 
-  sync_message_katcl(l, KATCP_LEVEL_INFO, UPLOAD_LABEL, "received bof file data of %u bytes", count);
-  
   close(nfd);
+
+  sync_message_katcl(l, KATCP_LEVEL_INFO, UPLOAD_LABEL, "received bof file data of %u bytes", count);
+
+  if(pd->t_expected > 0){
+    if(pd->t_expected != count){
+      sync_message_katcl(l, KATCP_LEVEL_ERROR, UPLOAD_LABEL, "expected %u bytes, received %u", pd->t_expected, count);
+      return -1;
+    }
+  }
 
   alarm(0);
 
@@ -276,11 +277,9 @@ int upload_complete_tbs(struct katcp_dispatch *d, struct katcp_notice *n, void *
     destroy_port_data_tbs(d, pd);
     return 0;
   }
-  
-#ifdef DEBUG
-  fprintf(stderr, "%s: upload seems to have completed");
-#endif
 
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "transfer completed");
+  
   if(pd->t_program){
 
     if (lseek(pd->t_fd, 0, SEEK_SET) < 0){
@@ -399,8 +398,7 @@ int uploadbof_cmd(struct katcp_dispatch *d, int argc)
   struct katcp_job *j;
   struct katcp_url *url;
   struct tbs_port_data *pd;
-  unsigned int port;
-  unsigned int timeout;
+  unsigned int port, timeout, expected;
   struct tbs_raw *tr;
   struct katcp_notice *nx;
   char *name, *buffer;
@@ -415,15 +413,23 @@ int uploadbof_cmd(struct katcp_dispatch *d, int argc)
   if(tr == NULL){
     return KATCP_RESULT_FAIL;
   }
+ 
+  expected = 0;
+  timeout = 0;
+  port = UPLOAD_PORT;
 
-  if(argc <= 2){
+  if(argc < 3){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a port and file name to save data");
     return KATCP_RESULT_INVALID;
   }
 
   port = arg_unsigned_long_katcp(d, 1);
-  if((port <= 1024) || (port > 0xffff)){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "port %d not in valid range", port);
+  if(port <= 1024){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unwilling to bind reserved port %d", port);
+    return KATCP_RESULT_INVALID;
+  }
+  if(port > 0xffff){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "port %d too large to be valid", port);
     return KATCP_RESULT_INVALID;
   }
 
@@ -433,11 +439,15 @@ int uploadbof_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
-  if(argc > 2){
-    timeout = arg_unsigned_long_katcp(d, 3);
-  } else {
-    timeout = 0;
+  if(argc > 3){
+    expected = arg_unsigned_long_katcp(d, 3);
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "expected length is %u bytes", expected);
+    if(argc > 4){
+      timeout = arg_unsigned_long_katcp(d, 4);
+      log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "user requested a timeout of %us", timeout);
+    }
   }
+
 
   if(strchr(name, '/') || (name[0] == '.')){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "refusing to upload file containing path information");
@@ -462,7 +472,7 @@ int uploadbof_cmd(struct katcp_dispatch *d, int argc)
 
   nx = find_notice_katcp(d, buffer);
   if(nx){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "another upload to %s already seems in progress, halting this attempt",  name);
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "another upload to %s already seems in progress, halting this attempt", name);
     free(buffer);
     return KATCP_RESULT_FAIL;
   }
@@ -474,11 +484,11 @@ int uploadbof_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
-  pd = create_port_data_tbs(buffer, port, 0, timeout);
+  pd = create_port_data_tbs(d, buffer, port, 0, expected, timeout);
   free(buffer);
 
   if (pd == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "%s: couldn't create port data", __func__);
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not initialise upload routines");
     return KATCP_RESULT_FAIL;
   }
 
@@ -493,7 +503,6 @@ int uploadbof_cmd(struct katcp_dispatch *d, int argc)
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to register callback to resume command");
     return KATCP_RESULT_FAIL;
   }
-
 
   url = create_exec_kurl_katcp("upload");
   if (url == NULL){
@@ -521,4 +530,102 @@ int uploadbof_cmd(struct katcp_dispatch *d, int argc)
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "awaiting transfer on port %d", pd->t_port);
 
   return KATCP_RESULT_PAUSE;
+}
+
+int upload_cmd(struct katcp_dispatch *d, int argc)
+{
+  struct katcp_dispatch *dl;
+  struct katcp_job *j;
+  struct katcp_url *url;
+  struct tbs_port_data *pd;
+  unsigned int port, timeout, expected;
+  struct tbs_raw *tr;
+  struct katcp_notice *nx;
+
+  dl = template_shared_katcp(d);
+  if(dl == NULL){
+    return KATCP_RESULT_FAIL;
+  }
+
+  tr = get_mode_katcp(d, TBS_MODE_RAW);
+  if(tr == NULL){
+    return KATCP_RESULT_FAIL;
+  }
+ 
+  expected = 0;
+  timeout = 0;
+  port = UPLOAD_PORT;
+
+  if(argc > 1){
+    port = arg_unsigned_long_katcp(d, 1);
+    if(port <= 1024){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unwilling to bind reserved port %d", port);
+      return KATCP_RESULT_INVALID;
+    }
+    if(port > 0xffff){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "port %d too large to be valid", port);
+      return KATCP_RESULT_INVALID;
+    }
+  }
+
+  if(argc > 2){
+    expected = arg_unsigned_long_katcp(d, 2);
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "expected length is %u bytes", expected);
+    if(argc > 3){
+      timeout = arg_unsigned_long_katcp(d, 3);
+      log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "user requested a timeout of %us", timeout);
+    }
+  }
+
+  nx = find_notice_katcp(d, TBS_FPGA_CONFIG);
+  if(nx){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "another upload already seems in progress, halting this attempt");
+    return KATCP_RESULT_FAIL;
+  }
+
+  nx = create_notice_katcp(d, TBS_FPGA_CONFIG, 0);
+  if(nx == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to create notification logic to trigger when upload completes");
+    return KATCP_RESULT_FAIL;
+  }
+
+  pd = create_port_data_tbs(d, NULL, port, 1, expected, timeout);
+
+  if (pd == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "%s: couldn't create port data", __func__);
+    return KATCP_RESULT_FAIL;
+  }
+
+  /* added in the global space dl, so that it completes even if client goes away */
+  if(add_notice_katcp(dl, nx, &upload_complete_tbs, pd) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to register callback for upload completion");
+    return KATCP_RESULT_FAIL;
+  }
+
+  url = create_exec_kurl_katcp("upload");
+  if (url == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "%s: could not create kurl", __func__);
+    destroy_port_data_tbs(NULL, pd);
+    return KATCP_RESULT_FAIL;
+  }
+
+  j = find_job_katcp(dl, url->u_str);
+  if (j){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "found job for %s", url->u_str);
+    destroy_kurl_katcp(url);
+    destroy_port_data_tbs(NULL, pd);
+    return KATCP_RESULT_FAIL;
+  }
+
+  j = run_child_process_tbs(dl, url, &upload_tbs, pd, nx);
+  if (j == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to run child process");
+    destroy_kurl_katcp(url);
+    destroy_port_data_tbs(NULL, pd);
+    return KATCP_RESULT_FAIL;
+  }
+      
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "awaiting transfer on port %d", pd->t_port);
+
+  return KATCP_RESULT_OK;
 }

@@ -1659,7 +1659,8 @@ int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir, int argc, char **argv)
 
   result = 0;
 
-  result += register_flag_mode_katcp(d, "?uploadbof",    "upload a (possibly compressed) bitstream to device (?upload port filename)", &uploadbof_cmd, 0, TBS_MODE_RAW);
+  result += register_flag_mode_katcp(d, "?uploadbof",    "upload a (possibly compressed) boffile (?uploadbof port filename [length [timeout]])", &uploadbof_cmd, 0, TBS_MODE_RAW);
+  result += register_flag_mode_katcp(d, "?upload",       "upload and program a (possibly compressed) boffile (?upload [port [length [timeout]]])", &upload_cmd, 0, TBS_MODE_RAW);
 
   result += register_flag_mode_katcp(d, "?register",     "name a memory location (?register name position bit-offset length)", &register_cmd, 0, TBS_MODE_RAW);
 
