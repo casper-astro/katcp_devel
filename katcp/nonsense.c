@@ -1000,6 +1000,8 @@ int expand_sensor_discrete_katcp(struct katcp_dispatch *d, struct katcp_sensor *
     ds->ds_vector[position] = copy;
   }
 
+  broadcast_inform_katcp(d, KATCP_DEVICE_CHANGED_INFORM, "sensor-list");
+
   return 0;
 #undef BUFFER
 }
