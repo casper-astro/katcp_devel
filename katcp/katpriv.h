@@ -666,6 +666,8 @@ int add_double_parse_katcl(struct katcl_parse *p, int flags, double v);
 int add_buffer_parse_katcl(struct katcl_parse *p, int flags, void *buffer, unsigned int len);
 int add_parameter_parse_katcl(struct katcl_parse *pd, int flags, struct katcl_parse *ps, unsigned int index);
 
+int buffer_from_parse_katcl(struct katcl_parse *p, char *buffer, unsigned int len);
+
 /* parse: extracting, testing fields */
 unsigned int get_count_parse_katcl(struct katcl_parse *p);
 int get_tag_parse_katcl(struct katcl_parse *p);

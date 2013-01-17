@@ -794,8 +794,13 @@ int hook_commands_katcp(struct katcp_dispatch *d, unsigned int type, int (*hook)
 
 int lookup_katcp(struct katcp_dispatch *d)
 {
+#define BUFFER 128
   struct katcp_cmd *search;
   struct katcp_shared *s;
+#ifdef KATCP_LOG_REQUESTS
+  char buffer[BUFFER];
+  struct katcl_parse *px;
+#endif
   char *str;
   int r;
 
@@ -832,6 +837,15 @@ int lookup_katcp(struct katcp_dispatch *d)
 
   str = arg_string_katcl(d->d_line, 0);
 
+#ifdef KATCP_LOG_REQUESTS
+  px = ready_katcl(d->d_line);
+  if(px){
+    if(buffer_from_parse_katcl(px, buffer, BUFFER) > 0){
+      log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "client message <%s>", buffer);
+    }
+  }
+#endif
+
   for(search = d->d_shared->s_commands; search; search = search->c_next){
 #ifdef DEBUG
     fprintf(stderr, "dispatch: checking %s against %s\n", str, search->c_name);
@@ -849,6 +863,7 @@ int lookup_katcp(struct katcp_dispatch *d)
   }
   
   return 1; /* not found, d->d_current == NULL */
+#undef BUFFER
 }
 
 int call_katcp(struct katcp_dispatch *d)
@@ -941,7 +956,7 @@ int dispatch_katcp(struct katcp_dispatch *d)
   }
 
 #if DEBUG > 1
-    fprintf(stderr, "dispatch: looking up\n");
+  fprintf(stderr, "dispatch: looking up\n");
 #endif
 
   while((r = lookup_katcp(d)) > 0){

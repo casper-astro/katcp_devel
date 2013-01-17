@@ -179,6 +179,80 @@ void destroy_parse_katcl(struct katcl_parse *p)
 }
 
 /******************************************************************/
+
+int buffer_from_parse_katcl(struct katcl_parse *p, char *buffer, unsigned int len)
+{
+  struct katcl_larg *la;
+  unsigned int i;
+  int offset, size, space;
+
+  sane_parse_katcl(p);
+
+  switch(p->p_state){
+    case KATCL_PARSE_FAKE :
+    case KATCL_PARSE_DONE :
+      break;
+    default :
+      return -1;
+  }
+
+  if((buffer == NULL) || (len == 0)){
+    return -1;
+  }
+
+  offset = (-1); /* WARNING, trickery */
+  space = len;
+
+  if(p->p_got == 0){
+    offset++;
+  }
+
+  for(i = 0; i < p->p_got; i++){
+
+    offset++;
+
+    la = &(p->p_args[i]);
+
+    size = la->a_end - la->a_begin;
+#ifdef KATCP_CONSISTENCY_CHECKS
+    if(size < 0){
+      fprintf(stderr, "buffer from parse: bad element size %d for item %u of %p", size, i, p);
+      abort();
+    }
+#endif
+
+    if(size >= space){
+
+      if(len < 4){
+        buffer[0] = '\0';
+        return -1;
+      }
+
+      memcpy(buffer + offset, p->p_buffer + la->a_begin, space);
+      memcpy(buffer + len - 4, "...", 4);
+
+      return len; /* indicate overflow, primitively */
+
+    } else {
+
+      memcpy(buffer + offset, p->p_buffer + la->a_begin, size);
+
+      offset += size;
+      space -= size;
+
+      buffer[offset] = ' ';
+      space--;
+
+      /* WARNING: offset gets updated unconventionally */
+    }
+  }
+
+  buffer[offset] = '\0';
+
+  return offset;
+}
+
+/******************************************************************/
 /* logic to populate the parse ************************************/
 
 static int before_add_parse_katcl(struct katcl_parse *p, unsigned int flags)
@@ -1245,8 +1319,10 @@ int dump_parse_katcl(struct katcl_parse *p, char *prefix, FILE *fp)
 
 int main()
 {
+#define BUFFER 32
   struct katcl_parse *p, *pc;
   char *ptr;
+  char buffer[BUFFER];
 
   p = create_referenced_parse_katcl();
   if(p == NULL){
@@ -1281,12 +1357,16 @@ int main()
 
   dump_parse_katcl(pc, "copy", stderr);
 
+  buffer_from_parse_katcl(p, buffer, BUFFER);
+  fprintf(stderr, "buffer of parse: <%s>\n", buffer);
+
   destroy_parse_katcl(p);
   destroy_parse_katcl(pc);
 
   printf("parse test: ok\n");
 
   return 0;
+#undef BUFFER
 }
   
 #endif
