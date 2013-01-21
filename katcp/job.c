@@ -576,7 +576,7 @@ static int hold_version_job_katcp(struct katcp_dispatch *d, struct katcp_notice 
   }
   
   if(!strcmp(inform, KATCP_RETURN_JOB)){
-    log_message_katcp(d, KATCP_LEVEL_TRACE NULL, "detaching in response to %s", inform);
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "detaching in response to %s", inform);
     return 0;
   }
 
