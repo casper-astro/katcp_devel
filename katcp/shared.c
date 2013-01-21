@@ -254,6 +254,13 @@ int startup_shared_katcp(struct katcp_dispatch *d)
   s->s_template = d;
   d->d_shared = s;
 
+#ifdef KATCP_EXPERIMENTAL
+  if(init_flats_katcp(d, KATCP_FLAT_STACK) < 0){
+    shutdown_shared_katcp(d);
+    return -1;
+  }
+#endif
+
   return 0;
 }
 
@@ -351,6 +358,10 @@ void shutdown_shared_katcp(struct katcp_dispatch *d)
   }
 
   /* at this point it is unsafe to call API functions on the shared structure */
+
+#ifdef KATCP_EXPERIMENTAL
+  destroy_flats_katcp(d);
+#endif
 
   free(s->s_clients);
   s->s_clients = NULL;

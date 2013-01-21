@@ -410,6 +410,8 @@ struct katcp_arb{
   void *a_data;
 };
 
+#define KATCP_FLAT_STACK 4
+
 struct katcp_shared{
   unsigned int s_magic;
   struct katcp_entry *s_vector;
@@ -459,8 +461,11 @@ struct katcp_shared{
 
   struct katcp_group **s_groups;
   struct katcp_group *s_fallback;
-  struct katcp_flat *s_this;
   unsigned int s_members;
+
+  struct katcp_flat **s_this;
+  int s_level;
+  unsigned int s_stories;
 
 #if 0
   int s_version_major;
@@ -643,6 +648,9 @@ int ended_jobs_katcp(struct katcp_dispatch *d);
 /* flat stuff */
 int run_flat_katcp(struct katcp_dispatch *d);
 int load_flat_katcp(struct katcp_dispatch *d);
+
+int init_flats_katcp(struct katcp_dispatch *d, unsigned int stories);
+void destroy_flats_katcp(struct katcp_dispatch *d);
 
 /* parse: setup */
 struct katcl_parse *create_parse_katcl();

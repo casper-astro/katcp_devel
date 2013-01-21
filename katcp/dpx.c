@@ -1,3 +1,5 @@
+#ifdef KATCP_EXPERIMENTAL
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -16,8 +18,6 @@
 #include <katcp.h>
 #include <katpriv.h>
 #include <katcl.h>
-
-#ifdef KATCP_EXPERIMENTAL
 
 #define KATCP_MAP_FLAG_NONE       0
 #define KATCP_MAP_FLAG_HIDDEN   0x1
@@ -103,6 +103,64 @@ struct katcp_cmd_map{
 /********************************************************************/
 
 void destroy_cmd_map(struct katcp_cmd_map *m);
+
+/********************************************************************/
+
+int init_flats_katcp(struct katcp_dispatch *d, unsigned int stories)
+{
+  struct katcp_shared *s;
+  
+  if(d == NULL){
+    return -1;
+  }
+
+  s = d->d_shared;
+  if(s == NULL){
+    return -1;
+  }
+
+  s->s_stories = 0;
+  s->s_level = (-1);
+
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(s->s_this){
+    fprintf(stderr, "flat: initialising stack which already has a value\n");
+    abort();
+  }
+#endif
+
+  s->s_this = malloc(sizeof(struct katcp_flat *) * stories);
+  if(s->s_this == NULL){
+    return -1;
+  }
+
+  s->s_stories = stories;
+
+  return 0;
+}
+
+void destroy_flats_katcp(struct katcp_dispatch *d)
+{
+  struct katcp_shared *s;
+  
+  if(d == NULL){
+    return;
+  }
+
+  s = d->d_shared;
+  if(s == NULL){
+    return;
+  }
+
+  if(s->s_this){
+    free(s->s_this);
+    s->s_this = NULL;
+  }
+
+  s->s_level = (-1);
+  s->s_stories = 0;
+}
+
 
 /********************************************************************/
 
@@ -219,10 +277,18 @@ struct katcp_group *this_group_katcp(struct katcp_dispatch *d)
     return NULL;
   }
 
-  f = s->s_this;
-  if(f == NULL){
+  if(s->s_level < 0){
     return NULL;
   }
+
+  f = s->s_this[s->s_level];
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(f == NULL){
+    fprintf(stderr, "flat: logic problem - should not encounter a null entry\n");
+    abort();
+    return NULL;
+  }
+#endif
 
   return f->f_group;
 }
@@ -673,6 +739,7 @@ struct katcp_cmd_map *map_of_flat_katcp(struct katcp_flat *fx)
 struct katcp_flat *this_flat_katcp(struct katcp_dispatch *d)
 {
   struct katcp_shared *s;
+  struct katcp_flat *f;
 
   s = d->d_shared;
 
@@ -680,7 +747,20 @@ struct katcp_flat *this_flat_katcp(struct katcp_dispatch *d)
     return NULL;
   }
 
-  return s->s_this;
+  if(s->s_level < 0){
+    return NULL;
+  }
+
+  f = s->s_this[s->s_level];
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(f == NULL){
+    fprintf(stderr, "flat: logic problem - should not encounter a null entry\n");
+    abort();
+    return NULL;
+  }
+#endif
+
+  return f;
 }
 
 int load_flat_katcp(struct katcp_dispatch *d)
@@ -763,7 +843,8 @@ int run_flat_katcp(struct katcp_dispatch *d)
     for(i = 0; i < gx->g_count; i++){
       fx = gx->g_flats[i];
 
-      s->s_this = fx;
+      /* WARNING: should be a proper push */
+      s->s_this[0] = fx;
 
       fd = fileno_katcl(fx->f_line);
 
@@ -851,7 +932,8 @@ int run_flat_katcp(struct katcp_dispatch *d)
     }
   }
 
-  s->s_this = NULL;
+  /* WARNING: should be a pop */
+  s->s_this[0] = NULL;
 
   return result;
 }
