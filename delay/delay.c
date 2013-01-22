@@ -94,7 +94,7 @@ int main(int argc, char **argv)
   value = strtold(argv[6], &end); /* fringe rate */
   tmp = value * 500.0 * OVERPI;
   append_args_katcl(l, KATCP_FLAG_STRING, "%.16Lf", tmp);
-  log_message_katcl(k, KATCP_LEVEL_DEBUG, NAME, "fringe rate %srads/s mapped to %.16Lfrotations/s", argv[6], tmp);
+  log_message_katcl(k, KATCP_LEVEL_DEBUG, NAME, "fringe rate %srads/ms mapped to %.16Lfrotations/s", argv[6], tmp);
 
   value = strtold(argv[3], &end); /* delay */
   append_args_katcl(l, KATCP_FLAG_STRING , "%.16Lf", value / 1000.0);

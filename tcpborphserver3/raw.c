@@ -983,7 +983,7 @@ int read_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_OWN;
   }
 
-  /* complicated case... bit ops */
+  /* more complicated case... bit ops */
   buffer = malloc(want_base + 2);
   if(buffer == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate %u bytes to extract register %s", want_base + 2, name);
