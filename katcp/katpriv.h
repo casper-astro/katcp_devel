@@ -22,6 +22,11 @@
 #define KATCL_PARSE_FAKE       6  /* generated manually, not parsed */
 #define KATCL_PARSE_DONE       7  /* a complete message */
 
+
+#define KATCL_ALIGN_NONE       0x0
+#define KATCL_ALIGN_BYTE       0x1
+#define KATCL_ALIGN_WORD       0x2  /* 32 bits */
+
 /***************************************************************************/
 
 struct katcl_byte_bit;
@@ -690,7 +695,7 @@ char *get_string_parse_katcl(struct katcl_parse *p, unsigned int index);
 char *copy_string_parse_katcl(struct katcl_parse *p, unsigned int index);
 unsigned long get_unsigned_long_parse_katcl(struct katcl_parse *p, unsigned int index);
 long get_signed_long_parse_katcl(struct katcl_parse *p, unsigned int index);
-int get_byte_bit_parse_katcl(struct katcl_parse *p, unsigned int index, struct katcl_byte_bit *b);
+int get_bb_parse_katcl(struct katcl_parse *p, unsigned int index, struct katcl_byte_bit *b);
 #ifdef KATCP_USE_FLOATS
 double get_double_parse_katcl(struct katcl_parse *p, unsigned int index);
 #endif

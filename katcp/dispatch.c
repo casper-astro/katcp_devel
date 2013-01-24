@@ -1707,11 +1707,11 @@ unsigned long arg_unsigned_long_katcp(struct katcp_dispatch *d, unsigned int ind
   return arg_unsigned_long_katcl(d->d_line, index);
 }
 
-int arg_byte_bit_katcp(struct katcp_dispatch *d, unsigned int index, struct katcl_byte_bit *b)
+int arg_bb_katcp(struct katcp_dispatch *d, unsigned int index, struct katcl_byte_bit *b)
 {
   sane_katcp(d);
 
-  return arg_byte_bit_katcl(d->d_line, index, b);
+  return arg_bb_katcl(d->d_line, index, b);
 }
 
 #ifdef KATCP_USE_FLOATS

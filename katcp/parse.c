@@ -835,19 +835,14 @@ long get_signed_long_parse_katcl(struct katcl_parse *p, unsigned int index)
   return value;
 }
 
-int get_byte_bit_parse_katcl(struct katcl_parse *p, unsigned int index, struct katcl_byte_bit *b)
+int get_bb_parse_katcl(struct katcl_parse *p, unsigned int index, struct katcl_byte_bit *b)
 {
   char *string, *end;
-#if 0
-  unsigned int extra;
-#endif
+  unsigned long byte, bit; 
 
   if(b == NULL){
     return -1;
   }
-
-  b->b_bit = 0;
-  b->b_byte = 0;
 
   string = get_string_parse_katcl(p, index);
   if(string == NULL){
@@ -855,28 +850,21 @@ int get_byte_bit_parse_katcl(struct katcl_parse *p, unsigned int index, struct k
   }
 
   if(string[0] != ':'){
-    b->b_byte = strtoul(string, &end, 0);
+    byte = strtoul(string, &end, 0);
     if(end[0] == ':'){
       string = end;
     }
   } else {
-    b->b_byte = 0;
+    byte = 0;
   }
 
   if(string[0] == ':'){
-    b->b_bit = strtoul(string + 1, NULL, 0);
+    bit = strtoul(string + 1, NULL, 0);
   } else {
-    b->b_bit = 0;
+    bit = 0;
   }
 
-  /* WARNING: relies on other code to make sure bit is within reasonable range */
-
-#if 0 /* insufficient, use normalisation functions elsewhere */
-  b->b_byte += (extra / 32) * 4;
-  b->b_bit   = extra % 32;
-#endif
-
-  return 0;
+  return make_bb_katcl(b, byte, bit);
 }
 
 #ifdef KATCP_USE_FLOATS

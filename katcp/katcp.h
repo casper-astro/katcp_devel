@@ -208,7 +208,7 @@ char *arg_string_katcp(struct katcp_dispatch *d, unsigned int index);
 char *arg_copy_string_katcp(struct katcp_dispatch *d, unsigned int index);
 unsigned long arg_unsigned_long_katcp(struct katcp_dispatch *d, unsigned int index);
 unsigned int arg_buffer_katcp(struct katcp_dispatch *d, unsigned int index, void *buffer, unsigned int size);
-int arg_byte_bit_katcp(struct katcp_dispatch *d, unsigned int index, struct katcl_byte_bit *b);
+int arg_bb_katcp(struct katcp_dispatch *d, unsigned int index, struct katcl_byte_bit *b);
 #ifdef KATCP_USE_FLOATS
 double arg_double_katcp(struct katcp_dispatch *d, unsigned int index);
 #endif
