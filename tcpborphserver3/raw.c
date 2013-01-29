@@ -103,6 +103,7 @@ void print_entry_detail(struct katcp_dispatch *d, char *key, void *data)
 
 /*********************************************************************/
 
+#if 0
 static int word_compare(struct katcl_byte_bit *alpha, struct katcl_byte_bit *beta)
 {
   unsigned int extra, delta;
@@ -137,13 +138,9 @@ static int word_compare(struct katcl_byte_bit *alpha, struct katcl_byte_bit *bet
     }
     return 0;
   }
-
-
-
-
-
-
 }
+#endif
+
 #if 0
 static void byte_normalise(struct katcl_byte_bit *bb)
 {
@@ -869,15 +866,11 @@ void check_read_results(int *v, int floor)
 
 int read_register(struct katcp_dispatch *d, struct tbs_entry *te, struct katcl_byte_bit *start, struct katcl_byte_bit *amount, void *buffer, unsigned int size)
 {
-  struct katcl_byte_bit sum, total, reg_len, reg_pos, combined_start, limit;
+  struct katcl_byte_bit sum, total, reg_len, reg_start, combined_start, limit;
   struct tbs_raw *tr;
-  struct tbs_entry *te;
-  char *name;
   unsigned int shift, grab_base, grab_offset;
   unsigned long transfer, i, j;
-  void *ptr, 
-  uint32_t prev, current, mask, tail_mask;
-  int results[3];
+  uint32_t *ptr, prev, current, mask, tail_mask;
 #ifdef PROFILE
   struct timeval then, now, delta;
 
@@ -904,7 +897,7 @@ int read_register(struct katcp_dispatch *d, struct tbs_entry *te, struct katcl_b
   }
 
   if(!(te->e_mode & TBS_READABLE)){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register %s is not marked readable", name);
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register is not marked readable");
     return -1;
   }
 
@@ -925,7 +918,7 @@ int read_register(struct katcp_dispatch *d, struct tbs_entry *te, struct katcl_b
   }
 
   if(add_bb_katcl(&sum, &reg_start, &reg_len) < 0){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register %s definition wraps in address space", name);
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register definition wraps in address space");
     return -1;
   }
 
@@ -937,91 +930,92 @@ int read_register(struct katcp_dispatch *d, struct tbs_entry *te, struct katcl_b
   }
 
   if(exceeds_bb_katcl(&sum, &limit)){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register %s (0x%x:%x+0x%x:%x) falls outside mapped fpga range", name, reg_start.b_byte, reg_start.b_bit, reg_len.b_byte, reg_len.b_bit);
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register (0x%x:%x+0x%x:%x) falls outside mapped fpga range", reg_start.b_byte, reg_start.b_bit, reg_len.b_byte, reg_len.b_bit);
     return -1;
   }
 
   /* redundant, but helpful "virtual test" */
-
-  if(word_normalise_bb_katcl(&start) < 0){
+#if 1
+  if(word_normalise_bb_katcl(start) < 0){
     return -1;
   }
+#endif
 
-  if(exceeds_bb_katcl(&start, &reg_len)){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "read request starts after end of register %s", name);
+  if(exceeds_bb_katcl(start, &reg_len)){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "read request starts after end of register");
     return -1;
   }
 
   /* essential "virtual test" */
 
-  if(word_normalise_bb_katcl(&amount) < 0){
+#if 1
+  if(word_normalise_bb_katcl(amount) < 0){
     return -1;
   }
+#endif
 
-  if(add_bb_katcl(&total, &start, &amount) < 0){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "read request for %s wraps in address space", name);
+  if(add_bb_katcl(&total, start, amount) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "read request for wraps in address space");
     return -1;
   }
   word_normalise_bb_katcl(&total);
 
   if(exceeds_bb_katcl(&total, &reg_len)){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "read request of %s exceeds size available (request 0x%x:%x at 0x%x:%x larger than 0x%x:%x", name, amount.b_byte, amount.b_bit, start.b_byte, start.b_bit, reg_len.b_byte, reg_len.b_bit);
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "read request exceeds size available (request 0x%x:%x at 0x%x:%x larger than 0x%x:%x", amount->b_byte, amount->b_bit, start->b_byte, start->b_bit, reg_len.b_byte, reg_len.b_bit);
     return -1;
   }
 
-  transfer = (amount.b_byte + (amount.b_bit + 7) / 8);
+  transfer = (amount->b_byte + (amount->b_bit + 7) / 8);
 
   if(transfer > size){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "supplied buffer of size %lu can not hold request %lu:%u", size, amount.b_byte, amount.b_bit);
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "supplied buffer of size %lu can not hold request %lu:%u", size, amount->b_byte, amount->b_bit);
     return -1;
   }
 
   /* trap no-op */
 
-  if((amount.b_byte <= 0) && (amount.b_bit <= 0)){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "zero read request length on register %s", name);
+  if((amount->b_byte <= 0) && (amount->b_bit <= 0)){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "zero read request length");
     return KATCP_RESULT_FAIL;
   }
 
   /* work out physical position */
 
-  if(add_bb_katcl(&combined_start, &reg_start, &start) < 0){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register %s start wraps in address space", name);
+  if(add_bb_katcl(&combined_start, &reg_start, start) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register start wraps in address space");
     return KATCP_RESULT_FAIL;
   }
   word_normalise_bb_katcl(&combined_start);
 
 
-  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "reading %s at 0x%x:%u, combined 0x%x:%u", name, start.byte, start.bit, combined_start.b_byte, combined_start.b_bit);
+  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "reading at 0x%x:%u, combined 0x%x:%u", start->b_byte, start->b_bit, combined_start.b_byte, combined_start.b_bit);
 
 #if 0
   log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "reading %s (%u:%u) starting at %u:%u amount %u:%u", name, pos_base, pos_offset, start_base, start_offset, want_base, want_offset);
 #endif
 
-  ptr = tr->r_map;
-
   if(combined_start.b_bit == 0){
 
-    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "fast read, start at 0x%x, read %u:%u bytes", combined_start.b_byte, amount.b_byte, amount.b_bit);
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "fast read, start at 0x%x, read %u:%u bytes", combined_start.b_byte, amount->b_byte, amount->b_bit);
     /* FAST: no bit offset => no shifts needed */
 
 #ifdef USE_MEMCPY
-    if(amount.b_bit > 0){
+    if(amount->b_bit > 0){
       memcpy(buffer, tr->r_map + combined.start.b_byte, transfer);
-      buffer[amount.b_byte + amount.b_bit / 8] &= (~(0xff >> (amount.b_bit % 8)));
+      buffer[amount->b_byte + amount->b_bit / 8] &= (~(0xff >> (amount->b_bit % 8)));
     } else {
       memcpy(buffer, tr->r_map + combined.start.b_byte, transfer);
     }
 #else 
     /* WTF moments right here: FPGA 32 bit issues */
-    for(i = 0; i < amount.b_byte; i += 4){
+    for(i = 0; i < amount->b_byte; i += 4){
       current = *((uint32_t *)(tr->r_map + combined_start.b_byte + i));
       memcpy(buffer + i, &current, 4);
     }
-    if(amount.b_bit){
+    if(amount->b_bit){
       current = *((uint32_t *)(tr->r_map + combined_start.b_byte + i));
-      current = current & (~(0xffffffff >> (amount.b_bit)));
-      memcpy(buffer + i, &current, (amount.b_bit + 7) / 8);
+      current = current & (~(0xffffffff >> (amount->b_bit)));
+      memcpy(buffer + i, &current, (amount->b_bit + 7) / 8);
     }
 #endif
 
@@ -1032,8 +1026,8 @@ int read_register(struct katcp_dispatch *d, struct tbs_entry *te, struct katcl_b
   /* COMPLEX: start at bit offset, read arb bytes and bits => shift, then copy */
 
   shift = combined_start.b_bit;
-  grab_base = amount.b_byte;
-  grab_offset = combined_start.b_bit + amount.b_bit;
+  grab_base = amount->b_byte;
+  grab_offset = combined_start.b_bit + amount->b_bit;
 
   if(grab_offset > 32){
     grab_offset -= 32;
@@ -1041,7 +1035,7 @@ int read_register(struct katcp_dispatch *d, struct tbs_entry *te, struct katcl_b
   }
 
   mask = ~(0xffffffff << shift);
-  ptr = *((uint32_t *)(tr->r_map + combined_start.b_byte));
+  ptr = (uint32_t *)(tr->r_map + combined_start.b_byte);
 
   prev = (ptr[0]) << shift;
   j = 1;
@@ -1053,7 +1047,7 @@ int read_register(struct katcp_dispatch *d, struct tbs_entry *te, struct katcl_b
     current = ptr[j];
 
     current = prev | (mask & (ptr[j] >> (32 - shift)));
-    memcpy(buffer, &current, 4);
+    memcpy(buffer + i, &current, 4);
   
     prev = current << shift;
 
@@ -1066,13 +1060,13 @@ int read_register(struct katcp_dispatch *d, struct tbs_entry *te, struct katcl_b
     tail_mask = 0xffffffff << (32 - grab_offset);
 
     if(grab_base > 0){
-      current = ptr[j];
-      buffer[i] = (prev | (mask & (current >> (32 - shift)))) & tail_mask;
+      current = (prev | (mask & (ptr[j] >> (32 - shift)))) & tail_mask;
     } else {
-      buffer[i] = prev & tail_mask;
+      current = prev & tail_mask;
     }
+    memcpy(buffer + i, &current, 4);
 
-    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "complex read, final byte (%u) needs mask 0x%08x, prev is 0x%08x, result is 0x%08x", i, tail_mask, prev, buffer[i]);
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "complex read, final word %u needs mask 0x%08x, prev is 0x%08x, result is 0x%08x", i, tail_mask, prev, current);
   }
 
   return transfer;
@@ -1080,13 +1074,13 @@ int read_register(struct katcp_dispatch *d, struct tbs_entry *te, struct katcl_b
 
 int read_cmd(struct katcp_dispatch *d, int argc)
 {
-  struct katcl_byte_bit sum, reg_len, reg_pos, read_start, read_len, combined_start, want, limit;
+  struct katcl_byte_bit start, amount;
   struct tbs_raw *tr;
   struct tbs_entry *te;
   char *name;
-  unsigned int want_base, want_offset, start_base, start_offset, i, j, shift, combined_base, combined_offset, len_base, len_offset, grab_base, grab_offset;
-  uint32_t *ptr, *buffer, prev, current, mask, tail_mask;
-  int results[3];
+  unsigned int space;
+  void *ptr;
+  int results[3], result;
 #ifdef PROFILE
   struct timeval then, now, delta;
 
@@ -1127,33 +1121,56 @@ int read_cmd(struct katcp_dispatch *d, int argc)
 
   log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "read on %s invoked with %d args", name, argc);
 
-  make_bb_katcl(&read_start, 0, 0);
+  make_bb_katcl(&start, 0, 0);
   if(argc > 2){
-    if(arg_bb_katcp(d, 2, &read_start) < 0){
+    if(arg_bb_katcp(d, 2, &start) < 0){
       return KATCP_RESULT_FAIL;
     }
-    word_normalise_bb_katcl(&read_start);
+    word_normalise_bb_katcl(&start);
   }
 
   if(argc > 3){
-    if(arg_bb_katcp(d, 3, &want) < 0){
+    if(arg_bb_katcp(d, 3, &amount) < 0){
       return KATCP_RESULT_FAIL;
     }
   } else {
-    make_bb_katcl(&want, 1, 0);
+    make_bb_katcl(&amount, 1, 0);
 
     /* TODO: could do a check against want+size, then trim as needed */
 
   }
-  word_normalise_bb_katcl(&want);
+  word_normalise_bb_katcl(&amount);
 
-#if 1
-  if(exceeds_bb_katcl(&read_start, &reg_len)){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "read request starts after end of register %s", name);
+  space = amount.b_byte + ((amount.b_bit + 7) / 8);
+
+  ptr = malloc(space);
+  if(ptr == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate %u bytes", space);
     return KATCP_RESULT_FAIL;
   }
-#endif
 
+  result = read_register(d, te, &start, &amount, ptr, space);
+
+  if(result != space){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "requested %u bytes but got %d", space, result);
+    free(ptr);
+    return KATCP_RESULT_FAIL;
+  }
+
+  results[0] = prepend_reply_katcp(d);
+  results[1] = append_string_katcp(d, KATCP_FLAG_STRING, KATCP_OK);
+  results[2] = append_buffer_katcp(d, KATCP_FLAG_BUFFER | KATCP_FLAG_LAST, ptr, result);
+
+  free(ptr);
+
+#ifdef DEBUG
+  check_read_results(results, space + 1);
+#endif
+  check_bus_error(d);
+
+  return KATCP_RESULT_OWN;
+
+#if 0
   /* normalise, could have been specified in words, with 32 bits in offset */
   make_bb_katcl(&reg_start, te->e_pos_base, te->e_pos_offset);
   word_normalise_bb_katcl(&reg_start);
@@ -1331,6 +1348,7 @@ int read_cmd(struct katcp_dispatch *d, int argc)
   check_bus_error(d);
 
   return KATCP_RESULT_OWN;
+#endif
 }
 
 int fpgastatus_cmd(struct katcp_dispatch *d, int argc)

@@ -113,5 +113,8 @@ int make_bb_katcl(struct katcl_byte_bit *bb, unsigned long byte, unsigned long b
 int word_normalise_bb_katcl(struct katcl_byte_bit *bb);
 int byte_normalise_bb_katcl(struct katcl_byte_bit *bb);
 
+int exceeds_bb_katcl(struct katcl_byte_bit *bb, struct katcl_byte_bit *limit);
+int add_bb_katcl(struct katcl_byte_bit *sigma, struct katcl_byte_bit *alpha, struct katcl_byte_bit *beta);
+
 
 #endif
