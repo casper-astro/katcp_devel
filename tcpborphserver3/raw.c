@@ -869,8 +869,9 @@ int read_register(struct katcp_dispatch *d, struct tbs_entry *te, struct katcl_b
   struct katcl_byte_bit sum, total, reg_len, reg_start, combined_start, limit;
   struct tbs_raw *tr;
   unsigned int shift, grab_base, grab_offset;
-  unsigned long transfer, i, j;
+  unsigned long i, j;
   uint32_t *ptr, prev, current, mask, tail_mask;
+  int transfer;
 #ifdef PROFILE
   struct timeval then, now, delta;
 
@@ -935,25 +936,18 @@ int read_register(struct katcp_dispatch *d, struct tbs_entry *te, struct katcl_b
   }
 
   /* redundant, but helpful "virtual test" */
-#if 1
   if(word_normalise_bb_katcl(start) < 0){
     return -1;
   }
-#endif
-
   if(exceeds_bb_katcl(start, &reg_len)){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "read request starts after end of register");
     return -1;
   }
 
   /* essential "virtual test" */
-
-#if 1
   if(word_normalise_bb_katcl(amount) < 0){
     return -1;
   }
-#endif
-
   if(add_bb_katcl(&total, start, amount) < 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "read request for wraps in address space");
     return -1;
@@ -965,22 +959,18 @@ int read_register(struct katcp_dispatch *d, struct tbs_entry *te, struct katcl_b
     return -1;
   }
 
+  /* how much we expect to copy into the supplied buffer */
   transfer = (amount->b_byte + (amount->b_bit + 7) / 8);
-
+  if(transfer <= 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "zero read request length or request size wrapped");
+    return KATCP_RESULT_FAIL;
+  }
   if(transfer > size){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "supplied buffer of size %lu can not hold request %lu:%u", size, amount->b_byte, amount->b_bit);
     return -1;
   }
 
-  /* trap no-op */
-
-  if((amount->b_byte <= 0) && (amount->b_bit <= 0)){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "zero read request length");
-    return KATCP_RESULT_FAIL;
-  }
-
-  /* work out physical position */
-
+  /* work out memory locations */
   if(add_bb_katcl(&combined_start, &reg_start, start) < 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register start wraps in address space");
     return KATCP_RESULT_FAIL;
@@ -1017,6 +1007,14 @@ int read_register(struct katcp_dispatch *d, struct tbs_entry *te, struct katcl_b
       current = current & (~(0xffffffff >> (amount->b_bit)));
       memcpy(buffer + i, &current, (amount->b_bit + 7) / 8);
     }
+
+#ifdef KATCP_CONSISTENCY_CHECKS
+    if((i + ((amount->b_bit + 7) / 8)) != transfer){
+      fprintf(stderr, "read: read the incorrect number of bytes, needed %d\n", transfer);
+      abort();
+    }
+#endif
+
 #endif
 
     /* END easy case */
@@ -1064,7 +1062,10 @@ int read_register(struct katcp_dispatch *d, struct tbs_entry *te, struct katcl_b
     } else {
       current = prev & tail_mask;
     }
-    memcpy(buffer + i, &current, 4);
+    /* WARNING: what about the shift ? */
+    memcpy(buffer + i, &current, (grab_offset + 7) / 8);
+#ifdef KATCP_CONSISTENCY_CHECKS
+#endif
 
     log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "complex read, final word %u needs mask 0x%08x, prev is 0x%08x, result is 0x%08x", i, tail_mask, prev, current);
   }
