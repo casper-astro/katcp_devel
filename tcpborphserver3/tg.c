@@ -1072,6 +1072,7 @@ struct getap_state *create_getap(struct katcp_dispatch *d, unsigned int instance
   struct getap_state *gs; 
   struct katcp_arb *a;
   unsigned int i;
+  struct tbs_raw *tr;
 
   a = NULL;
   gs = NULL;
@@ -1081,6 +1082,17 @@ struct getap_state *create_getap(struct katcp_dispatch *d, unsigned int instance
 #endif
 
   log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "attempting to set up tap device %s", tap);
+
+  tr = get_mode_katcp(d, TBS_MODE_RAW);
+  if(tr == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need raw mode for tap operation");
+    return NULL;
+  }
+
+  if(tr->r_fpga != TBS_FPGA_MAPPED){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "fpga not mapped, unable to run tap logic");
+    return NULL;
+  }
 
   gs = malloc(sizeof(struct getap_state));
   if(gs == NULL){
@@ -1126,13 +1138,7 @@ struct getap_state *create_getap(struct katcp_dispatch *d, unsigned int instance
   }
 
   /* initialise the rest of the structure here */
-
-  gs->s_raw_mode = get_mode_katcp(d, TBS_MODE_RAW);
-  if(gs->s_raw_mode == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need raw mode for tap operation");
-    destroy_getap(d, gs);
-    return NULL;
-  }
+  gs->s_raw_mode = tr;
 
   gs->s_register = find_data_avltree(gs->s_raw_mode->r_registers, name);
   if(gs->s_register == NULL){
