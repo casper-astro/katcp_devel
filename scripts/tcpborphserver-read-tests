@@ -23,5 +23,5 @@ read_check 0:4  1 'T'
 read_check 2:4  1 'c'
 read_check 0:2  1 'U'
 read_check 0:10 0:8 '='
-read_check 0:23 0:8 '`'
+read_check 0:25 0:7 '`'
 
