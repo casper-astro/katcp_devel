@@ -1,0 +1,21 @@
+#!/bin/bash
+
+function read_check()
+{
+  value=$(kcpcmd -p 2 -i read sys_scratchpad $1 $2)
+  if [ "${value}" != "$3" ] ; then
+    echo "read test failed: expected ${1}, got ${value}"
+    return 1;
+  else 
+    echo "test ok: result is ${value}"
+    return 0;
+  fi
+}
+
+kcpcmd -i write sys_scratchpad 0 'U0Of'
+
+read_check 0 4 'U0Of'
+read_check 1 3 '0Of'
+read_check 2 2 'Of'
+read_check 3 1 'f'
+
