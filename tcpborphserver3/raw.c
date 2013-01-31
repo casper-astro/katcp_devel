@@ -868,7 +868,7 @@ int read_register(struct katcp_dispatch *d, struct tbs_entry *te, struct katcl_b
 {
   struct katcl_byte_bit sum, total, reg_len, reg_start, combined_start, limit;
   struct tbs_raw *tr;
-  unsigned int shift, grab_base, grab_offset;
+  unsigned int shift, grab_base, grab_offset, round_left;
   unsigned long i, j;
   uint32_t *ptr, prev, current, mask, tail_mask;
   int transfer;
@@ -959,8 +959,9 @@ int read_register(struct katcp_dispatch *d, struct tbs_entry *te, struct katcl_b
     return -1;
   }
 
+  round_left = (amount->b_bit + 7) / 8;
   /* how much we expect to copy into the supplied buffer */
-  transfer = (amount->b_byte + (amount->b_bit + 7) / 8);
+  transfer = amount->b_byte + round_left;
   if(transfer <= 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "zero read request length or request size wrapped");
     return KATCP_RESULT_FAIL;
@@ -978,16 +979,10 @@ int read_register(struct katcp_dispatch *d, struct tbs_entry *te, struct katcl_b
   word_normalise_bb_katcl(&combined_start);
 
 
-  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "reading at 0x%x:%u, combined 0x%x:%u", start->b_byte, start->b_bit, combined_start.b_byte, combined_start.b_bit);
-
-#if 0
-  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "reading %s (%u:%u) starting at %u:%u amount %u:%u", name, pos_base, pos_offset, start_base, start_offset, want_base, want_offset);
-#endif
-
   if(combined_start.b_bit == 0){
 
-    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "fast read, start at 0x%x, read %u:%u bytes", combined_start.b_byte, amount->b_byte, amount->b_bit);
     /* FAST: no bit offset => no shifts needed */
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "fast read start at %u:%u of 0x%x:%u maps to pos 0x%x:%u copied into %u bytes", start->b_byte, start->b_bit, amount->b_byte, amount->b_bit, combined_start.b_byte, combined_start.b_bit, transfer);
 
 #ifdef USE_MEMCPY
     if(amount->b_bit > 0){
@@ -1005,11 +1000,11 @@ int read_register(struct katcp_dispatch *d, struct tbs_entry *te, struct katcl_b
     if(amount->b_bit){
       current = *((uint32_t *)(tr->r_map + combined_start.b_byte + i));
       current = current & (~(0xffffffff >> (amount->b_bit)));
-      memcpy(buffer + i, &current, (amount->b_bit + 7) / 8);
+      memcpy(buffer + i, &current, round_left);
     }
 
 #ifdef KATCP_CONSISTENCY_CHECKS
-    if((i + ((amount->b_bit + 7) / 8)) != transfer){
+    if((i + round_left) != transfer){
       fprintf(stderr, "read: read the incorrect number of bytes, needed %d\n", transfer);
       abort();
     }
@@ -1031,6 +1026,8 @@ int read_register(struct katcp_dispatch *d, struct tbs_entry *te, struct katcl_b
     grab_offset -= 32;
     grab_base += 4;
   }
+
+  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "complex read starting at %u:%u of 0x%x:%u maps to pos 0x%x:%u with grab %u:%u shifted by %u copied into %u bytes", start->b_byte, start->b_bit, amount->b_byte, amount->b_bit, combined_start.b_byte, combined_start.b_bit, grab_base, grab_offset, shift, transfer);
 
   mask = ~(0xffffffff << shift);
   ptr = (uint32_t *)(tr->r_map + combined_start.b_byte);
@@ -1055,16 +1052,26 @@ int read_register(struct katcp_dispatch *d, struct tbs_entry *te, struct katcl_b
   }
 
   if(grab_offset){
-    tail_mask = 0xffffffff << (32 - grab_offset);
 
     if(grab_base > 0){
-      current = (prev | (mask & (ptr[j] >> (32 - shift)))) & tail_mask;
+      tail_mask = 0xffffffff << (32 - grab_offset);
+      current = (prev | (mask & ((ptr[j] & tail_mask) >> (32 - shift))));
     } else {
+#ifdef KATCP_CONSISTENCY_CHECKS
+      if(shift > grab_offset){
+        fprintf(stderr, "read: expected at least one bit (shifted %u bits, last data bit %u", shift, grab_offset);
+        abort();
+      }
+#endif
+      tail_mask = 0xffffffff << (32 - (grab_offset - shift));
       current = prev & tail_mask;
     }
-    /* WARNING: what about the shift ? */
-    memcpy(buffer + i, &current, (grab_offset + 7) / 8);
+    memcpy(buffer + i, &current, round_left);
 #ifdef KATCP_CONSISTENCY_CHECKS
+    if((i + round_left) != transfer){
+      fprintf(stderr, "read: read the incorrect number of bytes, needed %d\n", transfer);
+      abort();
+    }
 #endif
 
     log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "complex read, final word %u needs mask 0x%08x, prev is 0x%08x, result is 0x%08x", i, tail_mask, prev, current);
