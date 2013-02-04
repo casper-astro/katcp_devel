@@ -7,7 +7,7 @@ INC = -I$(KATCP)
 LIB = -L$(KATCP) -lkatcp -ldl -lz
 CFLAGS += -fPIC
 CFLAGS += -ggdb
-#CFLAGS += -DDEBUG
+CFLAGS += -DDEBUG
 #CFLAGS += -DPROFILE
 #CFLAGS += -DFAILFAST
 
