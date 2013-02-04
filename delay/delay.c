@@ -16,7 +16,9 @@
 #include "katpriv.h"
 
 #define FORGIVE_LATE
+#if 0
 #define FORGIVE_LARGE
+#endif
 
 /* cribbed from math.h, it wants __GNU to be defined and who knows what else that does */
 #define OVERPI  0.3183098861837906715377675267450287L
