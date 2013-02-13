@@ -1,17 +1,20 @@
 ?setenv PATH /usr/local/lib/kcs/scripts:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/sbin:/usr/sbin
 ?chdir /usr/local/lib/kcs
 ?define mode ready restart-mode-ready warn
+?define mode bc16n400M1k restart-mode-bc16n400M1k nominal
 ?define mode c16n400M1k restart-mode-c16n400M1k nominal
-?define mode b16n400M1k restart-mode-b16n400M1k nominal
 ?define mode c16n400M8k restart-mode-c16n400M8k nominal
-?define mode bwbc4a restart-mode-bwbc4a nominal
 ?define mode c16n2M4k restart-mode-c16n2M4k nominal
-?define mode c16n3M8k restart-mode-c16n3M8k nominal
 ?define mode c16n7M4k restart-mode-c16n7M4k nominal
-?define mode c16n13M4k restart-mode-c16n13M4k nominal
 ?define mode c16n25M4k restart-mode-c16n25M4k nominal
+?define mode c16n13M4k restart-mode-c16n13M4k nominal
+?define mode c16n3M8k restart-mode-c16n3M8k nominal
+?define mode bwbc4a restart-mode-bwbc4a nominal
+?define mode twbc4a restart-mode-twbc4a nominal
 ?define mode c8n7M4k_top restart-mode-c8n7M4k_top nominal
+?define mode c8n7M4k_bottom restart-mode-c8n7M4k_bottom nominal
 ?define mode c8n25M4k_top restart-mode-c8n7M4k_top nominal
+?define mode c8n25M4k_bottom restart-mode-c8n25M4k_bottom nominal
 ?job process tmon exec://tmon
 ?forget ?halt
 ?forget ?restart
