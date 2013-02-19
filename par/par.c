@@ -457,7 +457,7 @@ int main(int argc, char **argv)
 
   char *app, *parm, *cmd, *copy, *ptr, *servers, *extra, *label;
   int i, j, c, fd, mfd, count;
-  int verbose, result, status, base, info, timeout, pos, flags, show, munge, once;
+  int verbose, result, status, info, timeout, flags, show, munge, once;
   int xmit, code;
   unsigned int len;
   
@@ -472,9 +472,7 @@ int main(int argc, char **argv)
   verbose = 1;
   i = j = 1;
   app = argv[0];
-  base = (-1);
   timeout = 0;
-  pos = (-1);
   k = NULL;
   show = 1;
   parm = NULL;

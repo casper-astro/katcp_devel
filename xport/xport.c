@@ -974,7 +974,6 @@ int main(int argc, char **argv)
           j = 1;
           break;
           
-#if 0
         case 'v' : 
           verbose++;
           j++;
@@ -983,7 +982,6 @@ int main(int argc, char **argv)
           verbose = 0;
           j++;
           break;
-#endif
 
         case '-' :
           j++;
@@ -1045,6 +1043,7 @@ int main(int argc, char **argv)
   add_time_katcp(&(ss->s_total), &now, &delta);
 
   run = 1;
+  code = ITEM_OK;
 
   for(run = 1; run > 0; ){
 
@@ -1059,6 +1058,9 @@ int main(int argc, char **argv)
 #ifdef DEBUG 
     fprintf(stderr, "run: state=%u, code=%d\n", ss->s_index, code);
 #endif
+    if(verbose > 1){
+      log_message_katcl(ss->s_up, KATCP_LEVEL_DEBUG, NAME, "state=%u, code=%d", ss->s_index, code);
+    }
 
     switch(code){
       case ITEM_STAY : 
