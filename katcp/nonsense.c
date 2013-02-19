@@ -2113,9 +2113,11 @@ static int run_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a, 
 #endif
   struct katcp_double_acquire *dsa;
   struct timeval now, legal;
+#if 0
   struct katcp_shared *s;
 
   s = d->d_shared;
+#endif
 
   /* TODO: deschedule sensor if we have left our mode: should be done before first acquire attempt (!) */
   /* should move mode to acquire, rather than sensor */
