@@ -1467,13 +1467,12 @@ int run_jobs_katcp(struct katcp_dispatch *d)
   struct katcp_notice *n;
   struct katcp_job *j;
   struct katcl_parse *p, *px;
-  int i, count, fd, result, code;
+  int i, fd, result, code;
   unsigned int len;
   char *string;
 
   s = d->d_shared;
 
-  count = 0;
   i = 0;
   while(i < s->s_number){
     j = s->s_tasks[i];
