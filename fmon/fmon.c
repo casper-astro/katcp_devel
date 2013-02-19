@@ -1872,6 +1872,7 @@ int check_inputs_fengine_fmon(struct fmon_state *f)
   fprintf(stderr, "checking all\n");
 #endif
 
+  result = 0;
   for(i = 0; i < f->f_fs; i++){
     result += check_status_fengine_fmon(f, &(f->f_inputs[i]), i);
     result += check_power_fengine_fmon(f, &(f->f_inputs[i]), i);
