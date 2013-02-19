@@ -1894,18 +1894,15 @@ struct katcp_job *network_connect_job_katcp(struct katcp_dispatch *d, struct kat
 
 int subprocess_resume_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 {
-  char *ptr;
   struct katcl_parse *p;
-  unsigned int count, i;
+  int count, i;
 
   p = get_parse_notice_katcp(d, n);
   if(p){
-    ptr = get_string_parse_katcl(p, 1);
+    count = get_count_parse_katcl(p);
   } else {
-    ptr = NULL;
+    count = 0;
   }
-
-  count = get_count_parse_katcl(p);
 
   prepend_reply_katcp(d);
 
