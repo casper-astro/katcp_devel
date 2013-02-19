@@ -706,7 +706,7 @@ int transmit_ip_kernel(struct getap_state *gs)
       case EAGAIN :
         return 0;
       default :
-        log_message_katcp(gs->s_dispatch, KATCP_LEVEL_WARN, NULL, "write to tap device %s failed: %s", gs->s_tap_name, strerror(errno));
+        log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "write to tap device %s failed: %s", gs->s_tap_name, strerror(errno));
         /* WARNING: drops packet on floor, better than spamming logs */
         forget_receive(gs);
         return -1;
@@ -714,7 +714,7 @@ int transmit_ip_kernel(struct getap_state *gs)
   }
 
   if((wr + SIZE_FRAME_HEADER) < gs->s_rx_len){
-    log_message_katcp(gs->s_dispatch, KATCP_LEVEL_WARN, NULL, "incomplete packet transmission to %s: %d + %d < %u", gs->s_tap_name, SIZE_FRAME_HEADER, wr, gs->s_rx_len);
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "incomplete packet transmission to %s: %d + %d < %u", gs->s_tap_name, SIZE_FRAME_HEADER, wr, gs->s_rx_len);
     /* WARNING: also ditches packet, otherwise we might have an unending stream of fragments (for some errors) */
     forget_receive(gs);
     return -1;
@@ -946,6 +946,9 @@ static int configure_tap(struct getap_state *gs)
   int len;
 
   len = snprintf(cmd_buffer, CMD_BUFFER, "ifconfig %s %s netmask 255.255.255.0 up\n", gs->s_tap_name, gs->s_address_name);
+  if((len < 0) || (len >= CMD_BUFFER)){
+    return -1;
+  }
   cmd_buffer[CMD_BUFFER - 1] = '\0';
 
   /* WARNING: stalls the system, could possibly handle it via a job command */
@@ -1070,11 +1073,9 @@ void stop_all_getap(struct katcp_dispatch *d, int final)
 struct getap_state *create_getap(struct katcp_dispatch *d, unsigned int instance, char *name, char *tap, char *ip, unsigned int port, char *mac, unsigned int period)
 {
   struct getap_state *gs; 
-  struct katcp_arb *a;
   unsigned int i;
   struct tbs_raw *tr;
 
-  a = NULL;
   gs = NULL;
 
 #ifdef DEBUG
