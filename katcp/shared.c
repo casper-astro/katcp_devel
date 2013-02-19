@@ -963,7 +963,9 @@ int mode_version_katcp(struct katcp_dispatch *d, int mode, char *subsystem, int 
 {
 #define BUFFER 20
   struct katcp_shared *s;
+#if 0
   struct katcp_entry *e;
+#endif
   char buffer[BUFFER];
 
   sane_shared_katcp(d);
@@ -973,7 +975,9 @@ int mode_version_katcp(struct katcp_dispatch *d, int mode, char *subsystem, int 
     return -1;
   }
 
+#if 0
   e = &(s->s_vector[mode]);
+#endif
 
   if(subsystem){
     snprintf(buffer, BUFFER, "%d.%d", major, minor);
