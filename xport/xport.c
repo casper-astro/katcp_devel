@@ -485,7 +485,7 @@ int setup_network_item(struct state *ss, int tag)
 {
   int result;
 #ifndef SOCK_NONBLOCK
-  int flags, fd;
+  int flags;
 #endif
 
   if(ss->s_fd >= 0){
@@ -496,9 +496,9 @@ int setup_network_item(struct state *ss, int tag)
   ss->s_fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
 #else
   ss->s_fd = socket(AF_INET, SOCK_STREAM, 0);
-  flags = fcntl(fd, F_GETFL, NULL);
+  flags = fcntl(ss->s_fd, F_GETFL, NULL);
   if(flags >= 0){
-    flags = fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+    flags = fcntl(ss->s_fd, F_SETFL, flags | O_NONBLOCK);
   }
 #endif
 

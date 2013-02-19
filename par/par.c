@@ -481,6 +481,7 @@ int main(int argc, char **argv)
   extra = NULL;
   label = KCPPAR_NAME;
   count = 0;
+  px = NULL;
 
   k = create_katcl(STDOUT_FILENO);
   if(k == NULL){

@@ -3993,6 +3993,8 @@ int match_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_notice *n, vo
         } else {
           nmin = 0;
           nmax = 0;
+          wmin = 0;
+          wmax = 0;
         }
         if(create_sensor_integer_katcp(d, sn, nmin, nmax, wmin, wmax) >= 0){
           a = setup_integer_acquire_katcp(d, NULL, NULL, NULL);
@@ -4043,6 +4045,8 @@ int match_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_notice *n, vo
         } else {
           nminf = 0.0;
           nmaxf = 0.0;
+          wminf = 0.0;
+          wmaxf = 0.0;
         }
         if(create_sensor_double_katcp(d, sn, nminf, nmaxf, wminf, wmaxf) >= 0){
           a = setup_double_acquire_katcp(d, NULL, NULL, NULL);

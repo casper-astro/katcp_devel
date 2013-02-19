@@ -6,7 +6,7 @@ KATCP ?= katcp
 
 # compiler flags, -Wall is just the right thing to do 
 CFLAGS += -Wall
-#CFLAGS += -O2
+CFLAGS += -O2
 
 # where the C implementation has diverged from the katcp standard,
 # force standard behaviour. Currently only one case: log-level affects
