@@ -46,5 +46,6 @@ if ! detect_bf_count $(grep ^servers_x.*roach ${CORR_CONFIG}/${TARGET_MODE} | cu
   exit 1
 fi
 
+kcs_corr_log
 change_mode_sensors ${KATCP_MODE} ${TARGET_MODE}
 exit 0
