@@ -127,7 +127,7 @@ int queue_remote(struct remote *rs, struct katcl_parse *px)
 
   rs->r_vector = tmp;
 
-  rs->r_vector[rs->r_count] = px;
+  rs->r_vector[rs->r_count] = copy_parse_katcl(px);
 
   rs->r_count++;
   
@@ -632,6 +632,8 @@ int main(int argc, char **argv)
           sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "unable to load command into server set %s", servers);
           return 4;
         }
+        destroy_parse_katcl(px);
+        px = NULL;
       }
 
       if(copy){
