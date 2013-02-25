@@ -42,7 +42,7 @@ detect_reg_set () {
   reg=$1
   shift
 
-  if kcppar -i -s $* -x wordread $reg 0  ; then 
+  kcppar -q -i -s $* -x wordread $reg 0  ; then 
     return 0
   fi
 
@@ -72,12 +72,7 @@ detect_bf_count () {
     i=$[i+1]
   done
 
-  if [ $? -ne 1 ] ; then
-    kcs_export KCS_BF_COUNT 0
-    return 1
-  fi
-
-  kcpmsg -l info "system appears to have ${KCS_BF_COUNT} beams"
+  kcpmsg -l info "system appears to have ${i} beams"
 
   kcs_export KCS_BF_COUNT $i
 }
