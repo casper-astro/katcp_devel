@@ -45,6 +45,11 @@ detect_reg_set () {
   kcppar -s $* -x wordread $reg 0 
 }
 
+disable_bf_count () {
+  kcpmsg -l info "beamformer logic disabled"
+  kcs_export KCS_BF_COUNT 0
+}
+
 detect_bf_count () {
   if [ $# -lt 1 ] ; then
     kcs_export KCS_BF_COUNT 0
@@ -67,6 +72,8 @@ detect_bf_count () {
     kcs_export KCS_BF_COUNT 0
     return 1
   fi
+
+  kcpmsg -l info "system appears to have ${KCS_BF_COUNT} beams"
 
   kcs_export KCS_BF_COUNT $i
 }

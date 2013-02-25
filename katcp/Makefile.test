@@ -2,9 +2,12 @@ include ../Makefile.inc
 
 INC = -I.
 
-TESTS = test-parse test-map test-line test-rpc test-job test-queue test-kurl test-ktype test-avl test-bytebit
+TESTS = test-generic-queue test-parse test-map test-line test-rpc test-job test-queue test-kurl test-ktype test-avl test-bytebit
 
 all: $(TESTS)
+
+test-generic-queue: generic-queue.c
+	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_GENERIC_QUEUE -o $@ $^
 
 test-queue: misc.c queue.c parse.c line.c bytebit.c
 	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_QUEUE -o $@ $^

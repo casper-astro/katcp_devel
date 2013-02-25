@@ -5,7 +5,7 @@ source functions.sh
 source sensors.sh
 source beamformer.sh
 
-TARGET_MODE=bc16n400M1k
+TARGET_MODE=bc8n400M1k_bottom
 
 now=$(date +%s)
 timeout=150
