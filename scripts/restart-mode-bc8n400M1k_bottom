@@ -34,6 +34,8 @@ if ! kcpcmd -k -m -t 120 initialise 2 ; then
   exit 1
 fi
 
+kcs_corr_log
+
 kcs_info "running beamformer initialise"
 if ! kcpcmd -k -m -t 120 beamformer ; then
   kcs_corr_log
@@ -41,11 +43,12 @@ if ! kcpcmd -k -m -t 120 beamformer ; then
   exit 1
 fi
 
+kcs_corr_log
+
 if ! detect_bf_count $(grep ^servers_x.*roach ${CORR_CONFIG}/${TARGET_MODE} | cut -f2 -d=  ) ; then
   kcs_error "beamformer detection logic failed"
   exit 1
 fi
 
-kcs_corr_log
 change_mode_sensors ${KATCP_MODE} ${TARGET_MODE}
 exit 0

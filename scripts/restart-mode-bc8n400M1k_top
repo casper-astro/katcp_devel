@@ -34,6 +34,8 @@ if ! kcpcmd -k -m -t 120 initialise 2 ; then
   exit 1
 fi
 
+kcs_corr_log
+
 kcs_info "running beamformer initialise"
 if ! kcpcmd -k -m -t 120 beamformer ; then
   kcs_corr_log
