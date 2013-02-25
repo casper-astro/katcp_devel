@@ -58,7 +58,7 @@ detect_bf_count () {
 
   i=0
 
-  while detect_reg_set bf${i}_gbe_out_port0 $*; do
+  while detect_reg_set bf${i}_dest $*; do
     if [ $i -gt 8 ] ; then
       kcpmsg -l error "unreasonably large number of beamformers $i"
       kcs_export KCS_BF_COUNT 0
