@@ -42,7 +42,11 @@ detect_reg_set () {
   reg=$1
   shift
 
-  kcppar -s $* -x wordread $reg 0 
+  if kcppar -i -s $* -x wordread $reg 0  ; then 
+    return 0
+  fi
+
+  return 1
 }
 
 disable_bf_count () {
