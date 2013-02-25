@@ -42,7 +42,7 @@ detect_reg_set () {
   reg=$1
   shift
 
-  kcppar -q -i -s $* -x wordread $reg 0  ; then 
+  if kcppar -q -i -s $* -x wordread $reg 0  ; then 
     return 0
   fi
 
