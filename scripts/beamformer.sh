@@ -100,7 +100,7 @@ set_bf_rx () {
 
   shift 3
 
-  if kcppar -s $* -x wordwrite bf${beam}_gbe_out_port0 0 0x${hexport} -x wordwrite bf${beam}_gbe_out_ip0 0 0x${hexip} ; then
+  if kcppar -i -s $* -x wordwrite bf${beam}_dest 1 0x${hexport} -x wordwrite bf${beam}_dest 0 0x${hexip} ; then
     kcs_export KCS_BF${beam}_RX ${ip}:${port}
   fi
 }

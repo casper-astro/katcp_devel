@@ -33,7 +33,7 @@ fi
 if [ -n "${KCS_BF_COUNT}" ] ; then
   beam=0
   while [ "${beam}" -lt "${KCS_BF_COUNT}" ] ; do
-    bf_rx=KCS_BF${beam}
+    bf_rx=KCS_BF${beam}_RX
     if [ -n "${!bf_rx}" ]; then
       list_source bf${beam} ${!bf_rx}
     fi 
