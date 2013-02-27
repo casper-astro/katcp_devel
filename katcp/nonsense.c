@@ -590,7 +590,7 @@ int event_check_double_katcp(struct katcp_nonsense *ns)
   ds = sn->s_more;
   dn = ns->n_more;
 
-  log_message_katcp(dx, KATCP_LEVEL_TRACE, NULL, "double event check had %f now %f (status %u)", dn->dn_previous, ds->ds_current, sn->s_status);
+  log_message_katcp(dx, KATCP_LEVEL_TRACE, NULL, "double event check had %f now %f (new status %u)", dn->dn_previous, ds->ds_current, sn->s_status);
 
   result = status_check_katcp(ns); /* WARNING: status_check has the side effect of updating status */
   
