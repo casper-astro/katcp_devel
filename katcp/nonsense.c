@@ -2195,7 +2195,7 @@ int propagate_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a)
 
     if((*(sn->s_extract))(d, sn) >= 0){ /* got a useful value */
 
-      log_message_katcp(d, KATCP_LEVEL_TRACE | KATCP_LEVEL_LOCAL, NULL, "checking %d clients of %s", sn->s_refs, sn->s_name);
+      log_message_katcp(d, KATCP_LEVEL_TRACE | KATCP_LEVEL_LOCAL, NULL, "checking %d clients of %s@%p", sn->s_refs, sn->s_name, sn);
 
       for(i = 0; i < sn->s_refs; i++){
         ns = sn->s_nonsense[i];
@@ -4174,7 +4174,9 @@ int match_sensor_status_katcp(struct katcp_dispatch *d, struct katcp_notice *n, 
       return 1;
     }
     set_status_sensor_katcp(sn, code);
-    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "updated sensor %s to status %s", name, status);
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "updated sensor %s@%p to status %s(%d)", name, sn, status, code);
+  } else {
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "no status to update for sensor %s", name);
   }
 
 
