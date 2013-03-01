@@ -107,7 +107,7 @@
 #define FMON_KATADC_ERR_HIGH       0.0
 #define FMON_KATADC_ERR_LOW      -32.0
 
-#define FMON_KATADC_FUDGE_LOW     -2.0
+#define FMON_KATADC_FUDGE_LOW    -12.0
 
 #define FMON_KATADC_WARN_HIGH    -15.0
 #define FMON_KATADC_WARN_LOW     -28.0
