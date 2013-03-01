@@ -107,6 +107,8 @@
 #define FMON_KATADC_ERR_HIGH       0.0
 #define FMON_KATADC_ERR_LOW      -32.0
 
+#define FMON_KATADC_FUDGE_LOW     -2.0
+
 #define FMON_KATADC_WARN_HIGH    -15.0
 #define FMON_KATADC_WARN_LOW     -28.0
 
@@ -172,7 +174,7 @@ struct fmon_sensor_template input_template[FMON_INPUT_SENSORS] = {
   { "%s.adc.power",      "approximate input signal strength",  KATCP_SENSOR_FLOAT,   0, 0, -81.0, 16.0, 0}
 #else
   { "%s.adc.raw",        "untranslated average of squared inputs",  KATCP_SENSOR_FLOAT,   0, 0, 0.0, 65000.0, 0},
-  { "%s.adc.power",      "approximate input signal strength",  KATCP_SENSOR_FLOAT,   0, 0, FMON_KATADC_ERR_LOW, FMON_KATADC_ERR_HIGH, 0}
+  { "%s.adc.power",      "approximate input signal strength",  KATCP_SENSOR_FLOAT,   0, 0, FMON_KATADC_ERR_LOW + FMON_KATADC_FUDGE_LOW, FMON_KATADC_ERR_HIGH, 0}
 #endif
 };
 
