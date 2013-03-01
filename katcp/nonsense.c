@@ -4174,7 +4174,7 @@ int match_sensor_status_katcp(struct katcp_dispatch *d, struct katcp_notice *n, 
       return 1;
     }
     set_status_sensor_katcp(sn, code);
-    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "updated sensor %s@%p to status %s(%d)", name, sn, status, code);
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "updated sensor %s@%p to status %s(%d)", name, sn, status, sn->s_status);
   } else {
     log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "no status to update for sensor %s", name);
   }
