@@ -37,7 +37,7 @@ fi
 kcs_corr_log
 
 for name in bf0 bf1 ; do
-  k7-beam-passband ${name} 400000000 200000000
+  kcs_set_passband ${name} 400000000 200000000
 done
 
 # 

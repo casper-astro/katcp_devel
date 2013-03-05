@@ -15,6 +15,8 @@
 ?define mode c8n7M4k_bottom restart-mode-c8n7M4k_bottom nominal
 ?define mode c8n25M4k_top restart-mode-c8n25M4k_top nominal
 ?define mode c8n25M4k_bottom restart-mode-c8n25M4k_bottom nominal
+?define mode bc8n400M1k_top restart-mode-bc8n400M1k_top nominal
+?define mode bc8n400M1k_bottom restart-mode-bc8n400M1k_bottom nominal
 ?job process tmon exec://tmon
 ?forget ?halt
 ?forget ?restart
