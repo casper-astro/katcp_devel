@@ -36,19 +36,9 @@ fi
 
 kcs_corr_log
 
-kcs_info "running beamformer initialise"
-if ! kcpcmd -k -m -t 120 beamformer ; then
-  kcs_corr_log
-  kcs_error "beamformer initialise failed"
-  exit 1
-fi
-
-kcs_corr_log
-
-if ! detect_bf_count $(grep ^servers_x.*roach ${CORR_CONFIG}/${TARGET_MODE} | cut -f2 -d=  ) ; then
-  kcs_error "beamformer detection logic failed"
-  exit 1
-fi
+for name in bf0 bf1 ; do
+  k7-beam-passband ${name} 400000000 200000000
+done
 
 change_mode_sensors ${KATCP_MODE} ${TARGET_MODE}
 exit 0

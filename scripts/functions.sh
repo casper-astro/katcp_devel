@@ -102,7 +102,56 @@ kcs_load_config () {
   fi
 
   eval $(grep -v '^ *#' ${config_file} | grep \=  | sed -e 's/=/ = /' | (while read label sep value ; do echo var_${label}=${value}\; ; done) ; echo echo )
-
 }
 
 
+kcs_is_wideband () {
+  if [ $# -lt 1 ] ; then
+    return 1
+  fi
+
+  case "${KATCP_MODE}" in
+    c16n400M1k|c16n400M8k|bwbc4a|twbc4a|bc16n400M1k|bc8n400M1k_bottom|bc8n400M1k_top)
+      return 0
+    ;;
+    *)
+      return 1
+    ;;
+  esac
+
+  return 1
+}
+
+kcs_is_beamformer () {
+  if [ $# -lt 1 ] ; then
+    return 1
+  fi
+
+  case "${KATCP_MODE}" in
+    bc16n400M1k|bc8n400M1k_bottom|bc8n400M1k_top)
+      return 0
+    ;;
+    *)
+      return 1
+    ;;
+  esac
+
+  return 1
+}
+
+kcs_is_narrowband () {
+  if [ $# -lt 1 ] ; then
+    return 1
+  fi
+
+  case "${KATCP_MODE}" in
+    restart-mode-c16n13M4k|restart-mode-c16n25M4k|restart-mode-c16n2M4k|restart-mode-c16n3M8k|restart-mode-c16n7M4k|restart-mode-c8n25M4k_bottom|restart-mode-c8n25M4k_top|restart-mode-c8n7M4k_bottom|restart-mode-c8n7M4k_top)
+      return 0
+    ;;
+    *)
+      return 1
+    ;;
+  esac
+
+  return 1
+}

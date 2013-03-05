@@ -2,6 +2,11 @@ await_mode_sensors() {
   echo "#sensor-status $(date +%s)000 1 .channels unknown 0"
   echo "#sensor-status $(date +%s)000 1 .centerfrequency unknown 0"
   echo "#sensor-status $(date +%s)000 1 .bandwidth unknown 0"
+
+  for name in bf0 bf1 ; do
+    echo "#sensor-status $(date +%s)000 1 .${name}.bandwidth unknown 0"
+    echo "#sensor-status $(date +%s)000 1 .${name}.centerfrequency unknown 0"
+  done
 }
 
 fetch_config_sensors() {
@@ -48,21 +53,15 @@ fetch_config_sensors() {
 }
 
 setup_static_sensors () {
-#   for config_file in ${CORR_CONFIG}/* ; do
-#     if [ -f ${config_file} ] ; then
-#       mode=${config_file##*/}
-# 
-#       echo "#sensor-list .${mode}.channels number\_of\_channels none integer 0 65536"
-#       echo "#sensor-list .${mode}.centerfrequency current\_center\_frequency Hz integer 0 500000000"
-#       echo "#sensor-list .${mode}.bandwidth bandwidth\_of\_current\_mode Hz integer 0 1000000000"
-# 
-#       fetch_config_sensors ${config_file} unknown .${mode}
-#     fi
-#   done
-
   echo "#sensor-list .channels number\_of\_channels none integer 0 65536"
+
   echo "#sensor-list .centerfrequency current\_center\_frequency Hz integer 0 500000000"
   echo "#sensor-list .bandwidth bandwidth\_of\_current\_mode Hz integer 0 1000000000"
+
+  for name in bf0 bf1 ; do 
+    echo "#sensor-list .${name}.centerfrequency selected\_center\_frequency\_of\_beam Hz integer 0 500000000"
+    echo "#sensor-list .${name}.bandwidth selected\_bandwidth\_of\_beam Hz integer 0 1000000000"
+  done
 }
 
 change_mode_sensors () {
