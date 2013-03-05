@@ -36,6 +36,8 @@
 ?process ?k7-quant-snap-shot retrieve\_a\_quantiser\_snapshot\_(?k7-quant-snap-shot\_board-input\_[count])
 ?process ?k7-gain sets\_the\_digital\_gain\_(?k7-gain\_board-input\_values)
 ?process ?k7-frequency-select select\_a\_frequency\_for\_fine\_channelisation\_(?k7-frequency-select\_center-frequency)
+?process ?k7-beam-weights sets\_a\_vector\_of\_scaling\_factors\_for\_the\_given\_beam\_(?k7-beam-weights\_beam\_input\_values)
+?process ?k7-beam-passband sets\_the\_bandwidth\_and\_centerfrequency\_for\_the\_given\_beam\_(?k7-beam-passband\_beam\_bandwidth\_centerfrequency)
 ?process ?xport roach\_start\_and\_stop\_routines
 ?process ?test-reload-rf-gain reload\_analog\_gain\_(?test-reload-rf-gain)
 ?hide ?test-reload-rf-gain ?enable-sensors
