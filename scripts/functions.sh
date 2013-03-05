@@ -13,7 +13,12 @@ kcs_check_timeout()
 }
 
 kcs_set_frequency () {
-  kcpcmd -i -k nb-set-cf $1 | ( while read cmd stat first rest ; do if [ "$cmd" = "!nb-set-cf" -a "${stat}" = "ok" ] ; then echo "#sensor-list .centerfrequency current\_selected\_center\_frequency Hz integer 0 1000000000" ; echo "#sensor-status $(date +%s)000 1 .centerfrequency nominal ${first}" ; fi ; done)
+#  kcpcmd -i -k nb-set-cf $1 | ( while read cmd stat first rest ; do if [ "$cmd" = "!nb-set-cf" -a "${stat}" = "ok" ] ; then echo "#sensor-list .centerfrequency current\_selected\_center\_frequency Hz integer 0 1000000000" ; echo "#sensor-status $(date +%s)000 1 .centerfrequency nominal ${first}" ; fi ; done)
+  kcpcmd -i -k nb-set-cf $1 | ( while read cmd stat first rest ; do if [ "$cmd" = "!nb-set-cf" ] ; then if [ "${stat}" = "ok" ] ; then echo "#sensor-status $(date +%s)000 1 .centerfrequency nominal ${first}" ; else kcpmsg -l error -s frequency "center frequency update ${stat} ${first}" ; exit 1 ; fi ; else echo ${cmd} ${stat} ${first} ${rest} ; fi ; done)
+}
+
+kcs_set_passband () {
+  kcpcmd -i -k beam-passband $1 $2 $3 | ( while read cmd stat bw cf rest ; do if [ "$cmd" = "!beam-passband" ] ; then if [ "${stat}" = "ok" ] ; then echo "#sensor-status .${1}.bandwidth current\_beam\_bandwidth Hz integer 0 1000000000" ; echo "#sensor-status $(date +%s)000 1 .${1}.centerfrequency nominal ${cf}" ; else kcpmsg -l error -s passband "passband update $stat $bw" ; exit 1 ; fi ; else echo ${cmd} ${stat} ${bw} ${cf} ${rest} ; fi ; done)
 }
 
 kcs_input_to_index () {

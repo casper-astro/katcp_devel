@@ -8,7 +8,10 @@ kcs_arg_check $# 1
 #kcpcmd -i -k nb-set-cf $1 | sed -e 's/^!nb-set-cf/#return/' | cut -f1-3 -d\  
 
 if kcs_is_narrowband ${KATCP_MODE} ; then
-  kcpcmd -i -k nb-set-cf $1 | ( while read cmd stat first rest ; do if [ "$cmd" = "!nb-set-cf" ] ; then if [ "${stat}" = "ok" ] ; then echo "#sensor-status $(date +%s)000 1 .centerfrequency nominal ${first}" ; fi ; echo "#return" ${stat} ${first} ; else echo ${cmd} ${stat} ${first} ${rest} ; fi ; done)
+  # kcpcmd -i -k nb-set-cf $1 | ( while read cmd stat first rest ; do if [ "$cmd" = "!nb-set-cf" ] ; then if [ "${stat}" = "ok" ] ; then echo "#sensor-status $(date +%s)000 1 .centerfrequency nominal ${first}" ; fi ; echo "#return" ${stat} ${first} ; else echo ${cmd} ${stat} ${first} ${rest} ; fi ; done)
+  if kcs_set_frequency ; then
+    return 0
+  fi
 else
   echo "#return fail unavailable"
   kcs_error "frequency selection not available in ${KATCP_MODE} mode"

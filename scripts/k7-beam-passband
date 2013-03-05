@@ -7,7 +7,9 @@ source functions.sh
 kcs_arg_check $# 3
 
 if kcs_is_beamformer ${KATCP_MODE} ; then
-  kcpcmd -i -k beam-passband | ( while read cmd stat bw cf rest ; do if [ "$cmd" = "!beam-passband" ] ; then if [ "${stat}" = "ok" ] ; then echo "#sensor-status .${1}.bandwidth current\_beam\_bandwidth Hz integer 0 1000000000" ; echo "#sensor-status $(date +%s)000 1 .${1}.centerfrequency nominal ${cf}" ; fi ; echo "#return" ${stat} ${bw} ; else echo ${cmd} ${stat} ${bw} ${cf} ${rest} ; fi ; done)
+  if kcs_set_passband $* ; then
+    exit 0
+  fi
 else
   echo "#return fail unavailable"
   kcs_error "beam selection not available in mode ${KATCP_MODE}"
