@@ -6,13 +6,13 @@ source functions.sh
 kcs_arg_check $# 2
 
 if [ "$#" -eq 2 ]  ; then
-  kcpcmd -t 300 -i -k weights-get $1 $2 | tr -d '()' | sed -e 's/^!weights-get/#return/'
+  kcpcmd -i -k weights-get $1 $2 | tr -d '()' | sed -e 's/^!weights-get/#return/'
 else 
   status=1
 
   kcs_debug "setting $*"
 
-  if kcpcmd -k -m weights-set $* ; then
+  if kcpcmd -k -t 300 -m weights-set $* ; then
     status=0
   fi
 
