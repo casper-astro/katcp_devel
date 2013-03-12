@@ -30,9 +30,9 @@ else
   list_source k7 ${rxip}:${rxport}
 fi
 
-if [ -n "${KCS_BF_COUNT}" ] ; then
+if kcs_is_beamformer ${KATCP_MODE} ; then
   beam=0
-  while [ "${beam}" -lt "${KCS_BF_COUNT}" ] ; do
+  while [ "${beam}" -lt "2" ] ; do
     bf_rx=KCS_BF${beam}_RX
     if [ -n "${!bf_rx}" ]; then
       list_source bf${beam} ${!bf_rx}

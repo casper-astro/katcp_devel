@@ -6,35 +6,42 @@ source functions.sh
 kcs_arg_check $# 1
 stream=$1
 
+if kcs_is_beamformer ${KATCP_MODE} ; then
+  option=${stream}
+fi
+
 case "${stream}" in
   k7)
-
-    kcs_debug "about to run tx-start"
-
-    status=1
-
-    if [ $# -gt 1 ] ; then
-      kcs_warn "corr package no longer supports a timed start"
-    fi
-
-    if kcpcmd -t 12 -k -m tx-start ${KCS_CORR_RX%:*} ${KCS_CORR_RX##*:} ; then
-      status=0
-    else 
-      kcs_error "corr tx-start failed"
-    fi
-
-    kcs_corr_log
-    exit $status
+    target=${KCS_CORR_RX}
     ;;
-
-  bf*)
-    kcs_warn "beamformer streams ${stream} currently tied to stream k7"
-    exit 0
+  bf0|bf1)
+    if kcs_is_beamformer ${KATCP_MODE} ; then
+      upper=${stream^^*}
+      bf_rx=KCS_${UPPER}_RX
+      target=${!bf_rx}
+    else
+      kcs_error "stream ${stream} not available in this mode"
+    fi
     ;;
-
   *)
     kcs_error "unsupported data stream ${stream}"
-    exit 1
     ;;
 esac
 
+kcs_debug "about to run tx-start"
+
+status=1
+
+if [ $# -gt 1 ] ; then
+  kcs_warn "corr package no longer supports a timed start"
+fi
+
+if kcpcmd -t 12 -k -m tx-start ${option} ${target%:*} ${target##*:} ; then
+  status=0
+else 
+  kcs_warn "${stream} start failed"
+  status=1
+fi
+
+kcs_corr_log
+exit $status
