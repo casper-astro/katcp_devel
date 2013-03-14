@@ -39,7 +39,7 @@ if kcs_is_beamformer ${KATCP_MODE} ; then
     else
       rxip=$(grep ^bf_rx_udp_ip_str_beam${beam} ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
       rxport=$(grep ^bf_rx_udp_port_beam${beam} ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
-      list_source k7 ${rxip}:${rxport}
+      list_source bf${beam} ${rxip}:${rxport}
     fi 
     beam=$[beam+1]
   done
