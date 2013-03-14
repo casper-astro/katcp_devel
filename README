@@ -4,7 +4,6 @@ Unless otherwise noted the code base is released under the terms described in CO
 
 The Makefile.inc file in this directory contains a number of options, edit to your needs
 
-
 General purpose components
 
   katcp       - the katcp library itself
@@ -13,20 +12,22 @@ General purpose components
   sq          - simple katcp sensor query utility (block until 
                 a sensor changes to a certain status field)
   examples    - simple examples 
-
-Utilities for particular tasks, probably of lesser interest to most
-
-  bulkread    - a utlity to perform a ?bulkread request
   msg         - something to generate katcp log messages (glue logic)
   par         - similar to cmd, but talk to multiple devices concurrently 
+
+Utilities for particular tasks, probably of lesser interest to most
 
   tcpborphserver3 
               - roach2 server using memory mapped logic. Requires a kernel
                 with a mmap driver and a roach2
 
-  fmon        - fengine monitoring utility to poll gateware status registers (used by kcs)
-  tmon        - monitor a local ntp server via katcp (used by kcs)
+  bulkread    - a utlity to perform a ?bulkread request
+
+Project specific code, requring particular gateware and instruments
+
   scripts     - supporting logic to interface kcs to corr (used by kcs, temporary hack)
   kcs         - a control server using katcp (incomplete)
+  fmon        - fengine monitoring utility to poll gateware status registers (used by kcs)
+  tmon        - monitor a local ntp server via katcp (used by kcs)
 
   wops        - incomplete (ignore)
