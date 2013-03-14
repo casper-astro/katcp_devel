@@ -36,7 +36,7 @@ if [ $# -gt 1 ] ; then
   kcs_warn "corr package no longer supports a timed start"
 fi
 
-if kcpcmd -t 12 -k -m tx-start ${option} ${target%:*} ${target##*:} ; then
+if kcpcmd -t 25 -k -m tx-start ${option} ${target%:*} ${target##*:} ; then
   status=0
 else 
   kcs_warn "${stream} start failed"
