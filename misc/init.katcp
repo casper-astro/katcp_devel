@@ -27,9 +27,10 @@
 ?process ?halt halt\_the\_control\_server_\(?halt)
 ?process ?restart restart\_the\_system\_(?restart)
 ?process ?sync-now resynchronises\_the\_correlator\_(?sync-now)
-?process ?capture-start start\_a\_capture\_(?capture-start\_k7\_[time])
-?process ?capture-stop stop\_a\_capture\_(?capture-stop\_k7)
+?process ?capture-start start\_a\_capture\_(?capture-start\_stream)
+?process ?capture-stop stop\_a\_capture\_(?capture-stop\_stream)
 ?process ?capture-list list\_available\_data\_streams\_(?capture-list)
+?process ?capture-status return\_status\_of\_data\_stream\_(?capture-status\_stream)
 ?process ?capture-destination set\_the\_destination\_for\a_data\_stream\_(?capture-destination\_stream\_ip\_port)
 ?process ?k7-accumulation-length sets\_the\_accumulation\_length\_(?k7-accumlation-length\_accumulation-period)
 ?process ?k7-delay set\_the\_delay\_and\_fringe\_correction\_(?k7-delay\_board-input\_time\_delay-value\_delay-rate\_fringe-offset\_fringe-rate)
@@ -42,7 +43,7 @@
 ?process ?k7-beam-passband sets\_the\_bandwidth\_and\_centerfrequency\_for\_the\_given\_beam\_(?k7-beam-passband\_beam\_bandwidth\_centerfrequency)
 ?process ?xport roach\_start\_and\_stop\_routines
 ?process ?test-reload-rf-gain reload\_analog\_gain\_(?test-reload-rf-gain)
-?hide ?test-reload-rf-gain ?enable-sensors
+?hide ?test-reload-rf-gain ?enable-sensors ?capture-status
 ?xport start
 ?mode ready
 ?enable-sensors static 
