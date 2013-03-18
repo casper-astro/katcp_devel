@@ -150,7 +150,7 @@ kcs_is_narrowband () {
   fi
 
   case "${KATCP_MODE}" in
-    restart-mode-c16n13M4k|restart-mode-c16n25M4k|restart-mode-c16n2M4k|restart-mode-c16n3M8k|restart-mode-c16n7M4k|restart-mode-c8n25M4k_bottom|restart-mode-c8n25M4k_top|restart-mode-c8n7M4k_bottom|restart-mode-c8n7M4k_top)
+    c16n13M4k|c16n25M4k|c16n2M4k|c16n3M8k|c16n7M4k|c8n25M4k_bottom|c8n25M4k_top|c8n7M4k_bottom|c8n7M4k_top)
       return 0
     ;;
     *)
