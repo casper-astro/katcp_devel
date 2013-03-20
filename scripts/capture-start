@@ -19,6 +19,7 @@ case "${stream}" in
       upper=${stream^^*}
       bf_rx=KCS_${UPPER}_RX
       target=${!bf_rx}
+      kcs_debug "$stream maps to state variable ${bf_rx} which is ${bf_rx}"
     else
       kcs_error "stream ${stream} not available in this mode"
     fi
@@ -28,7 +29,7 @@ case "${stream}" in
     ;;
 esac
 
-kcs_debug "about to run tx-start"
+kcs_debug "about to do start ${option} ${target%:*} ${target##*:}"
 
 status=1
 
