@@ -17,7 +17,7 @@ case "${output}" in
     kcpcmd -s localhost:7147 -k -i -r setenv KCS_CORR_RX $host:$port
     kcs_info "set k7 destination to $host:$port"
     ;;
-  bf0|bf1)
+  bf0|bf1|bf0meta|bf1meta|bf0data|bf1data)
     if kcs_is_beamformer ${KATCP_MODE} ; then
       kcpcmd -s localhost:7147 -k -i -r setenv KCS_${output^^*}_RX $host:$port
       kcs_info "set ${output} destination to $host:$port"

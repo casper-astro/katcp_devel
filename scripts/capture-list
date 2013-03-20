@@ -31,17 +31,38 @@ else
 fi
 
 if kcs_is_beamformer ${KATCP_MODE} ; then
-  beam=0
-  while [ "${beam}" -lt "2" ] ; do
-    bf_rx=KCS_BF${beam}_RX
+  i=0
+  while [ "${i}" -lt "2" ] ; do
+
+    bf_rx=KCS_BF${i}_RX
     if [ -n "${!bf_rx}" ]; then
-      list_source bf${beam} ${!bf_rx}
+      list_source bf${i} ${!bf_rx}
     else
-      rxip=$(grep ^bf_rx_udp_ip_str_beam${beam} ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
-      rxport=$(grep ^bf_rx_udp_port_beam${beam} ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
-      list_source bf${beam} ${rxip}:${rxport}
+      rxip=$(grep ^bf_rx_udp_ip_str_beam${i} ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
+      rxport=$(grep ^bf_rx_udp_port_beam${i} ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
+      list_source bf${i} ${rxip}:${rxport}
     fi 
-    beam=$[beam+1]
+
+    bf_rx=KCS_BF${i}DATA_RX
+    if [ -n "${!bf_rx}" ]; then
+      list_source bf${i}data ${!bf_rx}
+    else
+      rxip=$(grep ^bf_rx_udp_ip_str_beam${i} ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
+      rxport=$(grep ^bf_rx_udp_port_beam${i} ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
+      list_source bf${i}data ${rxip}:${rxport}
+    fi 
+
+    bf_rx=KCS_BF${i}META_RX
+    if [ -n "${!bf_rx}" ]; then
+      list_source bf${i}meta ${!bf_rx}
+    else
+      rxip=$(grep ^bf_rx_meta_ip_str_beam${i} ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
+      rxport=$(grep ^bf_rx_meta_port_beam${i} ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
+      list_source bf${i}meta ${rxip}:${rxport}
+    fi 
+
+    i=$[i+1]
+
   done
 fi
 
