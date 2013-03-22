@@ -23,12 +23,12 @@ if kcs_is_beamformer ${KATCP_MODE} ; then
         bf_rx=KCS_${stream^^*}META_RX
         target=${!bf_rx}
         if [ -n "${target}" ] ; then
-          if kcpcmd -k -m bf-destination ${stream} meta ${target%:*} ${target##*:}  ; then
+          if kcpcmd -t 30 -k -m bf-destination ${stream} meta ${target%:*} ${target##*:}  ; then
 
             bf_rx=KCS_${stream^^*}META_DATA
             target=${!bf_rx}
             if [ -n "${target}" ] ; then
-              if kcpcmd -k -m bf-destination ${stream} data ${target%:*} ${target##*:}  ; then
+              if kcpcmd -t 30 -k -m bf-destination ${stream} data ${target%:*} ${target##*:}  ; then
 
                 if kcpcmd -t 45 -k -m tx-start ${stream} ; then
                   status=0
