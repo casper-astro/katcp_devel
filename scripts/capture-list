@@ -24,9 +24,10 @@ if [ -n "${KCS_CORR_RX}" ] ; then
 else
   if [ ! -f ${CORR_CONFIG}/${KATCP_MODE} ] ; then
     kcs_warn "no configuration for ${KATCP_MODE}"
+  else
+    rxip=$(grep ^rx_udp_ip ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
+    rxport=$(grep ^rx_udp_port ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
   fi
-  rxip=$(grep ^rx_udp_ip ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
-  rxport=$(grep ^rx_udp_port ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
   list_source k7 ${rxip}:${rxport}
 fi
 
@@ -34,35 +35,35 @@ if kcs_is_beamformer ${KATCP_MODE} ; then
   i=0
   while [ "${i}" -lt "2" ] ; do
 
-    bf_rx=KCS_BF${i}_RX
-    if [ -n "${!bf_rx}" ]; then
-      list_source bf${i} ${!bf_rx}
-    else
-      rxip=$(grep ^bf_rx_udp_ip_str_beam${i} ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
-      rxport=$(grep ^bf_rx_udp_port_beam${i} ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
-      list_source bf${i} ${rxip}:${rxport}
-    fi 
-
     bf_rx=KCS_BF${i}DATA_RX
     if [ -n "${!bf_rx}" ]; then
-      list_source bf${i}data ${!bf_rx}
+      data=${!bf_rx}
     else
       rxip=$(grep ^bf_rx_udp_ip_str_beam${i} ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
       rxport=$(grep ^bf_rx_udp_port_beam${i} ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
-      list_source bf${i}data ${rxip}:${rxport}
+      data=${rxip}:${rxport}
     fi 
 
     bf_rx=KCS_BF${i}META_RX
     if [ -n "${!bf_rx}" ]; then
-      list_source bf${i}meta ${!bf_rx}
+      meta=${!bf_rx}
     else
       rxip=$(grep ^bf_rx_meta_ip_str_beam${i} ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
       rxport=$(grep ^bf_rx_meta_port_beam${i} ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
-      list_source bf${i}meta ${rxip}:${rxport}
+      meta=${rxip}:${rxport}
     fi 
 
-    i=$[i+1]
+    if [ -n "${data}" ] ; then
+      list_source bf${i} ${data}
+    fi
 
+    if [ -n "${meta}" ] ; then
+      if [ "${meta}" != "${data}" ] ; then
+        list_source bf${i} ${meta}
+      fi
+    fi
+
+    i=$[i+1]
   done
 fi
 

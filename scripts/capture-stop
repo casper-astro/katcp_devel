@@ -16,7 +16,7 @@ case "${stream}" in
   k7)
     kcs_info "stopping correlator stream ${stream}"
     ;;
-  bf0|bf1|bf0meta|bf1meta|bf0data|bf1data)
+  bf0|bf1)
     if kcs_is_beamformer ${KATCP_MODE} ; then
       kcs_info "stopping beam stream ${stream}"
     else

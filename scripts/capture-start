@@ -5,43 +5,59 @@ source functions.sh
 
 kcs_arg_check $# 1
 stream=$1
-
-if kcs_is_beamformer ${KATCP_MODE} ; then
-  option=${stream}
-fi
-
-case "${stream}" in
-  k7)
-    target=${KCS_CORR_RX}
-    ;;
-  bf0|bf1|bf0meta|bf1meta|bf0data|bf1data)
-    if kcs_is_beamformer ${KATCP_MODE} ; then
-      bf_rx=KCS_${stream^^*}_RX
-      target=${!bf_rx}
-      kcs_debug "$stream maps to state variable ${bf_rx} which is ${target}"
-    else
-      kcs_error "stream ${stream} not available in this mode"
-    fi
-    ;;
-  *)
-    kcs_error "unsupported data stream ${stream}"
-    ;;
-esac
-
-kcs_debug "about to do start ${option} ${target%:*} ${target##*:}"
-
 status=1
 
-if [ $# -gt 1 ] ; then
-  kcs_warn "corr package no longer supports a timed start"
-fi
+if kcs_is_beamformer ${KATCP_MODE} ; then
 
-if kcpcmd -t 45 -k -m tx-start ${option} ${target%:*} ${target##*:} ; then
-  status=0
-else 
-  kcs_warn "${stream} start failed"
-  status=1
+# bf mode wants a stream parameter
+
+  case "${stream}" in
+    k7)
+      target=${KCS_CORR_RX}
+      if kcpcmd -t 45 -k -m tx-start ${stream} ${target%:*} ${target##*:} ; then
+        status=0
+      fi
+      ;;
+    bf0|bf1)
+
+        bf_rx=KCS_${stream^^*}META_RX
+        target=${!bf_rx}
+        if [ -n "${target}" ] ; then
+          if kcpcmd -k -m bf-destination ${stream} meta ${target%:*} ${target##*:}  ; then
+
+            bf_rx=KCS_${stream^^*}META_DATA
+            target=${!bf_rx}
+            if [ -n "${target}" ] ; then
+              if kcpcmd -k -m bf-destination ${stream} data ${target%:*} ${target##*:}  ; then
+
+                if kcpcmd -t 45 -k -m tx-start ${stream} ; then
+                  status=0
+                fi
+              fi
+            fi
+
+          fi
+        fi
+      ;;
+    *)
+      kcs_error "unsupported data stream ${stream}"
+      ;;
+  esac
+  
+else
+
+  # corr modes
+  if [ "$stream" = "k7" ] ; then
+    if kcpcmd -t 45 -k -m tx-start ${target%:*} ${target##*:} ; then
+      status=0
+    fi
+  else 
+    kcs_error "stream ${stream} not available in this mode"
+  fi
+
 fi
 
 kcs_corr_log
-exit $status
+if [ "${status}" -ne "0" ] ; then
+  kcs_error "corr operations for ${stream} failed"
+fi

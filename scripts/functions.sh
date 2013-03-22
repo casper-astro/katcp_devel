@@ -160,3 +160,4 @@ kcs_is_narrowband () {
 
   return 1
 }
+
