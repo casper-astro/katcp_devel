@@ -23,7 +23,7 @@ if kcs_is_beamformer ${KATCP_MODE} ; then
         bf_rx=KCS_${stream^^*}META_RX
         target=${!bf_rx}
         if [ -n "${target}" ] ; then
-          kcs_error "setting meta target to ${target}"
+          kcs_info "setting meta target to ${target}"
           if ! kcpcmd -t 30 -k -m bf-destination ${stream} meta ${target%:*} ${target##*:}  ; then
              kcs_error "unable to set meta target"
           fi
@@ -32,13 +32,13 @@ if kcs_is_beamformer ${KATCP_MODE} ; then
         bf_rx=KCS_${stream^^*}DATA_DATA
         target=${!bf_rx}
         if [ -n "${target}" ] ; then
-          kcs_error "setting data target to ${target}"
+          kcs_info "setting data target to ${target}"
           if ! kcpcmd -t 30 -k -m bf-destination ${stream} data ${target%:*} ${target##*:}  ; then
              kcs_error "unable to set data target"
           fi
         fi
 
-        kcs_error "starting tx for ${target}"
+        kcs_info "starting tx for ${target}"
         if kcpcmd -t 105 -k -m tx-start ${stream} ; then
           status=0
         else
