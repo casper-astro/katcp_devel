@@ -29,7 +29,7 @@ if kcs_is_beamformer ${KATCP_MODE} ; then
           fi
         fi
 
-        bf_rx=KCS_${stream^^*}DATA_DATA
+        bf_rx=KCS_${stream^^*}DATA_RX
         target=${!bf_rx}
         if [ -n "${target}" ] ; then
           kcs_info "setting data target to ${target}"
@@ -38,7 +38,7 @@ if kcs_is_beamformer ${KATCP_MODE} ; then
           fi
         fi
 
-        kcs_info "starting tx for ${target}"
+        kcs_info "starting tx for ${stream}"
         if kcpcmd -t 150 -k -m tx-start ${stream} ; then
           status=0
         else
