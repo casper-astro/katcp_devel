@@ -40,6 +40,7 @@ void usage(char *app)
   printf("-s server:port     specify server:port\n");
   printf("-t seconds         set timeout\n");
   printf("-p position        only print a particular argument number\n");
+  printf("-l label           set katcp log message module label\n");
   printf("-r                 toggle printing of reply messages\n");
   printf("-i                 toggle printing of inform messages\n");
   printf("-m                 munge replies into log messages (requires -k)\n");
@@ -242,12 +243,14 @@ int load_arg(struct katcl_line *l, char *arg, int fmt, int flags)
 
 int main(int argc, char **argv)
 {
-  char *app, *server, *match, *parm, *tmp, *cmd, *extra;
+  char *app, *server, *match, *parm, *tmp, *cmd, *extra, *label;
   int i, j, c, fd;
   int verbose, result, status, base, run, info, reply, display, max, prefix, timeout, fmt, pos, flags, munge, show;
   struct katcl_line *l, *k;
   fd_set fsr, fsw;
   struct timeval tv;
+
+  label = KCPCMD_NAME;
   
   server = getenv("KATCP_SERVER");
   if(server == NULL){
@@ -324,6 +327,7 @@ int main(int argc, char **argv)
           j++;
           break;
 
+        case 'l' :
         case 's' :
         case 't' :
         case 'p' :
@@ -339,6 +343,9 @@ int main(int argc, char **argv)
           }
 
           switch(c){
+            case 'l' :
+              label = argv[i] + j;
+              break;
             case 's' :
               server = argv[i] + j;
               break;
@@ -383,7 +390,7 @@ int main(int argc, char **argv)
 
   if(base < 0){
     if(k){
-      sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPCMD_NAME, "no command given");
+      sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "no command given");
     }
     fprintf(stderr, "%s: need a command to send (use -h for help)\n", app);
     return 2;
@@ -402,7 +409,7 @@ int main(int argc, char **argv)
   fd = net_connect(server, 0, flags);
   if(fd < 0){
     if(k){
-      sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPCMD_NAME, "unable to connect to %s", server);
+      sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "unable to connect to %s", server);
     }
     return 2;
   }
@@ -410,7 +417,7 @@ int main(int argc, char **argv)
   l = create_katcl(fd);
   if(l == NULL){
     if(k){
-      sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPCMD_NAME, "unable to create katcp parser");
+      sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "unable to create katcp parser");
     }
     fprintf(stderr, "%s: unable to create katcp parser\n", app);
     return 2;
@@ -439,7 +446,7 @@ int main(int argc, char **argv)
     flags = (i < argc) ? 0 : KATCP_FLAG_LAST;
     if(load_arg(l, tmp, fmt, flags) < 0){
       if(k){
-        sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPCMD_NAME, "unable to load argument %d", i);
+        sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "unable to load argument %d", i);
       }
       fprintf(stderr, "%s: unable to load argument %d\n", app, i);
       return 2;
@@ -482,14 +489,14 @@ int main(int argc, char **argv)
             continue; /* WARNING */
           default  :
             if(k){
-              sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPCMD_NAME, "select failed: %s", strerror(errno));
+              sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "select failed: %s", strerror(errno));
             }
             return 2;
         }
         break;
       case  0 :
         if(k){
-          sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPCMD_NAME, "request %s timed out after %d seconds", argv[base], timeout);
+          sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "request %s timed out after %d seconds", argv[base], timeout);
         } 
         if(verbose){
           fprintf(stderr, "%s: no io activity within %d seconds\n", app, timeout);
@@ -502,7 +509,7 @@ int main(int argc, char **argv)
       result = write_katcl(l);
       if(result < 0){
         if(k){
-          sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPCMD_NAME, "write failed: %s", strerror(errno));
+          sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "write failed: %s", strerror(errno));
         } 
         fprintf(stderr, "%s: write failed: %s\n", app, strerror(error_katcl(l)));
       	return 2;
@@ -516,7 +523,7 @@ int main(int argc, char **argv)
       result = read_katcl(l);
       if(result){
         if(k){
-          sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPCMD_NAME, "read failed: %s", (result < 0) ? strerror(error_katcl(l)) : "connection terminated");
+          sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "read failed: %s", (result < 0) ? strerror(error_katcl(l)) : "connection terminated");
 
         } 
         fprintf(stderr, "%s: read failed: %s\n", app, (result < 0) ? strerror(error_katcl(l)) : "connection terminated");
@@ -550,7 +557,7 @@ int main(int argc, char **argv)
             if(match){
               if(strncmp(match, cmd + 1, prefix) || ((cmd[prefix + 1] != '\0') && (cmd[prefix + 1] != ' '))){
                 if(k){
-                  sync_message_katcl(k, KATCP_LEVEL_WARN, KCPCMD_NAME, "encountered unexpected reply %s", cmd);
+                  sync_message_katcl(k, KATCP_LEVEL_WARN, label, "encountered unexpected reply %s", cmd);
                 } 
                 fprintf(stderr, "%s: warning: encountered unexpected reply <%s>\n", app, cmd);
               } else {
@@ -563,13 +570,13 @@ int main(int argc, char **argv)
             break;
           case KATCP_REQUEST : 
             if(k){
-              sync_message_katcl(k, KATCP_LEVEL_WARN, KCPCMD_NAME, "encountered unanswerable request %s", cmd);
+              sync_message_katcl(k, KATCP_LEVEL_WARN, label, "encountered unanswerable request %s", cmd);
             } 
             fprintf(stderr, "%s: warning: encountered an unanswerable request <%s>\n", app, cmd);
             break;
           default :
             if(k){
-              sync_message_katcl(k, KATCP_LEVEL_WARN, KCPCMD_NAME, "read malformed message %s", cmd);
+              sync_message_katcl(k, KATCP_LEVEL_WARN, label, "read malformed message %s", cmd);
             } 
             fprintf(stderr, "%s: read malformed message <%s>\n", app, cmd);
             break;

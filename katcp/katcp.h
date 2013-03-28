@@ -187,7 +187,9 @@ int run_pipe_server_katcp(struct katcp_dispatch *dl, char *file, int pfd);
 int fileno_katcp(struct katcp_dispatch *d);
 struct katcl_line *line_katcp(struct katcp_dispatch *d);
 int read_katcp(struct katcp_dispatch *d);
+#if 0 /* deprecated */
 int have_katcp(struct katcp_dispatch *d);
+#endif
 int flushing_katcp(struct katcp_dispatch *d);
 int flush_katcp(struct katcp_dispatch *d);
 int write_katcp(struct katcp_dispatch *d);

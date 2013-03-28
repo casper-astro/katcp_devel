@@ -252,7 +252,9 @@ int print_versions_katcp(struct katcp_dispatch *d, int initial)
   unsigned int i;
   struct katcp_version *v;
   struct katcp_shared *s;
+#if KATCP_PROTOCOL_MAJOR_VERSION >= 5
   char *prefix;
+#endif
   int count;
 
   s = d->d_shared;
@@ -260,6 +262,7 @@ int print_versions_katcp(struct katcp_dispatch *d, int initial)
     return -1;
   }
 
+#if KATCP_PROTOCOL_MAJOR_VERSION >= 5
   switch(initial){
     case KATCP_PRINT_VERSION_CONNECT :
       prefix = KATCP_VERSION_CONNECT_INFORM;
@@ -273,6 +276,7 @@ int print_versions_katcp(struct katcp_dispatch *d, int initial)
     default :
       return -1;
   }
+#endif
 
   count = 0;
 

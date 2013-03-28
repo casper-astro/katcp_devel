@@ -485,7 +485,7 @@ int setup_network_item(struct state *ss, int tag)
 {
   int result;
 #ifndef SOCK_NONBLOCK
-  int flags, fd;
+  int flags;
 #endif
 
   if(ss->s_fd >= 0){
@@ -496,9 +496,9 @@ int setup_network_item(struct state *ss, int tag)
   ss->s_fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
 #else
   ss->s_fd = socket(AF_INET, SOCK_STREAM, 0);
-  flags = fcntl(fd, F_GETFL, NULL);
+  flags = fcntl(ss->s_fd, F_GETFL, NULL);
   if(flags >= 0){
-    flags = fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+    flags = fcntl(ss->s_fd, F_SETFL, flags | O_NONBLOCK);
   }
 #endif
 
@@ -974,7 +974,6 @@ int main(int argc, char **argv)
           j = 1;
           break;
           
-#if 0
         case 'v' : 
           verbose++;
           j++;
@@ -983,7 +982,6 @@ int main(int argc, char **argv)
           verbose = 0;
           j++;
           break;
-#endif
 
         case '-' :
           j++;
@@ -1045,6 +1043,7 @@ int main(int argc, char **argv)
   add_time_katcp(&(ss->s_total), &now, &delta);
 
   run = 1;
+  code = ITEM_OK;
 
   for(run = 1; run > 0; ){
 
@@ -1059,6 +1058,9 @@ int main(int argc, char **argv)
 #ifdef DEBUG 
     fprintf(stderr, "run: state=%u, code=%d\n", ss->s_index, code);
 #endif
+    if(verbose > 1){
+      log_message_katcl(ss->s_up, KATCP_LEVEL_DEBUG, NAME, "state=%u, code=%d", ss->s_index, code);
+    }
 
     switch(code){
       case ITEM_STAY : 

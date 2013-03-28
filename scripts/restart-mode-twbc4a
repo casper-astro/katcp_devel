@@ -10,16 +10,16 @@ timeout=150
 
 limit=$[now+timeout]
 
-kcs_debug "changing mode to narrowband"
+kcs_debug "changing mode to wideband"
 
 await_mode_sensors
 disable_bf_count
 
-kcs_change_corr c16n2M4k
+kcs_change_corr twbc4a
 
 kcs_debug "running connect"
 
-while ! kcpcmd -k -m -t 120 connect ${CORR_CONFIG}/c16n2M4k ; do
+while ! kcpcmd -k -m -t 120 connect ${CORR_CONFIG}/twbc4a ; do
   kcs_check_timeout ${limit}
   kcs_corr_log
   sleep 1
@@ -29,8 +29,7 @@ done
 kcs_info "running initialise"
 if kcpcmd -k -m -t 120 initialise 2 ; then
   kcs_corr_log
-  change_mode_sensors ${KATCP_MODE} c16n2M4k
-  kcs_set_frequency 150000000
+  change_mode_sensors ${KATCP_MODE} twbc4a
   exit 0
 fi
 

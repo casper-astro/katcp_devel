@@ -162,7 +162,6 @@ void load_arb_katcp(struct katcp_dispatch *d)
   unsigned int i;
   struct katcp_shared *s;
   struct katcp_arb *a;
-  int fd;
 
   s = d->d_shared;
   if(s == NULL){
@@ -173,8 +172,6 @@ void load_arb_katcp(struct katcp_dispatch *d)
     a = s->s_extras[i];
 
     if(a->a_fd >= 0){
-      fd = a->a_fd;
-
       if(a->a_mode & KATCP_ARB_READ){
         FD_SET(a->a_fd, &(s->s_read));
       } 

@@ -5,36 +5,66 @@ source functions.sh
 
 kcs_arg_check $# 1
 stream=$1
+status=1
 
-case "${stream}" in
-  k7)
+if kcs_is_beamformer ${KATCP_MODE} ; then
 
-    kcs_debug "about to run tx-start"
+# bf mode wants a stream parameter
 
-    status=1
+  case "${stream}" in
+    k7)
+      target=${KCS_CORR_RX}
+      if kcpcmd -t 45 -k -m tx-start ${stream} ${target%:*} ${target##*:} ; then
+        status=0
+      fi
+      ;;
+    bf0|bf1)
 
-    if [ $# -gt 1 ] ; then
-      kcs_warn "corr package no longer supports a timed start"
-    fi
+        bf_rx=KCS_${stream^^*}META_RX
+        target=${!bf_rx}
+        if [ -n "${target}" ] ; then
+          kcs_info "setting meta target to ${target}"
+          if ! kcpcmd -t 130 -k -m bf-destination ${stream} meta ${target%:*} ${target##*:}  ; then
+             kcs_error "unable to set meta target"
+          fi
+        fi
 
-    if kcpcmd -t 12 -k -m tx-start ${KCS_CORR_RX%:*} ${KCS_CORR_RX##*:} ; then
+        bf_rx=KCS_${stream^^*}DATA_RX
+        target=${!bf_rx}
+        if [ -n "${target}" ] ; then
+          kcs_info "setting data target to ${target}"
+          if ! kcpcmd -t 130 -k -m bf-destination ${stream} data ${target%:*} ${target##*:}  ; then
+             kcs_error "unable to set data target"
+          fi
+        fi
+
+        kcs_info "starting tx for ${stream}"
+        if kcpcmd -t 150 -k -m tx-start ${stream} ; then
+          status=0
+        else
+          kcs_error "tx-start on ${stream} failed"
+        fi
+
+      ;;
+    *)
+      kcs_error "unsupported data stream ${stream}"
+      ;;
+  esac
+  
+else
+
+  # corr modes
+  if [ "$stream" = "k7" ] ; then
+    if kcpcmd -t 45 -k -m tx-start ${target%:*} ${target##*:} ; then
       status=0
-    else 
-      kcs_error "corr tx-start failed"
     fi
+  else 
+    kcs_error "stream ${stream} not available in this mode"
+  fi
 
-    kcs_corr_log
-    exit $status
-    ;;
+fi
 
-  bf*)
-    kcs_warn "beamformer streams ${stream} currently tied to stream k7"
-    exit 0
-    ;;
-
-  *)
-    kcs_error "unsupported data stream ${stream}"
-    exit 1
-    ;;
-esac
-
+kcs_corr_log
+if [ "${status}" -ne "0" ] ; then
+  kcs_error "corr operations for ${stream} failed"
+fi

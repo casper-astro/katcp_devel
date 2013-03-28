@@ -590,7 +590,7 @@ int event_check_double_katcp(struct katcp_nonsense *ns)
   ds = sn->s_more;
   dn = ns->n_more;
 
-  log_message_katcp(dx, KATCP_LEVEL_TRACE, NULL, "double event check had %f now %f", dn->dn_previous, ds->ds_current);
+  log_message_katcp(dx, KATCP_LEVEL_TRACE, NULL, "double event check of %s@%p had %f now %f", sn->s_name, sn, dn->dn_previous, ds->ds_current);
 
   result = status_check_katcp(ns); /* WARNING: status_check has the side effect of updating status */
   
@@ -2113,9 +2113,11 @@ static int run_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a, 
 #endif
   struct katcp_double_acquire *dsa;
   struct timeval now, legal;
+#if 0
   struct katcp_shared *s;
 
   s = d->d_shared;
+#endif
 
   /* TODO: deschedule sensor if we have left our mode: should be done before first acquire attempt (!) */
   /* should move mode to acquire, rather than sensor */
@@ -2193,7 +2195,7 @@ int propagate_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a)
 
     if((*(sn->s_extract))(d, sn) >= 0){ /* got a useful value */
 
-      log_message_katcp(d, KATCP_LEVEL_TRACE | KATCP_LEVEL_LOCAL, NULL, "checking %d clients of %s", sn->s_refs, sn->s_name);
+      log_message_katcp(d, KATCP_LEVEL_TRACE | KATCP_LEVEL_LOCAL, NULL, "checking %d clients of %s@%p", sn->s_refs, sn->s_name, sn);
 
       for(i = 0; i < sn->s_refs; i++){
         ns = sn->s_nonsense[i];
@@ -3993,6 +3995,8 @@ int match_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_notice *n, vo
         } else {
           nmin = 0;
           nmax = 0;
+          wmin = 0;
+          wmax = 0;
         }
         if(create_sensor_integer_katcp(d, sn, nmin, nmax, wmin, wmax) >= 0){
           a = setup_integer_acquire_katcp(d, NULL, NULL, NULL);
@@ -4043,6 +4047,8 @@ int match_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_notice *n, vo
         } else {
           nminf = 0.0;
           nmaxf = 0.0;
+          wminf = 0.0;
+          wmaxf = 0.0;
         }
         if(create_sensor_double_katcp(d, sn, nminf, nmaxf, wminf, wmaxf) >= 0){
           a = setup_double_acquire_katcp(d, NULL, NULL, NULL);
@@ -4168,7 +4174,9 @@ int match_sensor_status_katcp(struct katcp_dispatch *d, struct katcp_notice *n, 
       return 1;
     }
     set_status_sensor_katcp(sn, code);
-    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "updated sensor %s to status %s", name, status);
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "updated sensor %s@%p to status %s(%d)", name, sn, status, sn->s_status);
+  } else {
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "no status to update for sensor %s", name);
   }
 
 

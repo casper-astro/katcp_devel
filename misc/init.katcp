@@ -1,16 +1,22 @@
 ?setenv PATH /usr/local/lib/kcs/scripts:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/sbin:/usr/sbin
 ?chdir /usr/local/lib/kcs
 ?define mode ready restart-mode-ready warn
+?define mode bc16n400M1k restart-mode-bc16n400M1k nominal
 ?define mode c16n400M1k restart-mode-c16n400M1k nominal
-?define mode b16n400M1k restart-mode-b16n400M1k nominal
 ?define mode c16n400M8k restart-mode-c16n400M8k nominal
-?define mode bwbc4a restart-mode-bwbc4a nominal
 ?define mode c16n2M4k restart-mode-c16n2M4k nominal
-?define mode c16n3M8k restart-mode-c16n3M8k nominal
 ?define mode c16n7M4k restart-mode-c16n7M4k nominal
-?define mode c16n13M4k restart-mode-c16n13M4k nominal
 ?define mode c16n25M4k restart-mode-c16n25M4k nominal
+?define mode c16n13M4k restart-mode-c16n13M4k nominal
+?define mode c16n3M8k restart-mode-c16n3M8k nominal
+?define mode bwbc4a restart-mode-bwbc4a nominal
+?define mode twbc4a restart-mode-twbc4a nominal
 ?define mode c8n7M4k_top restart-mode-c8n7M4k_top nominal
+?define mode c8n7M4k_bottom restart-mode-c8n7M4k_bottom nominal
+?define mode c8n25M4k_top restart-mode-c8n25M4k_top nominal
+?define mode c8n25M4k_bottom restart-mode-c8n25M4k_bottom nominal
+?define mode bc8n400M1k_top restart-mode-bc8n400M1k_top nominal
+?define mode bc8n400M1k_bottom restart-mode-bc8n400M1k_bottom nominal
 ?job process tmon exec://tmon
 ?forget ?halt
 ?forget ?restart
@@ -21,10 +27,13 @@
 ?process ?halt halt\_the\_control\_server_\(?halt)
 ?process ?restart restart\_the\_system\_(?restart)
 ?process ?sync-now resynchronises\_the\_correlator\_(?sync-now)
-?process ?capture-start start\_a\_capture\_(?capture-start\_k7\_[time])
-?process ?capture-stop stop\_a\_capture\_(?capture-stop\_k7)
+?process ?capture-start start\_a\_capture\_(?capture-start\_stream)
+?process ?capture-stop stop\_a\_capture\_(?capture-stop\_stream)
 ?process ?capture-list list\_available\_data\_streams\_(?capture-list)
-?process ?capture-destination set\_the\_destination\_for\a_data\_stream\_(?capture-destination\_stream\_ip\_port)
+?process ?capture-status return\_status\_of\_data\_stream\_(?capture-status\_stream)
+?process ?capture-destination set\_the\_destination\_for\_a\_stream\_(?capture-destination\_stream\_ip\_port)
+?process ?capture-destination-beamformer-data set\_the\_destination\_for\_data\_component\_of\_a\_stream\_(?capture-destination-beamformer-data\_stream\_ip\_port)
+?process ?capture-destination-beamformer-meta set\_the\_destination\_for\_descriptor\_component\_of\_a\_stream\_(?capture-destination-beamformer-meta\_stream\_ip\_port)
 ?process ?k7-accumulation-length sets\_the\_accumulation\_length\_(?k7-accumlation-length\_accumulation-period)
 ?process ?k7-delay set\_the\_delay\_and\_fringe\_correction\_(?k7-delay\_board-input\_time\_delay-value\_delay-rate\_fringe-offset\_fringe-rate)
 ?process ?k7-snap-shot retrieve\_a\_processing\_pipeline\_data\_block\_(?k7-snap-shot\_[adc\_board-input|quant\_[count]])
@@ -32,9 +41,11 @@
 ?process ?k7-quant-snap-shot retrieve\_a\_quantiser\_snapshot\_(?k7-quant-snap-shot\_board-input\_[count])
 ?process ?k7-gain sets\_the\_digital\_gain\_(?k7-gain\_board-input\_values)
 ?process ?k7-frequency-select select\_a\_frequency\_for\_fine\_channelisation\_(?k7-frequency-select\_center-frequency)
+?process ?k7-beam-weights sets\_a\_vector\_of\_scaling\_factors\_for\_the\_given\_beam\_(?k7-beam-weights\_beam\_input\_values)
+?process ?k7-beam-passband sets\_the\_bandwidth\_and\_centerfrequency\_for\_the\_given\_beam\_(?k7-beam-passband\_beam\_bandwidth\_centerfrequency)
 ?process ?xport roach\_start\_and\_stop\_routines
 ?process ?test-reload-rf-gain reload\_analog\_gain\_(?test-reload-rf-gain)
-?hide ?test-reload-rf-gain ?enable-sensors
+?hide ?test-reload-rf-gain ?enable-sensors ?capture-status
 ?xport start
 ?mode ready
 ?enable-sensors static 

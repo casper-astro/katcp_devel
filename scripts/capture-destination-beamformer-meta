@@ -1,0 +1,31 @@
+#!/bin/bash
+
+source functions.sh
+source beamformer.sh
+
+if ! kcs_is_beamformer ${KATCP_MODE} ; then
+  kcs_error "no beams available in this mode"
+  exit 1
+fi
+
+if [ $# -lt 3 ] ; then
+  kcs_error "require three parameters: stream ip port"
+  exit 1
+fi
+
+output=$1
+host=$2
+port=$3
+
+case "${output}" in
+  bf0|bf1)
+    kcpcmd -s localhost:7147 -k -i -r setenv KCS_${output^^*}META_RX $host:$port
+    kcs_info "set ${output} meta destination to $host:$port"
+    ;;
+  *)
+    kcs_error "unsupported data stream ${output}"
+    exit 1
+    ;;
+esac
+
+exit 0

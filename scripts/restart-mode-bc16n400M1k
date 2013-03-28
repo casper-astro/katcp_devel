@@ -5,17 +5,16 @@ source functions.sh
 source sensors.sh
 source beamformer.sh
 
-TARGET_MODE=c8n7M4k_top
+TARGET_MODE=bc16n400M1k
 
 now=$(date +%s)
 timeout=150
 
 limit=$[now+timeout]
 
-kcs_debug "changing mode to narrowband"
+kcs_debug "changing mode to wideband"
 
 await_mode_sensors
-disable_bf_count
 
 kcs_change_corr ${TARGET_MODE}
 
@@ -28,15 +27,18 @@ while ! kcpcmd -k -m -t 120 connect ${CORR_CONFIG}/${TARGET_MODE} ; do
   kcs_info "still trying to get corr to connect"
 done
 
-kcs_info "running initialise"
-if kcpcmd -k -m -t 120 initialise 2 ; then
+kcs_info "running correlator initialise"
+if ! kcpcmd -k -m -t 300 initialise 2 ; then
   kcs_corr_log
-  change_mode_sensors ${KATCP_MODE} ${TARGET_MODE}
-  kcs_set_frequency 150000000
-  exit 0
+  kcs_error "correlator initialise failed"
+  exit 1
 fi
 
 kcs_corr_log
-kcs_error "corr initialise failed"
 
-exit 1
+for name in bf0 bf1 ; do
+  kcs_set_passband ${name} 400000000 200000000
+done
+
+change_mode_sensors ${KATCP_MODE} ${TARGET_MODE}
+exit 0

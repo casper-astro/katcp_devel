@@ -127,7 +127,7 @@ int queue_remote(struct remote *rs, struct katcl_parse *px)
 
   rs->r_vector = tmp;
 
-  rs->r_vector[rs->r_count] = px;
+  rs->r_vector[rs->r_count] = copy_parse_katcl(px);
 
   rs->r_count++;
   
@@ -457,7 +457,7 @@ int main(int argc, char **argv)
 
   char *app, *parm, *cmd, *copy, *ptr, *servers, *extra, *label;
   int i, j, c, fd, mfd, count;
-  int verbose, result, status, base, info, timeout, pos, flags, show, munge, once;
+  int verbose, result, status, info, timeout, flags, show, munge, once;
   int xmit, code;
   unsigned int len;
   
@@ -472,15 +472,14 @@ int main(int argc, char **argv)
   verbose = 1;
   i = j = 1;
   app = argv[0];
-  base = (-1);
   timeout = 0;
-  pos = (-1);
   k = NULL;
   show = 1;
   parm = NULL;
   extra = NULL;
   label = KCPPAR_NAME;
   count = 0;
+  px = NULL;
 
   k = create_katcl(STDOUT_FILENO);
   if(k == NULL){
@@ -633,6 +632,8 @@ int main(int argc, char **argv)
           sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "unable to load command into server set %s", servers);
           return 4;
         }
+        destroy_parse_katcl(px);
+        px = NULL;
       }
 
       if(copy){

@@ -1,32 +1,39 @@
 
-This package contains a C katcp library implementation and selected applications using it. 
-Unless otherwise noted the code base is released under the terms described in COPYING
+This package contains a C katcp library implementation and selected
+applications using it. Unless otherwise noted the code base is released
+under the terms described in COPYING
 
-The Makefile.inc file in this directory contains a number of options, edit to your needs
+The Makefile.inc file in this directory contains a number of options,
+edit to your needs
 
-
-General purpose components
+General purpose components:
 
   katcp       - the katcp library itself
   cmd         - send arbitrary katcp commands to a remote server
   log         - a utility to monitor a remote katcp server
-  sq          - simple katcp sensor query utility (block until 
-                a sensor changes to a certain status field)
+  msg         - something to generate katcp log messages (glue logic)
+  par         - similar to cmd, but talk to multiple devices in parallel
+  con         - run concurrent subprocesses
+  sq          - simple katcp sensor query utility which blocks until 
+                a sensor changes to a specified status
   examples    - simple examples 
 
-Utilities for particular tasks, probably of lesser interest to most
-
-  bulkread    - a utlity to perform a ?bulkread request
-  msg         - something to generate katcp log messages (glue logic)
-  par         - similar to cmd, but talk to multiple devices concurrently 
+Applications for roaches:
 
   tcpborphserver3 
               - roach2 server using memory mapped logic. Requires a kernel
                 with a mmap driver and a roach2
 
-  fmon        - fengine monitoring utility to poll gateware status registers (used by kcs)
-  tmon        - monitor a local ntp server via katcp (used by kcs)
-  scripts     - supporting logic to interface kcs to corr (used by kcs, temporary hack)
-  kcs         - a control server using katcp (incomplete)
+  bulkread    - a utlity to perform a ?bulkread request
 
-  wops        - incomplete (ignore)
+Project specific code, requring particular gateware and instruments:
+
+  kcs         - a control server using katcp 
+                (incomplete)
+  scripts     - supporting logic to interface kcs to corr 
+                (used by kcs, temporary hack)
+  tmon        - monitor a local ntp server via katcp 
+                (used by kcs)
+  fmon        - fengine monitoring utility to poll gateware status registers 
+                (used by kcs)
+  wops        - (incomplete & ignore)

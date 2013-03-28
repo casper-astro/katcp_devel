@@ -17,17 +17,15 @@ case "${output}" in
     kcpcmd -s localhost:7147 -k -i -r setenv KCS_CORR_RX $host:$port
     kcs_info "set k7 destination to $host:$port"
     ;;
-  bf*)
-    if ! set_bf_rx ${output} ${host} ${port} $(grep ^servers_x.*roach ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= ) ; then
-      kcs_error "unable to set beam destination for ${output}"
-      if [ -n "${KCS_BF_COUNT}" ] ; then
-        if [ "${KCS_BF_COUNT}" -gt "0" ] ; then
-          kcs_info "valid beam names are bf0 to bf$[$KCS_BF_COUNT-1]"
-        fi
-      fi
+  bf0|bf1)
+    if kcs_is_beamformer ${KATCP_MODE} ; then
+      kcpcmd -s localhost:7147 -k -i -r setenv KCS_${output^^*}DATA_RX $host:$port
+      kcpcmd -s localhost:7147 -k -i -r setenv KCS_${output^^*}META_RX $host:$port
+      kcs_info "set ${output} destination to $host:$port"
+    else
+      kcs_error "beamformer streams not available in this mode"
       exit 1
     fi
-
     ;;
   *)
     kcs_error "unsupported data stream ${output}"
