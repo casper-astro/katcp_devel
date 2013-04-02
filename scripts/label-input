@@ -24,7 +24,11 @@ if [ $# -lt 1 ] ; then
     fi 
   fi 
 
-  cat ${MAIN_MAPPING} | tr -s : ' ' | sed -s 's/^/#label-input /'
+  if kcs_is_beamformer ${KATCP_MODE} ; then
+    cat ${MAIN_MAPPING} | sed -e 's/\(:.x:.*\)/& bf0/' -e 's/\(:.y:.*\)/& bf1/' | tr -s : ' ' | sed -s 's/^/#label-input /'
+  else 
+    cat ${MAIN_MAPPING} | tr -s : ' ' | sed -s 's/^/#label-input /'
+  fi 
 
   exit 0
 fi
