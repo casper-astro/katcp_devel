@@ -53,7 +53,7 @@ CFLAGS += -ggdb
 # what compiler to use 
 CC = $(CROSS_COMPILE)gcc
 
-GITVER = $(shell git describe  --tags --dirty  2> /dev/null || echo unknown)
+GITVER = $(shell git describe --always --tags --dirty 2> /dev/null || echo unknown)
 
 INSTALL = install
 RM = rm -f

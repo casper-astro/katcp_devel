@@ -4,7 +4,7 @@ include ../Makefile.inc
 
 VERSION = 0.1
 
-BUILD = $(shell date +%Y-%m-%dT%H:%M:%S)
+BUILD = $(shell date -u +%Y-%m-%dT%H:%M:%S)
 VERSION = $(GITVER)
 
 INC = -I.
@@ -35,6 +35,10 @@ $(SHARED): $(OBJ)
 
 %.o: %.c $(wildcard *.h)
 	$(CC) $(CFLAGS) -c $< -o $@ $(INC)
+
+show:
+	@echo 'VERSION="$(VERSION)"'
+	@echo 'BUILD="$(BUILD)"'
 
 clean:
 	$(RM) $(LIB) $(SHARED) *.o core
