@@ -615,6 +615,7 @@ int main(int argc, char **argv)
       }
 
       i++;
+      j = 1;
       if((i >= argc) || (argv[i][0] == '-')){
         flags |= KATCP_FLAG_LAST;
       }
