@@ -696,6 +696,10 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
     run_flat_katcp(dl);
 #endif
 
+#ifdef KATCP_EXPERIMENTAL 
+    run_endpoints_katcp(dl);
+#endif
+
     run_shared_katcp(dl);
 #ifdef KATCP_SUBPROCESS
     run_jobs_katcp(dl);

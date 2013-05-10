@@ -472,6 +472,8 @@ struct katcp_shared{
   int s_level;
   unsigned int s_stories;
 
+  struct katcp_endpoint *s_endpoints;
+
 #if 0
   int s_version_major;
   int s_version_minor;
@@ -800,6 +802,11 @@ int compare_tag_katcp(const void *m1, const void *m2);
 char *getkey_tag_katcp(void *data);
 int register_tag_katcp(struct katcp_dispatch *d, char *name, int level);
 
+
+/* endpoints: internal ********************/
+
+void run_endpoints_katcp(struct katcp_dispatch *d);
+void release_endpoints_katcp(struct katcp_dispatch *d);
 
 /******************************************/
 
