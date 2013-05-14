@@ -571,6 +571,44 @@ struct katcp_dynamic_mode{
 };
 #endif
 
+/**********************************************************************************/
+
+struct katcp_message{
+  unsigned int m_flags;
+  struct katcl_parse *m_parse;
+  struct katcp_endpoint *m_from;
+  struct katcp_endpoint *m_to;
+};
+
+struct katcp_endpoint{
+  unsigned int e_magic;
+  unsigned int e_flags; 
+  unsigned int e_refcount;
+
+#if 0
+  char *e_name;
+  struct katcp_endpoint *e_peer;
+#endif
+
+  struct katcl_gueue *e_queue;
+
+  int (*e_wake)(struct katcp_dispatch *d, struct katcp_endpoint *ep, struct katcp_message *msg, void *data);
+  void (*e_release)(struct katcp_dispatch *d, void *data);
+  void *e_data;
+
+  struct katcp_endpoint *e_next;
+};
+
+#define KATCP_ENDPOINT_OWN    0x00
+#define KATCP_ENDPOINT_FAIL   0x01
+#define KATCP_ENDPOINT_OK     0x02
+#define KATCP_ENDPOINT_QUICK  0x03
+#define KATCP_ENDPOINT_STALL  0x04
+#define KATCP_MASK_ENDPOINT   0x0f
+#define KATCP_ENDPOINT_DEAD   0xf0
+
+/**********************************************************************************/
+
 void exchange_katcl(struct katcl_line *l, int fd);
 
 int dispatch_cmd_katcp(struct katcp_dispatch *d, int argc);
@@ -807,6 +845,9 @@ int register_tag_katcp(struct katcp_dispatch *d, char *name, int level);
 
 void run_endpoints_katcp(struct katcp_dispatch *d);
 void release_endpoints_katcp(struct katcp_dispatch *d);
+
+struct katcp_endpoint *create_endpoint_katcp(struct katcp_dispatch *d, int (*wake)(struct katcp_dispatch *d, struct katcp_endpoint *ep, struct katcp_message *msg, void *data), void (*release)(struct katcp_dispatch *d, void *data), void *data);
+void release_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep);
 
 /******************************************/
 
