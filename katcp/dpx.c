@@ -277,7 +277,12 @@ struct katcp_group *this_group_katcp(struct katcp_dispatch *d)
     return NULL;
   }
 
+  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "duplex: stack is %u", s->s_level);
+
   if(s->s_level < 0){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "flat: level is %d, negative\n", s->s_level);
+#endif
     return NULL;
   }
 
@@ -816,6 +821,9 @@ struct katcp_flat *this_flat_katcp(struct katcp_dispatch *d)
   }
 
   if(s->s_level < 0){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "duplex logic: level variable set to %d", s->s_level);
+#endif
     return NULL;
   }
 
@@ -913,6 +921,7 @@ int run_flat_katcp(struct katcp_dispatch *d)
 
       /* WARNING: should be a proper push */
       s->s_this[0] = fx;
+      s->s_level = 0;
 
       fd = fileno_katcl(fx->f_line);
 
@@ -1002,6 +1011,7 @@ int run_flat_katcp(struct katcp_dispatch *d)
 
   /* WARNING: should be a pop */
   s->s_this[0] = NULL;
+  s->s_level = (-1);
 
   return result;
 }
