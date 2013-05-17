@@ -462,7 +462,8 @@ struct katcp_shared{
 
   struct katcp_notice **s_notices;
   unsigned int s_pending;
-  unsigned int s_woken;
+
+  unsigned int s_busy; /* more things to do, keep select short */
 
   struct katcp_group **s_groups;
   struct katcp_group *s_fallback;

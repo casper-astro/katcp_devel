@@ -891,7 +891,6 @@ int add_parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, str
 
 static int configure_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int trigger, void *data)
 {
-  struct katcp_shared *s;
   int i;
 #ifdef DEBUG
   int w;
@@ -924,11 +923,8 @@ static int configure_notice_katcp(struct katcp_dispatch *d, struct katcp_notice 
         }
 #endif
 
-      }
+        mark_busy_katcp(d);
 
-      s = d->d_shared;
-      if(s){
-        s->s_woken++;
       }
 
       return 0;
@@ -1045,8 +1041,6 @@ int run_notices_katcp(struct katcp_dispatch *d)
 
   s = d->d_shared;
   i = 0;
-
-  s->s_woken = 0;
 
 #ifdef DEBUG
   fprintf(stderr, "notice: running %d pending entries\n", s->s_pending);

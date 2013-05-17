@@ -365,6 +365,17 @@ void *get_state_katcp(struct katcp_dispatch *d)
 
 /***************************************************/
 
+void mark_busy_katcp(struct katcp_dispatch *d)
+{
+  struct katcp_shared *s;
+
+  s = d->d_shared;
+
+  if(s){
+    s->s_busy++;
+  }
+}
+
 /***************************************************/
 
 #if 0

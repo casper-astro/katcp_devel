@@ -186,6 +186,8 @@ int run_multi_server_katcp(struct katcp_dispatch *d, int count, char *host, int 
 int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, char *host, int port);
 int run_pipe_server_katcp(struct katcp_dispatch *dl, char *file, int pfd);
 
+void mark_busy_katcp(struct katcp_dispatch *d);
+
 /******************* io functions ****************/
 
 int fileno_katcp(struct katcp_dispatch *d);

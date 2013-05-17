@@ -190,7 +190,8 @@ int startup_shared_katcp(struct katcp_dispatch *d)
 
   s->s_notices = NULL;
   s->s_pending = 0;
-  s->s_woken = 0;
+
+  s->s_busy = 0;
 
   s->s_groups = NULL;
   s->s_fallback = NULL;
