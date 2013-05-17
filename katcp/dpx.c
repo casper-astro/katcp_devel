@@ -31,7 +31,11 @@
 #define FLAT_STATE_GONE   0
 #define FLAT_STATE_NEW    1
 #define FLAT_STATE_UP     2
-#define FLAT_STATE_DRAIN  3
+
+#define FLAT_STATE_PAUSE  3  /* suspend processing requests from fd */
+/* WARNING: this might end up turning into pauses of different types: fd, msgqueue */
+
+#define FLAT_STATE_DRAIN  4
 
 /* was supposed to be called duplex, but flat is punnier */
 /********************************************************************/
@@ -893,6 +897,11 @@ int load_flat_katcp(struct katcp_dispatch *d)
           }
           break;
 
+        case FLAT_STATE_PAUSE :
+          /* no point in receiving more messages ... */
+          /* WARNING: risk is that errors/disconnects will go unmissed */
+          break;
+
       }
 
       if(flushing_katcl(f->f_line)){
@@ -950,77 +959,98 @@ int run_flat_katcp(struct katcp_dispatch *d)
         }
       }
 
-      result = parse_katcl(fx->f_line);
-      if(result > 0){
+      if(fx->f_state == FLAT_STATE_UP){
 
-        fx->f_rx = ready_katcl(fx->f_line);
+        result = parse_katcl(fx->f_line);
+        if(result > 0){
+
+          fx->f_rx = ready_katcl(fx->f_line);
 #if KATCP_CONSISTENCY_CHECKS
-        if(fx->f_rx == NULL){
-          log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "parse_katcl promised us data, but there isn't any");
-          return -1;
-        }
+          if(fx->f_rx == NULL){
+            log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "parse_katcl promised us data, but there isn't any");
+            return -1;
+          }
 #endif
 
-        mx = map_of_flat_katcp(fx);
-        if(mx == NULL){
-          log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no map to be found for client %s", fx->f_name);
-          /* FAIL somehow */
-        }
-
-        str = get_string_parse_katcl(fx->f_rx, 0);
-        if(str){
-          switch(str[0]){
-            case KATCP_REQUEST :
-              mask = KATCP_MAP_FLAG_REQUEST;
-              break;
-            case KATCP_REPLY   :
-              mask = KATCP_MAP_FLAG_REPLY;
-              break;
-            case KATCP_INFORM  :
-              mask = KATCP_MAP_FLAG_INFORM;
-              break;
-            default :
-              mask = 0; /* bit of an abuse ... */
-              /* ignore malformed messages silently */
-              break;
+          mx = map_of_flat_katcp(fx);
+          if(mx == NULL){
+            log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no map to be found for client %s", fx->f_name);
+            /* FAIL somehow */
           }
-          if(mask & (KATCP_MAP_FLAG_REQUEST | KATCP_MAP_FLAG_INFORM)){
-            log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "attempting to match %s to tree", str + 1);
 
-            ix = find_data_avltree(mx->m_tree, str + 1);
-            if(ix){
-              if(mask & ix->i_flags){
-                log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "found matching command of correct type");
+          str = get_string_parse_katcl(fx->f_rx, 0);
+          if(str){
+            switch(str[0]){
+              case KATCP_REQUEST :
+                mask = KATCP_MAP_FLAG_REQUEST;
+                break;
+              case KATCP_REPLY   :
+                mask = KATCP_MAP_FLAG_REPLY;
+                break;
+              case KATCP_INFORM  :
+                mask = KATCP_MAP_FLAG_INFORM;
+                break;
+              default :
+                mask = 0; /* bit of an abuse ... */
+                /* ignore malformed messages silently */
+                break;
+            }
 
-                if(ix->i_call){
-                  argc = get_count_parse_katcl(fx->f_rx);
-                  result = (*(ix->i_call))(d, argc);
+            if(mask & (KATCP_MAP_FLAG_REQUEST | KATCP_MAP_FLAG_INFORM)){
+              log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "attempting to match %s to tree", str + 1);
 
-                  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "callback invocation returns %d", result);
+              ix = find_data_avltree(mx->m_tree, str + 1);
+              if(ix){
+                if(mask & ix->i_flags){
+                  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "found matching command of correct type");
 
-                  switch(result){
-                    /* TODO: pause, yield, etc, etc */
-                    case KATCP_RESULT_FAIL : 
-                    case KATCP_RESULT_INVALID : 
-                    case KATCP_RESULT_OK : 
-                      /* TODO: make sure we keep track of tags */
-                      extra_response_katcl(fx->f_line, result, NULL);
-                      break;
+                  if(ix->i_call){
+                    argc = get_count_parse_katcl(fx->f_rx);
+                    result = (*(ix->i_call))(d, argc);
+
+                    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "callback invocation returns %d", result);
+
+                    switch(result){
+                      /* TODO: pause, yield, etc, etc */
+                      case KATCP_RESULT_FAIL : 
+                      case KATCP_RESULT_INVALID : 
+                      case KATCP_RESULT_OK : 
+                        /* TODO: make sure we keep track of tags */
+                        extra_response_katcl(fx->f_line, result, NULL);
+                        break;
+                      /* WARNING: unclear if we should support KATCP_RESULT_YIELD ? */
+                      case KATCP_RESULT_PAUSE : 
+                        fx->f_state = FLAT_STATE_PAUSE;
+                        break;
+                    }
+
+                  } else {
+                    extra_response_katcl(fx->f_line, KATCP_RESULT_FAIL, "unknown message");
                   }
 
+
                 } else {
-                  extra_response_katcl(fx->f_line, KATCP_RESULT_FAIL, "unknown message");
+                  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "found match for %s, but wrong type");
                 }
-
-
               } else {
-                log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "found match for %s, but wrong type");
+                log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "no match for %s found", str + 1);
               }
-            } else {
-              log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "no match for %s found", str + 1);
+            }
+
+            if(mask & KATCP_MAP_FLAG_REQUEST){
+              /* TODO: check if we have a request pending, collect result */
+            }
+          } /* else silently ignore */
+
+ 
+          if(fx->f_state == FLAT_STATE_UP){
+            result = parse_katcl(fx->f_line);
+            if(result > 0){ /* if there are more messages in queue, get back soon */
+              mark_busy_katcp(d);
             }
           }
-        } /* else silently ignore */
+
+        }
 
 
 
