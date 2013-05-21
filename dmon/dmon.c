@@ -37,15 +37,14 @@ struct udp_state
 	unsigned int u_magic;
 	unsigned int u_fd;
 	unsigned int u_sequence;/* NOTE: 16 bits */
+  unsigned int u_rw;/*read:1, write:0*/
 };
 
 struct udp_message
 {
 	uint16_t u_sequence;
-	uint32_t u_error_code;
-	uint32_t u_address;
-	uint32_t u_length;
-	uint32_t u_data[UDP_MAX_PACKET];
+	uint32_t u_addr_errcode;/*shared fields*/
+	uint32_t u_data_length;/*shared fields*/
 }__attribute__ ((packed));
 
 /*****************************************************************************/
@@ -79,6 +78,7 @@ struct udp_state *create_udp(struct katcp_dispatch *d)
 	ud->u_magic = UDP_MAGIC;
 	ud->u_fd = (-1);
   ud->u_sequence = 42;
+  ud->u_rw = 1;/*default is set to read:*/
 
 	return ud;
 }
@@ -134,11 +134,13 @@ int send_udp(struct katcp_dispatch *d, struct udp_state *ud, char *ip_addr, int 
 	uv = &buffer;
 
   ud->u_sequence = 0xffff & (ud->u_sequence + 1);
-
 	uv->u_sequence = htons(ud->u_sequence);
-	uv->u_address  = htons((address & 0x7FFFFFFF) | (rw_flag << 31));
 
-	uv->u_length 	 = htons(length);
+  
+	uv->u_addr_errcode  = ((address & 0x7FFFFFFF) | (ud->u_rw << 31));
+	uv->u_addr_errcode  = htons(uv->u_addr_errcode);
+
+  uv->u_data_length	  = htons(length);
 
   //wr = send(ud->u_fd, uv, sizeof(uv), MSG_NOSIGNAL);
   wr = sendto(ud->u_fd, uv, sizeof(uv), 0,(struct sockaddr *)&sa, sizeof(struct sockaddr_in));
@@ -162,10 +164,8 @@ int send_udp(struct katcp_dispatch *d, struct udp_state *ud, char *ip_addr, int 
 int rcv_udp(struct katcp_dispatch *d, struct udp_state *ud)
 {
 	struct udp_message buffer, *uv;
-	int rr, i, total;
-	uint32_t word;
+  int rr;
 
-	total = 0;
 	uv = &buffer;
     fprintf(stderr, "receive udp start:\n ");
 
@@ -185,16 +185,16 @@ int rcv_udp(struct katcp_dispatch *d, struct udp_state *ud)
 	}
 
   uv->u_sequence    = ntohs(uv->u_sequence);
-  uv->u_error_code  = ntohs(uv->u_error_code);
+  uv->u_addr_errcode  = ntohs(uv->u_addr_errcode);
 
   log_message_katcp(d, KATCP_LEVEL_TRACE, DMON_MODULE_NAME, "udp reply with sequence number %d", uv->u_sequence);
     fprintf(stderr, "udp reply with sequence number %d\n", uv->u_sequence);
 
-  uv->u_error_code  = ((0xFF000000 & uv->u_error_code) >> 24);
+  uv->u_addr_errcode  = ((0xFF000000 & uv->u_addr_errcode) >> 24);
 
-  if(uv->u_error_code != 0){
-    log_message_katcp(d, KATCP_LEVEL_WARN, DMON_MODULE_NAME, "udp receive: something is not right, error code: %d", uv->u_error_code);
-    fprintf(stderr,"udp receive: something is not right, error code: %d", uv->u_error_code);  
+  if(uv->u_addr_errcode != 0){
+    log_message_katcp(d, KATCP_LEVEL_WARN, DMON_MODULE_NAME, "udp receive: something is not right, error code: %d", uv->u_addr_errcode);
+    fprintf(stderr,"udp receive: something is not right, error code: %d", uv->u_addr_errcode);  
     return -1;
   }
 
@@ -204,12 +204,8 @@ int rcv_udp(struct katcp_dispatch *d, struct udp_state *ud)
     return -1;
   }
 
-	for(i = 0; i < rr; i += 4){
-		word = (uint32_t)(uv->u_data + i);
-		log_message_katcp(d, KATCP_LEVEL_TRACE, DMON_MODULE_NAME, "udp data 0x%x", ntohs(word));
-	}
-	total += rr;                                                                        
-	log_message_katcp(d, KATCP_LEVEL_INFO, DMON_MODULE_NAME,"Current received total: %d bytes\n", total);    
+  uv->u_data_length = ntohs(uv->u_data_length);
+  log_message_katcp(d, KATCP_LEVEL_TRACE, DMON_MODULE_NAME, "udp data 0x%x", uv->u_data_length);
 	return 0;
 }
 
@@ -314,6 +310,7 @@ int main(int argc, char **argv)
     log_message_katcp(d, KATCP_LEVEL_ERROR, DMON_MODULE_NAME, "unable to create udp socket: %s", strerror(errno));
     return -1;
   }
+  ud->u_rw = rw_flag;
 
   for(;;){
 
