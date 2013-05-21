@@ -36,11 +36,13 @@ struct udp_state
 {
 	unsigned int u_magic;
 	unsigned int u_fd;
+	unsigned int u_sequence;/* NOTE: 16 bits */
 };
 
 struct udp_message
 {
-	uint32_t u_id;
+	uint16_t u_sequence;
+	uint32_t u_error_code;
 	uint32_t u_address;
 	uint32_t u_length;
 	uint32_t u_data[UDP_MAX_PACKET];
@@ -76,6 +78,7 @@ struct udp_state *create_udp(struct katcp_dispatch *d)
 
 	ud->u_magic = UDP_MAGIC;
 	ud->u_fd = (-1);
+  ud->u_sequence = 42;
 
 	return ud;
 }
@@ -130,10 +133,12 @@ int send_udp(struct katcp_dispatch *d, struct udp_state *ud, char *ip_addr, int 
 
 	uv = &buffer;
 
-	uv->u_id 	= htons(0);
-	uv->u_address = htons((address & 0x7FFFFFFF) | (rw_flag << 31));
+  ud->u_sequence = 0xffff & (ud->u_sequence + 1);
 
-	uv->u_length 	= htons(length);
+	uv->u_sequence = htons(ud->u_sequence);
+	uv->u_address  = htons((address & 0x7FFFFFFF) | (rw_flag << 31));
+
+	uv->u_length 	 = htons(length);
 
   //wr = send(ud->u_fd, uv, sizeof(uv), MSG_NOSIGNAL);
   wr = sendto(ud->u_fd, uv, sizeof(uv), 0,(struct sockaddr *)&sa, sizeof(struct sockaddr_in));
@@ -149,6 +154,7 @@ int send_udp(struct katcp_dispatch *d, struct udp_state *ud, char *ip_addr, int 
         break;
     }
   }
+    fprintf(stderr, "send udp ok:\n ");
 
 	return 0;
 }
@@ -160,8 +166,8 @@ int rcv_udp(struct katcp_dispatch *d, struct udp_state *ud)
 	uint32_t word;
 
 	total = 0;
-
 	uv = &buffer;
+    fprintf(stderr, "receive udp start:\n ");
 
 	//rr = recv(ud->u_fd, uv, UDP_MAX_PACKET, 0);
 	rr = recvfrom(ud->u_fd, uv, UDP_MAX_PACKET, 0, NULL, NULL);
@@ -177,6 +183,26 @@ int rcv_udp(struct katcp_dispatch *d, struct udp_state *ud)
 				return 0;
 		}
 	}
+
+  uv->u_sequence    = ntohs(uv->u_sequence);
+  uv->u_error_code  = ntohs(uv->u_error_code);
+
+  log_message_katcp(d, KATCP_LEVEL_TRACE, DMON_MODULE_NAME, "udp reply with sequence number %d", uv->u_sequence);
+    fprintf(stderr, "udp reply with sequence number %d\n", uv->u_sequence);
+
+  uv->u_error_code  = ((0xFF000000 & uv->u_error_code) >> 24);
+
+  if(uv->u_error_code != 0){
+    log_message_katcp(d, KATCP_LEVEL_WARN, DMON_MODULE_NAME, "udp receive: something is not right, error code: %d", uv->u_error_code);
+    fprintf(stderr,"udp receive: something is not right, error code: %d", uv->u_error_code);  
+    return -1;
+  }
+
+  if(uv->u_sequence != ud->u_sequence){
+    log_message_katcp(d, KATCP_LEVEL_WARN, DMON_MODULE_NAME, "udp received sequence number %d not %d", uv->u_sequence, ud->u_sequence);
+    fprintf(stderr,"udp received sequence number %d not %d", uv->u_sequence, ud->u_sequence);  
+    return -1;
+  }
 
 	for(i = 0; i < rr; i += 4){
 		word = (uint32_t)(uv->u_data + i);
