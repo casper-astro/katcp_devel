@@ -962,8 +962,8 @@ int run_flat_katcp(struct katcp_dispatch *d)
   struct katcp_group *gx;
   struct katcp_cmd_map *mx;
   struct katcp_cmd_item *ix;
-  unsigned int i, j, mask;
-  int fd, result, r, argc;
+  unsigned int i, j, mask, len;
+  int fd, result, r, argc, code;
   char *str;
 
   s = d->d_shared;
@@ -986,8 +986,28 @@ int run_flat_katcp(struct katcp_dispatch *d)
       fd = fileno_katcl(fx->f_line);
 
       if(FD_ISSET(fd, &(s->s_write))){
-        if(write_katcl(fx->f_line) < 0){
-          fx->f_state = FLAT_STATE_DEAD;
+        if(fx->f_state == FLAT_STATE_CONNECTING){
+          result = getsockopt(fd, SOL_SOCKET, SO_ERROR, &code, &len);
+          if(result == 0){
+            switch(code){
+              case 0 :
+                fx->f_state = FLAT_STATE_UP;
+                log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "async connect succeeded");
+                break;
+              case EINPROGRESS :
+                log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "saw an in progress despite write set being ready");
+                break;
+              default :
+                log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to connect: %s", strerror(code));
+                fx->f_state = FLAT_STATE_DEAD;
+                break;
+            }
+
+
+        } else {
+          if(write_katcl(fx->f_line) < 0){
+            fx->f_state = FLAT_STATE_DEAD;
+          }
         }
       }
 
@@ -996,6 +1016,7 @@ int run_flat_katcp(struct katcp_dispatch *d)
           fx->f_state = FLAT_STATE_DEAD;
         }
       }
+
 
       if(fx->f_state == FLAT_STATE_UP){
 
