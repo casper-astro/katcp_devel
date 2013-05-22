@@ -28,14 +28,13 @@
 
 #define FLAT_MAGIC 0x49021faf
 
-#define FLAT_STATE_GONE   0
-#define FLAT_STATE_NEW    1
-#define FLAT_STATE_UP     2
-
-#define FLAT_STATE_PAUSE  3  /* suspend processing requests from fd */
+#define FLAT_STATE_GONE          0
+#define FLAT_STATE_CONNECTING    1
+#define FLAT_STATE_UP            2
+#define FLAT_STATE_PAUSE         3  /* suspend processing requests from fd */
 /* WARNING: this might end up turning into pauses of different types: fd, msgqueue */
-
-#define FLAT_STATE_DRAIN  4
+#define FLAT_STATE_DRAIN         4
+#define FLAT_STATE_DEAD          5
 
 /* was supposed to be called duplex, but flat is punnier */
 /********************************************************************/
@@ -578,11 +577,8 @@ static void sane_flat_katcp(struct katcp_flat *f)
 #define sane_flat_katcp(f);
 #endif
 
-static void destroy_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *f)
+static void deallocate_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *f)
 {
-  struct katcp_group *gx;
-  unsigned int i;
-
   sane_flat_katcp(f);
 
   /* TODO: make destruction an event ? */
@@ -626,36 +622,46 @@ static void destroy_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *f)
     f->f_map = NULL;
   }
 
-  if(f->f_group){
-
-    gx = f->f_group;
-
-    if((gx == NULL) || (gx->g_count == 0)){
-#ifdef KATCP_CONSISTENCY_CHECKS
-      fprintf(stderr, "dpx: major logic problem: malformed or empty group at %p\n", gx);
-      abort();
-#endif
-    } else {
-
-      for(i = 0; (i < gx->g_count) && (gx->g_flats[i] != f); i++);
-
-      gx->g_count--;
-
-      if(i < gx->g_count){
-        gx->g_flats[i] = gx->g_flats[gx->g_count];
-      } else {
-        if(i > gx->g_count){
-          gx->g_count++;
-        }
-      }
-    }
-
-    f->f_group = NULL;
-  }
+  f->f_group = NULL;
 
   f->f_magic = 0;
 
   free(f);
+}
+
+static void destroy_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *f)
+{
+  struct katcp_group *gx;
+  unsigned int i;
+
+  sane_flat_katcp(f);
+
+  /* TODO: make destruction an event ? */
+
+  gx = f->f_group;
+
+  if((gx == NULL) || (gx->g_count == 0)){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "dpx: major logic problem: malformed or empty group at %p\n", gx);
+    abort();
+#endif
+  } else {
+
+    for(i = 0; (i < gx->g_count) && (gx->g_flats[i] != f); i++);
+
+    gx->g_count--;
+
+    if(i < gx->g_count){
+      gx->g_flats[i] = gx->g_flats[gx->g_count];
+    } else {
+      if(i > gx->g_count){
+        /* undo, we are in not found case */
+        gx->g_count++;
+      }
+    }
+  }
+
+  deallocate_flat_katcp(d, f);
 }
 
 int wake_endpoint_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep, struct katcp_message *msg, void *data)
@@ -685,7 +691,7 @@ void release_endpoint_flat_katcp(struct katcp_dispatch *d, void *data)
   f->f_peer = NULL;
 }
 
-struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, char *name, struct katcp_group *g)
+struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, int up, char *name, struct katcp_group *g)
 {
   /* TODO: what about cloning an existing one to preserve misc settings, including log level, etc */
   struct katcp_flat *f, **tmp;
@@ -718,7 +724,8 @@ struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, char *nam
 
   f->f_flags = 0;
 
-  f->f_state = FLAT_STATE_NEW;
+  /* for cases where connect() still has to succeed */
+  f->f_state = up ? FLAT_STATE_UP : FLAT_STATE_CONNECTING;
   f->f_exit_code = 0; /* WARNING: should technically be a fail, to catch cases where it isn't set at exit time */
 
   f->f_log_level = s->s_default;
@@ -861,7 +868,7 @@ int load_flat_katcp(struct katcp_dispatch *d)
   struct katcp_flat *f;
   struct katcp_shared *s;
   struct katcp_group *gx;
-  unsigned int i, j;
+  unsigned int i, j, inc;
   int result, fd;
 
   s = d->d_shared;
@@ -874,7 +881,9 @@ int load_flat_katcp(struct katcp_dispatch *d)
 
   for(j = 0; j < s->s_members; j++){
     gx = s->s_groups[j];
-    for(i = 0; i < gx->g_count; i++){
+    i = 0;
+    while(i < gx->g_count){
+      inc = 1;
 
       f = gx->g_flats[i];
       fd = fileno_katcl(f->f_line);
@@ -889,29 +898,58 @@ int load_flat_katcp(struct katcp_dispatch *d)
 #endif
           break;
 
-        case FLAT_STATE_NEW : 
-        case FLAT_STATE_UP : 
-          FD_SET(fd, &(s->s_read));
+        case FLAT_STATE_CONNECTING : 
+          FD_SET(fd, &(s->s_write));
           if(fd > s->s_max){
             s->s_max = fd;
           }
           break;
 
+        case FLAT_STATE_UP : 
+          FD_SET(fd, &(s->s_read));
+          if(fd > s->s_max){
+            s->s_max = fd;
+          }
+          /* WARNING: fall */
+
         case FLAT_STATE_PAUSE :
-          /* no point in receiving more messages ... */
-          /* WARNING: risk is that errors/disconnects will go unmissed */
+        case FLAT_STATE_DRAIN :
+          if(flushing_katcl(f->f_line)){
+            FD_SET(fd, &(s->s_write));
+            if(fd > s->s_max){
+              s->s_max = fd;
+            }
+          } else {
+            /* WARNING: risk is that errors/disconnects will go missing, maybe error fdset */
+          }
+          break;
+
+        case FLAT_STATE_DEAD :
+
+          gx->g_count--;
+          if(i < gx->g_count){
+            gx->g_flats[i] = gx->g_flats[gx->g_count];
+          }
+          deallocate_flat_katcp(d, f);
+
+          inc = 0;
+
+          break;
+
+        default :
+#ifdef KATCP_CONSISTENCY_CHECKS
+          fprintf(stderr, "flat: problem: unknown state %u for %p\n", f->f_state, f);
+          abort();
+#endif
           break;
 
       }
 
-      if(flushing_katcl(f->f_line)){
-        FD_SET(fd, &(s->s_write));
-        if(fd > s->s_max){
-          s->s_max = fd;
-        }
-      }
-      /* TODO */
+      i += inc;
     }
+
+
+    /* TODO: maybe do something if group is empty */
   }
 
   return result;
@@ -949,17 +987,19 @@ int run_flat_katcp(struct katcp_dispatch *d)
 
       if(FD_ISSET(fd, &(s->s_write))){
         if(write_katcl(fx->f_line) < 0){
-          /* FAIL somehow */
+          fx->f_state = FLAT_STATE_DEAD;
         }
       }
 
       if(FD_ISSET(fd, &(s->s_read))){
         if(read_katcl(fx->f_line) < 0){
-          /* FAIL somehow */
+          fx->f_state = FLAT_STATE_DEAD;
         }
       }
 
       if(fx->f_state == FLAT_STATE_UP){
+
+        /* need to check ready beforehand, only then parse */
 
         result = parse_katcl(fx->f_line);
         if(result > 0){
@@ -972,6 +1012,7 @@ int run_flat_katcp(struct katcp_dispatch *d)
           }
 #endif
 
+
           mx = map_of_flat_katcp(fx);
           if(mx == NULL){
             log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no map to be found for client %s", fx->f_name);
@@ -980,6 +1021,9 @@ int run_flat_katcp(struct katcp_dispatch *d)
 
           str = get_string_parse_katcl(fx->f_rx, 0);
           if(str){
+
+            log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "received a message %s ...", str);
+ 
             switch(str[0]){
               case KATCP_REQUEST :
                 mask = KATCP_MAP_FLAG_REQUEST;
@@ -1044,21 +1088,16 @@ int run_flat_katcp(struct katcp_dispatch *d)
 
  
           if(fx->f_state == FLAT_STATE_UP){
+            /* check if there is more to do */
             result = parse_katcl(fx->f_line);
-            if(result > 0){ /* if there are more messages in queue, get back soon */
+            if(result > 0){ 
               mark_busy_katcp(d);
             }
           }
 
         }
 
-
-
-
-      }
-
-      /* TODO need to have a s_quick to prevent select blocking when there is more to do */
-
+      } /* end of STATE_UP work */
 
 
 #if 0
@@ -1203,7 +1242,7 @@ int accept_flat_katcp(struct katcp_dispatch *d, struct katcp_arb *a, unsigned in
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "accepted new connection from %s via %s", label, name_arb_katcp(d, a));
 
-  f = create_flat_katcp(d, nfd, label, gx);
+  f = create_flat_katcp(d, nfd, 1, label, gx);
   if(f == NULL){
     close(nfd);
   }
