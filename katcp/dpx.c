@@ -963,7 +963,7 @@ int run_flat_katcp(struct katcp_dispatch *d)
   struct katcp_cmd_map *mx;
   struct katcp_cmd_item *ix;
   unsigned int i, j, mask, len;
-  int fd, result, r, argc, code;
+  int fd, result, r, argc, code, forget;
   char *str;
 
   s = d->d_shared;
@@ -986,6 +986,7 @@ int run_flat_katcp(struct katcp_dispatch *d)
       fd = fileno_katcl(fx->f_line);
 
       if(FD_ISSET(fd, &(s->s_write))){
+        /* resume connect */
         if(fx->f_state == FLAT_STATE_CONNECTING){
           result = getsockopt(fd, SOL_SOCKET, SO_ERROR, &code, &len);
           if(result == 0){
@@ -1002,9 +1003,9 @@ int run_flat_katcp(struct katcp_dispatch *d)
                 fx->f_state = FLAT_STATE_DEAD;
                 break;
             }
-
-
+          }
         } else {
+          /* flush messages */
           if(write_katcl(fx->f_line) < 0){
             fx->f_state = FLAT_STATE_DEAD;
           }
@@ -1012,6 +1013,7 @@ int run_flat_katcp(struct katcp_dispatch *d)
       }
 
       if(FD_ISSET(fd, &(s->s_read))){
+        /* acquire data */
         if(read_katcl(fx->f_line) < 0){
           fx->f_state = FLAT_STATE_DEAD;
         }
@@ -1020,20 +1022,16 @@ int run_flat_katcp(struct katcp_dispatch *d)
 
       if(fx->f_state == FLAT_STATE_UP){
 
-        /* need to check ready beforehand, only then parse */
-
-        result = parse_katcl(fx->f_line);
-        if(result > 0){
-
-          fx->f_rx = ready_katcl(fx->f_line);
-#if KATCP_CONSISTENCY_CHECKS
-          if(fx->f_rx == NULL){
-            log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "parse_katcl promised us data, but there isn't any");
-            return -1;
+        fx->f_rx = ready_katcl(fx->f_line);
+        if(fx->f_rx == NULL){
+          result = parse_katcl(fx->f_line);
+          if(result > 0){
+            fx->f_rx = ready_katcl(fx->f_line);
           }
-#endif
+        }
 
-
+        if(fx->f_rx){
+          forget = 1;
           mx = map_of_flat_katcp(fx);
           if(mx == NULL){
             log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no map to be found for client %s", fx->f_name);
@@ -1086,6 +1084,7 @@ int run_flat_katcp(struct katcp_dispatch *d)
                       /* WARNING: unclear if we should support KATCP_RESULT_YIELD ? */
                       case KATCP_RESULT_PAUSE : 
                         fx->f_state = FLAT_STATE_PAUSE;
+                        forget = 0;
                         break;
                     }
 
@@ -1107,15 +1106,13 @@ int run_flat_katcp(struct katcp_dispatch *d)
             }
           } /* else silently ignore */
 
- 
-          if(fx->f_state == FLAT_STATE_UP){
-            /* check if there is more to do */
+          if(forget){ /* make space for next message arrival */
+            clear_katcl(fx->f_line);
             result = parse_katcl(fx->f_line);
             if(result > 0){ 
               mark_busy_katcp(d);
             }
           }
-
         }
 
       } /* end of STATE_UP work */
