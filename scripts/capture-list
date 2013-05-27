@@ -38,7 +38,7 @@ list_source()
 }
 
 if [ -n "${KCS_CORR_RX}" ] ; then
-  list_source k7 ${KCS_CORR_RX} ${KCS_CORR_RX}
+  list_source k7 ${KCS_CORR_RX} 
 else
   if [ ! -f ${CORR_CONFIG}/${KATCP_MODE} ] ; then
     kcs_warn "no configuration for ${KATCP_MODE}"
