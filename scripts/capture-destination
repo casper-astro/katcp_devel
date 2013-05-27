@@ -9,19 +9,34 @@ if [ $# -lt 3 ] ; then
 fi
 
 output=$1
-host=$2
-port=$3
+
+datahost=$2
+dataport=$3
+
+if [ $# -lt 5 ] ; then
+  metahost=$datahost
+  metaport=$dataport
+else 
+  metahost=$4
+  metaport=$5
+fi
 
 case "${output}" in
   k7)
-    kcpcmd -s localhost:7147 -k -i -r setenv KCS_CORR_RX $host:$port
-    kcs_info "set k7 destination to $host:$port"
+    if [ "$metahost" != "$datahost" -o "$metaport" != "$dataport" ] ; then
+      kcs_error "correlator stream does not support separate meta(data) destinations"
+      exit 1
+    fi
+
+    kcpcmd -s localhost:7147 -k -i -r setenv KCS_CORR_RX $datahost:$dataport
+    kcs_info "set k7 destination to $datahost:$dataport"
     ;;
   bf0|bf1)
     if kcs_is_beamformer ${KATCP_MODE} ; then
-      kcpcmd -s localhost:7147 -k -i -r setenv KCS_${output^^*}DATA_RX $host:$port
-      kcpcmd -s localhost:7147 -k -i -r setenv KCS_${output^^*}META_RX $host:$port
-      kcs_info "set ${output} destination to $host:$port"
+      kcpcmd -s localhost:7147 -k -i -r setenv KCS_${output^^*}DATA_RX $datahost:$dataport
+      kcpcmd -s localhost:7147 -k -i -r setenv KCS_${output^^*}META_RX $metahost:$metaport
+      kcs_info "set data ${output} destination to $datahost:$dataport"
+      kcs_info "set meta ${output} destination to $metahost:$metaport"
     else
       kcs_error "beamformer streams not available in this mode"
       exit 1
