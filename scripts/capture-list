@@ -18,9 +18,9 @@ list_source()
 
   echo -n "#capture-list ${source} ${host} ${port}"
 
-  if [ -n "$2" ] ; then
-    host=${2%:*}
-    port=${2##*:}
+  if [ -n "$3" ] ; then
+    host=${3%:*}
+    port=${3##*:}
 
     if [ -z "${host}" ] ; then
       host=unknown
