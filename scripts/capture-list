@@ -46,7 +46,7 @@ else
     rxip=$(grep ^rx_udp_ip ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
     rxport=$(grep ^rx_udp_port ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
   fi
-  list_source k7 ${rxip}:${rxport} ${rxip}:${rxport}
+  list_source k7 ${rxip}:${rxport} 
 fi
 
 if kcs_is_beamformer ${KATCP_MODE} ; then
