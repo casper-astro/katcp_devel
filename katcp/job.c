@@ -772,7 +772,7 @@ int stop_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
   } else if(j->j_state & JOB_MAY_WRITE){
     j->j_state &= ~JOB_MAY_WRITE;
   } else {
-    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "attempting to stop job which is already finished (state=0x%x)\n", j->j_state);
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "attempting to stop job which is already finished (state=0x%x)", j->j_state);
   }
 
   return result;

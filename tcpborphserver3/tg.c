@@ -532,7 +532,7 @@ static int write_frame_fpga(struct getap_state *gs, unsigned char *data, unsigne
 
 
 #ifdef DEBUG
-  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "sent %u words to fpga from tap device %s\n", buffer_sizes >> 16, gs->s_tap_name);
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "sent %u words to fpga from tap device %s", buffer_sizes >> 16, gs->s_tap_name);
 #endif
 
   return 1;
@@ -601,7 +601,7 @@ int receive_frame_fpga(struct getap_state *gs)
 #endif
 
   if((len <= SIZE_FRAME_HEADER) || (len > GETAP_MAX_FRAME)){
-    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "saw runt or oversized frame, len=%u\n bytes", len);
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "saw runt or oversized frame, len=%u bytes", len);
     return -1;
   }
 
@@ -794,7 +794,7 @@ int run_timer_tap(struct katcp_dispatch *d, void *data)
 
           default :
 
-            log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "discarding frame of unknown type 0x%02x%02x and length %d\n", gs->s_rxb[FRAME_TYPE1], gs->s_rxb[FRAME_TYPE2], gs->s_rx_len);
+            log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "discarding frame of unknown type 0x%02x%02x and length %d", gs->s_rxb[FRAME_TYPE1], gs->s_rxb[FRAME_TYPE2], gs->s_rx_len);
             forget_receive(gs);
 
             break;

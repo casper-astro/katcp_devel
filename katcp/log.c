@@ -176,7 +176,6 @@ int basic_inform_katcl(struct katcl_line *cl, char *name, char *arg)
 }
 #endif
 
-#if 0
 int extra_response_katcl(struct katcl_line *cl, int code, char *fmt, ...)
 {
   va_list args;
@@ -211,9 +210,11 @@ int vextra_response_katcl(struct katcl_line *cl, int code, char *fmt, va_list ar
 
   result[0] = append_string_katcl(cl, KATCP_FLAG_FIRST, name);
   result[1] = append_string_katcl(cl, 0, status);
-  result[2] = append_vargs_katcl(cl, KATCP_FLAG_LAST, fmt, args);
+  if(fmt == NULL){
+    return vector_sum(result, 2);
+  }
 
+  result[2] = append_vargs_katcl(cl, KATCP_FLAG_LAST, fmt, args);
   return vector_sum(result, 3);
 }
-#endif
 

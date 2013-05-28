@@ -55,6 +55,7 @@ else
 
   # corr modes
   if [ "$stream" = "k7" ] ; then
+    target=${KCS_CORR_RX}
     if kcpcmd -t 45 -k -m tx-start ${target%:*} ${target##*:} ; then
       status=0
     fi

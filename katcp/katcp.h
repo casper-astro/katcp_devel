@@ -17,6 +17,10 @@ struct katcp_notice;
 
 struct katcp_url;
 
+struct katcp_flat;
+struct katcp_endpoint;
+struct katcp_message;
+
 #include <sys/types.h>
 #include <stdarg.h>
 
@@ -640,6 +644,10 @@ int search_cmd_katcp(struct katcp_dispatch *d, int argc);
 /* duplex related logic */
 int listen_duplex_cmd_katcp(struct katcp_dispatch *d, int argc);
 int list_duplex_cmd_katcp(struct katcp_dispatch *d, int argc);
+
+/* endpoints */
+
+int send_message_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *from, struct katcp_endpoint *to, struct katcl_parse *px, int acknowledged);
 
 #endif
 
