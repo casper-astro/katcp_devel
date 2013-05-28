@@ -415,6 +415,53 @@ struct katcp_arb{
   void *a_data;
 };
 
+/* duplex structures: was supposed to be called duplex, but flat is punnier */
+/********************************************************************/
+
+struct katcp_group{
+  /* a set of flats which belong together, probably spawned off the same listener, probably same set of commands, probably same "mode" */
+  char *g_name;
+  struct katcp_cmd_map *g_map;
+
+  struct katcp_flat **g_flats;
+  unsigned int g_count;
+
+  int g_use;             /* are we ref'ed by the listener */
+};
+
+struct katcp_flat{
+  /* a client instance, intended to replace what was job and dispatch previously */
+  unsigned int f_magic;
+  char *f_name;          /* locate the thing by name */
+
+  int f_flags;           /* which directions can we do */
+
+  int f_state;           /* up, shutting down, etc */
+  int f_exit_code;       /* reported exit status */
+
+  int f_log_level;       /* log level currently set */
+
+  struct katcp_endpoint *f_peer;
+
+  struct katcl_line *f_line;
+  struct katcp_shared *f_shared;
+
+  struct katcl_parse *f_rx;      /* received message */
+
+#if 0
+  struct katcl_queue *f_backlog; /* backed up requests from the remote end, shouldn't happen */
+#endif
+
+  struct katcp_cmd_map *f_map;   /* local command instance to override others */
+  struct katcp_group *f_group;
+
+  /* TODO: */
+  
+  /* notices, sensors */
+
+  /* a sensor could probably be a special type of notice */
+};
+
 #define KATCP_FLAT_STACK 4
 
 struct katcp_shared{

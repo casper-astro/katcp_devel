@@ -36,53 +36,6 @@
 #define FLAT_STATE_DRAIN         4
 #define FLAT_STATE_DEAD          5
 
-/* was supposed to be called duplex, but flat is punnier */
-/********************************************************************/
-
-struct katcp_group{
-  /* a set of flats which belong together, probably spawned off the same listener, probably same set of commands, probably same "mode" */
-  char *g_name;
-  struct katcp_cmd_map *g_map;
-
-  struct katcp_flat **g_flats;
-  unsigned int g_count;
-
-  int g_use;             /* are we ref'ed by the listener */
-};
-
-struct katcp_flat{
-  /* a client instance, intended to replace what was job and dispatch previously */
-  unsigned int f_magic;
-  char *f_name;          /* locate the thing by name */
-
-  int f_flags;           /* which directions can we do */
-
-  int f_state;           /* up, shutting down, etc */
-  int f_exit_code;       /* reported exit status */
-
-  int f_log_level;       /* log level currently set */
-
-  struct katcp_endpoint *f_peer;
-
-  struct katcl_line *f_line;
-  struct katcp_shared *f_shared;
-
-  struct katcl_parse *f_rx;      /* received message */
-
-#if 0
-  struct katcl_queue *f_backlog; /* backed up requests from the remote end, shouldn't happen */
-#endif
-
-  struct katcp_cmd_map *f_map;   /* local command instance to override others */
-  struct katcp_group *f_group;
-
-  /* TODO: */
-  
-  /* notices, sensors */
-
-  /* a sensor could probably be a special type of notice */
-};
-
 /*******************************************************************************/
 
 struct katcp_cmd_item{
@@ -274,6 +227,7 @@ int hold_group_katcp(struct katcp_group *g)
 
 struct katcp_group *this_group_katcp(struct katcp_dispatch *d)
 {
+  /* WARNING: there may be cases when we are not in the context of a duplex/flat, but still within a group - this doesn't cater for such a case */
   struct katcp_shared *s;
   struct katcp_flat *f;
 
@@ -371,6 +325,21 @@ void destroy_cmd_item_void(void *v)
   destroy_cmd_item(i);
 }
 
+void print_help_cmd_item(struct katcp_dispatch *d, char *key, void *v)
+{
+  struct katcp_cmd_item *i;
+
+  i = v;
+
+  if(i->i_flags & KATCP_MAP_FLAG_REQUEST){ 
+    /* TODO: check more flags, eg if hidden */
+    append_string_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, KATCP_HELP_INFORM);
+    append_string_katcp(d, KATCP_FLAG_STRING, i->i_name);
+    append_string_katcp(d, KATCP_FLAG_LAST | KATCP_FLAG_STRING, i->i_help);
+  }
+
+}
+
 struct katcp_cmd_item *create_cmd_item(char *name, char *help, unsigned int flags, int (*call)(struct katcp_dispatch *d, int argc), void *data, void (*clear)(void *data)){
   struct katcp_cmd_item *i;
 
@@ -388,7 +357,7 @@ struct katcp_cmd_item *create_cmd_item(char *name, char *help, unsigned int flag
   i->i_data = NULL;
   i->i_clear = NULL;
 
-  if(i->i_name){
+  if(name){
     i->i_name = strdup(name);
     if(i->i_name == NULL){
       destroy_cmd_item(i);
@@ -396,7 +365,7 @@ struct katcp_cmd_item *create_cmd_item(char *name, char *help, unsigned int flag
     }
   }
 
-  if(i->i_help){
+  if(help){
     i->i_help = strdup(help);
     if(i->i_help == NULL){
       destroy_cmd_item(i);
@@ -888,7 +857,10 @@ int load_flat_katcp(struct katcp_dispatch *d)
       f = gx->g_flats[i];
       fd = fileno_katcl(f->f_line);
 
+#if 0
+      /* disabled: this log triggers io, which triggers this loop */
       log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "loading %p in state %d with fd %d", f, f->f_state, fd);
+#endif
 
       switch(f->f_state){
         case FLAT_STATE_GONE :
@@ -1333,6 +1305,9 @@ int help_group_cmd(struct katcp_dispatch *d, int argc)
   name = arg_string_katcp(d, 1);
   if(name == NULL){
     log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "should generate list of commands");
+    if(mx->m_tree){
+      print_inorder_avltree(d, mx->m_tree->t_root, &print_help_cmd_item, 0);
+    }
   } else {
     switch(name[0]){
       case KATCP_REQUEST : 
@@ -1350,10 +1325,14 @@ int help_group_cmd(struct katcp_dispatch *d, int argc)
       i = find_data_avltree(mx->m_tree, match);
       if(i == NULL){
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no match for %s found", name);
+      } else {
+        print_help_cmd_item(d, NULL, (void *)i);
       }
+#if 0
       if(i->i_flags & KATCP_MAP_FLAG_REQUEST){
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "should print help message %s for %s", i->i_help, i->i_name);
       }
+#endif
     }
   }
 

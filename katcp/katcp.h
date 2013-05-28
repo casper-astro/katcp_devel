@@ -57,7 +57,9 @@ struct katcp_message;
 #define KATCP_MAX_LEVELS     7
 
 #define KATCP_MASK_LEVELS   0xff
+/*      KATCL_LEVEL_ALL   0x000 */
 #define KATCP_LEVEL_LOCAL 0x100
+#define KATCP_LEVEL_GROUP 0x200
 
 #define KATCP_FLAG_FIRST  0x01
 #define KATCP_FLAG_LAST   0x02
@@ -646,6 +648,9 @@ int search_cmd_katcp(struct katcp_dispatch *d, int argc);
 /* duplex related logic */
 int listen_duplex_cmd_katcp(struct katcp_dispatch *d, int argc);
 int list_duplex_cmd_katcp(struct katcp_dispatch *d, int argc);
+
+struct katcp_group *this_group_katcp(struct katcp_dispatch *d);
+struct katcp_flat *this_flat_katcp(struct katcp_dispatch *d);
 
 /* endpoints */
 

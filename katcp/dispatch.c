@@ -1539,14 +1539,35 @@ int log_relay_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
   return result;
 }
 
+static int check_log_message_katcp(struct katcl_line *l, int sum, unsigned int limit, unsigned int level, char *name, char *fmt, va_list args)
+{
+  int result;
+
+  if(level < limit){
+    return 0;
+  }
+
+  result = vlog_message_katcl(l, level, name, fmt, args);
+  if(sum < 0){
+    return sum;
+  }
+  if(result < 0){
+    return result;
+  }
+
+  return sum + result;
+}
+
 int log_message_katcp(struct katcp_dispatch *d, unsigned int priority, char *name, char *fmt, ...)
 {
   va_list args;
-  int result, sum;
-  unsigned int level, i;
+  int sum;
+  unsigned int level, i, j;
   struct katcp_shared *s;
   struct katcp_entry *e;
-  char *fixed_name;
+  char *prefix;
+  struct katcp_group *gx;
+  struct katcp_flat *fx;
 
   level = priority & KATCP_MASK_LEVELS;
   sum = 0;
@@ -1562,17 +1583,49 @@ int log_message_katcp(struct katcp_dispatch *d, unsigned int priority, char *nam
   }
 
   if(name){
-    fixed_name = name;
+    prefix = name;
   } else {
     e = &(s->s_vector[s->s_mode]);
     if(e->e_name){
-      fixed_name = e->e_name;
+      prefix = e->e_name;
     } else {
       /* WARNING: not the most elegant option ... */
-#if 0
-      fixed_name = "tcpborphserver";
-#endif
-      fixed_name = KATCP_CODEBASE_NAME;
+      prefix = KATCP_CODEBASE_NAME;
+    }
+  }
+
+  if(priority & KATCP_LEVEL_LOCAL){ 
+    fx = this_flat_katcp(d);
+    if(fx){
+      va_start(args, fmt);
+      sum = check_log_message_katcp(fx->f_line, sum, fx->f_log_level, level, prefix, fmt, args);
+      va_end(args);
+    }
+  } else if(priority & KATCP_LEVEL_GROUP){ /* within the same group */
+    gx = this_group_katcp(d);
+    if(gx){
+      for(i = 0; i < gx->g_count; i++){
+        fx = gx->g_flats[i];
+        if(fx){
+          va_start(args, fmt);
+          sum = check_log_message_katcp(fx->f_line, sum, fx->f_log_level, level, prefix, fmt, args);
+          va_end(args);
+        }
+      }
+    }
+  } else { /* message goes everywhere */
+    if(s->s_groups){
+      for(j = 0; j < s->s_members; j++){
+        gx = s->s_groups[j];
+        for(i = 0; i < gx->g_count; i++){
+          fx = gx->g_flats[i];
+          if(fx){
+            va_start(args, fmt);
+            sum = check_log_message_katcp(fx->f_line, sum, fx->f_log_level, level, prefix, fmt, args);
+            va_end(args);
+          }
+        }
+      }
     }
   }
 
@@ -1589,25 +1642,14 @@ int log_message_katcp(struct katcp_dispatch *d, unsigned int priority, char *nam
   if(s){
     for(i = 0; i < s->s_used; i++){
       d = s->s_clients[i];
-      if(level >= d->d_level){
-        va_start(args, fmt);
-        result = vlog_message_katcl(d->d_line, level, fixed_name, fmt, args);
-        va_end(args);
-        if(result < 0){
-          sum = result;
-        } else {
-          if(sum >= 0){
-            sum += result;
-          }
-        }
-      }
-    }
-  } else {
-    if(level >= d->d_level){
       va_start(args, fmt);
-      sum = vlog_message_katcl(d->d_line, level, fixed_name, fmt, args);
+      sum = check_log_message_katcp(d->d_line, sum, d->d_level, level, prefix, fmt, args);
       va_end(args);
     }
+  } else {
+    va_start(args, fmt);
+    sum = check_log_message_katcp(d->d_line, sum, d->d_level, level, prefix, fmt, args);
+    va_end(args);
   }
  
   return sum;
