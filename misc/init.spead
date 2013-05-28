@@ -1,0 +1,5 @@
+?setenv PATH /usr/local/lib/kcs/scripts:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/sbin:/usr/sbin
+?chdir /usr/local/lib/kcs
+?job process ss-a exec://speadrx -p 8888 -r /tmp/pol-01
+?job process ss-b exec://speadrx -p 9999 -r /tmp/pol-02
+
