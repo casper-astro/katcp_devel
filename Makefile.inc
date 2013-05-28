@@ -37,7 +37,7 @@ CFLAGS += -DKATCP_LOG_REQUESTS
 CFLAGS += -DKATCP_SUBPROCESS
 
 # enable newer, broken or nonfunctional code
-CFLAGS += -DKATCP_EXPERIMENTAL
+#CFLAGS += -DKATCP_EXPERIMENTAL
 
 # pick a protocol reversion from the list. Making up
 # your own major values doesn't work unless you also implement what 
@@ -53,7 +53,7 @@ CFLAGS += -ggdb
 # what compiler to use 
 CC = $(CROSS_COMPILE)gcc
 
-GITVER = $(shell git describe  --tags --dirty  2> /dev/null || echo unknown)
+GITVER = $(shell git describe --always --tags --dirty 2> /dev/null || echo unknown)
 
 INSTALL = install
 RM = rm -f

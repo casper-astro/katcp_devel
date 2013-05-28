@@ -133,7 +133,7 @@ struct kcs_sm_op *pushstack_setup_statemachine_kcs(struct katcp_dispatch *d, str
   
   t = find_name_type_katcp(d, type);
   if (t == NULL){
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "invalid type: %s\n", type); 
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "invalid type: %s", type); 
     return NULL;
   }
   

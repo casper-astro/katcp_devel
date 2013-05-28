@@ -1689,9 +1689,9 @@ int stop_fpga_tbs(struct katcp_dispatch *d)
   if(tr->r_fpga == TBS_FPGA_MAPPED){
 
     log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "unmapping fpga");
+    unmap_raw_tbs(d);
 
     status_fpga_tbs(d, TBS_FPGA_PROGRAMMED);
-    unmap_raw_tbs(d);
   }
 
   if(tr->r_fpga == TBS_FPGA_PROGRAMMED){

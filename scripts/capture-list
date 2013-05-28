@@ -16,11 +16,29 @@ list_source()
     port=unknown
   fi
 
-  echo "#capture-list ${source} ${host} ${port}"
+  echo -n "#capture-list ${source} ${host} ${port}"
+
+  if [ -n "$3" ] ; then
+    host=${3%:*}
+    port=${3##*:}
+
+    if [ -z "${host}" ] ; then
+      host=unknown
+    fi
+
+    if [ -z "${port}" ] ; then
+      port=unknown
+    fi
+
+    echo " ${host} ${port}"
+  else 
+    echo
+  fi
+
 }
 
 if [ -n "${KCS_CORR_RX}" ] ; then
-  list_source k7 ${KCS_CORR_RX}
+  list_source k7 ${KCS_CORR_RX} 
 else
   if [ ! -f ${CORR_CONFIG}/${KATCP_MODE} ] ; then
     kcs_warn "no configuration for ${KATCP_MODE}"
@@ -28,7 +46,7 @@ else
     rxip=$(grep ^rx_udp_ip ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
     rxport=$(grep ^rx_udp_port ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
   fi
-  list_source k7 ${rxip}:${rxport}
+  list_source k7 ${rxip}:${rxport} 
 fi
 
 if kcs_is_beamformer ${KATCP_MODE} ; then
@@ -53,15 +71,11 @@ if kcs_is_beamformer ${KATCP_MODE} ; then
       meta=${rxip}:${rxport}
     fi 
 
-    if [ -n "${data}" ] ; then
-      list_source bf${i} ${data}
+    if [ -z "${meta}" ] ; then
+      meta=${data}
     fi
 
-    if [ -n "${meta}" ] ; then
-      if [ "${meta}" != "${data}" ] ; then
-        list_source bf${i} ${meta}
-      fi
-    fi
+    list_source bf${i} ${data} ${meta}
 
     i=$[i+1]
   done
