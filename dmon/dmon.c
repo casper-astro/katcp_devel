@@ -30,20 +30,20 @@
 /************************************************************/
 
 
-int rw_flag = 0;
 
 struct udp_state
 {
 	unsigned int u_magic;
 	unsigned int u_fd;
+	unsigned int u_sequence;/* NOTE: 16 bits */
+  unsigned int u_rw;/*read:1, write:0*/
 };
 
 struct udp_message
 {
-	uint32_t u_id;
-	uint32_t u_address;
-	uint32_t u_length;
-	uint32_t u_data[UDP_MAX_PACKET];
+	uint16_t u_sequence;
+	uint32_t u_addr_errcode;/*shared fields*/
+	uint32_t u_data_length;/*shared fields*/
 }__attribute__ ((packed));
 
 /*****************************************************************************/
@@ -76,6 +76,8 @@ struct udp_state *create_udp(struct katcp_dispatch *d)
 
 	ud->u_magic = UDP_MAGIC;
 	ud->u_fd = (-1);
+  ud->u_sequence = 42;
+  ud->u_rw = 0;
 
 	return ud;
 }
@@ -130,13 +132,17 @@ int send_udp(struct katcp_dispatch *d, struct udp_state *ud, char *ip_addr, int 
 
 	uv = &buffer;
 
-	uv->u_id 	= htons(0);
-	uv->u_address = htons((address & 0x7FFFFFFF) | (rw_flag << 31));
+  ud->u_sequence = 0xffff & (ud->u_sequence + 1);
+	uv->u_sequence = htons(ud->u_sequence);
 
-	uv->u_length 	= htons(length);
+  
+  uv->u_addr_errcode  = ((address & 0x7FFFFFFF) | (ud->u_rw << 31));
+	uv->u_addr_errcode  = htonl(uv->u_addr_errcode);
 
-  //wr = send(ud->u_fd, uv, sizeof(uv), MSG_NOSIGNAL);
-  wr = sendto(ud->u_fd, uv, sizeof(uv), 0,(struct sockaddr *)&sa, sizeof(struct sockaddr_in));
+  uv->u_data_length   = (length & 0xFFFFFFFF);
+  uv->u_data_length	  = htonl(uv->u_data_length);
+
+  wr = sendto(ud->u_fd, uv, sizeof(buffer), 0,(struct sockaddr *)&sa, sizeof(struct sockaddr_in));
   if(wr < 0){
     switch(errno){
       case EAGAIN :
@@ -149,6 +155,7 @@ int send_udp(struct katcp_dispatch *d, struct udp_state *ud, char *ip_addr, int 
         break;
     }
   }
+    fprintf(stderr, "send udp ok:\n ");
 
 	return 0;
 }
@@ -156,15 +163,12 @@ int send_udp(struct katcp_dispatch *d, struct udp_state *ud, char *ip_addr, int 
 int rcv_udp(struct katcp_dispatch *d, struct udp_state *ud)
 {
 	struct udp_message buffer, *uv;
-	int rr, i, total;
-	uint32_t word;
-
-	total = 0;
+  int rr;
 
 	uv = &buffer;
+  fprintf(stderr, "receive udp start:\n ");
 
-	//rr = recv(ud->u_fd, uv, UDP_MAX_PACKET, 0);
-	rr = recvfrom(ud->u_fd, uv, UDP_MAX_PACKET, 0, NULL, NULL);
+	rr = recvfrom(ud->u_fd, uv, sizeof(buffer), 0, NULL, NULL);
 	if(rr < 0){
 		switch(errno){
 			case EAGAIN :
@@ -178,12 +182,33 @@ int rcv_udp(struct katcp_dispatch *d, struct udp_state *ud)
 		}
 	}
 
-	for(i = 0; i < rr; i += 4){
-		word = (uint32_t)(uv->u_data + i);
-		log_message_katcp(d, KATCP_LEVEL_TRACE, DMON_MODULE_NAME, "udp data 0x%x", ntohs(word));
-	}
-	total += rr;                                                                        
-	log_message_katcp(d, KATCP_LEVEL_INFO, DMON_MODULE_NAME,"Current received total: %d bytes\n", total);    
+  uv->u_sequence    = ntohs(uv->u_sequence);
+  uv->u_addr_errcode  = ntohl(uv->u_addr_errcode);
+  if(ud->u_rw){
+    uv->u_data_length = ntohl(uv->u_data_length);
+  }
+
+  log_message_katcp(d, KATCP_LEVEL_TRACE, DMON_MODULE_NAME, "udp reply with sequence number %d", uv->u_sequence);
+    fprintf(stderr, "udp reply with sequence number %d\n", uv->u_sequence);
+
+  uv->u_addr_errcode  = ((0xFF000000 & uv->u_addr_errcode) >> 24);
+
+  if(uv->u_addr_errcode != 0){
+    log_message_katcp(d, KATCP_LEVEL_WARN, DMON_MODULE_NAME, "udp receive: something is not right, error code: %d", uv->u_addr_errcode);
+    fprintf(stderr,"udp receive: something is not right, error code: %d", uv->u_addr_errcode);  
+    return -1;
+  }
+
+  if(uv->u_sequence != ud->u_sequence){
+    log_message_katcp(d, KATCP_LEVEL_WARN, DMON_MODULE_NAME, "udp received sequence number %d not %d", uv->u_sequence, ud->u_sequence);
+    fprintf(stderr,"udp received sequence number %d not %d", uv->u_sequence, ud->u_sequence);  
+    return -1;
+  }
+
+  if(ud->u_rw){
+    log_message_katcp(d, KATCP_LEVEL_TRACE, DMON_MODULE_NAME, "udp data 0x%x", uv->u_data_length);
+    fprintf(stderr,"udp data 0x%08x\n", uv->u_data_length);
+  }
 	return 0;
 }
 
@@ -201,6 +226,7 @@ int main(int argc, char **argv)
   int i, j, c, pos;
   int wait, nooftries;
   int port = 0;
+int rw_flag = 0;
 
   i = j = 1;
   pos = 0;
@@ -245,7 +271,9 @@ int main(int argc, char **argv)
             fprintf(stderr, "%s: option -%c requires a parameter\n", argv[0], c);
           }
           port = atoi(argv[i] + j);	
+#if DEBUG
           fprintf(stderr, "port number is %d\n", port);
+#endif
           i++;
           j = 1;
           break;
@@ -288,17 +316,19 @@ int main(int argc, char **argv)
     log_message_katcp(d, KATCP_LEVEL_ERROR, DMON_MODULE_NAME, "unable to create udp socket: %s", strerror(errno));
     return -1;
   }
+  ud->u_rw = rw_flag;
 
   for(;;){
 
     FD_ZERO(&fsr);
 
     FD_SET(ud->u_fd, &fsr);
+    address = strtol(argv[pos], NULL, 16); 
+    length  = strtol(argv[pos + 1], NULL, 16);
 
-    address = atoi(argv[pos]); 
-    length  = atoi(argv[pos + 1]);
-
-    printf("address[%s] and length[%d]\n", ip_addr, length);
+#if DEBUG
+    printf("pos:%d, address[%x] and length[%x]\n", pos, address, length);
+#endif
 
     send_udp(d, ud, ip_addr, port, address, length);
 
