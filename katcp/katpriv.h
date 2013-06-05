@@ -421,7 +421,8 @@ struct katcp_arb{
 struct katcp_group{
   /* a set of flats which belong together, probably spawned off the same listener, probably same set of commands, probably same "mode" */
   char *g_name;
-  struct katcp_cmd_map *g_map;
+  struct katcp_cmd_map *g_inner_map;
+  struct katcp_cmd_map *g_remote_map;
 
   struct katcp_flat **g_flats;
   unsigned int g_count;
@@ -452,7 +453,10 @@ struct katcp_flat{
   struct katcl_queue *f_backlog; /* backed up requests from the remote end, shouldn't happen */
 #endif
 
-  struct katcp_cmd_map *f_map;   /* local command instance to override others */
+  struct katcp_cmd_map *f_inner_map;   /* local command instance to override others */
+  struct katcp_cmd_map *f_remote_map;  /* local command instance to override others */
+  int f_current_map; 
+
   struct katcp_group *f_group;
 
   /* TODO: */

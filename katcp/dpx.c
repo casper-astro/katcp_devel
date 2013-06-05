@@ -19,6 +19,10 @@
 #include <katpriv.h>
 #include <katcl.h>
 
+#define MAP_UNSET               (-1)
+#define MAP_INNER                 0
+#define MAP_REMOTE                1
+
 #define KATCP_MAP_FLAG_NONE       0
 #define KATCP_MAP_FLAG_HIDDEN   0x1
 
@@ -149,9 +153,14 @@ void destroy_group_katcp(struct katcp_dispatch *d, struct katcp_group *g)
     g->g_name = NULL;
   }
 
-  if(g->g_map){
-    destroy_cmd_map(g->g_map);
-    g->g_map = NULL;
+  if(g->g_inner_map){
+    destroy_cmd_map(g->g_inner_map);
+    g->g_inner_map = NULL;
+  }
+
+  if(g->g_remote_map){
+    destroy_cmd_map(g->g_remote_map);
+    g->g_remote_map = NULL;
   }
 
   if(g->g_flats){
@@ -186,7 +195,9 @@ struct katcp_group *create_group_katcp(struct katcp_dispatch *d, char *name)
   }
 
   g->g_name = NULL;
-  g->g_map = NULL;
+
+  g->g_inner_map = NULL;
+  g->g_remote_map = NULL;
 
   g->g_flats = NULL;
   g->g_count = 0;
@@ -586,9 +597,15 @@ static void deallocate_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *f
     f->f_rx = NULL;
   }
 
-  if(f->f_map){
-    destroy_cmd_map(f->f_map);
-    f->f_map = NULL;
+  f->f_current_map = MAP_UNSET;
+
+  if(f->f_inner_map){
+    destroy_cmd_map(f->f_inner_map);
+    f->f_inner_map = NULL;
+  }
+  if(f->f_remote_map){
+    destroy_cmd_map(f->f_remote_map);
+    f->f_remote_map = NULL;
   }
 
   f->f_group = NULL;
@@ -708,7 +725,11 @@ struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, int up, c
 #endif
   f->f_rx = NULL;
 
-  f->f_map = NULL;
+  f->f_inner_map = NULL;
+  f->f_remote_map = NULL;
+
+  f->f_current_map = MAP_UNSET;
+
   f->f_group = NULL;
 
   if(name){
@@ -785,13 +806,29 @@ struct katcp_endpoint *endpoint_of_flat_katcp(struct katcp_dispatch *d, struct k
 struct katcp_cmd_map *map_of_flat_katcp(struct katcp_flat *fx)
 {
   struct katcp_group *gx;
+  struct katcp_cmd_map *mx;
 
   if(fx == NULL){
     return NULL;
   }
 
-  if(fx->f_map){
-    return fx->f_map;
+  switch(fx->f_current_map){
+    case MAP_INNER : 
+      mx = fx->f_inner_map;
+      break;
+    case MAP_REMOTE : 
+      mx = fx->f_remote_map;
+      break;
+    default : 
+#ifdef KATCP_CONSISTENCY_CHECKS
+      fprintf(stderr, "logic failure: searching for command without having a mode set\n");
+      abort();
+#endif
+      return NULL;
+  }
+
+  if(mx){
+    return mx;
   }
 
   gx = fx->f_group;
@@ -799,7 +836,22 @@ struct katcp_cmd_map *map_of_flat_katcp(struct katcp_flat *fx)
     return NULL;
   }
 
-  return gx->g_map;
+  switch(fx->f_current_map){
+    case MAP_INNER : 
+      mx = gx->g_inner_map;
+      break;
+    case MAP_REMOTE : 
+      mx = gx->g_remote_map;
+      break;
+    default : 
+#ifdef KATCP_CONSISTENCY_CHECKS
+      fprintf(stderr, "impossible logic failure: map mode changed underneath us");
+      abort();
+#endif
+      return NULL;
+  }
+
+  return mx;
 }
 
 struct katcp_flat *this_flat_katcp(struct katcp_dispatch *d)
@@ -934,7 +986,7 @@ int run_flat_katcp(struct katcp_dispatch *d)
   struct katcp_group *gx;
   struct katcp_cmd_map *mx;
   struct katcp_cmd_item *ix;
-  unsigned int i, j, mask, len;
+  unsigned int i, j, mask, len, nothing;
   int fd, result, r, argc, code, forget;
   char *str;
 
@@ -1004,11 +1056,6 @@ int run_flat_katcp(struct katcp_dispatch *d)
 
         if(fx->f_rx){
           forget = 1;
-          mx = map_of_flat_katcp(fx);
-          if(mx == NULL){
-            log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no map to be found for client %s", fx->f_name);
-            /* FAIL somehow */
-          }
 
           str = get_string_parse_katcl(fx->f_rx, 0);
           if(str){
@@ -1032,51 +1079,68 @@ int run_flat_katcp(struct katcp_dispatch *d)
             }
 
             if(mask & (KATCP_MAP_FLAG_REQUEST | KATCP_MAP_FLAG_INFORM)){
-              log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "attempting to match %s to tree", str + 1);
+              nothing = (mask & KATCP_MAP_FLAG_REQUEST) ? 1 : 0;
+              fx->f_current_map = MAP_REMOTE;
 
-              ix = find_data_avltree(mx->m_tree, str + 1);
-              if(ix){
-                if(mask & ix->i_flags){
-                  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "found matching command of correct type");
+              mx = map_of_flat_katcp(fx);
+              if(mx){
 
-                  if(ix->i_call){
-                    argc = get_count_parse_katcl(fx->f_rx);
-                    result = (*(ix->i_call))(d, argc);
+                log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "attempting to match %s to tree", str + 1);
 
-                    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "callback invocation returns %d", result);
+                ix = find_data_avltree(mx->m_tree, str + 1);
+                if(ix){
+                  if(mask & ix->i_flags){
+                    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "found matching command of correct type");
 
-                    switch(result){
-                      /* TODO: pause, yield, etc, etc */
-                      case KATCP_RESULT_FAIL : 
-                      case KATCP_RESULT_INVALID : 
-                      case KATCP_RESULT_OK : 
-                        /* TODO: make sure we keep track of tags */
-                        extra_response_katcl(fx->f_line, result, NULL);
-                        break;
-                      /* WARNING: unclear if we should support KATCP_RESULT_YIELD ? */
-                      case KATCP_RESULT_PAUSE : 
-                        fx->f_state = FLAT_STATE_PAUSE;
-                        forget = 0;
-                        break;
+                    if(ix->i_call){
+                      argc = get_count_parse_katcl(fx->f_rx);
+
+                      result = (*(ix->i_call))(d, argc);
+
+                      log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "callback invocation returns %d", result);
+
+                      switch(result){
+                        /* TODO: pause, yield, etc, etc */
+                        case KATCP_RESULT_FAIL : 
+                        case KATCP_RESULT_INVALID : 
+                        case KATCP_RESULT_OK : 
+                          /* TODO: make sure we keep track of tags */
+                          extra_response_katcl(fx->f_line, result, NULL);
+                          nothing = 0;
+                          break;
+                        /* WARNING: unclear if we should support KATCP_RESULT_YIELD ? */
+                        case KATCP_RESULT_PAUSE : 
+                          fx->f_state = FLAT_STATE_PAUSE;
+                          forget = 0;
+                          break;
+                      }
+
+                    } else {
+                      extra_response_katcl(fx->f_line, KATCP_RESULT_FAIL, "no callback available for trigger of %s", str);
                     }
 
+
                   } else {
-                    extra_response_katcl(fx->f_line, KATCP_RESULT_FAIL, "unknown message");
+                    log_message_katcp(d, (mask & KATCP_MAP_FLAG_REQUEST) ? KATCP_LEVEL_INFO : KATCP_LEVEL_DEBUG, NULL, "no type match for %s found", str + 1);
                   }
-
-
                 } else {
-                  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "found match for %s, but wrong type");
+                  log_message_katcp(d, (mask & KATCP_MAP_FLAG_REQUEST) ? KATCP_LEVEL_INFO : KATCP_LEVEL_DEBUG, NULL, "no match for %s found", str + 1);
                 }
               } else {
-                log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "no match for %s found", str + 1);
+                log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "task %s not configured to process requests from input stream", fx->f_name);
+              }
+
+              fx->f_current_map = MAP_UNSET;
+              if(nothing){
+                extra_response_katcl(fx->f_line, KATCP_RESULT_FAIL, NULL);
               }
             }
 
-            if(mask & KATCP_MAP_FLAG_REQUEST){
+            if(mask & KATCP_MAP_FLAG_REPLY){
               /* TODO: check if we have a request pending, collect result */
             }
-          } /* else silently ignore */
+
+          } /* else silently ignore where no or null initial parameter */
 
           if(forget){ /* make space for next message arrival */
             clear_katcl(fx->f_line);
@@ -1352,14 +1416,15 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
     return -1;
   }
 
-  if(gx->g_map == NULL){
+  /* WARNING: what about an inner map ? */
+  if(gx->g_remote_map == NULL){
     m = create_cmd_map(name);
     if(m == NULL){
       destroy_group_katcp(d, gx);
       return -1;
     }
 
-    gx->g_map = m;
+    gx->g_remote_map = m;
     hold_cmd_map(m);
 
     add_full_cmd_map(m, "help", "display help messages (?help [command])", KATCP_MAP_FLAG_REQUEST, &help_group_cmd, NULL, NULL);
