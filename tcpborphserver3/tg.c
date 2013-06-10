@@ -33,7 +33,7 @@
 #define SPAM_BLOCKS       16 /* drift apart in spam block quantities */
 #define ARP_MULT           2 /* multiplier to space out arp messages */
 
-#define RECEIVE_BURST      4 /* read at most N frames per polling interval */
+#define RECEIVE_BURST      8 /* read at most N frames per polling interval */
 
 #define GO_DEFAULT_PORT 7148
 
@@ -818,8 +818,11 @@ int run_timer_tap(struct katcp_dispatch *d, void *data)
   fprintf(stderr, "run timer loop: burst now %d\n", burst);
 #endif
 
-  if(burst < 1){ /* only spam the network if we don't have anything better to do */
+  if(burst < (gs->s_deferrals + 1)){ /* try to spam the network if it is reasonably quiet, but adjust our definition of quiet */
     spam_arp(gs);
+    gs->s_deferrals = 0;
+  } else {
+    gs->s_deferrals++;
   }
 
   return 0;
@@ -1125,6 +1128,7 @@ struct getap_state *create_getap(struct katcp_dispatch *d, unsigned int instance
   gs->s_instance = instance;
   gs->s_iteration = 0;
   gs->s_burst = RECEIVE_BURST;
+  gs->s_deferrals = 0;
 
   gs->s_register = NULL;
 
@@ -1351,12 +1355,15 @@ void tap_print_info(struct katcp_dispatch *d, struct getap_state *gs)
     }
   }
 
-  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "current iteration %u", gs->s_iteration);
-  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "buffers arp=%u/rx=%u/tx=%u", gs->s_arp_len, gs->s_rx_len, gs->s_tx_len);
-  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "polling interval %u", gs->s_timer);
+  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "polling interval %ums", gs->s_timer);
+  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "max reads per interval %u", gs->s_burst);
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "address %s", gs->s_address_name);
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "gateware port is %u", gs->s_port);
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "tap device name %s on fd %d", gs->s_tap_name, gs->s_tap_fd);
+
+  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "current iteration %u", gs->s_iteration);
+  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "current arp spam deferrals %u", gs->s_deferrals);
+  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "current buffers arp=%u/rx=%u/tx=%u", gs->s_arp_len, gs->s_rx_len, gs->s_tx_len);
 }
 
 int tap_info_cmd(struct katcp_dispatch *d, int argc)
