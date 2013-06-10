@@ -920,12 +920,17 @@ int configure_fpga(struct getap_state *gs)
 
     /* WARNING: the below use of the + operator doesn't look right. Jason ?  */
 
+#if 1
     value = (0xff << 16) + (0xff << 16) + (gs->s_port);
     *((uint32_t *)(base + GO_EN_RST_PORT)) = value;
 
     /* Next, remove core from reset state: */
     value = (0x00 << 16) + (0xff << 16) + (gs->s_port);
     *((uint32_t *)(base + GO_EN_RST_PORT)) = value;
+#else
+    value = 0x01010000 | (0xffff & (gs->s_port));
+    *((uint32_t *)(base + GO_EN_RST_PORT)) = value;
+#endif
   }
 
   for(i = 0; i < GETAP_ARP_CACHE; i++){
