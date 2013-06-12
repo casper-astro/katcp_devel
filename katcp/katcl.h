@@ -5,6 +5,10 @@
 
 #include <stdarg.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct katcl_larg;
 struct katcl_line;
 struct katcl_parse;
@@ -126,5 +130,9 @@ void *get_index_gueue_katcl(struct katcl_gueue *g, unsigned int index);
 void *get_head_gueue_katcl(struct katcl_gueue *g);
 void *remove_head_gueue_katcl(struct katcl_gueue *g);
 void *remove_index_gueue_katcl(struct katcl_gueue *g, unsigned int index);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

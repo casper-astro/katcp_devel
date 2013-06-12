@@ -7,6 +7,10 @@
 #include <sys/time.h>
 #include <sys/types.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define KATCP_NAME_LENGTH     64
 
 #define KATCL_IO_SIZE       4096  /* block we want to write out */
@@ -908,5 +912,9 @@ void release_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep)
 #define KATCP_PRINT_VERSION_CONNECT  0
 #define KATCP_PRINT_VERSION_LIST     1
 #define KATCP_PRINT_VERSION          2 /* deprecated as of V5 */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

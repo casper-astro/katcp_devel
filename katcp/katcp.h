@@ -1,6 +1,13 @@
 #ifndef _KATCP_H_
 #define _KATCP_H_
 
+#include <sys/types.h>
+#include <stdarg.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct katcl_line;
 struct katcl_msg;
 struct katcl_parse;
@@ -20,9 +27,6 @@ struct katcp_url;
 struct katcp_flat;
 struct katcp_endpoint;
 struct katcp_message;
-
-#include <sys/types.h>
-#include <stdarg.h>
 
 #define KATCP_CODEBASE_NAME     "libkatcp" 
 
@@ -126,7 +130,6 @@ struct katcp_dispatch *startup_katcp(void);
 /* create a dispatch handler on file descriptor */
 struct katcp_dispatch *setup_katcp(int fd); 
 
-#include <stdarg.h>
 int name_katcp(struct katcp_dispatch *d, char *fmt, ...);
 
 /* make a copy of of an instance */
@@ -656,5 +659,8 @@ struct katcp_flat *this_flat_katcp(struct katcp_dispatch *d);
 
 int send_message_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *from, struct katcp_endpoint *to, struct katcl_parse *px, int acknowledged);
 
+#ifdef __cplusplus
+}
 #endif
 
+#endif
