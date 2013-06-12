@@ -68,7 +68,7 @@ struct katcl_line *create_katcl(int fd)
 {
   struct katcl_line *l;
 
-  l = malloc(sizeof(struct katcl_line));
+  l = (struct katcl_line *)malloc(sizeof(struct katcl_line));
   if(l == NULL){
     return NULL;
   }
@@ -88,7 +88,7 @@ struct katcl_line *create_katcl(int fd)
   l->l_error = 0;
   l->l_sendable = 1;
 
-  l->l_next = create_referenced_parse_katcl(l); /* we require that next is always valid */
+  l->l_next = create_referenced_parse_katcl(); /* we require that next is always valid */
   if(l->l_next == NULL){
     destroy_katcl(l, 0);
     return NULL;
@@ -228,7 +228,7 @@ int read_katcl(struct katcl_line *l)
   p = l->l_next;
 
   if(p->p_size <= p->p_have){
-    ptr = realloc(p->p_buffer, p->p_size + KATCL_BUFFER_INC);
+    ptr = (char  *)realloc(p->p_buffer, p->p_size + KATCL_BUFFER_INC);
     if(ptr == NULL){
 #ifdef DEBUG 
       fprintf(stderr, "read: realloc to %d failed\n", p->p_size + KATCL_BUFFER_INC);
