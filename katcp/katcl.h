@@ -33,6 +33,7 @@ int arg_reply_katcl(struct katcl_line *l);
 int arg_inform_katcl(struct katcl_line *l);
 
 unsigned int arg_count_katcl(struct katcl_line *l);
+int arg_tag_katcl(struct katcl_line *l);
 int arg_null_katcl(struct katcl_line *l, unsigned int index);
 
 char *arg_string_katcl(struct katcl_line *l, unsigned int index);
