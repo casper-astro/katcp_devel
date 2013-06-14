@@ -322,6 +322,7 @@ int arg_tag_katcl(struct katcl_line *l)
   return get_tag_parse_katcl(l->l_ready);
 }
 
+#if 0
 static int arg_type_katcl(struct katcl_line *l, char type)
 {
   if(l->l_ready == NULL){
@@ -330,20 +331,33 @@ static int arg_type_katcl(struct katcl_line *l, char type)
 
   return is_type_parse_katcl(l->l_ready, type);
 }
+#endif
 
 int arg_request_katcl(struct katcl_line *l)
 {
-  return arg_type_katcl(l, KATCP_REQUEST);
+  if(l->l_ready == NULL){
+    return -1;
+  }
+
+  return is_request_parse_katcl(l->l_ready);
 }
 
 int arg_reply_katcl(struct katcl_line *l)
 {
-  return arg_type_katcl(l, KATCP_REPLY);
+  if(l->l_ready == NULL){
+    return -1;
+  }
+
+  return is_reply_parse_katcl(l->l_ready);
 }
 
 int arg_inform_katcl(struct katcl_line *l)
 {
-  return arg_type_katcl(l, KATCP_INFORM);
+  if(l->l_ready == NULL){
+    return -1;
+  }
+
+  return is_inform_parse_katcl(l->l_ready);
 }
 
 int arg_null_katcl(struct katcl_line *l, unsigned int index)
