@@ -987,7 +987,7 @@ int run_flat_katcp(struct katcp_dispatch *d)
   struct katcp_cmd_map *mx;
   struct katcp_cmd_item *ix;
   unsigned int i, j, mask, len, nothing;
-  int fd, result, r, argc, code, forget;
+  int fd, result, argc, code, forget;
   char *str;
 
   s = d->d_shared;
@@ -1373,6 +1373,7 @@ int help_group_cmd(struct katcp_dispatch *d, int argc)
       print_inorder_avltree(d, mx->m_tree->t_root, &print_help_cmd_item, 0);
     }
   } else {
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "should provide help for %s", name);
     switch(name[0]){
       case KATCP_REQUEST : 
       case KATCP_REPLY   :
@@ -1428,6 +1429,9 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
     hold_cmd_map(m);
 
     add_full_cmd_map(m, "help", "display help messages (?help [command])", KATCP_MAP_FLAG_REQUEST, &help_group_cmd, NULL, NULL);
+#if 0
+    add_full_cmd_map(m, "ping", "ping a peer within the same process (?ping peer)", KATCP_MAP_FLAG_REQUEST, &transmit_group_cmd, NULL, NULL);
+#endif
   }
 
   if(s->s_fallback == NULL){

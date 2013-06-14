@@ -1704,65 +1704,184 @@ int basic_inform_katcp(struct katcp_dispatch *d, char *name, char *arg)
   return 0;
 }
 
+/* argument retrieval *******************************************************/
+
+unsigned int arg_count_katcp(struct katcp_dispatch *d)
+{
+  struct katcp_flat *fx;
+
+  sane_katcp(d);
+
+  fx = this_flat_katcp(d);
+  if(fx){
+    if(fx->f_rx == NULL){
+      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "argument retrieval invoked incorrectly, no message to process");
+      return 0;
+    }
+    return get_count_parse_katcl(fx->f_rx);
+  }
+
+  return arg_count_katcl(d->d_line);
+}
+
+int arg_tag_katcp(struct katcp_dispatch *d)
+{
+  struct katcp_flat *fx;
+
+  sane_katcp(d);
+
+  fx = this_flat_katcp(d);
+  if(fx){
+    if(fx->f_rx == NULL){
+      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "argument retrieval invoked incorrectly, no message to process");
+      return -1;
+    }
+    return get_tag_parse_katcl(fx->f_rx);
+  }
+
+  return arg_tag_katcl(d->d_line);
+}
+
 int arg_request_katcp(struct katcp_dispatch *d)
 {
+  struct katcp_flat *fx;
+
   sane_katcp(d);
+
+  fx = this_flat_katcp(d);
+  if(fx){
+    if(fx->f_rx == NULL){
+      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "argument retrieval invoked incorrectly, no message to process");
+      return -1;
+    }
+    return is_request_parse_katcl(fx->f_rx);
+  }
 
   return arg_request_katcl(d->d_line);
 }
 
 int arg_reply_katcp(struct katcp_dispatch *d)
 {
+  struct katcp_flat *fx;
+
   sane_katcp(d);
+
+  fx = this_flat_katcp(d);
+  if(fx){
+    if(fx->f_rx == NULL){
+      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "argument retrieval invoked incorrectly, no message to process");
+      return -1;
+    }
+    return is_reply_parse_katcl(fx->f_rx);
+  }
 
   return arg_reply_katcl(d->d_line);
 }
 
 int arg_inform_katcp(struct katcp_dispatch *d)
 {
+  struct katcp_flat *fx;
+
   sane_katcp(d);
+
+  fx = this_flat_katcp(d);
+  if(fx){
+    if(fx->f_rx == NULL){
+      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "argument retrieval invoked incorrectly, no message to process");
+      return -1;
+    }
+    return is_inform_parse_katcl(fx->f_rx);
+  }
 
   return arg_inform_katcl(d->d_line);
 }
 
 int arg_null_katcp(struct katcp_dispatch *d, unsigned int index)
 {
+  struct katcp_flat *fx;
+
   sane_katcp(d);
+
+  fx = this_flat_katcp(d);
+  if(fx){
+    if(fx->f_rx == NULL){
+      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "argument retrieval invoked incorrectly, no message to process");
+      return -1;
+    }
+    return is_null_parse_katcl(fx->f_rx, index);
+  }
 
   return arg_null_katcl(d->d_line, index);
 }
 
-unsigned int arg_count_katcp(struct katcp_dispatch *d)
-{
-  sane_katcp(d);
-
-  return arg_count_katcl(d->d_line);
-}
-
 char *arg_string_katcp(struct katcp_dispatch *d, unsigned int index)
 {
+  struct katcp_flat *fx;
+
   sane_katcp(d);
+
+  fx = this_flat_katcp(d);
+  if(fx){
+    if(fx->f_rx == NULL){
+      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "argument retrieval invoked incorrectly, no message to process");
+      return NULL;
+    }
+    return get_string_parse_katcl(fx->f_rx, index);
+  }
 
   return arg_string_katcl(d->d_line, index);
 }
 
 char *arg_copy_string_katcp(struct katcp_dispatch *d, unsigned int index)
 {
+  struct katcp_flat *fx;
+
   sane_katcp(d);
+
+  fx = this_flat_katcp(d);
+  if(fx){
+    if(fx->f_rx == NULL){
+      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "argument retrieval invoked incorrectly, no message to process");
+      return NULL;
+    }
+    return copy_string_parse_katcl(fx->f_rx, index);
+  }
 
   return arg_copy_string_katcl(d->d_line, index);
 }
 
 unsigned long arg_unsigned_long_katcp(struct katcp_dispatch *d, unsigned int index)
 {
+  struct katcp_flat *fx;
+
   sane_katcp(d);
+
+  fx = this_flat_katcp(d);
+  if(fx){
+    if(fx->f_rx == NULL){
+      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "argument retrieval invoked incorrectly, no message to process");
+      return 0;
+    }
+    return get_unsigned_long_parse_katcl(fx->f_rx, index);
+  }
 
   return arg_unsigned_long_katcl(d->d_line, index);
 }
 
 int arg_bb_katcp(struct katcp_dispatch *d, unsigned int index, struct katcl_byte_bit *b)
 {
+  struct katcp_flat *fx;
+
   sane_katcp(d);
+
+  fx = this_flat_katcp(d);
+  if(fx){
+    if(fx->f_rx == NULL){
+      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "argument retrieval invoked incorrectly, no message to process");
+      return -1;
+    }
+    return get_bb_parse_katcl(fx->f_rx, index, b);
+  }
 
   return arg_bb_katcl(d->d_line, index, b);
 }
@@ -1770,7 +1889,18 @@ int arg_bb_katcp(struct katcp_dispatch *d, unsigned int index, struct katcl_byte
 #ifdef KATCP_USE_FLOATS
 double arg_double_katcp(struct katcp_dispatch *d, unsigned int index)
 {
+  struct katcp_flat *fx;
+
   sane_katcp(d);
+
+  fx = this_flat_katcp(d);
+  if(fx){
+    if(fx->f_rx == NULL){
+      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "argument retrieval invoked incorrectly, no message to process");
+      return 0.0; /* NaN instead ? */
+    }
+    return get_double_parse_katcl(fx->f_rx, index);
+  }
 
   return arg_double_katcl(d->d_line, index);
 }
@@ -1778,7 +1908,18 @@ double arg_double_katcp(struct katcp_dispatch *d, unsigned int index)
 
 unsigned int arg_buffer_katcp(struct katcp_dispatch *d, unsigned int index, void *buffer, unsigned int size)
 {
+  struct katcp_flat *fx;
+
   sane_katcp(d);
+
+  fx = this_flat_katcp(d);
+  if(fx){
+    if(fx->f_rx == NULL){
+      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "argument retrieval invoked incorrectly, no message to process");
+      return -1; /* or zero ? */
+    }
+    return get_buffer_parse_katcl(fx->f_rx, index, buffer, size);
+  }
 
   /* returns the number of bytes it wanted to copy, more than size indicates a failure */
   return arg_buffer_katcl(d->d_line, index, buffer, size);
