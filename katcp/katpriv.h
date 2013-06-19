@@ -422,11 +422,19 @@ struct katcp_arb{
 /* duplex structures: was supposed to be called duplex, but flat is punnier */
 /********************************************************************/
 
+#define KATCP_MAP_UNSET        (-1)
+
+#define KATCP_MAP_INNER_REQUEST  0
+#define KATCP_MAP_INNER_INFORM   1
+#define KATCP_MAP_REMOTE_REQUEST 2
+#define KATCP_MAP_REMOTE_INFORM  3
+
+#define KATCP_MAP_COUNT  4
+
 struct katcp_group{
   /* a set of flats which belong together, probably spawned off the same listener, probably same set of commands, probably same "mode" */
   char *g_name;
-  struct katcp_cmd_map *g_inner_map;
-  struct katcp_cmd_map *g_remote_map;
+  struct katcp_cmd_map *g_maps[KATCP_MAP_COUNT];
 
   struct katcp_flat **g_flats;
   unsigned int g_count;
@@ -457,8 +465,7 @@ struct katcp_flat{
   struct katcl_queue *f_backlog; /* backed up requests from the remote end, shouldn't happen */
 #endif
 
-  struct katcp_cmd_map *f_inner_map;   /* local command instance to override others */
-  struct katcp_cmd_map *f_remote_map;  /* local command instance to override others */
+  struct katcp_cmd_map *f_maps[KATCP_MAP_COUNT];
   int f_current_map; 
 
   struct katcp_group *f_group;

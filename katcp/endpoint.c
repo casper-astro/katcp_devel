@@ -167,6 +167,19 @@ int send_message_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint 
   return 0;
 }
 
+struct katcl_parse *parse_of_endpoint_katcp(struct katcp_dispatch *d, struct katcp_message *msg)
+{
+  if(msg == NULL){
+#ifdef KATCP_CONSISTENCY_CHECKS  
+    fprintf(stderr, "endpoint: logic problem: given null message\n");
+    abort();
+#endif
+    return NULL;
+  }
+
+  return msg->m_parse;
+}
+
 /* endpoints ************************************************************/
 
 /* setup/destroy routines for endpoints *********************************/
