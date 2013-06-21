@@ -604,6 +604,9 @@ static void deallocate_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *f
     f->f_rx = NULL;
   }
 
+  f->f_inner_reply = NULL;
+  f->f_remote_reply = NULL;
+
   f->f_current_map = KATCP_MAP_UNSET;
 
   for(i = 0; i < KATCP_MAP_COUNT; i++){
@@ -686,7 +689,8 @@ int wake_endpoint_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep
       str = get_string_parse_katcl(fx->f_rx, 0);
       if(str){
 
-        log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "received an internal message %s ...", str);
+        argc = get_count_parse_katcl(fx->f_rx);
+        log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "received an internal message %s ... (%d)", str, argc);
 
         reply = 0;
         switch(str[0]){
@@ -721,7 +725,6 @@ int wake_endpoint_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep
 
             ix = find_data_avltree(mx->m_tree, str + 1);
             if(ix && ix->i_call){
-              argc = get_count_parse_katcl(fx->f_rx);
 
               r = (*(ix->i_call))(d, argc);
               log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "callback invocation returns %d", r);
@@ -747,10 +750,15 @@ int wake_endpoint_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep
           }
 
           fx->f_current_map = KATCP_MAP_UNSET;
-        }
-
-        if(reply){
+        } else if(reply){
           log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "got a reply, checking how to process it");
+          if(fx->f_inner_reply){
+            r = (*(fx->f_inner_reply))(d, argc);
+            /* WARNING: return code unused */
+          } else {
+            log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "no callback registered by %s to handle inner reply %s", fx->f_name, str);
+          }
+
           /* TODO */
         }
 
@@ -837,6 +845,8 @@ struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, int up, c
   f->f_backlog = NULL;
 #endif
   f->f_rx = NULL;
+  f->f_inner_reply = NULL;
+  f->f_remote_reply = NULL;
 
   for(i = 0; i < KATCP_MAP_COUNT; i++){
     f->f_maps[i] = NULL;
@@ -1155,8 +1165,6 @@ int run_flat_katcp(struct katcp_dispatch *d)
 
   s = d->d_shared;
 
-  result = 0;
-
 #ifdef DEBUG
   fprintf(stderr, "flat: running %u units\n", s->s_floors);
 #endif
@@ -1220,8 +1228,9 @@ int run_flat_katcp(struct katcp_dispatch *d)
 
           str = get_string_parse_katcl(fx->f_rx, 0);
           if(str){
+            argc = get_count_parse_katcl(fx->f_rx);
 
-            log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "received a message %s ...", str);
+            log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "received a message %s ... (%d)", str, argc);
  
             reply = 0;
             switch(str[0]){
@@ -1251,7 +1260,6 @@ int run_flat_katcp(struct katcp_dispatch *d)
 
                 ix = find_data_avltree(mx->m_tree, str + 1);
                 if(ix && ix->i_call){
-                  argc = get_count_parse_katcl(fx->f_rx);
 
                   result = (*(ix->i_call))(d, argc);
 
@@ -1286,10 +1294,15 @@ int run_flat_katcp(struct katcp_dispatch *d)
                 extra_response_katcl(fx->f_line, KATCP_RESULT_FAIL, NULL);
               }
               fx->f_current_map = KATCP_MAP_UNSET;
-            }
+            } else if(reply){
+              log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "got a reply, checking how to process it");
+              if(fx->f_remote_reply){
+                result = (*(fx->f_remote_reply))(d, argc);
+                /* WARNING: return code unused */
+              } else {
+                log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "no callback registered by %s to handle remote reply %s", fx->f_name, str);
+              }
 
-            if(reply){
-              /* TODO: check if we have a request pending, collect result */
             }
 
           } /* else silently ignore where no or null initial parameter */
@@ -1313,7 +1326,7 @@ int run_flat_katcp(struct katcp_dispatch *d)
   }
 
 
-  return result;
+  return s->s_members;
 }
 
 /****************************************************************/

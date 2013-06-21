@@ -461,6 +461,9 @@ struct katcp_flat{
 
   struct katcl_parse *f_rx;      /* received message */
 
+  int (*f_inner_reply)(struct katcp_dispatch *d, int argc);
+  int (*f_remote_reply)(struct katcp_dispatch *d, int argc);
+
 #if 0
   struct katcl_queue *f_backlog; /* backed up requests from the remote end, shouldn't happen */
 #endif
