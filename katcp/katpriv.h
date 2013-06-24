@@ -429,18 +429,32 @@ struct katcp_arb{
 #define KATCP_MAP_REMOTE_REQUEST 2
 #define KATCP_MAP_REMOTE_INFORM  3
 
-#define KATCP_MAP_COUNT  4
+#define KATCP_SIZE_MAP  4
 
 struct katcp_group{
   /* a set of flats which belong together, probably spawned off the same listener, probably same set of commands, probably same "mode" */
   char *g_name;
-  struct katcp_cmd_map *g_maps[KATCP_MAP_COUNT];
+  struct katcp_cmd_map *g_maps[KATCP_SIZE_MAP];
 
   struct katcp_flat **g_flats;
   unsigned int g_count;
 
   int g_use;             /* are we ref'ed by the listener */
 };
+
+#define KATCP_REPLY_HANDLE_REPLIES   0x1
+#define KATCP_REPLY_HANDLE_INFORMS   0x2
+
+struct katcp_reply_handler{
+  unsigned int r_flags;
+  char *r_message;
+  int (*r_handler)(struct katcp_dispatch *d, int argc);
+};
+
+#define KATCP_REPLY_INNER        0
+#define KATCP_REPLY_REMOTE       1
+
+#define KATCP_SIZE_REPLY         2
 
 struct katcp_flat{
   /* a client instance, intended to replace what was job and dispatch previously */
@@ -461,14 +475,13 @@ struct katcp_flat{
 
   struct katcl_parse *f_rx;      /* received message */
 
-  int (*f_inner_reply)(struct katcp_dispatch *d, int argc);
-  int (*f_remote_reply)(struct katcp_dispatch *d, int argc);
+  struct katcp_reply_handler f_replies[KATCP_SIZE_REPLY];
 
 #if 0
   struct katcl_queue *f_backlog; /* backed up requests from the remote end, shouldn't happen */
 #endif
 
-  struct katcp_cmd_map *f_maps[KATCP_MAP_COUNT];
+  struct katcp_cmd_map *f_maps[KATCP_SIZE_MAP];
   int f_current_map; 
 
   struct katcp_group *f_group;
