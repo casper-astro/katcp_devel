@@ -425,11 +425,14 @@ struct katcp_arb{
 #define KATCP_MAP_UNSET        (-1)
 
 #define KATCP_MAP_INNER_REQUEST  0
-#define KATCP_MAP_INNER_INFORM   1
-#define KATCP_MAP_REMOTE_REQUEST 2
+#define KATCP_MAP_REMOTE_REQUEST 1
+#define KATCP_MAP_INNER_INFORM   2
 #define KATCP_MAP_REMOTE_INFORM  3
 
 #define KATCP_SIZE_MAP  4
+
+#define KATCP_MAP_INNER_REPLY    4 
+#define KATCP_MAP_REMOTE_REPLY   5 
 
 struct katcp_group{
   /* a set of flats which belong together, probably spawned off the same listener, probably same set of commands, probably same "mode" */
