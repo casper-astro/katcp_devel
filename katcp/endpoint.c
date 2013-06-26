@@ -169,6 +169,7 @@ int send_message_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint 
 
 struct katcl_parse *parse_of_endpoint_katcp(struct katcp_dispatch *d, struct katcp_message *msg)
 {
+  /* TODO: awkwardly named function name */
   if(msg == NULL){
 #ifdef KATCP_CONSISTENCY_CHECKS  
     fprintf(stderr, "endpoint: logic problem: given null message\n");
@@ -178,6 +179,15 @@ struct katcl_parse *parse_of_endpoint_katcp(struct katcp_dispatch *d, struct kat
   }
 
   return msg->m_parse;
+}
+
+struct katcp_message *head_message_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep)
+{
+  struct katcp_message *msg;
+
+  msg = get_head_gueue_katcl(ep->e_queue);
+
+  return msg;
 }
 
 /* endpoints ************************************************************/

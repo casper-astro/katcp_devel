@@ -459,6 +459,19 @@ struct katcp_reply_handler{
 
 #define KATCP_SIZE_REPLY         2
 
+
+#define KATCP_DPX_SEND_INVALID   0x00
+
+#define KATCP_DPX_SEND_DESTINATION 0xf0
+#define KATCP_DPX_SEND_OWN         0x01  /* the user wants does his own thing */
+#define KATCP_DPX_SEND_STREAM      0x02  /* goes to f_line */
+#define KATCP_DPX_SEND_PEER        0x03  /* goes to top of endpoint */
+
+#define KATCP_DPX_SEND_PERSISTENCE 0xf0
+#define KATCP_DPX_SEND_AUTO        0x00  /* set by the internals */
+#define KATCP_DPX_SEND_SESSION     0x10  /* user set until callback finishes */
+#define KATCP_DPX_SEND_LOCKED      0x20  /* user set indefinitely */
+
 struct katcp_flat{
   /* a client instance, intended to replace what was job and dispatch previously */
   unsigned int f_magic;
@@ -477,6 +490,9 @@ struct katcp_flat{
   struct katcp_shared *f_shared;
 
   struct katcl_parse *f_rx;      /* received message */
+
+  struct katcl_parse *f_tx;      /* message about to send */
+  unsigned int f_send;           /* message sending flags */
 
   struct katcp_reply_handler f_replies[KATCP_SIZE_REPLY];
 

@@ -605,6 +605,12 @@ static void deallocate_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *f
     f->f_rx = NULL;
   }
 
+  if(f->f_tx){
+    destroy_parse_katcl(f->f_tx);
+    f->f_tx = NULL;
+  }
+  f->f_send = KATCP_DPX_SEND_INVALID;
+
   for(i = 0; i < KATCP_SIZE_REPLY; i++){
     if(f->f_replies[i].r_message){
       free(f->f_replies[i].r_message);
@@ -872,6 +878,9 @@ struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, int up, c
 #endif
   f->f_rx = NULL;
 
+  f->f_tx = NULL;
+  f->f_send = KATCP_DPX_SEND_INVALID;
+
   for(i = 0; i < KATCP_SIZE_REPLY; i++){
     f->f_replies[i].r_flags = 0;
     f->f_replies[i].r_message = NULL;
@@ -1054,6 +1063,96 @@ struct katcp_flat *this_flat_katcp(struct katcp_dispatch *d)
 }
 
 /**************************************************************************/
+/**************************************************************************/
+
+static struct katcl_parse *prepare_append_flat_katcp(struct katcp_flat *fx, int flags)
+{
+  sane_flat_katcp(fx);
+
+  if(fx->f_tx == NULL){
+    if(flags & KATCP_FLAG_FIRST){
+      fx->f_tx = create_referenced_parse_katcl();
+    } else {
+#ifdef KATCP_CONSISTENCY_CHECKS
+      fprintf(stderr, "logic or allocation problem: attempting to add to null parse structure\n");
+#endif
+    }
+#ifdef KATCP_CONSISTENCY_CHECKS
+  } else {
+    if(flags & KATCP_FLAG_FIRST){
+      fprintf(stderr, "logic problem: attempting to initialise parse structure while old one still exists\n");
+      abort();
+    }
+#endif
+  }
+
+  return fx->f_tx;
+}
+
+static int finish_append_flat_katcp(struct katcp_flat *fx, int flags, int result)
+{
+  sane_flat_katcp(fx);
+
+  if(result < 0){
+    if(fx->f_tx){
+      destroy_parse_katcl(fx->f_tx);
+      fx->f_tx = NULL;
+    }
+  }
+
+  if(!(flags & KATCP_FLAG_LAST)){
+    return result;
+  }
+
+  if(fx->f_tx == NULL){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "duplex: not sending a null message\n");
+#endif
+    return -1;
+  }
+
+  switch(fx->f_send & KATCP_DPX_SEND_DESTINATION){
+    case KATCP_DPX_SEND_OWN :
+#if 0
+      return result; 
+#else
+      return 0; 
+#endif
+    case KATCP_DPX_SEND_STREAM :
+      result = append_parse_katcl(fx->f_line, fx->f_tx);
+      destroy_parse_katcl(fx->f_tx);
+      fx->f_tx = NULL;
+      return result;
+    case KATCP_DPX_SEND_PEER :
+      /* TODO: use some turnaround function */
+      break;
+    default :
+#ifdef KATCP_CONSISTENCY_CHECKS
+      fprintf(stderr, "duplex: data corruption: send destination invalid: 0x%x\n", fx->f_send);
+#endif
+      return -1 ;
+  }
+}
+
+int append_string_flat_katcp(struct katcp_dispatch *d, int flags, char *buffer)
+{
+  return -1;
+}
+
+#if 0
+int append_unsigned_long_flat_katcp(struct katcp_dispatch *d, int flags, unsigned long v)
+int append_signed_long_flat_katcp(struct katcp_dispatch *d, int flags, unsigned long v)
+int append_hex_long_flat_katcp(struct katcp_dispatch *d, int flags, unsigned long v)
+#ifdef KATCP_USE_FLOATS
+int append_double_flat_katcp(struct katcp_dispatch *d, int flags, double v)
+#endif
+int append_buffer_flat_katcp(struct katcp_dispatch *d, int flags, void *buffer, int len)
+int append_parameter_flat_katcp(struct katcp_dispatch *d, int flags, struct katcl_parse *p, unsigned int index)
+int append_parse_flat_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
+int append_vargs_flat_katcp(struct katcp_dispatch *d, int flags, char *fmt, va_list args)
+int append_args_flat_katcp(struct katcp_dispatch *d, int flags, char *fmt, ...)
+#endif
+
 /**************************************************************************/
 
 static int set_generic_flat_katcp(struct katcp_dispatch *d, unsigned int type, int (*call)(struct katcp_dispatch *d, int argc), char *string, unsigned int flags)
