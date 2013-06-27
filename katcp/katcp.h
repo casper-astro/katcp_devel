@@ -656,6 +656,18 @@ struct katcp_group *this_group_katcp(struct katcp_dispatch *d);
 struct katcp_flat *this_flat_katcp(struct katcp_dispatch *d);
 struct katcp_flat *require_flat_katcp(struct katcp_dispatch *d);
 
+
+int append_string_flat_katcp(struct katcp_dispatch *d, int flags, char *buffer);
+int append_unsigned_long_flat_katcp(struct katcp_dispatch *d, int flags, unsigned long v);
+int append_signed_long_flat_katcp(struct katcp_dispatch *d, int flags, unsigned long v);
+int append_hex_long_flat_katcp(struct katcp_dispatch *d, int flags, unsigned long v);
+#ifdef KATCP_USE_FLOATS
+int append_double_flat_katcp(struct katcp_dispatch *d, int flags, double v);
+#endif
+int append_buffer_flat_katcp(struct katcp_dispatch *d, int flags, void *buffer, int len);
+int append_parameter_flat_katcp(struct katcp_dispatch *d, int flags, struct katcl_parse *p, unsigned int index);
+int append_parse_flat_katcp(struct katcp_dispatch *d, struct katcl_parse *p);
+
 /* endpoints */
 
 int send_message_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *from, struct katcp_endpoint *to, struct katcl_parse *px, int acknowledged);

@@ -1125,7 +1125,7 @@ static int finish_append_flat_katcp(struct katcp_flat *fx, int flags, int result
       return result;
     case KATCP_DPX_SEND_PEER :
       /* TODO: use some turnaround function */
-      break;
+      return -1;
     default :
 #ifdef KATCP_CONSISTENCY_CHECKS
       fprintf(stderr, "duplex: data corruption: send destination invalid: 0x%x\n", fx->f_send);
@@ -1136,19 +1136,193 @@ static int finish_append_flat_katcp(struct katcp_flat *fx, int flags, int result
 
 int append_string_flat_katcp(struct katcp_dispatch *d, int flags, char *buffer)
 {
-  return -1;
+  struct katcl_parse *px;
+  struct katcp_flat *fx;
+  int result;
+
+  fx = require_flat_katcp(d);
+  if(fx == NULL){
+    return -1;
+  }
+
+  px = prepare_append_flat_katcp(fx, flags);
+  if(px == NULL){
+    return -1;
+  }
+
+  result = add_string_parse_katcl(px, flags, buffer);
+
+  return finish_append_flat_katcp(fx, flags, result);
+}
+
+int append_unsigned_long_flat_katcp(struct katcp_dispatch *d, int flags, unsigned long v)
+{
+  struct katcl_parse *px;
+  struct katcp_flat *fx;
+  int result;
+
+  fx = require_flat_katcp(d);
+  if(fx == NULL){
+    return -1;
+  }
+
+  px = prepare_append_flat_katcp(fx, flags);
+  if(px == NULL){
+    return -1;
+  }
+
+  result = add_unsigned_long_parse_katcl(px, flags, v);
+
+  return finish_append_flat_katcp(fx, flags, result);
+}
+
+int append_signed_long_flat_katcp(struct katcp_dispatch *d, int flags, unsigned long v)
+{
+  struct katcl_parse *px;
+  struct katcp_flat *fx;
+  int result;
+
+  fx = require_flat_katcp(d);
+  if(fx == NULL){
+    return -1;
+  }
+
+  px = prepare_append_flat_katcp(fx, flags);
+  if(px == NULL){
+    return -1;
+  }
+
+  result = add_signed_long_parse_katcl(px, flags, v);
+
+  return finish_append_flat_katcp(fx, flags, result);
+}
+
+int append_hex_long_flat_katcp(struct katcp_dispatch *d, int flags, unsigned long v)
+{
+  struct katcl_parse *px;
+  struct katcp_flat *fx;
+  int result;
+
+  fx = require_flat_katcp(d);
+  if(fx == NULL){
+    return -1;
+  }
+
+  px = prepare_append_flat_katcp(fx, flags);
+  if(px == NULL){
+    return -1;
+  }
+
+  result = add_hex_long_parse_katcl(px, flags, v);
+
+  return finish_append_flat_katcp(fx, flags, result);
+}
+
+#ifdef KATCP_USE_FLOATS
+int append_double_flat_katcp(struct katcp_dispatch *d, int flags, double v)
+{
+  struct katcl_parse *px;
+  struct katcp_flat *fx;
+  int result;
+
+  fx = require_flat_katcp(d);
+  if(fx == NULL){
+    return -1;
+  }
+
+  px = prepare_append_flat_katcp(fx, flags);
+  if(px == NULL){
+    return -1;
+  }
+
+  result = add_double_parse_katcl(px, flags, v);
+
+  return finish_append_flat_katcp(fx, flags, result);
+}
+#endif
+
+int append_buffer_flat_katcp(struct katcp_dispatch *d, int flags, void *buffer, int len)
+{
+  struct katcl_parse *px;
+  struct katcp_flat *fx;
+  int result;
+
+  fx = require_flat_katcp(d);
+  if(fx == NULL){
+    return -1;
+  }
+
+  px = prepare_append_flat_katcp(fx, flags);
+  if(px == NULL){
+    return -1;
+  }
+
+  result = add_buffer_parse_katcl(px, flags, buffer, len);
+
+  return finish_append_flat_katcp(fx, flags, result);
+}
+
+int append_parameter_flat_katcp(struct katcp_dispatch *d, int flags, struct katcl_parse *p, unsigned int index)
+{
+  struct katcl_parse *px;
+  struct katcp_flat *fx;
+  int result;
+
+  fx = require_flat_katcp(d);
+  if(fx == NULL){
+    return -1;
+  }
+
+  px = prepare_append_flat_katcp(fx, flags);
+  if(px == NULL){
+    return -1;
+  }
+
+  result = add_parameter_parse_katcl(px, flags, p, index);
+
+  return finish_append_flat_katcp(fx, flags, result);
+}
+
+int append_parse_flat_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
+{
+  struct katcp_flat *fx;
+
+  if(p == NULL){
+    return -1;
+  }
+
+  fx = require_flat_katcp(d);
+  if(fx == NULL){
+    return -1;
+  }
+
+  if(fx->f_tx){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "refusing to insert a new message into partially completed message");
+    return -1;
+  }
+
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(p->p_magic != KATCL_PARSE_MAGIC){
+    fprintf(stderr, "logic problem: expected parse at %p, not magic 0x%x\n", p, p->p_magic);
+    abort();
+  }
+
+  if(p->p_state != KATCL_PARSE_DONE){
+    fprintf(stderr, "usage problem: outputting incomplete parse %p\n", p);
+    abort();
+  }
+#endif
+
+  fx->f_tx = copy_parse_katcl(p);
+  if(fx->f_tx == NULL){
+    return -1;
+  }
+
+  /* WARNING: finish append should probably be split into two, we are abusing flags and result codes here, to get past the first part */
+  return finish_append_flat_katcp(fx, KATCP_FLAG_LAST, 0);
 }
 
 #if 0
-int append_unsigned_long_flat_katcp(struct katcp_dispatch *d, int flags, unsigned long v)
-int append_signed_long_flat_katcp(struct katcp_dispatch *d, int flags, unsigned long v)
-int append_hex_long_flat_katcp(struct katcp_dispatch *d, int flags, unsigned long v)
-#ifdef KATCP_USE_FLOATS
-int append_double_flat_katcp(struct katcp_dispatch *d, int flags, double v)
-#endif
-int append_buffer_flat_katcp(struct katcp_dispatch *d, int flags, void *buffer, int len)
-int append_parameter_flat_katcp(struct katcp_dispatch *d, int flags, struct katcl_parse *p, unsigned int index)
-int append_parse_flat_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
 int append_vargs_flat_katcp(struct katcp_dispatch *d, int flags, char *fmt, va_list args)
 int append_args_flat_katcp(struct katcp_dispatch *d, int flags, char *fmt, ...)
 #endif
@@ -1367,7 +1541,7 @@ int load_flat_katcp(struct katcp_dispatch *d)
   return result;
 }
 
-static void set_current_flat(struct katcp_dispatch *d, struct katcp_flat *fx)
+void set_current_flat(struct katcp_dispatch *d, struct katcp_flat *fx)
 {
   struct katcp_shared *s;
 
@@ -1384,7 +1558,7 @@ static void set_current_flat(struct katcp_dispatch *d, struct katcp_flat *fx)
   s->s_level = 0;
 }
 
-static void clear_current_flat(struct katcp_dispatch *d)
+void clear_current_flat(struct katcp_dispatch *d)
 {
   struct katcp_shared *s;
 

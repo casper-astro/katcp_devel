@@ -1966,12 +1966,20 @@ int append_string_katcp(struct katcp_dispatch *d, int flags, char *buffer)
 {
   sane_katcp(d);
 
+  if(this_flat_katcp(d)){
+    return append_string_flat_katcp(d, flags, buffer);
+  }
+
   return append_string_katcl(d->d_line, flags, buffer);
 }
 
 int append_unsigned_long_katcp(struct katcp_dispatch *d, int flags, unsigned long v)
 {
   sane_katcp(d);
+
+  if(this_flat_katcp(d)){
+    return append_unsigned_long_flat_katcp(d, flags, v);
+  }
 
   return append_unsigned_long_katcl(d->d_line, flags, v);
 }
@@ -1980,12 +1988,21 @@ int append_signed_long_katcp(struct katcp_dispatch *d, int flags, unsigned long 
 {
   sane_katcp(d);
 
+  if(this_flat_katcp(d)){
+    return append_signed_long_flat_katcp(d, flags, v);
+  }
+
+
   return append_signed_long_katcl(d->d_line, flags, v);
 }
 
 int append_hex_long_katcp(struct katcp_dispatch *d, int flags, unsigned long v)
 {
   sane_katcp(d);
+
+  if(this_flat_katcp(d)){
+    return append_hex_long_flat_katcp(d, flags, v);
+  }
 
   return append_hex_long_katcl(d->d_line, flags, v);
 }
@@ -1995,6 +2012,11 @@ int append_double_katcp(struct katcp_dispatch *d, int flags, double v)
 {
   sane_katcp(d);
 
+  if(this_flat_katcp(d)){
+    return append_double_flat_katcp(d, flags, v);
+  }
+
+
   return append_double_katcl(d->d_line, flags, v);
 }
 #endif
@@ -2003,6 +2025,10 @@ int append_buffer_katcp(struct katcp_dispatch *d, int flags, void *buffer, int l
 {
   sane_katcp(d);
 
+  if(this_flat_katcp(d)){
+    return append_buffer_flat_katcp(d, flags, buffer, len);
+  }
+
   return append_buffer_katcl(d->d_line, flags, buffer, len);
 }
 
@@ -2010,12 +2036,20 @@ int append_parameter_katcp(struct katcp_dispatch *d, int flags, struct katcl_par
 {
   sane_katcp(d);
 
+  if(this_flat_katcp(d)){
+    return append_parameter_flat_katcp(d, flags, p, index);
+  }
+
   return append_parameter_katcl(d->d_line, flags, p, index);
 }
 
 int append_parse_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
 {
   sane_katcp(d);
+
+  if(this_flat_katcp(d)){
+    return append_parse_flat_katcp(d, p);
+  }
 
   return append_parse_katcl(d->d_line, p);
 }

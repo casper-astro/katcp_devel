@@ -795,6 +795,9 @@ int load_flat_katcp(struct katcp_dispatch *d);
 int init_flats_katcp(struct katcp_dispatch *d, unsigned int stories);
 void destroy_flats_katcp(struct katcp_dispatch *d);
 
+void set_current_flat(struct katcp_dispatch *d, struct katcp_flat *fx);
+void clear_current_flat(struct katcp_dispatch *d);
+
 /* parse: setup */
 struct katcl_parse *create_parse_katcl();
 struct katcl_parse *create_referenced_parse_katcl();
