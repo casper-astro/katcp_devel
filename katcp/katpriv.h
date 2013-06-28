@@ -462,15 +462,16 @@ struct katcp_reply_handler{
 
 #define KATCP_DPX_SEND_INVALID   0x00
 
-#define KATCP_DPX_SEND_DESTINATION 0xf0
+#define KATCP_DPX_SEND_DESTINATION 0x0f
 #define KATCP_DPX_SEND_OWN         0x01  /* the user wants does his own thing */
 #define KATCP_DPX_SEND_STREAM      0x02  /* goes to f_line */
 #define KATCP_DPX_SEND_PEER        0x03  /* goes to top of endpoint */
 
 #define KATCP_DPX_SEND_PERSISTENCE 0xf0
-#define KATCP_DPX_SEND_AUTO        0x00  /* set by the internals */
-#define KATCP_DPX_SEND_SESSION     0x10  /* user set until callback finishes */
+#define KATCP_DPX_SEND_CURRENTLY   0x10  /* set until callback finishes */
 #define KATCP_DPX_SEND_LOCKED      0x20  /* user set indefinitely */
+
+#define KATCP_DPX_SEND_RESET      0x100  /* clear lock flag */
 
 struct katcp_flat{
   /* a client instance, intended to replace what was job and dispatch previously */
@@ -794,9 +795,6 @@ int load_flat_katcp(struct katcp_dispatch *d);
 
 int init_flats_katcp(struct katcp_dispatch *d, unsigned int stories);
 void destroy_flats_katcp(struct katcp_dispatch *d);
-
-void set_current_flat(struct katcp_dispatch *d, struct katcp_flat *fx);
-void clear_current_flat(struct katcp_dispatch *d);
 
 /* parse: setup */
 struct katcl_parse *create_parse_katcl();

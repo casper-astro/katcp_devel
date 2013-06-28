@@ -75,6 +75,8 @@ struct katcp_cmd_map *map_of_flat_katcp(struct katcp_flat *fx);
 static void clear_current_flat(struct katcp_dispatch *d);
 static void set_current_flat(struct katcp_dispatch *d, struct katcp_flat *fx);
 
+static int actually_set_output_flat_katcp(struct katcp_flat *fx, unsigned int destination, unsigned int persistence);
+
 /********************************************************************/
 
 int init_flats_katcp(struct katcp_dispatch *d, unsigned int stories)
@@ -710,12 +712,15 @@ int wake_endpoint_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep
           case KATCP_REPLY   :
             /* WARNING: this value for map is out of range */
             fx->f_current_map = KATCP_MAP_INNER_REPLY;
+            actually_set_output_flat_katcp(fx, KATCP_DPX_SEND_STREAM, KATCP_DPX_SEND_CURRENTLY);
             break;
           case KATCP_REQUEST :
             fx->f_current_map = KATCP_MAP_INNER_REQUEST;
+            actually_set_output_flat_katcp(fx, KATCP_DPX_SEND_PEER, KATCP_DPX_SEND_CURRENTLY);
             break;
           case KATCP_INFORM  :
             fx->f_current_map = KATCP_MAP_INNER_INFORM;
+            actually_set_output_flat_katcp(fx, KATCP_DPX_SEND_STREAM, KATCP_DPX_SEND_CURRENTLY);
             break;
 #ifdef KATCP_CONSISTENCY_CHECKS
           default : 
@@ -1129,6 +1134,7 @@ static int finish_append_flat_katcp(struct katcp_flat *fx, int flags, int result
     default :
 #ifdef KATCP_CONSISTENCY_CHECKS
       fprintf(stderr, "duplex: data corruption: send destination invalid: 0x%x\n", fx->f_send);
+      abort();
 #endif
       return -1 ;
   }
@@ -1458,8 +1464,8 @@ int load_flat_katcp(struct katcp_dispatch *d)
 
   result = 0;
 
-#ifdef DEBUG
-  fprintf(stderr, "flat: loading %u units\n", s->s_floors);
+#if DEBUG > 2
+  fprintf(stderr, "flat: loading %u groups\n", s->s_members);
 #endif
 
   for(j = 0; j < s->s_members; j++){
@@ -1541,7 +1547,7 @@ int load_flat_katcp(struct katcp_dispatch *d)
   return result;
 }
 
-void set_current_flat(struct katcp_dispatch *d, struct katcp_flat *fx)
+static void set_current_flat(struct katcp_dispatch *d, struct katcp_flat *fx)
 {
   struct katcp_shared *s;
 
@@ -1558,7 +1564,7 @@ void set_current_flat(struct katcp_dispatch *d, struct katcp_flat *fx)
   s->s_level = 0;
 }
 
-void clear_current_flat(struct katcp_dispatch *d)
+static void clear_current_flat(struct katcp_dispatch *d)
 {
   struct katcp_shared *s;
 
@@ -1575,6 +1581,50 @@ void clear_current_flat(struct katcp_dispatch *d)
   s->s_level = (-1);
 }
 
+static int actually_set_output_flat_katcp(struct katcp_flat *fx, unsigned int destination, unsigned int persistence)
+{
+  sane_flat_katcp(fx);
+
+  if(persistence & KATCP_DPX_SEND_RESET){
+    fx->f_send = (fx->f_send & KATCP_DPX_SEND_DESTINATION) | KATCP_DPX_SEND_CURRENTLY;
+  }
+
+  if((fx->f_send & KATCP_DPX_SEND_PERSISTENCE) <= (persistence & KATCP_DPX_SEND_PERSISTENCE)){
+    fx->f_send = (destination & KATCP_DPX_SEND_DESTINATION) | (persistence & KATCP_DPX_SEND_PERSISTENCE);
+
+#ifdef DEBUG
+    fprintf(stderr, "dpx: new send=0x%x, from dest=0x%x and persistence=0x%x\n", fx->f_send, destination, persistence);
+#endif
+
+    return 0;
+  }
+
+#ifdef DEBUG
+  fprintf(stderr, "not updating destination to 0x%x, as set mask is 0x%x > 0x%x\n", destination, fx->f_send & KATCP_DPX_SEND_PERSISTENCE, persistence & KATCP_DPX_SEND_PERSISTENCE);
+#endif
+
+  return -1;
+}
+
+int set_output_flat_katcp(struct katcp_dispatch *d, unsigned int destination, unsigned int persistence)
+{
+  struct katcp_flat *fx;
+
+  if(d == NULL){
+    return -1;
+  }
+
+  fx = require_flat_katcp(d);
+  if(fx == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "output can not be set, we are not in duplex handing code\n");
+#endif
+    return -1;
+  }
+
+  return actually_set_output_flat_katcp(fx, destination, persistence);
+}
+
 int run_flat_katcp(struct katcp_dispatch *d)
 {
   struct katcp_flat *fx;
@@ -1589,8 +1639,8 @@ int run_flat_katcp(struct katcp_dispatch *d)
 
   s = d->d_shared;
 
-#ifdef DEBUG
-  fprintf(stderr, "flat: running %u units\n", s->s_floors);
+#if DEBUG > 2
+  fprintf(stderr, "flat: running %u groups\n", s->s_members);
 #endif
 
   for(j = 0; j < s->s_members; j++){
@@ -1660,17 +1710,23 @@ int run_flat_katcp(struct katcp_dispatch *d)
               case KATCP_REPLY   :
                 /* WARNING: this value is out range */
                 fx->f_current_map = KATCP_MAP_REMOTE_REPLY;
+                actually_set_output_flat_katcp(fx, KATCP_DPX_SEND_PEER, KATCP_DPX_SEND_CURRENTLY);
                 break;
               case KATCP_REQUEST :
                 fx->f_current_map = KATCP_MAP_REMOTE_REQUEST;
+                actually_set_output_flat_katcp(fx, KATCP_DPX_SEND_STREAM, KATCP_DPX_SEND_CURRENTLY);
                 replyable = 1;
                 break;
               case KATCP_INFORM  :
                 fx->f_current_map = KATCP_MAP_REMOTE_INFORM;
+                actually_set_output_flat_katcp(fx, KATCP_DPX_SEND_PEER, KATCP_DPX_SEND_CURRENTLY);
                 break;
               default :
                 /* ignore malformed requests */
                 fx->f_current_map = KATCP_MAP_UNSET;
+#ifdef DEBUG
+                fprintf(stderr, "dpx: ignoring message <%s ...>\n", str);
+#endif
                 break;
             }
 
@@ -1708,6 +1764,9 @@ int run_flat_katcp(struct katcp_dispatch *d)
                 ix = find_data_avltree(mx->m_tree, str + 1);
                 if(ix && ix->i_call){
                   if((overridden == 0) || (ix->i_flags & KATCP_MAP_FLAG_GREEDY)){
+#ifdef DEBUG
+                    fprintf(stderr, "duplex: fx->f_send=%x\n", fx->f_send);
+#endif
 
                     result = (*(ix->i_call))(d, argc);
 
@@ -1942,6 +2001,8 @@ int complete_relay_watchdog_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   struct katcp_flat *fx;
   char *code;
+
+  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "triggering watchdog complete logic");
 
   fx = require_flat_katcp(d);
   if(fx == NULL){

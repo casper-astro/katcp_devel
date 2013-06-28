@@ -6,7 +6,7 @@ KATCP ?= katcp
 
 # compiler flags, -Wall is just the right thing to do 
 CFLAGS += -Wall
-CFLAGS += -O2
+#CFLAGS += -O2
 
 # where the C implementation has diverged from the katcp standard,
 # force standard behaviour. Currently only one case: log-level affects
@@ -47,7 +47,7 @@ CFLAGS += -DKATCP_PROTOCOL_MAJOR_VERSION=4 -DKATCP_PROTOCOL_MINOR_VERSION=9
 
 # amount of debugging logic to enable 
 #CFLAGS += -DDEBUG=4
-#CFLAGS += -DDEBUG
+CFLAGS += -DDEBUG
 CFLAGS += -ggdb
 
 # what compiler to use 
