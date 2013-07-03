@@ -463,7 +463,7 @@ struct katcp_reply_handler{
 #define KATCP_DPX_SEND_INVALID   0x00
 
 #define KATCP_DPX_SEND_DESTINATION 0x0f
-#define KATCP_DPX_SEND_OWN         0x01  /* the user wants does his own thing */
+#define KATCP_DPX_SEND_NULL        0x01  /* throw IO away */
 #define KATCP_DPX_SEND_STREAM      0x02  /* goes to f_line */
 #define KATCP_DPX_SEND_PEER        0x03  /* goes to top of endpoint */
 
@@ -944,6 +944,8 @@ int register_tag_katcp(struct katcp_dispatch *d, char *name, int level);
 
 void run_endpoints_katcp(struct katcp_dispatch *d);
 void release_endpoints_katcp(struct katcp_dispatch *d);
+
+int answer_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep, struct katcl_parse *px);
 
 struct katcp_endpoint *create_endpoint_katcp(struct katcp_dispatch *d, int (*wake)(struct katcp_dispatch *d, struct katcp_endpoint *ep, struct katcp_message *msg, void *data), void (*release)(struct katcp_dispatch *d, void *data), void *data);
 void release_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep);

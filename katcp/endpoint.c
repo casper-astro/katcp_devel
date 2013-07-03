@@ -74,9 +74,17 @@ static struct katcp_message *create_message_katcp(struct katcp_dispatch *d, stru
 #endif
     msg->m_flags |= KATCP_MESSAGE_WACK;
   }
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(to == NULL){
+    fprintf(stderr, "endpoint: usage/logic problem: no destination given\n");
+    abort();
+  }
+#endif
 
   msg->m_from  = from;
-  reference_endpoint_katcp(d, from);
+  if(from){
+    reference_endpoint_katcp(d, from);
+  }
 
   msg->m_to    = to;
   reference_endpoint_katcp(d, to);
@@ -184,6 +192,10 @@ struct katcl_parse *parse_of_endpoint_katcp(struct katcp_dispatch *d, struct kat
 struct katcp_message *head_message_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep)
 {
   struct katcp_message *msg;
+
+  if(ep == NULL){
+    return NULL;
+  }
 
   msg = get_head_gueue_katcl(ep->e_queue);
 
@@ -393,6 +405,39 @@ int turnaround_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *e
   return result;
 }
 
+int answer_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep, struct katcl_parse *px)
+{
+  struct katcp_message *msg;
+
+  if(ep == NULL){
+    return -1;
+  }
+
+  msg = get_head_gueue_katcl(ep->e_queue);
+  if(msg == NULL){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "endpoint: no message available, nothing to answer\n");
+#endif
+    return -1;
+  }
+
+  if(msg->m_from == NULL){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "endpoint: message has no sender, unable to answer\n");
+#endif
+    return -1;
+  }
+
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(msg->m_to == NULL){
+    fprintf(stderr, "endpoint: unexpected condition: no receiver, yet receiver is running and trying to answer\n");
+    abort();
+  }
+#endif
+
+  /* we expect no acknowledgement, it is some sort of reply or inform */
+  return send_message_endpoint_katcp(d, msg->m_to, msg->m_from, px, 0);
+}
 
 void release_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep)
 {
@@ -464,7 +509,15 @@ void run_endpoints_katcp(struct katcp_dispatch *d)
         result = (*(ep->e_wake))(d, ep, msg, ep->e_data);
         switch(result & KATCP_MASK_ENDPOINT){
           case KATCP_ENDPOINT_OWN :
-            /* all done internal to wake callback */
+            msx = remove_head_gueue_katcl(ep->e_queue);
+#ifdef KATCP_CONSISTENCY_CHECKS
+            if(msx != msg){
+              fprintf(stderr, "endpoint: major corruption in queue: get head returns %p, remove head returns %p\n", msg, msx);
+              abort();
+            }
+#endif
+            /* all comms done internal to wake callback */
+
             break;
           case KATCP_ENDPOINT_FAIL :
           case KATCP_ENDPOINT_OK :

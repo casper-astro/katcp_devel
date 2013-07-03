@@ -690,7 +690,6 @@ int wake_endpoint_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep
 
   set_current_flat(d, fx);
 
-
   if(fx->f_state == FLAT_STATE_UP){
 #ifdef KATCP_CONSISTENCY_CHECKS
     if(fx->f_rx){
@@ -1094,8 +1093,16 @@ static struct katcl_parse *prepare_append_flat_katcp(struct katcp_flat *fx, int 
   return fx->f_tx;
 }
 
-static int finish_append_flat_katcp(struct katcp_flat *fx, int flags, int result)
+static int finish_append_flat_katcp(struct katcp_dispatch *d, int flags, int result)
 {
+  struct katcp_message *msg;
+  struct katcp_flat *fx;
+
+  fx = require_flat_katcp(d);
+  if(fx == NULL){
+    return -1;
+  }
+
   sane_flat_katcp(fx);
 
   if(result < 0){
@@ -1117,20 +1124,20 @@ static int finish_append_flat_katcp(struct katcp_flat *fx, int flags, int result
   }
 
   switch(fx->f_send & KATCP_DPX_SEND_DESTINATION){
-    case KATCP_DPX_SEND_OWN :
-#if 0
-      return result; 
-#else
-      return 0; 
-#endif
+    case KATCP_DPX_SEND_NULL :
+      destroy_parse_katcl(fx->f_tx);
+      fx->f_tx = NULL;
+      return 0;
     case KATCP_DPX_SEND_STREAM :
       result = append_parse_katcl(fx->f_line, fx->f_tx);
       destroy_parse_katcl(fx->f_tx);
       fx->f_tx = NULL;
       return result;
     case KATCP_DPX_SEND_PEER :
-      /* TODO: use some turnaround function */
-      return -1;
+      result = answer_endpoint_katcp(d, fx->f_peer, fx->f_tx);
+      destroy_parse_katcl(fx->f_tx);
+      fx->f_tx = NULL;
+      return result; /* WARNING: result isn't amount of bytes written ... */
     default :
 #ifdef KATCP_CONSISTENCY_CHECKS
       fprintf(stderr, "duplex: data corruption: send destination invalid: 0x%x\n", fx->f_send);
@@ -1158,7 +1165,7 @@ int append_string_flat_katcp(struct katcp_dispatch *d, int flags, char *buffer)
 
   result = add_string_parse_katcl(px, flags, buffer);
 
-  return finish_append_flat_katcp(fx, flags, result);
+  return finish_append_flat_katcp(d, flags, result);
 }
 
 int append_unsigned_long_flat_katcp(struct katcp_dispatch *d, int flags, unsigned long v)
@@ -1179,7 +1186,7 @@ int append_unsigned_long_flat_katcp(struct katcp_dispatch *d, int flags, unsigne
 
   result = add_unsigned_long_parse_katcl(px, flags, v);
 
-  return finish_append_flat_katcp(fx, flags, result);
+  return finish_append_flat_katcp(d, flags, result);
 }
 
 int append_signed_long_flat_katcp(struct katcp_dispatch *d, int flags, unsigned long v)
@@ -1200,7 +1207,7 @@ int append_signed_long_flat_katcp(struct katcp_dispatch *d, int flags, unsigned 
 
   result = add_signed_long_parse_katcl(px, flags, v);
 
-  return finish_append_flat_katcp(fx, flags, result);
+  return finish_append_flat_katcp(d, flags, result);
 }
 
 int append_hex_long_flat_katcp(struct katcp_dispatch *d, int flags, unsigned long v)
@@ -1221,7 +1228,7 @@ int append_hex_long_flat_katcp(struct katcp_dispatch *d, int flags, unsigned lon
 
   result = add_hex_long_parse_katcl(px, flags, v);
 
-  return finish_append_flat_katcp(fx, flags, result);
+  return finish_append_flat_katcp(d, flags, result);
 }
 
 #ifdef KATCP_USE_FLOATS
@@ -1243,7 +1250,7 @@ int append_double_flat_katcp(struct katcp_dispatch *d, int flags, double v)
 
   result = add_double_parse_katcl(px, flags, v);
 
-  return finish_append_flat_katcp(fx, flags, result);
+  return finish_append_flat_katcp(d, flags, result);
 }
 #endif
 
@@ -1265,7 +1272,7 @@ int append_buffer_flat_katcp(struct katcp_dispatch *d, int flags, void *buffer, 
 
   result = add_buffer_parse_katcl(px, flags, buffer, len);
 
-  return finish_append_flat_katcp(fx, flags, result);
+  return finish_append_flat_katcp(d, flags, result);
 }
 
 int append_parameter_flat_katcp(struct katcp_dispatch *d, int flags, struct katcl_parse *p, unsigned int index)
@@ -1286,7 +1293,7 @@ int append_parameter_flat_katcp(struct katcp_dispatch *d, int flags, struct katc
 
   result = add_parameter_parse_katcl(px, flags, p, index);
 
-  return finish_append_flat_katcp(fx, flags, result);
+  return finish_append_flat_katcp(d, flags, result);
 }
 
 int append_parse_flat_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
@@ -1325,7 +1332,7 @@ int append_parse_flat_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
   }
 
   /* WARNING: finish append should probably be split into two, we are abusing flags and result codes here, to get past the first part */
-  return finish_append_flat_katcp(fx, KATCP_FLAG_LAST, 0);
+  return finish_append_flat_katcp(d, KATCP_FLAG_LAST, 0);
 }
 
 #if 0
