@@ -914,27 +914,28 @@ int configure_fpga(struct getap_state *gs)
 
   *((uint32_t *)(base + GO_ADDRESS)) = value;
 
-  if(gs->s_port){
-    /* assumes plain big endian value */
-    /* Bitmask: 24   : Reset core */
-    /*          16   : Enable fabric interface */
-    /*          00-15: Port */
-    /* First, reset the core */
+  /* assumes plain big endian value */
+  /* Bitmask: 24   : Reset core */
+  /*          16   : Enable fabric interface */
+  /*          00-15: Port */
 
-    /* WARNING: the below use of the + operator doesn't look right. Jason ?  */
+  if(gs->s_port == 0){
+    value = *((uint32_t *)(base + GO_EN_RST_PORT));
+    gs->s_port = 0xffff & value;
+  }
 
 #if 1
-    value = (0xff << 16) + (0xff << 16) + (gs->s_port);
-    *((uint32_t *)(base + GO_EN_RST_PORT)) = value;
+  /* First, reset the core */
+  value = (0xff << 16) + (0xff << 16) + (gs->s_port);
+  *((uint32_t *)(base + GO_EN_RST_PORT)) = value;
 
-    /* Next, remove core from reset state: */
-    value = (0x00 << 16) + (0xff << 16) + (gs->s_port);
-    *((uint32_t *)(base + GO_EN_RST_PORT)) = value;
+  /* Next, remove core from reset state: */
+  value = (0x00 << 16) + (0xff << 16) + (gs->s_port);
+  *((uint32_t *)(base + GO_EN_RST_PORT)) = value;
 #else
-    value = 0x01010000 | (0xffff & (gs->s_port));
-    *((uint32_t *)(base + GO_EN_RST_PORT)) = value;
+  value = 0x01010000 | (0xffff & (gs->s_port));
+  *((uint32_t *)(base + GO_EN_RST_PORT)) = value;
 #endif
-  }
 
   for(i = 0; i < GETAP_ARP_CACHE; i++){
     /* heuristic to make things less bursty ... unclear if it is worth anything */
