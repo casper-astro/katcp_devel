@@ -1181,19 +1181,6 @@ void reset_katcp(struct katcp_dispatch *d, int fd)
   }
 }
 
-struct katcl_parse *ready_katcp(struct katcp_dispatch *d)
-{
-  struct katcl_line *l;
-  
-  sane_katcp(d);
-
-  l = line_katcp(d);
-  if (l == NULL)
-    return NULL;
-
-  return ready_katcl(l);
-}
-
 /**************************************************************/
 
 int help_cmd_katcp(struct katcp_dispatch *d, int argc)
@@ -1924,6 +1911,31 @@ unsigned int arg_buffer_katcp(struct katcp_dispatch *d, unsigned int index, void
   /* returns the number of bytes it wanted to copy, more than size indicates a failure */
   return arg_buffer_katcl(d->d_line, index, buffer, size);
 }
+
+struct katcl_parse *arg_parse_katcp(struct katcp_dispatch *d)
+{
+  struct katcl_line *l;
+  struct katcp_flat *fx;
+  
+  sane_katcp(d);
+
+  fx = this_flat_katcp(d);
+  if(fx){
+    if(fx->f_rx == NULL){
+      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "argument retrieval invoked incorrectly, no message to process");
+      return NULL;
+    }
+    return fx->f_rx;
+  }
+
+  l = line_katcp(d);
+  if (l == NULL){
+    return NULL;
+  }
+
+  return ready_katcl(l);
+}
+
 
 /**************************************************************/
 

@@ -226,6 +226,8 @@ int arg_bb_katcp(struct katcp_dispatch *d, unsigned int index, struct katcl_byte
 double arg_double_katcp(struct katcp_dispatch *d, unsigned int index);
 #endif
 
+struct katcl_parse *arg_parse_katcp(struct katcp_dispatch *d);
+
 /******************* write arguments *************/
 
 int prepend_reply_katcp(struct katcp_dispatch *d);
