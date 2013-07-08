@@ -1107,7 +1107,6 @@ static struct katcl_parse *prepare_append_flat_katcp(struct katcp_flat *fx, int 
 
 static int finish_append_flat_katcp(struct katcp_dispatch *d, int flags, int result)
 {
-  struct katcp_message *msg;
   struct katcp_flat *fx;
 
   fx = require_flat_katcp(d);
@@ -2113,7 +2112,7 @@ int complete_relay_generic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   struct katcp_flat *fx;
   struct katcl_parse *px;
-  char *code, *cmd;
+  char *cmd;
 
 #ifdef KATCP_CONSISTENCY_CHECKS
   fx = require_flat_katcp(d);
