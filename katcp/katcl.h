@@ -122,15 +122,19 @@ int exceeds_bb_katcl(struct katcl_byte_bit *bb, struct katcl_byte_bit *limit);
 int add_bb_katcl(struct katcl_byte_bit *sigma, struct katcl_byte_bit *alpha, struct katcl_byte_bit *beta);
 
 /* generic queue logic */
+struct katcl_gueue *create_precedence_gueue_katcl(void (*release)(void *datum), unsigned int (*precedence)(void *datum));
 struct katcl_gueue *create_gueue_katcl(void (*release)(void *datum));
 void destroy_gueue_katcl(struct katcl_gueue *g);
 
 unsigned int size_gueue_katcl(struct katcl_gueue *g);
 int add_tail_gueue_katcl(struct katcl_gueue *g, void *datum);
-void *get_index_gueue_katcl(struct katcl_gueue *g, unsigned int index);
+
+void *get_from_head_gueue_katcl(struct katcl_gueue *g, unsigned int position);
 void *get_head_gueue_katcl(struct katcl_gueue *g);
+
 void *remove_head_gueue_katcl(struct katcl_gueue *g);
-void *remove_index_gueue_katcl(struct katcl_gueue *g, unsigned int index);
+void *remove_from_head_gueue_katcl(struct katcl_gueue *g, unsigned int position);
+void *remove_datum_gueue_katcl(struct katcl_gueue *g, void *datum);
 
 #ifdef __cplusplus
 }

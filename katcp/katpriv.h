@@ -448,10 +448,10 @@ struct katcp_group{
 #define KATCP_REPLY_HANDLE_REPLIES   0x1
 #define KATCP_REPLY_HANDLE_INFORMS   0x2
 
-struct katcp_reply_handler{
+struct katcp_response_handler{
   unsigned int r_flags;
   char *r_message;
-  int (*r_handler)(struct katcp_dispatch *d, int argc);
+  int (*r_reply)(struct katcp_dispatch *d, int argc);
 };
 
 #define KATCP_REPLY_INNER        0
@@ -495,7 +495,7 @@ struct katcp_flat{
   struct katcl_parse *f_tx;      /* message about to send */
   unsigned int f_send;           /* message sending flags */
 
-  struct katcp_reply_handler f_replies[KATCP_SIZE_REPLY];
+  struct katcp_response_handler f_replies[KATCP_SIZE_REPLY];
 
 #if 0
   struct katcl_queue *f_backlog; /* backed up requests from the remote end, shouldn't happen */

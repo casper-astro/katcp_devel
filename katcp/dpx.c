@@ -620,7 +620,7 @@ static void deallocate_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *f
       f->f_replies[i].r_message = NULL;
     }
     f->f_replies[i].r_flags = 0;
-    f->f_replies[i].r_handler = NULL;
+    f->f_replies[i].r_reply = NULL;
   }
 
   f->f_current_map = KATCP_MAP_UNSET;
@@ -678,7 +678,7 @@ int wake_endpoint_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep
   struct katcp_flat *fx;
   struct katcp_cmd_map *mx;
   struct katcp_cmd_item *ix;
-  struct katcp_reply_handler *rh;
+  struct katcp_response_handler *rh;
   int result, r, overridden, argc;
   char *str;
 
@@ -739,13 +739,13 @@ int wake_endpoint_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep
 
         if((fx->f_current_map == KATCP_MAP_INNER_REPLY) || (fx->f_current_map == KATCP_MAP_INNER_INFORM)){
           log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "got an internal reply or inform, checking how to process it");
-          if(rh->r_handler && rh->r_message){
+          if(rh->r_reply && rh->r_message){
             if(strcmp(rh->r_message, str + 1)){
               if(fx->f_current_map == KATCP_MAP_INNER_REPLY){
                 log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "received unexpected response %s, was expecting %s", str + 1, rh->r_message);
               } 
             } else {
-              r = (*(rh->r_handler))(d, argc);
+              r = (*(rh->r_reply))(d, argc);
               overridden = 1;
               /* WARNING: return code unused, should be used to clear handler */
             }
@@ -900,7 +900,7 @@ struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, int up, c
   for(i = 0; i < KATCP_SIZE_REPLY; i++){
     f->f_replies[i].r_flags = 0;
     f->f_replies[i].r_message = NULL;
-    f->f_replies[i].r_handler = NULL;
+    f->f_replies[i].r_reply = NULL;
   }
 
   for(i = 0; i < KATCP_SIZE_MAP; i++){
@@ -1412,7 +1412,7 @@ static int set_generic_flat_katcp(struct katcp_dispatch *d, unsigned int type, i
 
   fx->f_replies[type].r_flags   = actual;
   fx->f_replies[type].r_message = copy;
-  fx->f_replies[type].r_handler = call;
+  fx->f_replies[type].r_reply = call;
 
   return 0;
 }
@@ -1651,7 +1651,7 @@ int run_flat_katcp(struct katcp_dispatch *d)
   struct katcp_shared *s;
   struct katcp_group *gx;
   struct katcp_cmd_map *mx;
-  struct katcp_reply_handler *rh;
+  struct katcp_response_handler *rh;
   struct katcp_cmd_item *ix;
   unsigned int i, j, overridden, len, replyable;
   int fd, result, argc, code, forget;
@@ -1757,14 +1757,14 @@ int run_flat_katcp(struct katcp_dispatch *d)
 
             if((fx->f_current_map == KATCP_MAP_REMOTE_REPLY) || (fx->f_current_map == KATCP_MAP_REMOTE_INFORM)){
               log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "got a remote reply or inform, checking how to process it");
-              if(rh->r_handler && rh->r_message){
+              if(rh->r_reply && rh->r_message){
                 if(strcmp(rh->r_message, str + 1)){
                   if(fx->f_current_map == KATCP_MAP_REMOTE_REPLY){
                     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "received unexpected remote response %s, was expecting %s", str + 1, rh->r_message);
                     /* this should be a pretty severe condition ? */
                   }
                 } else {
-                  result = (*(rh->r_handler))(d, argc);
+                  result = (*(rh->r_reply))(d, argc);
                   overridden = 1;
                   /* WARNING: return code unused, should be used to clear handler */
                 }
