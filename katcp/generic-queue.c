@@ -256,7 +256,7 @@ static void *remove_index_gueue_katcl(struct katcl_gueue *g, unsigned int index)
   g->g_queue[index] = NULL;
 
   if(index == g->g_head){
-    /* hopefully the common, simple case - remove from head*/
+    /* hopefully the common, simple case - remove from head */
     g->g_head = (g->g_head + 1) % g->g_size;
     g->g_count--;
 
@@ -267,36 +267,33 @@ static void *remove_index_gueue_katcl(struct katcl_gueue *g, unsigned int index)
     return datum;
   }
 
-  if((g->g_head + g->g_count) > g->g_size){ /* wrapping case */
-    if(index >= g->g_head){ /* position before wrap around, move up head */
-      if(index > g->g_head){
-        memcpy(&(g->g_queue[g->g_head + 1]), &(g->g_queue[g->g_head]), (index - g->g_head) * sizeof(void *));
-      }
-      g->g_queue[g->g_head] = NULL;
-      g->g_head = (g->g_head + 1) % g->g_size;
-      g->g_count--;
+  if(index > g->g_head){ /* index ahead of head, move head toward index */
+    memmove(&(g->g_queue[g->g_head + 1]), &(g->g_queue[g->g_head]), (index - g->g_head) * sizeof(void *));
+    g->g_queue[g->g_head] = NULL;
+    g->g_head = (g->g_head + 1) % g->g_size;
+    g->g_count--;
 #if DEBUG 
-      fprintf(stderr, "generic queue: removed %p from %p (wrap)\n", datum, g);
+    fprintf(stderr, "generic queue: removed %p from %p, head advanced to %u\n", datum, g, g->g_head);
 #endif
-      return datum; /* WARNING: done here */
-    }
-  } else { /* if no wrapping, we can not be before head */
-    if(index < g->g_head){
-      return NULL;
-    }
+    return datum; /* WARNING: done here */
   }
+
+  /* else index < g->g_head, move tail back */
 
   /* now move back end by one, to overwrite position at index */
-  end = g->g_head + g->g_count - 1; /* WARNING: relies on count+head never being zero, hence earlier test */
+  end = (g->g_head + g->g_count - 1) % g->g_size; /* WARNING: relies on count+head never being zero, hence earlier test */
+#ifdef KATCP_CONSISTENCY_CHECKS
   if(index > end){
-    return NULL;
+    fprintf(stderr, "generic queue: logic problem: attempting to remove %u, queue only valid from head=%u to head+count=%u+%u-1=%u", index, g->g_head, g->g_head, g->g_count, end);
+    abort();
   }
+#endif
 
   if(index < end){
-    memcpy(&(g->g_queue[index]), &(g->g_queue[index + 1]), (end - index) * sizeof(void *));
+    memmove(&(g->g_queue[index]), &(g->g_queue[index + 1]), (end - index) * sizeof(void *));
   } /* else index is end, no copy needed  */
 
-  fprintf(stderr, "generic queue: remove[%d]=%p\n", index, g->g_queue[index]);
+  fprintf(stderr, "generic queue: removed %p from %p, tail reduced from %u\n", datum, g, end);
 
   g->g_queue[end] = NULL;
   g->g_count--;
@@ -398,6 +395,7 @@ void dump_gueue(struct katcl_gueue *g, FILE *fp)
   for(k = g->g_head, i = 0; i < g->g_count; i++, k = (k + 1) % g->g_size){
     if(g->g_queue[k] == NULL){
       fprintf(stderr, "generic gueue: error: null field at %d\n", k);
+      abort();
     }
   }
 
@@ -405,6 +403,7 @@ void dump_gueue(struct katcl_gueue *g, FILE *fp)
 
     if(g->g_queue[k] != NULL){
       fprintf(stderr, "generic gueue: error: used field at %d\n", k);
+      abort();
     }
 
     k = (k + 1) % g->g_size;
@@ -426,17 +425,23 @@ void dump_gueue(struct katcl_gueue *g, FILE *fp)
 #define CHANCE_HEAD_REMOVE    3
 #define CHANCE_POS_REMOVE     7
 
-int main()
+int main(int argc, char **argv)
 {
   struct katcl_gueue *g;
   unsigned int *a, *b;
-  unsigned int insert, remove, margin, arb, distance;
+  unsigned int insert, remove, margin, arb, distance, seed;
   int i, k, r;
 
   g = create_gueue_katcl(free);
   if(g == NULL){
     fprintf(stderr, "unable to create parse gueue\n");
     return 1;
+  }
+
+  if(argc > 1){
+    seed = atoi(argv[1]);
+    fprintf(stderr, "using seed %u\n", seed);
+    srand(seed);
   }
 
   insert = 0;
@@ -511,6 +516,8 @@ int main()
   }
 
   destroy_gueue_katcl(g);
+  
+  fprintf(stderr, "test: done\n");
 
   return 0;
 }
