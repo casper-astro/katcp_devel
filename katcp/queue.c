@@ -269,7 +269,7 @@ struct katcl_parse *remove_index_queue_katcl(struct katcl_queue *q, unsigned int
     return NULL;
   }
   if(index < end){
-    memcpy(&(q->q_queue[index]), &(q->q_queue[index + 1]), (end - index) * sizeof(struct katcl_parse *));
+    memmove(&(q->q_queue[index]), &(q->q_queue[index + 1]), (end - index) * sizeof(struct katcl_parse *));
   } /* else index is end, no copy needed  */
 
   fprintf(stderr, "queue remove[%d]=%p\n", index, q->q_queue[index]);
