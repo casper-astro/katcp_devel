@@ -434,6 +434,14 @@ struct katcp_arb{
 #define KATCP_MAP_INNER_REPLY    4 
 #define KATCP_MAP_REMOTE_REPLY   5 
 
+#define KATCP_DIRECTION_INVALID (-1)
+
+#define KATCP_DIRECTION_INNER     0
+#define KATCP_DIRECTION_REMOTE    1
+
+#define KATCP_SIZE_DIRECTION      2
+
+
 struct katcp_group{
   /* a set of flats which belong together, probably spawned off the same listener, probably same set of commands, probably same "mode" */
   char *g_name;
@@ -453,9 +461,6 @@ struct katcp_response_handler{
   char *r_message;
   int (*r_reply)(struct katcp_dispatch *d, int argc);
 };
-
-#define KATCP_REPLY_INNER        0
-#define KATCP_REPLY_REMOTE       1
 
 #define KATCP_SIZE_REPLY         2
 
@@ -495,7 +500,8 @@ struct katcp_flat{
   struct katcl_parse *f_tx;      /* message about to send */
   unsigned int f_send;           /* message sending flags */
 
-  struct katcp_response_handler f_replies[KATCP_SIZE_REPLY];
+  struct katcp_response_handler f_replies[KATCP_SIZE_DIRECTION];
+  int f_current_direction;
 
 #if 0
   struct katcl_queue *f_backlog; /* backed up requests from the remote end, shouldn't happen */
@@ -698,6 +704,7 @@ struct katcp_endpoint{
   struct katcp_endpoint *e_next;
 };
 
+#if 0
 #define KATCP_ENDPOINT_OWN    0x00
 #define KATCP_ENDPOINT_FAIL   0x01
 #define KATCP_ENDPOINT_OK     0x02
@@ -705,6 +712,7 @@ struct katcp_endpoint{
 #define KATCP_ENDPOINT_STALL  0x04
 #define KATCP_MASK_ENDPOINT   0x0f
 #define KATCP_ENDPOINT_DEAD   0xf0
+#endif
 
 /**********************************************************************************/
 

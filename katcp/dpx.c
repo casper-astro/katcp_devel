@@ -46,6 +46,7 @@
 #define FLAT_STATE_DRAIN         6
 #define FLAT_STATE_DEAD          7
 
+
 /*******************************************************************************/
 
 struct katcp_cmd_item{
@@ -624,6 +625,7 @@ static void deallocate_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *f
   }
 
   f->f_current_map = KATCP_MAP_UNSET;
+  f->f_current_direction = KATCP_DIRECTION_INVALID;
 
   for(i = 0; i < KATCP_SIZE_MAP; i++){
     destroy_cmd_map(f->f_maps[i]);
@@ -672,6 +674,185 @@ static void destroy_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *f)
   deallocate_flat_katcp(d, f);
 }
 
+int process_parse_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, int direction)
+{
+  /* we rely on caller to set f_rx */
+
+  int result, type, overridden, wantsreply, argc;
+  struct katcp_response_handler *rh;
+  struct katcp_cmd_map *mx;
+  struct katcp_cmd_item *ix;
+  char *str;
+
+  sane_flat_katcp(fx);
+
+#ifdef KATCP_CONSISTENCY_CHECKS
+  switch(direction){
+    case KATCP_DIRECTION_INNER :
+    case KATCP_DIRECTION_REMOTE : 
+      break;
+    default :
+      abort();
+      return KATCP_RESULT_FAIL;
+  }
+#endif
+
+  result = KATCP_RESULT_FAIL; /* assume the worst */
+
+  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "task %p (%s) received %s message", fx, fx->f_name, (direction == KATCP_DIRECTION_INNER) ? "internal" : "remote");
+
+  if(fx->f_rx == NULL){
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "task %p received an empty %s message", fx, (direction == KATCP_DIRECTION_INNER) ? "internal" : "remote");
+    return KATCP_RESULT_FAIL;
+  }
+
+  str = get_string_parse_katcl(fx->f_rx, 0);
+  if(str == NULL){
+    /* how bad an error is this ? */
+    return KATCP_RESULT_FAIL;
+  }
+
+  /* now prepare environment for callback handlers - flat, direction, output, map, arg count */
+
+  set_current_flat(d, fx);
+  fx->f_current_direction = direction;
+
+  argc = get_count_parse_katcl(fx->f_rx);
+  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "received an %s message %s ... (%d)", (direction == KATCP_DIRECTION_INNER) ? "internal" : "remote", str, argc);
+
+  type = str[0];
+  wantsreply = 0;
+
+  switch(type){
+    case KATCP_REPLY   :
+
+      if(direction == KATCP_DIRECTION_INNER){
+        actually_set_output_flat_katcp(fx, KATCP_DPX_SEND_STREAM, KATCP_DPX_SEND_CURRENTLY);
+      } else {
+        actually_set_output_flat_katcp(fx, KATCP_DPX_SEND_PEER, KATCP_DPX_SEND_CURRENTLY);
+      }
+      break;
+
+    case KATCP_REQUEST :
+      if(direction == KATCP_DIRECTION_INNER){
+        fx->f_current_map = KATCP_MAP_INNER_REQUEST;
+        actually_set_output_flat_katcp(fx, KATCP_DPX_SEND_PEER, KATCP_DPX_SEND_CURRENTLY);
+      } else {
+        fx->f_current_map = KATCP_MAP_REMOTE_REQUEST;
+        actually_set_output_flat_katcp(fx, KATCP_DPX_SEND_STREAM, KATCP_DPX_SEND_CURRENTLY);
+      }
+      wantsreply = 1;
+      break;
+
+    case KATCP_INFORM  :
+      if(direction == KATCP_DIRECTION_INNER){
+        fx->f_current_map = KATCP_MAP_INNER_INFORM;
+        actually_set_output_flat_katcp(fx, KATCP_DPX_SEND_STREAM, KATCP_DPX_SEND_CURRENTLY);
+      } else {
+        fx->f_current_map = KATCP_MAP_REMOTE_INFORM;
+        actually_set_output_flat_katcp(fx, KATCP_DPX_SEND_PEER, KATCP_DPX_SEND_CURRENTLY);
+      }
+      break;
+
+    default : 
+#ifdef KATCP_CONSISTENCY_CHECKS
+      if(direction == KATCP_DIRECTION_INNER){
+        fprintf(stderr, "major usage problem: received an invalid internal message <%s>\n", str);
+        abort();
+      }
+#endif
+      log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "ignoring malformed request %s", str);
+      fx->f_current_map = KATCP_MAP_UNSET;
+      break;
+  }
+
+  rh = &(fx->f_replies[direction]);
+  overridden = 0;
+
+  if((type == KATCP_REPLY) || (type == KATCP_INFORM)){
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "got %s reply or inform, checking how to process it", (direction == KATCP_DIRECTION_INNER) ? "internal" : "remote");
+    if(rh->r_reply && rh->r_message){
+      if(strcmp(rh->r_message, str + 1)){
+        if(type == KATCP_REPLY){
+          log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "received unexpected response %s, was expecting %s", str + 1, rh->r_message);
+        } 
+      } else {
+        result = (*(rh->r_reply))(d, argc);
+        /* WARNING: unclear if the return code makes sense here */
+        overridden = 1;
+        if(type == KATCP_REPLY){
+          /* forget reply handler once we see a response */
+          rh->r_reply = NULL;
+        }
+      }
+    } else {
+      if(type == KATCP_REPLY){
+        log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "no callback registered by %s to handle %s reply %s", fx->f_name, (direction == KATCP_DIRECTION_INNER) ? "internal" : "remote", str);
+      }
+    }
+  }
+
+  if((type == KATCP_REQUEST) || (type == KATCP_INFORM)){
+    mx = map_of_flat_katcp(fx);
+    if(mx){
+
+      log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "attempting to match %s to %s tree", str + 1, (direction == KATCP_DIRECTION_INNER) ? "internal" : "remote");
+
+      ix = find_data_avltree(mx->m_tree, str + 1);
+      if(ix && ix->i_call){
+        if((overridden == 0) || (ix->i_flags & KATCP_MAP_FLAG_GREEDY)){
+
+          result = (*(ix->i_call))(d, argc);
+
+          log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "%s callback invocation returns %d", (direction == KATCP_DIRECTION_INNER) ? "internal" : "remote", result);
+
+          switch(result){
+            case KATCP_RESULT_FAIL :
+            case KATCP_RESULT_INVALID :
+            case KATCP_RESULT_OK :
+              break;
+            case KATCP_RESULT_PAUSE :
+              wantsreply = 0;
+              /* TODO: update state */
+              break;
+            case KATCP_RESULT_YIELD :
+              wantsreply = 0;
+              break;
+            case KATCP_RESULT_OWN :
+              wantsreply = 0;
+              break;
+          }
+
+        } else {
+          log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "skipping handler for message %s - already processed using reply", str);
+        }
+
+      } else {
+         log_message_katcp(d, (type == KATCP_REQUEST) ? KATCP_LEVEL_INFO : KATCP_LEVEL_DEBUG, NULL, "no match for %s found", str + 1);
+      }
+    } else {
+      if(type == KATCP_REQUEST){
+        log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "task %s not configured to process requests from %s stream", fx->f_name, (direction == KATCP_DIRECTION_INNER) ? "internal" : "remote");
+      }
+    }
+
+  }
+
+  if(wantsreply){
+    extra_response_katcl(fx->f_line, result, NULL);
+    /* WARNING: we handle replies here, tell endpoint callback not to duplicate work */
+    result = KATCP_RESULT_OWN;
+  }
+
+  fx->f_send = KATCP_DPX_SEND_INVALID;
+  fx->f_current_map = KATCP_MAP_UNSET;
+  fx->f_current_direction = KATCP_DIRECTION_INVALID;
+
+  clear_current_flat(d);
+
+  return result;
+}
+
 int wake_endpoint_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep, struct katcp_message *msg, void *data)
 {
   /* might end up setting different wake functions - some flats might not field requests */
@@ -682,14 +863,12 @@ int wake_endpoint_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep
   int result, r, overridden, argc;
   char *str;
 
-  result = KATCP_ENDPOINT_FAIL; /* assume the worst */
+  result = KATCP_RESULT_FAIL; /* assume the worst */
 
   fx = data;
   sane_flat_katcp(fx);
 
   log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "task %p (%s) received internal message", fx, fx->f_name);
-
-  set_current_flat(d, fx);
 
   if((fx->f_state == FLAT_STATE_UP) || (fx->f_state == FLAT_STATE_BLOCK_REMOTE)){
 #ifdef KATCP_CONSISTENCY_CHECKS
@@ -700,127 +879,13 @@ int wake_endpoint_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep
 #endif
 
     fx->f_rx = parse_of_endpoint_katcp(d, msg);
-    if(fx->f_rx){
 
-      str = get_string_parse_katcl(fx->f_rx, 0);
-      if(str){
+    result = process_parse_flat_katcp(d, fx, KATCP_DIRECTION_INNER);
 
-        argc = get_count_parse_katcl(fx->f_rx);
-        log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "received an internal message %s ... (%d)", str, argc);
-
-        switch(str[0]){
-          case KATCP_REPLY   :
-            /* WARNING: this value for map is out of range */
-            fx->f_current_map = KATCP_MAP_INNER_REPLY;
-            actually_set_output_flat_katcp(fx, KATCP_DPX_SEND_STREAM, KATCP_DPX_SEND_CURRENTLY);
-            break;
-          case KATCP_REQUEST :
-            fx->f_current_map = KATCP_MAP_INNER_REQUEST;
-            actually_set_output_flat_katcp(fx, KATCP_DPX_SEND_PEER, KATCP_DPX_SEND_CURRENTLY);
-            break;
-          case KATCP_INFORM  :
-            fx->f_current_map = KATCP_MAP_INNER_INFORM;
-            actually_set_output_flat_katcp(fx, KATCP_DPX_SEND_STREAM, KATCP_DPX_SEND_CURRENTLY);
-            break;
-#ifdef KATCP_CONSISTENCY_CHECKS
-          default : 
-            fprintf(stderr, "major usage problem: received an internal message of invalid type <%s>\n", str);
-            abort();
-            break;
-#endif
-        }
-
-        /* TODO: intialise whatever parse is needed to receive the output */
-
-        /* TODO: this duplicates a bit of the run_flat logic, factor it out into a function  ? */
-
-        rh = &(fx->f_replies[KATCP_REPLY_INNER]);
-        overridden = 0;
-
-        if((fx->f_current_map == KATCP_MAP_INNER_REPLY) || (fx->f_current_map == KATCP_MAP_INNER_INFORM)){
-          log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "got an internal reply or inform, checking how to process it");
-          if(rh->r_reply && rh->r_message){
-            if(strcmp(rh->r_message, str + 1)){
-              if(fx->f_current_map == KATCP_MAP_INNER_REPLY){
-                log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "received unexpected response %s, was expecting %s", str + 1, rh->r_message);
-              } 
-            } else {
-              r = (*(rh->r_reply))(d, argc);
-              overridden = 1;
-              /* WARNING: return code unused, should be used to clear handler */
-            }
-          } else {
-            if(fx->f_current_map == KATCP_MAP_INNER_REPLY){
-              log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "no callback registered by %s to handle internal reply %s", fx->f_name, str);
-            }
-          }
-        }
-
-        if((fx->f_current_map == KATCP_MAP_INNER_REQUEST) || (fx->f_current_map == KATCP_MAP_INNER_INFORM)){
-          mx = map_of_flat_katcp(fx);
-          if(mx){
-
-            log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "attempting to match %s to internal tree", str + 1);
-
-            ix = find_data_avltree(mx->m_tree, str + 1);
-            if(ix && ix->i_call){
-              if((overridden == 0) || (ix->i_flags & KATCP_MAP_FLAG_GREEDY)){
-
-                r = (*(ix->i_call))(d, argc);
-
-                log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "internal callback invocation returns %d", r);
-                switch(r){
-                  /* WARNING: all a bit awkward - maybe fold ENDPOINT defines away entirely */
-                  case KATCP_RESULT_FAIL : 
-                  case KATCP_RESULT_INVALID : 
-                    result = KATCP_ENDPOINT_FAIL;
-                    break;
-                  case KATCP_RESULT_OK : 
-                    result = KATCP_ENDPOINT_OK;
-                    break;
-                  case KATCP_RESULT_OWN : /* callback does own response */
-                    result = KATCP_ENDPOINT_OWN;
-                    break;
-                  case KATCP_RESULT_PAUSE : 
-                    result = KATCP_ENDPOINT_STALL;
-                    switch(fx->f_state){
-                      case FLAT_STATE_UP : 
-                        fx->f_state = FLAT_STATE_BLOCK_INNER;
-                        break;
-                      case FLAT_STATE_BLOCK_REMOTE : 
-                        fx->f_state = FLAT_STATE_BLOCK_TOTAL;
-                        break;
-                    }
-                    break;
-                }
-              } else {
-                log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "skipping handler for message %s - already processed using reply", str);
-              }
-
-            } else {
-              log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "no handler for message %s found", str);
-            }
-          } else {
-            if(fx->f_current_map == KATCP_MAP_INNER_REQUEST){
-              log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "task %s not configured to process messages of this type from internal stream", fx->f_name);
-            }
-          }
-
-        }
-
-        fx->f_current_map = KATCP_MAP_UNSET;
-
-#if 0
-      } else {
-        /* WARNING: ignores message starting with null parameter */
-#endif
-      }
-
-      fx->f_rx = NULL;
-
-
-    } else {
-      log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "task %p received an empty internal message", fx);
+    switch(result){
+      case KATCP_RESULT_PAUSE :
+      case KATCP_RESULT_YIELD :
+      break;
     }
 
 #if 0
@@ -828,8 +893,6 @@ int wake_endpoint_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep
     /* FATAL problem: how does one resume once unblocked ? */
 #endif
   }
-
-  clear_current_flat(d);
 
   return result;
 }
@@ -908,6 +971,7 @@ struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, int up, c
   }
 
   f->f_current_map = KATCP_MAP_UNSET;
+  f->f_current_direction = KATCP_DIRECTION_INVALID;
 
   f->f_group = NULL;
 
@@ -1353,11 +1417,12 @@ int append_args_flat_katcp(struct katcp_dispatch *d, int flags, char *fmt, ...)
 
 /**************************************************************************/
 
-static int set_generic_flat_katcp(struct katcp_dispatch *d, unsigned int type, int (*call)(struct katcp_dispatch *d, int argc), char *string, unsigned int flags)
+static int set_generic_flat_katcp(struct katcp_dispatch *d, int direction, int (*call)(struct katcp_dispatch *d, int argc), char *string, unsigned int flags)
 {
   struct katcp_flat *fx; 
-  char *copy;
-  unsigned int actual;
+  char *tmp, *ptr;
+  unsigned int actual, len;
+  struct katcp_response_handler *rh;
 
 #ifdef KATCP_CONSISTENCY_CHECKS
   if(string == NULL){
@@ -1366,13 +1431,13 @@ static int set_generic_flat_katcp(struct katcp_dispatch *d, unsigned int type, i
   }
 #endif
 
-  switch(type){
-    case KATCP_REPLY_INNER  : 
-    case KATCP_REPLY_REMOTE :
+  switch(direction){
+    case KATCP_DIRECTION_INNER  : 
+    case KATCP_DIRECTION_REMOTE :
       break;
     default :
 #ifdef KATCP_CONSISTENCY_CHECKS
-      fprintf(stderr, "major logic problem: invoked with incorrect index %u\n", type);
+      fprintf(stderr, "major logic problem: invoked with incorrect direction %d\n", direction);
       abort();
 #endif
       return -1;
@@ -1387,44 +1452,51 @@ static int set_generic_flat_katcp(struct katcp_dispatch *d, unsigned int type, i
   /* WARNING: loads of helpful magic here ... */
   switch(string[0]){
     case KATCP_REQUEST   :
-      copy = strdup(string + 1);
+      ptr = string + 1;
       actual = flags ? flags : (KATCP_REPLY_HANDLE_REPLIES | KATCP_REPLY_HANDLE_INFORMS);
       break;
     case KATCP_REPLY :
-      copy = strdup(string + 1);
+      ptr = string + 1;
       actual = flags ? flags : KATCP_REPLY_HANDLE_REPLIES;
       break;
     case KATCP_INFORM  :
-      copy = strdup(string + 1);
+      ptr = string + 1;
       actual = flags ? flags : KATCP_REPLY_HANDLE_INFORMS;
       break;
     default :
       actual = flags;
-      copy = strdup(string);
+      ptr = string;
       break;
   }
 
 
-  if(copy == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "allocation failure, unable to duplicate %s", string);
+  rh = &(fx->f_replies[direction]);
+
+  len = strlen(ptr);
+
+  tmp = realloc(rh->r_message, len + 1);
+  if(tmp == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "allocation failure, unable to duplicate %s", ptr);
     return -1;
   }
+  rh->r_message = tmp;
+  
+  memcpy(rh->r_message, ptr, len + 1);
 
-  fx->f_replies[type].r_flags   = actual;
-  fx->f_replies[type].r_message = copy;
-  fx->f_replies[type].r_reply = call;
+  rh->r_flags   = actual;
+  rh->r_reply   = call;
 
   return 0;
 }
 
 int set_inner_flat_katcp(struct katcp_dispatch *d, int (*call)(struct katcp_dispatch *d, int argc), char *string, unsigned int flags)
 {
-  return set_generic_flat_katcp(d, KATCP_REPLY_INNER, call, string, flags);
+  return set_generic_flat_katcp(d, KATCP_DIRECTION_INNER, call, string, flags);
 }
 
 int set_remote_flat_katcp(struct katcp_dispatch *d, int (*call)(struct katcp_dispatch *d, int argc), char *string, unsigned int flags)
 {
-  return set_generic_flat_katcp(d, KATCP_REPLY_REMOTE, call, string, flags);
+  return set_generic_flat_katcp(d, KATCP_DIRECTION_REMOTE, call, string, flags);
 }
 
 /***************************************************************************/
@@ -1439,32 +1511,34 @@ int is_inner_flat_katcp(struct katcp_dispatch *d)
     return -1;
   }
 
-  switch(fx->f_current_map){
-    case KATCP_MAP_INNER_REQUEST : 
-    case KATCP_MAP_INNER_INFORM  :
-    case KATCP_MAP_INNER_REPLY   :
+  switch(fx->f_current_direction){
+    case KATCP_DIRECTION_INNER :
       return 1;
-    case KATCP_MAP_REMOTE_REQUEST : 
-    case KATCP_MAP_REMOTE_INFORM  :
-    case KATCP_MAP_REMOTE_REPLY   :
+    case KATCP_DIRECTION_REMOTE :
       return 0;
     default :
       return -1;
   }
-
 }
 
 int is_remote_flat_katcp(struct katcp_dispatch *d)
 {
-  int result;
+  struct katcp_flat *fx; 
 
-  result = is_inner_flat_katcp(d);
+  fx = require_flat_katcp(d);
 
-  if(result < 0){
-    return result;
+  if(fx == NULL){
+    return -1;
   }
 
-  return 1 - result;
+  switch(fx->f_current_direction){
+    case KATCP_DIRECTION_REMOTE :
+      return 1;
+    case KATCP_DIRECTION_INNER :
+      return 0;
+    default :
+      return -1;
+  }
 }
 
 /**************************************************************************/
@@ -1717,137 +1791,25 @@ int run_flat_katcp(struct katcp_dispatch *d)
           }
         }
 
-        if(fx->f_rx){
-          forget = 1;
-
-          str = get_string_parse_katcl(fx->f_rx, 0);
-          if(str){
-            argc = get_count_parse_katcl(fx->f_rx);
-            log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "received a message %s ... (%d)", str, argc);
- 
-            replyable = 0;
-            switch(str[0]){
-              case KATCP_REPLY   :
-                /* WARNING: this value is out range */
-                fx->f_current_map = KATCP_MAP_REMOTE_REPLY;
-                actually_set_output_flat_katcp(fx, KATCP_DPX_SEND_PEER, KATCP_DPX_SEND_CURRENTLY);
-                break;
-              case KATCP_REQUEST :
-                fx->f_current_map = KATCP_MAP_REMOTE_REQUEST;
-                actually_set_output_flat_katcp(fx, KATCP_DPX_SEND_STREAM, KATCP_DPX_SEND_CURRENTLY);
-                replyable = 1;
-                break;
-              case KATCP_INFORM  :
-                fx->f_current_map = KATCP_MAP_REMOTE_INFORM;
-                actually_set_output_flat_katcp(fx, KATCP_DPX_SEND_PEER, KATCP_DPX_SEND_CURRENTLY);
-                break;
-              default :
-                /* ignore malformed requests */
-                fx->f_current_map = KATCP_MAP_UNSET;
-#ifdef DEBUG
-                fprintf(stderr, "dpx: ignoring message <%s ...>\n", str);
-#endif
-                break;
-            }
-
-            /* TODO: duplicate of the wake_endpoint logic, merge somehow */
-
-            rh = &(fx->f_replies[KATCP_REPLY_REMOTE]);
-            overridden = 0;
-
-            if((fx->f_current_map == KATCP_MAP_REMOTE_REPLY) || (fx->f_current_map == KATCP_MAP_REMOTE_INFORM)){
-              log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "got a remote reply or inform, checking how to process it");
-              if(rh->r_reply && rh->r_message){
-                if(strcmp(rh->r_message, str + 1)){
-                  if(fx->f_current_map == KATCP_MAP_REMOTE_REPLY){
-                    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "received unexpected remote response %s, was expecting %s", str + 1, rh->r_message);
-                    /* this should be a pretty severe condition ? */
-                  }
-                } else {
-                  result = (*(rh->r_reply))(d, argc);
-                  overridden = 1;
-                  /* WARNING: return code unused, should be used to clear handler */
-                }
-              } else {
-                if(fx->f_current_map == KATCP_MAP_REMOTE_REPLY){
-                  log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "no callback registered by %s to handle remote reply %s", fx->f_name, str);
-                }
-              }
-            }
-
-            if((fx->f_current_map == KATCP_MAP_REMOTE_REQUEST) || (fx->f_current_map == KATCP_MAP_REMOTE_INFORM)){
-              mx = map_of_flat_katcp(fx);
-              if(mx){
-
-                log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "attempting to match %s to tree", str + 1);
-
-                ix = find_data_avltree(mx->m_tree, str + 1);
-                if(ix && ix->i_call){
-                  if((overridden == 0) || (ix->i_flags & KATCP_MAP_FLAG_GREEDY)){
-#ifdef DEBUG
-                    fprintf(stderr, "duplex: fx->f_send=%x\n", fx->f_send);
-#endif
-
-                    result = (*(ix->i_call))(d, argc);
-
-                    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "callback invocation returns %d", result);
-
-                    switch(result){
-                      /* TODO: pause, yield, etc, etc */
-                      case KATCP_RESULT_FAIL : 
-                      case KATCP_RESULT_INVALID : 
-                      case KATCP_RESULT_OK : 
-                        /* TODO: make sure we keep track of tags */
-                        extra_response_katcl(fx->f_line, result, NULL);
-                        replyable = 0;
-                        break;
-                        /* WARNING: unclear if we should support KATCP_RESULT_YIELD ? */
-                      case KATCP_RESULT_PAUSE : 
-                        fx->f_state = FLAT_STATE_BLOCK_REMOTE;
-                        replyable = 0;
-                        forget = 0;
-                        break;
-                      case KATCP_RESULT_OWN : /* callback does own response */
-                        replyable = 0;
-                        break;
-                    }
-                  } else {
-                    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "not running map handler for %s, already processed using reply", str);
-                  }
-                } else {
-                  log_message_katcp(d, (fx->f_current_map == KATCP_MAP_REMOTE_REQUEST) ? KATCP_LEVEL_INFO : KATCP_LEVEL_DEBUG, NULL, "no match for %s found", str + 1);
-                }
-              } else {
-                if(fx->f_current_map == KATCP_MAP_REMOTE_REQUEST){
-                  log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "task %s not configured to process messages of this type from remote stream", fx->f_name);
-                }
-              }
-
-              if(replyable){
-                extra_response_katcl(fx->f_line, KATCP_RESULT_FAIL, NULL);
-              }
-
-            }
-
-            fx->f_current_map = KATCP_MAP_UNSET;
-
-          } /* else silently ignore where no or null initial parameter */
-
-          if(forget){ /* make space for next message arrival */
+        result = process_parse_flat_katcp(d, fx, KATCP_DIRECTION_REMOTE);
+        switch(result){
+          case KATCP_RESULT_PAUSE : 
+          case KATCP_RESULT_YIELD : 
+            break;
+          default :
             clear_katcl(fx->f_line);
             result = parse_katcl(fx->f_line);
             if(result > 0){ 
               mark_busy_katcp(d);
             }
-          }
-#ifdef KATCP_CONSISTENCY_CHECKS
-          fx->f_rx = NULL;
-#endif
+            break;
         }
 
-      } /* end of STATE_UP work */
+#ifdef KATCP_CONSISTENCY_CHECKS
+        fx->f_rx = NULL;
+#endif
 
-      clear_current_flat(d);
+      } /* end of STATE_UP work */
     }
   }
 
