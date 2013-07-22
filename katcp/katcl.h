@@ -131,6 +131,7 @@ int add_tail_gueue_katcl(struct katcl_gueue *g, void *datum);
 
 void *get_from_head_gueue_katcl(struct katcl_gueue *g, unsigned int position);
 void *get_head_gueue_katcl(struct katcl_gueue *g);
+void *get_precedence_head_gueue_katcl(struct katcl_gueue *g, unsigned int precedence);
 
 void *remove_head_gueue_katcl(struct katcl_gueue *g);
 void *remove_from_head_gueue_katcl(struct katcl_gueue *g, unsigned int position);

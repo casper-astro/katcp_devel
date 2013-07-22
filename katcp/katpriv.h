@@ -696,6 +696,7 @@ struct katcp_endpoint{
 #endif
 
   struct katcl_gueue *e_queue;
+  unsigned int e_precedence;
 
   int (*e_wake)(struct katcp_dispatch *d, struct katcp_endpoint *ep, struct katcp_message *msg, void *data);
   void (*e_release)(struct katcp_dispatch *d, void *data);
