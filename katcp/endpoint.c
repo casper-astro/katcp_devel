@@ -52,6 +52,8 @@ static void free_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint 
 
 void forget_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep);
 void reference_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep);
+ 
+static void precedence_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep, unsigned int precedence);
 
 /* setup/destroy routines for messages **********************************/
 
@@ -170,6 +172,16 @@ int send_message_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint 
   if(queue_message_katcp(d, msg) < 0){
     destroy_message_katcp(d, msg);
     return -1;
+  }
+
+  if(is_reply_parse_katcl(px)){
+#ifdef KATCP_CONSISTENCY_CHECKS  
+    if(from == NULL){
+      fprintf(stderr, "endpoint: probable logic problem: no message source of reply, unable to update precedence \n");
+      sleep(1);
+    }
+#endif
+    precedence_endpoint_katcp(d, from, ENDPOINT_PRECEDENCE_LOW);
   }
 
   return 0;
@@ -464,7 +476,7 @@ int answer_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep, s
   return send_message_endpoint_katcp(d, msg->m_to, msg->m_from, px, 0);
 }
 
-void precedence_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep, unsigned int precedence)
+static void precedence_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep, unsigned int precedence)
 {
   ep->e_precedence = precedence;
 }
@@ -546,6 +558,8 @@ void run_endpoints_katcp(struct katcp_dispatch *d)
               abort();
 #endif
             }
+            destroy_message_katcp(d, msg);
+
             /* all comms done internal to wake callback */
 
             break;
@@ -559,7 +573,7 @@ void run_endpoints_katcp(struct katcp_dispatch *d)
               abort();
 #endif
             }
-            turnaround_endpoint_katcp(d, ep, msx, result, NULL);
+            turnaround_endpoint_katcp(d, ep, msg, result, NULL);
 
             break;
 #if 0
@@ -574,6 +588,9 @@ void run_endpoints_katcp(struct katcp_dispatch *d)
           /* TODO: check that we aren't in a HIGH state already, check that only requests stall the processing queue */
 #endif
             precedence_endpoint_katcp(d, ep, ENDPOINT_PRECEDENCE_HIGH);
+
+            /* warning: do we do a remove and destroy on the message, else how does one get it out of the queue */
+
             break;
 
           default :

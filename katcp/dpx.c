@@ -40,11 +40,8 @@
 #define FLAT_STATE_GONE          0
 #define FLAT_STATE_CONNECTING    1
 #define FLAT_STATE_UP            2
-#define FLAT_STATE_BLOCK_INNER   3 /* no processing from endpoint */
-#define FLAT_STATE_BLOCK_REMOTE  4 /* no processing from fd */
-#define FLAT_STATE_BLOCK_TOTAL   5 /* no processing at all (does this even work ?) */
-#define FLAT_STATE_DRAIN         6
-#define FLAT_STATE_DEAD          7
+#define FLAT_STATE_DRAIN         3
+#define FLAT_STATE_DEAD          4
 
 
 /*******************************************************************************/
@@ -870,7 +867,7 @@ int wake_endpoint_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep
 
   log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "task %p (%s) received internal message", fx, fx->f_name);
 
-  if((fx->f_state == FLAT_STATE_UP) || (fx->f_state == FLAT_STATE_BLOCK_REMOTE)){
+  if(fx->f_state == FLAT_STATE_UP){
 #ifdef KATCP_CONSISTENCY_CHECKS
     if(fx->f_rx){
       fprintf(stderr, "logic problem: encountered set receive parse while processing endpoint\n");
@@ -1141,6 +1138,159 @@ struct katcp_flat *this_flat_katcp(struct katcp_dispatch *d)
 
   return f;
 }
+
+/**************************************************************************/
+
+static int set_generic_flat_katcp(struct katcp_dispatch *d, int direction, int (*call)(struct katcp_dispatch *d, int argc), char *string, unsigned int flags)
+{
+  struct katcp_flat *fx; 
+  char *tmp, *ptr;
+  unsigned int actual, len;
+  struct katcp_response_handler *rh;
+
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(string == NULL){
+    fprintf(stderr, "major logic problem: need a valid string for callback");
+    abort();
+  }
+#endif
+
+  switch(direction){
+    case KATCP_DIRECTION_INNER  : 
+    case KATCP_DIRECTION_REMOTE :
+      break;
+    default :
+#ifdef KATCP_CONSISTENCY_CHECKS
+      fprintf(stderr, "major logic problem: invoked with incorrect direction %d\n", direction);
+      abort();
+#endif
+      return -1;
+  }
+
+  fx = require_flat_katcp(d);
+
+  if(fx == NULL){
+    return -1;
+  }
+
+  /* WARNING: loads of helpful magic here ... */
+  switch(string[0]){
+    case KATCP_REQUEST   :
+      ptr = string + 1;
+      actual = flags ? flags : (KATCP_REPLY_HANDLE_REPLIES | KATCP_REPLY_HANDLE_INFORMS);
+      break;
+    case KATCP_REPLY :
+      ptr = string + 1;
+      actual = flags ? flags : KATCP_REPLY_HANDLE_REPLIES;
+      break;
+    case KATCP_INFORM  :
+      ptr = string + 1;
+      actual = flags ? flags : KATCP_REPLY_HANDLE_INFORMS;
+      break;
+    default :
+      actual = flags;
+      ptr = string;
+      break;
+  }
+
+
+  rh = &(fx->f_replies[direction]);
+
+  len = strlen(ptr);
+
+  tmp = realloc(rh->r_message, len + 1);
+  if(tmp == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "allocation failure, unable to duplicate %s", ptr);
+    return -1;
+  }
+  rh->r_message = tmp;
+  
+  memcpy(rh->r_message, ptr, len + 1);
+
+  rh->r_flags   = actual;
+  rh->r_reply   = call;
+
+  return 0;
+}
+
+int set_inner_flat_katcp(struct katcp_dispatch *d, int (*call)(struct katcp_dispatch *d, int argc), char *string, unsigned int flags)
+{
+  return set_generic_flat_katcp(d, KATCP_DIRECTION_INNER, call, string, flags);
+}
+
+int set_remote_flat_katcp(struct katcp_dispatch *d, int (*call)(struct katcp_dispatch *d, int argc), char *string, unsigned int flags)
+{
+  return set_generic_flat_katcp(d, KATCP_DIRECTION_REMOTE, call, string, flags);
+}
+
+/***************************************************************************/
+
+int is_inner_flat_katcp(struct katcp_dispatch *d)
+{
+  struct katcp_flat *fx; 
+
+  fx = require_flat_katcp(d);
+
+  if(fx == NULL){
+    return -1;
+  }
+
+  switch(fx->f_current_direction){
+    case KATCP_DIRECTION_INNER :
+      return 1;
+    case KATCP_DIRECTION_REMOTE :
+      return 0;
+    default :
+      return -1;
+  }
+}
+
+int is_remote_flat_katcp(struct katcp_dispatch *d)
+{
+  struct katcp_flat *fx; 
+
+  fx = require_flat_katcp(d);
+
+  if(fx == NULL){
+    return -1;
+  }
+
+  switch(fx->f_current_direction){
+    case KATCP_DIRECTION_REMOTE :
+      return 1;
+    case KATCP_DIRECTION_INNER :
+      return 0;
+    default :
+      return -1;
+  }
+}
+
+/******************************************************************************/
+
+static int do_resume_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx)
+{
+
+
+}
+
+int resume_other_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx)
+{
+  /* not sure if this function is needed, seems a bit dangerous */
+  return do_resume_flat_katcp(d, fx);
+}
+
+int resume_flat_katcp(struct katcp_dispatch *d)
+{
+  struct katcp_flat *fx;
+
+  fx = require_flat_katcp(d);
+  if(fx == NULL){
+    return -1;
+  }
+
+  return do_resume_flat_katcp(d, fx);
+}
+
 
 /**************************************************************************/
 /**************************************************************************/
@@ -1416,132 +1566,6 @@ int append_args_flat_katcp(struct katcp_dispatch *d, int flags, char *fmt, ...)
 #endif
 
 /**************************************************************************/
-
-static int set_generic_flat_katcp(struct katcp_dispatch *d, int direction, int (*call)(struct katcp_dispatch *d, int argc), char *string, unsigned int flags)
-{
-  struct katcp_flat *fx; 
-  char *tmp, *ptr;
-  unsigned int actual, len;
-  struct katcp_response_handler *rh;
-
-#ifdef KATCP_CONSISTENCY_CHECKS
-  if(string == NULL){
-    fprintf(stderr, "major logic problem: need a valid string for callback");
-    abort();
-  }
-#endif
-
-  switch(direction){
-    case KATCP_DIRECTION_INNER  : 
-    case KATCP_DIRECTION_REMOTE :
-      break;
-    default :
-#ifdef KATCP_CONSISTENCY_CHECKS
-      fprintf(stderr, "major logic problem: invoked with incorrect direction %d\n", direction);
-      abort();
-#endif
-      return -1;
-  }
-
-  fx = require_flat_katcp(d);
-
-  if(fx == NULL){
-    return -1;
-  }
-
-  /* WARNING: loads of helpful magic here ... */
-  switch(string[0]){
-    case KATCP_REQUEST   :
-      ptr = string + 1;
-      actual = flags ? flags : (KATCP_REPLY_HANDLE_REPLIES | KATCP_REPLY_HANDLE_INFORMS);
-      break;
-    case KATCP_REPLY :
-      ptr = string + 1;
-      actual = flags ? flags : KATCP_REPLY_HANDLE_REPLIES;
-      break;
-    case KATCP_INFORM  :
-      ptr = string + 1;
-      actual = flags ? flags : KATCP_REPLY_HANDLE_INFORMS;
-      break;
-    default :
-      actual = flags;
-      ptr = string;
-      break;
-  }
-
-
-  rh = &(fx->f_replies[direction]);
-
-  len = strlen(ptr);
-
-  tmp = realloc(rh->r_message, len + 1);
-  if(tmp == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "allocation failure, unable to duplicate %s", ptr);
-    return -1;
-  }
-  rh->r_message = tmp;
-  
-  memcpy(rh->r_message, ptr, len + 1);
-
-  rh->r_flags   = actual;
-  rh->r_reply   = call;
-
-  return 0;
-}
-
-int set_inner_flat_katcp(struct katcp_dispatch *d, int (*call)(struct katcp_dispatch *d, int argc), char *string, unsigned int flags)
-{
-  return set_generic_flat_katcp(d, KATCP_DIRECTION_INNER, call, string, flags);
-}
-
-int set_remote_flat_katcp(struct katcp_dispatch *d, int (*call)(struct katcp_dispatch *d, int argc), char *string, unsigned int flags)
-{
-  return set_generic_flat_katcp(d, KATCP_DIRECTION_REMOTE, call, string, flags);
-}
-
-/***************************************************************************/
-
-int is_inner_flat_katcp(struct katcp_dispatch *d)
-{
-  struct katcp_flat *fx; 
-
-  fx = require_flat_katcp(d);
-
-  if(fx == NULL){
-    return -1;
-  }
-
-  switch(fx->f_current_direction){
-    case KATCP_DIRECTION_INNER :
-      return 1;
-    case KATCP_DIRECTION_REMOTE :
-      return 0;
-    default :
-      return -1;
-  }
-}
-
-int is_remote_flat_katcp(struct katcp_dispatch *d)
-{
-  struct katcp_flat *fx; 
-
-  fx = require_flat_katcp(d);
-
-  if(fx == NULL){
-    return -1;
-  }
-
-  switch(fx->f_current_direction){
-    case KATCP_DIRECTION_REMOTE :
-      return 1;
-    case KATCP_DIRECTION_INNER :
-      return 0;
-    default :
-      return -1;
-  }
-}
-
-/**************************************************************************/
 /* mainloop related logic *************************************************/
 
 int load_flat_katcp(struct katcp_dispatch *d)
@@ -1590,15 +1614,12 @@ int load_flat_katcp(struct katcp_dispatch *d)
           break;
 
         case FLAT_STATE_UP : 
-        case FLAT_STATE_BLOCK_INNER  :
           FD_SET(fd, &(s->s_read));
           if(fd > s->s_max){
             s->s_max = fd;
           }
           /* WARNING: fall */
 
-        case FLAT_STATE_BLOCK_REMOTE :
-        case FLAT_STATE_BLOCK_TOTAL  :
         case FLAT_STATE_DRAIN :
           if(flushing_katcl(f->f_line)){
             FD_SET(fd, &(s->s_write));
@@ -1781,7 +1802,7 @@ int run_flat_katcp(struct katcp_dispatch *d)
       }
 
 
-      if((fx->f_state == FLAT_STATE_UP) || (fx->f_state == FLAT_STATE_BLOCK_INNER)){
+      if(fx->f_state == FLAT_STATE_UP){
 
         fx->f_rx = ready_katcl(fx->f_line);
         if(fx->f_rx == NULL){
