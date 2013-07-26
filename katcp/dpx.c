@@ -76,63 +76,9 @@ static void set_current_flat(struct katcp_dispatch *d, struct katcp_flat *fx);
 
 static int actually_set_output_flat_katcp(struct katcp_flat *fx, unsigned int destination, unsigned int persistence);
 
+static void deallocate_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *f);
+
 /********************************************************************/
-
-int init_flats_katcp(struct katcp_dispatch *d, unsigned int stories)
-{
-  struct katcp_shared *s;
-  
-  if(d == NULL){
-    return -1;
-  }
-
-  s = d->d_shared;
-  if(s == NULL){
-    return -1;
-  }
-
-#ifdef KATCP_CONSISTENCY_CHECKS
-  if(s->s_this){
-    fprintf(stderr, "flat: initialising stack which already has a value\n");
-    abort();
-  }
-#endif
-
-  s->s_stories = 0;
-  s->s_level = (-1);
-
-  s->s_this = malloc(sizeof(struct katcp_flat *) * stories);
-  if(s->s_this == NULL){
-    return -1;
-  }
-
-  s->s_stories = stories;
-
-  return 0;
-}
-
-void destroy_flats_katcp(struct katcp_dispatch *d)
-{
-  struct katcp_shared *s;
-  
-  if(d == NULL){
-    return;
-  }
-
-  s = d->d_shared;
-  if(s == NULL){
-    return;
-  }
-
-  if(s->s_this){
-    free(s->s_this);
-    s->s_this = NULL;
-  }
-
-  s->s_level = (-1);
-  s->s_stories = 0;
-}
-
 
 /********************************************************************/
 
@@ -147,14 +93,16 @@ void destroy_group_katcp(struct katcp_dispatch *d, struct katcp_group *g)
     return;
   }
 
-  /* WARNING: need to think about these tests */
   if(g->g_use > 0){
     g->g_use--;
     return;
   }
 
-  /* could possibly leave out this test */
   if(g->g_count > 0){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "group destruction: group still in use (%u elements)\n", g->g_count);
+    abort();
+#endif
     return; 
   }
 
@@ -185,6 +133,27 @@ void destroy_group_katcp(struct katcp_dispatch *d, struct katcp_group *g)
   }
 
   free(g);
+}
+
+void destroy_groups_katcp(struct katcp_dispatch *d)
+{
+  struct katcp_shared *s;
+
+  s = d->d_shared;
+
+  if(s->s_fallback){
+    destroy_group_katcp(d, s->s_fallback);
+    s->s_fallback = NULL;
+  }
+
+  while(s->s_members){
+    destroy_group_katcp(d, s->s_groups[0]);
+  }
+
+  if(s->s_groups){
+    free(s->s_groups);
+    s->s_groups = NULL;
+  }
 }
 
 struct katcp_group *create_group_katcp(struct katcp_dispatch *d, char *name)
@@ -409,6 +378,9 @@ void destroy_cmd_map(struct katcp_cmd_map *m)
 
   if(m->m_refs > 0){
     m->m_refs--;
+#ifdef DEBUG
+    fprintf(stderr, "map %p now decremented to %d\n", m, m->m_refs);
+#endif
   }
 
   if(m->m_refs > 0){
@@ -429,11 +401,16 @@ void destroy_cmd_map(struct katcp_cmd_map *m)
     free(m->m_name);
     m->m_name = NULL;
   }
+
+  free(m);
 }
 
 void hold_cmd_map(struct katcp_cmd_map *m)
 {
   m->m_refs++;
+#ifdef DEBUG
+  fprintf(stderr, "map %p now incremented to %d\n", m, m->m_refs);
+#endif
 }
 
 struct katcp_cmd_map *create_cmd_map(char *name)
@@ -444,6 +421,10 @@ struct katcp_cmd_map *create_cmd_map(char *name)
   if(m == NULL){
     return NULL;
   }
+
+#ifdef DEBUG
+  fprintf(stderr, "created map %p\n", m);
+#endif
 
   m->m_name = NULL;
   m->m_refs = 0;
@@ -544,7 +525,6 @@ struct katcp_cmd_item *locate_cmd_item(struct katcp_flat *f, struct katcl_parse 
   return m->m_fallback;
 }
 
-
 /********************************************************************/
 
 /* */
@@ -565,12 +545,88 @@ static void sane_flat_katcp(struct katcp_flat *f)
 #define sane_flat_katcp(f);
 #endif
 
+int init_flats_katcp(struct katcp_dispatch *d, unsigned int stories)
+{
+  struct katcp_shared *s;
+  
+  if(d == NULL){
+    return -1;
+  }
+
+  s = d->d_shared;
+  if(s == NULL){
+    return -1;
+  }
+
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(s->s_this){
+    fprintf(stderr, "flat: initialising stack which already has a value\n");
+    abort();
+  }
+#endif
+
+  s->s_stories = 0;
+  s->s_level = (-1);
+
+  s->s_this = malloc(sizeof(struct katcp_flat *) * stories);
+  if(s->s_this == NULL){
+    return -1;
+  }
+
+  s->s_stories = stories;
+
+  return 0;
+}
+
+void destroy_flats_katcp(struct katcp_dispatch *d)
+{
+  struct katcp_shared *s;
+  unsigned int i, j;
+  struct katcp_flat *fx;
+  struct katcp_group *gx;
+
+  if(d == NULL){
+    return;
+  }
+
+  s = d->d_shared;
+  if(s == NULL){
+    return;
+  }
+
+  for(j = 0; j < s->s_members; j++){
+    gx = s->s_groups[j];
+    i = 0;
+    for(i = 0; i < gx->g_count; i++){
+      fx = gx->g_flats[i];
+      gx->g_flats[i] = NULL;
+      deallocate_flat_katcp(d, fx);
+    }
+    gx->g_count = 0;
+  }
+
+  if(s->s_this){
+    free(s->s_this);
+    s->s_this = NULL;
+  }
+
+  s->s_level = (-1);
+  s->s_stories = 0;
+}
+
+/********************************************************************/
+
 static void deallocate_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *f)
 {
   unsigned int i;
   sane_flat_katcp(f);
 
   /* TODO: make destruction an event ? */
+
+
+#ifdef DEBUG
+  fprintf(stderr, "dpx: deallocating flat %p with peer %p\n", f, f->f_peer);
+#endif
 
   if(f->f_peer){
     /* WARNING: make sure we don't recurse on cleanup, invoking release callback */
@@ -624,6 +680,8 @@ static void deallocate_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *f
   f->f_current_map = KATCP_MAP_UNSET;
   f->f_current_direction = KATCP_DIRECTION_INVALID;
 
+  f->f_blocked = 1;
+
   for(i = 0; i < KATCP_SIZE_MAP; i++){
     destroy_cmd_map(f->f_maps[i]);
     f->f_maps[i] = NULL;
@@ -673,6 +731,7 @@ static void destroy_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *f)
 
 int process_parse_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, int direction)
 {
+  /* WARNING: we can't return arbitrarily, need to clean up current_flat etc */
   /* we rely on caller to set f_rx */
 
   int result, type, overridden, wantsreply, argc;
@@ -854,11 +913,7 @@ int wake_endpoint_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep
 {
   /* might end up setting different wake functions - some flats might not field requests */
   struct katcp_flat *fx;
-  struct katcp_cmd_map *mx;
-  struct katcp_cmd_item *ix;
-  struct katcp_response_handler *rh;
-  int result, r, overridden, argc;
-  char *str;
+  int result;
 
   result = KATCP_RESULT_FAIL; /* assume the worst */
 
@@ -867,29 +922,20 @@ int wake_endpoint_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep
 
   log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "task %p (%s) received internal message", fx, fx->f_name);
 
-  if(fx->f_state == FLAT_STATE_UP){
-#ifdef KATCP_CONSISTENCY_CHECKS
-    if(fx->f_rx){
-      fprintf(stderr, "logic problem: encountered set receive parse while processing endpoint\n");
-      abort();
-    }
-#endif
-
-    fx->f_rx = parse_of_endpoint_katcp(d, msg);
-
-    result = process_parse_flat_katcp(d, fx, KATCP_DIRECTION_INNER);
-
-    switch(result){
-      case KATCP_RESULT_PAUSE :
-      case KATCP_RESULT_YIELD :
-      break;
-    }
-
-#if 0
-  } else {
-    /* FATAL problem: how does one resume once unblocked ? */
-#endif
+  if(fx->f_state != FLAT_STATE_UP){
+    return result;
   }
+
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(fx->f_rx){
+    fprintf(stderr, "logic problem: encountered set receive parse while processing endpoint\n");
+    abort();
+  }
+#endif
+
+  fx->f_rx = parse_of_endpoint_katcp(d, msg);
+
+  result = process_parse_flat_katcp(d, fx, KATCP_DIRECTION_INNER);
 
   return result;
 }
@@ -941,6 +987,8 @@ struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, int up, c
 
   /* for cases where connect() still has to succeed */
   f->f_state = up ? FLAT_STATE_UP : FLAT_STATE_CONNECTING;
+  f->f_blocked = 0;
+
   f->f_exit_code = 0; /* WARNING: should technically be a fail, to catch cases where it isn't set at exit time */
 
   f->f_log_level = s->s_default;
@@ -1037,6 +1085,8 @@ struct katcp_flat *find_name_flat_katcp(struct katcp_dispatch *d, char *group, c
 
   return NULL;
 }
+
+/* auxillary calls */
 
 struct katcp_endpoint *endpoint_of_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx)
 {
@@ -1265,34 +1315,6 @@ int is_remote_flat_katcp(struct katcp_dispatch *d)
   }
 }
 
-/******************************************************************************/
-
-static int do_resume_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx)
-{
-
-
-}
-
-int resume_other_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx)
-{
-  /* not sure if this function is needed, seems a bit dangerous */
-  return do_resume_flat_katcp(d, fx);
-}
-
-int resume_flat_katcp(struct katcp_dispatch *d)
-{
-  struct katcp_flat *fx;
-
-  fx = require_flat_katcp(d);
-  if(fx == NULL){
-    return -1;
-  }
-
-  return do_resume_flat_katcp(d, fx);
-}
-
-
-/**************************************************************************/
 /**************************************************************************/
 
 static struct katcl_parse *prepare_append_flat_katcp(struct katcp_flat *fx, int flags)
@@ -1355,6 +1377,9 @@ static int finish_append_flat_katcp(struct katcp_dispatch *d, int flags, int res
       return 0;
     case KATCP_DPX_SEND_STREAM :
       result = append_parse_katcl(fx->f_line, fx->f_tx);
+      if(is_reply_parse_katcl(fx->f_tx)){
+        fx->f_blocked = 0;
+      }
       destroy_parse_katcl(fx->f_tx);
       fx->f_tx = NULL;
       return result;
@@ -1670,7 +1695,7 @@ static void set_current_flat(struct katcp_dispatch *d, struct katcp_flat *fx)
 
 #ifdef KATCP_CONSISTENCY_CHECKS
   if(s->s_level >= 0){
-    fprintf(stderr, "logic problem: setting a current duplex %p while existing one is %p\n", fx, s->s_this[s->s_level]);
+    fprintf(stderr, "logic problem: setting a current duplex [%d]=%p while one is %p\n", s->s_level, fx, s->s_this[s->s_level]);
     abort();
   }
 #endif
@@ -1745,12 +1770,8 @@ int run_flat_katcp(struct katcp_dispatch *d)
   struct katcp_flat *fx;
   struct katcp_shared *s;
   struct katcp_group *gx;
-  struct katcp_cmd_map *mx;
-  struct katcp_response_handler *rh;
-  struct katcp_cmd_item *ix;
-  unsigned int i, j, overridden, len, replyable;
-  int fd, result, argc, code, forget;
-  char *str;
+  unsigned int i, j, len;
+  int fd, result, code;
 
   s = d->d_shared;
 
@@ -1762,8 +1783,6 @@ int run_flat_katcp(struct katcp_dispatch *d)
     gx = s->s_groups[j];
     for(i = 0; i < gx->g_count; i++){
       fx = gx->g_flats[i];
-
-      set_current_flat(d, fx);
 
       fd = fileno_katcl(fx->f_line);
 
@@ -1812,23 +1831,27 @@ int run_flat_katcp(struct katcp_dispatch *d)
           }
         }
 
-        result = process_parse_flat_katcp(d, fx, KATCP_DIRECTION_REMOTE);
-        switch(result){
-          case KATCP_RESULT_PAUSE : 
-          case KATCP_RESULT_YIELD : 
-            break;
-          default :
-            clear_katcl(fx->f_line);
-            result = parse_katcl(fx->f_line);
-            if(result > 0){ 
-              mark_busy_katcp(d);
-            }
-            break;
-        }
+        if((fx->f_blocked == 0) && (fx->f_rx != NULL)){
+          result = process_parse_flat_katcp(d, fx, KATCP_DIRECTION_REMOTE);
+          switch(result){
+            case KATCP_RESULT_PAUSE : 
+              fx->f_blocked = 1;
+              break;
+            case KATCP_RESULT_YIELD : 
+              break;
+            default :
+              clear_katcl(fx->f_line);
+              result = parse_katcl(fx->f_line);
+              if(result > 0){ 
+                mark_busy_katcp(d);
+              }
+              break;
+          }
 
 #ifdef KATCP_CONSISTENCY_CHECKS
-        fx->f_rx = NULL;
+          fx->f_rx = NULL;
 #endif
+        }
 
       } /* end of STATE_UP work */
     }
@@ -2240,6 +2263,7 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
     add_full_cmd_map(m, "watchdog", "pings the system (?watchdog)", 0, &watchdog_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map(m, "relay-watchdog", "ping a peer within the same process (?relay-watchdog peer)", 0, &relay_watchdog_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map(m, "relay", "issue a request to a peer within the same process (?relay peer cmd)", 0, &relay_generic_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map(m, "list-duplex", "display active connection detail (?list-duplex)", 0, &list_duplex_cmd_katcp, NULL, NULL);
   } else {
     m = gx->g_maps[KATCP_MAP_REMOTE_REQUEST];
   }
@@ -2305,9 +2329,10 @@ int listen_duplex_cmd_katcp(struct katcp_dispatch *d, int argc)
 
 int list_duplex_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
-  unsigned int i, j;
+  unsigned int i, j, k;
   struct katcp_shared *s;
   struct katcp_group *gx;
+  struct katcp_response_handler *rh;
   struct katcp_flat *fx;
 
   s = d->d_shared;
@@ -2318,10 +2343,17 @@ int list_duplex_cmd_katcp(struct katcp_dispatch *d, int argc)
     log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "group[%d]=%p has %d references and %u members", j, gx, gx->g_use, gx->g_count);
     for(i = 0; i < gx->g_count; i++){
       fx = gx->g_flats[i];
-      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s at %p in state %u", fx->f_name, fx, fx->f_state);
-#if 0
-      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s has queue backlog of %u", fx->f_name, size_queue_katcl(fx->f_backlog));
-#endif
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s at %p in state %u (fd io %s)", fx->f_name, fx, fx->f_state, fx->f_blocked ? "blocked" : "active");
+
+      for(k = 0; k < KATCP_SIZE_DIRECTION; k++){
+        rh = &fx->f_replies[k];
+        if(rh->r_reply){
+          log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s has %s handler for %s at %p", fx->f_name, (k == KATCP_DIRECTION_INNER) ? "internal" : "remote", rh->r_message, rh->r_reply);
+
+
+        }
+      }
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s has log level %d", fx->f_name, fx->f_log_level);
       log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s is part of group %p", fx->f_name, fx->f_group);
     }
   }

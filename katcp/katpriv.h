@@ -486,6 +486,7 @@ struct katcp_flat{
   int f_flags;           /* which directions can we do */
 
   int f_state;           /* up, shutting down, etc */
+  int f_blocked;         /* TODO: shim, should be handled properly, maybe in line */
   int f_exit_code;       /* reported exit status */
 
   int f_log_level;       /* log level currently set */
@@ -804,6 +805,7 @@ int load_flat_katcp(struct katcp_dispatch *d);
 
 int init_flats_katcp(struct katcp_dispatch *d, unsigned int stories);
 void destroy_flats_katcp(struct katcp_dispatch *d);
+void destroy_groups_katcp(struct katcp_dispatch *d);
 
 /* parse: setup */
 struct katcl_parse *create_parse_katcl();
@@ -895,8 +897,9 @@ int log_map_katcp(struct katcp_dispatch *d, char *prefix, struct katcp_map *km);
 /* arbitrary filedescriptor callback support */
 
 void load_arb_katcp(struct katcp_dispatch *d);
-int run_arb_katcp(struct katcp_dispatch *d);
 int arb_cmd_katcp(struct katcp_dispatch *d, int argc);
+int run_arb_katcp(struct katcp_dispatch *d);
+void destroy_arbs_katcp(struct katcp_dispatch *d);
 
 /*katcp_type*/
 void destroy_type_katcp(struct katcp_type *t);

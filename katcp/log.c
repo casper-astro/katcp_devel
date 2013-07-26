@@ -190,6 +190,8 @@ int extra_response_katcl(struct katcl_line *cl, int code, char *fmt, ...)
 
 int vextra_response_katcl(struct katcl_line *cl, int code, char *fmt, va_list args)
 {
+  /* WARNING: this function may not fit... we had it disabled for a while */
+
   int result[3];
   char *name, *status;
 
@@ -205,10 +207,12 @@ int vextra_response_katcl(struct katcl_line *cl, int code, char *fmt, va_list ar
 
   status = code_to_name_katcm(code);
   if(status == NULL){
+    free(name);
     return -1;
   }
 
   result[0] = append_string_katcl(cl, KATCP_FLAG_FIRST, name);
+  free(name);
 
   if(fmt == NULL){
     result[1] = append_string_katcl(cl, KATCP_FLAG_LAST, status);

@@ -497,7 +497,12 @@ void release_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep)
     return;
   }
 
+#ifdef DEBUG
+  fprintf(stderr, "released endpoint %p\n", ep);
+#endif
+
   ep->e_wake = NULL;
+  ep->e_release = NULL;
   ep->e_data = NULL;
 
   while((msg = remove_head_gueue_katcl(ep->e_queue)) != NULL){
@@ -505,16 +510,16 @@ void release_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep)
   }
 
   /* do actual cleanup in global run_endpoints */
-
 }
 
 void release_endpoints_katcp(struct katcp_dispatch *d)
 {
-  struct katcp_endpoint *ep;
   struct katcp_shared *s;
 
   s = d->d_shared;
 
+#if 0
+  /* not needed, should be done in duplex code, etc */
   ep = s->s_endpoints;
   while(ep){
     if(ep->e_flags & ENDPOINT_FLAG_UP){
@@ -522,8 +527,9 @@ void release_endpoints_katcp(struct katcp_dispatch *d)
     }
     ep = ep->e_next;
   }
+#endif
 
-  /* WARNING: may not be sufficient to run once ? */
+  /* WARNING: assume that previous routines have cleaned up, collect all unowned endpoints */
   run_endpoints_katcp(d);
 
 #ifdef KATCP_CONSISTENCY_CHECKS
@@ -535,7 +541,7 @@ void release_endpoints_katcp(struct katcp_dispatch *d)
 
 void run_endpoints_katcp(struct katcp_dispatch *d)
 {
-  struct katcp_endpoint *ep, *ex;
+  struct katcp_endpoint *ep, *ex, *en;
   struct katcp_shared *s;
   struct katcp_message *msg, *msx;
   int result;
@@ -576,12 +582,12 @@ void run_endpoints_katcp(struct katcp_dispatch *d)
             turnaround_endpoint_katcp(d, ep, msg, result, NULL);
 
             break;
-#if 0
-          /* WARNING: redundant, run for all cases below */
           case KATCP_RESULT_YIELD :
+#if 0
+            /* WARNING: redundant, run for all cases below, but case needed to avoid setting precedence */
             mark_busy_katcp(d);
-            break;
 #endif
+            break;
 
           case KATCP_RESULT_PAUSE :
 #ifdef KATCP_CONSISTENCY_CHECKS
@@ -615,7 +621,16 @@ void run_endpoints_katcp(struct katcp_dispatch *d)
       ep = ep->e_next;
     } else {
       /* gone */
-      ex->e_next = ep->e_next;
+
+      en = ep->e_next;
+
+      if(ex){
+        ex->e_next = en;
+      } else {
+        s->s_endpoints = en;
+      }
+
+      ep->e_next = NULL;
 
       if(ep->e_flags & ENDPOINT_FLAG_MALLOCED){
         free_endpoint_katcp(d, ep);
@@ -623,7 +638,7 @@ void run_endpoints_katcp(struct katcp_dispatch *d)
         clear_endpoint_katcp(d, ep);
       }
 
-      ep = ex->e_next;
+      ep = en;
     }
 
   }
