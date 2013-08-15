@@ -962,7 +962,11 @@ int write_katcl(struct katcl_line *l)
         }
 
         if(l->l_sendable){
+#ifdef MSG_NOSIGNAL
           wr = send(l->l_fd, l->l_buffer, l->l_pending, MSG_DONTWAIT | MSG_NOSIGNAL);
+#else
+          wr = send(l->l_fd, l->l_buffer, l->l_pending, MSG_DONTWAIT);
+#endif
         } else {
           wr = write(l->l_fd, l->l_buffer, l->l_pending);
         }

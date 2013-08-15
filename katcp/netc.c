@@ -111,21 +111,27 @@ int net_connect(char *name, int port, int flags)
       fprintf(stderr,"connect: cannot set keepalive socket option\n");
       return -1;
     }
+#ifdef TCP_KEEPIDLE
     option = 10;
     if (setsockopt(fd, SOL_TCP, TCP_KEEPIDLE, &option, sizeof(option)) < 0){
       fprintf(stderr,"connect: cannot set keepalive socket option\n");
       return -1;
     }
+#endif
+#ifdef TCP_KEEPINTVL
     option = 10;
     if (setsockopt(fd, SOL_TCP, TCP_KEEPINTVL, &option, sizeof(option)) < 0){
       fprintf(stderr,"connect: cannot set keepalive socket option\n");
       return -1;
     }
+#endif
+#ifdef TCP_KEEPCNT
     option = 3;
     if (setsockopt(fd, SOL_TCP, TCP_KEEPCNT, &option, sizeof(option)) < 0){
       fprintf(stderr,"connect: cannot set keepalive socket option\n");
       return -1;
     }
+#endif
   }
 
   len = sizeof(struct sockaddr_in);
@@ -223,6 +229,13 @@ int net_listen(char *name, int port, int flags)
   /* slightly risky behaviour in order to gain some convenience */
   value = 1;
   setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &value, sizeof(value));
+   
+#ifndef MSG_NOSIGNAL
+#ifdef SO_NOSIGPIPE
+  value = 1;
+  setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &value, sizeof(value));
+#endif
+#endif
    
   if(flags & NETC_VERBOSE_STATS){
     fprintf(stderr, "listen: about to bind %u\n", p);
