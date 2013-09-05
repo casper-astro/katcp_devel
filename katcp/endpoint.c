@@ -476,6 +476,27 @@ int answer_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep, s
   return send_message_endpoint_katcp(d, msg->m_to, msg->m_from, px, 0);
 }
 
+struct katcp_endpoint *source_endpoint_katcp(struct katcp_dispatch *d, struct katcp_message *msg)
+{
+  if(msg == NULL){
+    return NULL;
+  }
+
+  return msg->m_from;
+}
+
+#if 0
+struct katcp_endpoint *destination_endpoint_katcp(struct katcp_dispatch *d, struct katcp_message *msg)
+{
+  if(msg == NULL){
+    return NULL;
+  }
+
+  returm msg->m_to;
+}
+#endif
+
+
 static void precedence_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep, unsigned int precedence)
 {
   ep->e_precedence = precedence;
@@ -595,7 +616,7 @@ void run_endpoints_katcp(struct katcp_dispatch *d)
 #endif
             precedence_endpoint_katcp(d, ep, ENDPOINT_PRECEDENCE_HIGH);
 
-            /* warning: do we do a remove and destroy on the message, else how does one get it out of the queue */
+            /* WARNING: do we do a remove and destroy on the message, else how does one get it out of the queue */
 
             break;
 

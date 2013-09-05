@@ -674,6 +674,7 @@ int append_parse_flat_katcp(struct katcp_dispatch *d, struct katcl_parse *p);
 
 int send_message_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *from, struct katcp_endpoint *to, struct katcl_parse *px, int acknowledged);
 struct katcl_parse *parse_of_endpoint_katcp(struct katcp_dispatch *d, struct katcp_message *msg);
+struct katcp_endpoint *source_endpoint_katcp(struct katcp_dispatch *d, struct katcp_message *msg);
 
 #ifdef __cplusplus
 }

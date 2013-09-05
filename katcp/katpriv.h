@@ -491,7 +491,8 @@ struct katcp_flat{
 
   int f_log_level;       /* log level currently set */
 
-  struct katcp_endpoint *f_peer;
+  struct katcp_endpoint *f_peer; /* queue for internal messages, can be from different senders */
+  struct katcp_endpoint *f_remote; /* queue for remote messages, all come in from fd via a line */
 
   struct katcl_line *f_line;
   struct katcp_shared *f_shared;
