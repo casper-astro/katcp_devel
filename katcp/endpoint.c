@@ -170,6 +170,9 @@ int send_message_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint 
   }
 
   if(queue_message_katcp(d, msg) < 0){
+#ifdef DEBUG
+    fprintf(stderr, "send: unable to queue message %p\n", msg);
+#endif
     destroy_message_katcp(d, msg);
     return -1;
   }
@@ -417,9 +420,16 @@ int vturnaround_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *
     msg->m_to = msg->m_from;
     msg->m_from = NULL;
 
+#ifdef DEBUG
+    fprintf(stderr, "turnaround: about to send reply (code=%d) to %p\n", code, msg->m_to);
+#endif
+
     msg->m_flags &= ~KATCP_MESSAGE_WACK;
 
     if(queue_message_katcp(d, msg) < 0){
+#ifdef DEBUG
+      fprintf(stderr, "turnaround: unable to queue message %p\n", msg);
+#endif
       destroy_message_katcp(d, msg);
       result = (-1);
     }
@@ -575,8 +585,14 @@ void run_endpoints_katcp(struct katcp_dispatch *d)
     /* is this endpoint up ? */
     if(ep->e_flags & ENDPOINT_FLAG_UP){
       msg = get_precedence_head_gueue_katcl(ep->e_queue, ep->e_precedence);
+#ifdef DEBUG
+      fprintf(stderr, "endpoint: on %p got message %p\n", ep, msg);
+#endif
       if(msg != NULL){
         result = (*(ep->e_wake))(d, ep, msg, ep->e_data);
+#ifdef DEBUG
+        fprintf(stderr, "endpoint: callback %p returns %d\n", ep->e_wake, result);
+#endif
         switch(result){
           case KATCP_RESULT_OWN :
             if(remove_datum_gueue_katcl(ep->e_queue, msg) == NULL){
@@ -664,6 +680,14 @@ void run_endpoints_katcp(struct katcp_dispatch *d)
 
   }
 
+}
+
+void show_endpoint_katcp(struct katcp_dispatch *d, char *prefix, int level, struct katcp_endpoint *ep)
+{
+  log_message_katcp(d, level, NULL, "%s endpoint %p current precedence %u", prefix, ep, ep->e_precedence);
+  log_message_katcp(d, level, NULL, "%s endpoint %p size %u", prefix, ep, size_gueue_katcl(ep->e_queue));
+  log_message_katcp(d, level, NULL, "%s endpoint %p references %u", prefix, ep, ep->e_refcount);
+  log_message_katcp(d, level, NULL, "%s endpoint %p flags 0x%04x", prefix, ep, ep->e_flags);
 }
 
 #endif

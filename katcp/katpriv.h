@@ -962,6 +962,9 @@ int answer_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep, s
 struct katcp_endpoint *create_endpoint_katcp(struct katcp_dispatch *d, int (*wake)(struct katcp_dispatch *d, struct katcp_endpoint *ep, struct katcp_message *msg, void *data), void (*release)(struct katcp_dispatch *d, void *data), void *data);
 void release_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep);
 
+void show_endpoint_katcp(struct katcp_dispatch *d, char *prefix, int level, struct katcp_endpoint *ep);
+
+
 /******************************************/
 
 #define KATCL_PARSE_MAGIC 0xff7f1273

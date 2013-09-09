@@ -176,7 +176,7 @@ void *get_from_head_gueue_katcl(struct katcl_gueue *g, unsigned int position)
 {
   unsigned int wrap;
 
-  if((g->g_count == 0) || (g->g_size == 0) || (g->g_count >= g->g_size)){
+  if((g->g_count == 0) || (g->g_size == 0) || (g->g_count > g->g_size)){
     return NULL;
   }
 
@@ -205,20 +205,35 @@ void *get_precedence_head_gueue_katcl(struct katcl_gueue *g, unsigned int preced
   unsigned int value, i, j;
 
   if(g->g_precedence == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "generic queue: get request with no precedence calculation\n");
+#endif
     return get_head_gueue_katcl(g);
   }
 
-  if((g->g_count == 0) || (g->g_size == 0) || (g->g_count >= g->g_size)){
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if((g->g_count == 0) || (g->g_size == 0) || (g->g_count > g->g_size)){
+#ifdef DEBUG
+    fprintf(stderr, "generic queue: reasonability test on get failed (count=%u, size=%u)\n", g->g_count, g->g_size);
+#endif
     return NULL;
   }
+#endif
 
   for(j = 0; j < g->g_count; j++){
     i = (g->g_head + j) % g->g_size;
     value =  (*(g->g_precedence))(g->g_queue[i]);
+#ifdef DEBUG
+    fprintf(stderr, "generic queue: %p->%u, looking for at least %u\n", g->g_queue[i], value, precedence);
+#endif
     if(value >= precedence){
       return g->g_queue[i];
     }
   }
+
+#ifdef DEBUG
+  fprintf(stderr, "generic queue: no match found, need precedence %u, searched %u\n", precedence, g->g_count);
+#endif
 
   return NULL;
 }
@@ -310,7 +325,7 @@ void *remove_from_head_gueue_katcl(struct katcl_gueue *g, unsigned int position)
   unsigned int index;
 
 #ifdef KATCP_CONSISTENCY_CHECKS
-  if((g->g_count == 0) || (g->g_size == 0) || (g->g_count >= g->g_size)){
+  if((g->g_count == 0) || (g->g_size == 0) || (g->g_count > g->g_size)){
     return NULL;
   }
 #endif
@@ -340,7 +355,7 @@ void *remove_datum_gueue_katcl(struct katcl_gueue *g, void *datum)
   unsigned int i, j;
 
 #ifdef KATCP_CONSISTENCY_CHECKS
-  if((g->g_count == 0) || (g->g_size == 0) || (g->g_count >= g->g_size)){
+  if((g->g_count == 0) || (g->g_size == 0) || (g->g_count > g->g_size)){
     return NULL;
   }
 #endif

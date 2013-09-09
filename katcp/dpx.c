@@ -738,7 +738,7 @@ int process_parse_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx)
   /* WARNING: we can't return arbitrarily, need to clean up current_flat etc */
   /* we rely on caller to set f_rx */
 
-  int result, type, overridden, wantsreply, argc;
+  int result, type, overridden, argc;
   struct katcp_response_handler *rh;
   struct katcp_cmd_map *mx;
   struct katcp_cmd_item *ix;
@@ -746,22 +746,19 @@ int process_parse_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx)
 
   sane_flat_katcp(fx);
 
-
-  result = KATCP_RESULT_FAIL; /* assume the worst */
-
   argc = get_count_parse_katcl(fx->f_rx);
 
   str = get_string_parse_katcl(fx->f_rx, 0);
   if(str == NULL){
-    return result;
+    return KATCP_RESULT_OWN; /* WARNING: risky ... */
   }
 
   type = str[0];
 
   if(type == KATCP_REQUEST){
-    wantsreply = 1;
+    result = KATCP_RESULT_FAIL; /* assume the worst */
   } else {
-    wantsreply = 0;
+    result = KATCP_RESULT_OWN;  /* informs and replies don't generate replies of their own */
   }
 
   overridden = 0;
@@ -777,6 +774,17 @@ int process_parse_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx)
         } 
       } else {
         result = (*(rh->r_reply))(d, argc);
+        switch(result){
+          case KATCP_RESULT_FAIL :
+          case KATCP_RESULT_INVALID :
+          case KATCP_RESULT_OK :
+            result = KATCP_RESULT_OWN;
+            break;
+          case KATCP_RESULT_PAUSE :
+          case KATCP_RESULT_YIELD :
+          case KATCP_RESULT_OWN :
+            break;
+        }
         /* WARNING: unclear if the return code makes sense here */
         overridden = 1;
         if(type == KATCP_REPLY){
@@ -805,6 +813,7 @@ int process_parse_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx)
 
           log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "%s callback invocation returns %d", (fx->f_current_direction == KATCP_DIRECTION_INNER) ? "internal" : "remote", result);
 
+#if 0
           switch(result){
             case KATCP_RESULT_FAIL :
             case KATCP_RESULT_INVALID :
@@ -821,6 +830,7 @@ int process_parse_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx)
               wantsreply = 0;
               break;
           }
+#endif
 
         } else {
           log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "skipping handler for message %s - already processed using reply", str);
@@ -837,11 +847,13 @@ int process_parse_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx)
 
   }
 
+#if 0
   if(wantsreply){
     extra_response_katcl(fx->f_line, result, NULL);
     /* WARNING: we handle replies here, tell endpoint callback not to duplicate work */
     result = KATCP_RESULT_OWN;
   }
+#endif
 
   fx->f_send = KATCP_DPX_SEND_INVALID;
   fx->f_current_map = KATCP_MAP_UNSET;
@@ -1917,6 +1929,8 @@ int run_flat_katcp(struct katcp_dispatch *d)
             acknowledge = 0;
           }
 
+          log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "sending network message to endpoint %p", fx->f_peer);
+
           if(send_message_endpoint_katcp(d, fx->f_remote, fx->f_peer, px, acknowledge) < 0){
             log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to enqueue remote message");
             break;
@@ -1924,6 +1938,8 @@ int run_flat_katcp(struct katcp_dispatch *d)
             /* TODO: this should trigger a shutdown of this connection, being unable to send ourselves a message */
 
           }
+
+          show_endpoint_katcp(d, "peer", KATCP_LEVEL_TRACE, fx->f_peer);
 
           /* TODO: check the size of the queue, give up if it has grown to unreasonable */
 
@@ -1933,7 +1949,6 @@ int run_flat_katcp(struct katcp_dispatch *d)
 
     }
   }
-
 
   return s->s_members;
 }
