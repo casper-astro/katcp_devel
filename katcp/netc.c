@@ -49,31 +49,41 @@ int net_connect(char *name, int port, int flags)
     return -2;
   }
 
-  host = strdup(name);
-  if(host == NULL){
-    if(flags & NETC_VERBOSE_ERRORS) fprintf(stderr, "connect: unable to duplicate string\n");
-    errno = ENOMEM;
-    return -1;
-  }
-
-  ptr = strchr(host, ':');
-  if(ptr){
-    ptr[0] = '\0';
-  }
-
-  if(inet_aton(host, &(sa.sin_addr)) == 0){
-    he = gethostbyname(host);
-    if((he == NULL) || (he->h_addrtype != AF_INET)){
-      if(flags & NETC_VERBOSE_ERRORS) fprintf(stderr, "connect: unable to map %s to ipv4 address\n", host);
-      free(host);
-      errno = EINVAL;
+  if((name[0] == '\0') || (name[0] == ':')){
+#ifdef INADDR_LOOPBACK
+    sa.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+#else
+    if(flags & NETC_VERBOSE_ERRORS) fprintf(stderr, "connect: no destination address given\n");
+    errno = EINVAL;
+    return -2;
+#endif
+  } else {
+    host = strdup(name);
+    if(host == NULL){
+      if(flags & NETC_VERBOSE_ERRORS) fprintf(stderr, "connect: unable to duplicate string\n");
+      errno = ENOMEM;
       return -1;
     }
 
-    sa.sin_addr = *(struct in_addr *) he->h_addr;
-  }
+    ptr = strchr(host, ':');
+    if(ptr){
+      ptr[0] = '\0';
+    }
 
-  free(host);
+    if(inet_aton(host, &(sa.sin_addr)) == 0){
+      he = gethostbyname(host);
+      if((he == NULL) || (he->h_addrtype != AF_INET)){
+        if(flags & NETC_VERBOSE_ERRORS) fprintf(stderr, "connect: unable to map %s to ipv4 address\n", host);
+        free(host);
+        errno = EINVAL;
+        return -1;
+      }
+
+      sa.sin_addr = *(struct in_addr *) he->h_addr;
+    }
+
+    free(host);
+  }
 
   sa.sin_port = htons(p);
   sa.sin_family = AF_INET;
