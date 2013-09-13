@@ -586,9 +586,15 @@ void run_endpoints_katcp(struct katcp_dispatch *d)
     if(ep->e_flags & ENDPOINT_FLAG_UP){
       msg = get_precedence_head_gueue_katcl(ep->e_queue, ep->e_precedence);
 #ifdef DEBUG
-      fprintf(stderr, "endpoint: on %p got message %p\n", ep, msg);
+      fprintf(stderr, "endpoint: on %p got message %p (from=%p, parse=%p)\n", ep, msg, msg ? msg->m_from : NULL, msg ? msg->m_parse : NULL);
 #endif
       if(msg != NULL){
+#ifdef KATCP_CONSISTENCY_CHECKS
+      if(msg->m_to != ep){
+        fprintf(stderr, "endpoint consistency failure: message for endpoint %p arrived on endpoint %p\n", msg->m_to, ep);
+        abort();
+      }
+#endif
         result = (*(ep->e_wake))(d, ep, msg, ep->e_data);
 #ifdef DEBUG
         fprintf(stderr, "endpoint: callback %p returns %d\n", ep->e_wake, result);

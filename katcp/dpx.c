@@ -987,10 +987,14 @@ int wake_endpoint_remote_flat_katcp(struct katcp_dispatch *d, struct katcp_endpo
   }
 
   px = parse_of_endpoint_katcp(d, msg);
+  if(px == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "task %p (%s) received emtpy message for network", fx, fx->f_name);
+    return KATCP_RESULT_OWN;
+  }
 
   request = is_request_parse_katcl(px);
 
-  result = append_parse_katcl(fx->f_line, fx->f_tx);
+  result = append_parse_katcl(fx->f_line, px);
   /* WARNING: do something with the return code */
   
   if(request){
