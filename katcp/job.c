@@ -150,7 +150,7 @@ static struct katcp_notice *remove_index_job(struct katcp_dispatch *d, struct ka
   if((j->j_head + j->j_count) > j->j_size){ /* wrapping case */
     if(index >= j->j_head){ /* position before wrap around, move up head */
       if(index > j->j_head){
-        memcpy(&(j->j_queue[j->j_head + 1]), &(j->j_queue[j->j_head]), (index - j->j_head) * sizeof(struct katcp_notice *));
+        memmove(&(j->j_queue[j->j_head + 1]), &(j->j_queue[j->j_head]), (index - j->j_head) * sizeof(struct katcp_notice *));
       }
       j->j_queue[j->j_head] = NULL;
       j->j_head = (j->j_head + 1) % j->j_size;
@@ -169,7 +169,7 @@ static struct katcp_notice *remove_index_job(struct katcp_dispatch *d, struct ka
     return NULL;
   }
   if(index < end){
-    memcpy(&(j->j_queue[index]), &(j->j_queue[index + 1]), (end - index) * sizeof(struct katcp_notice *));
+    memmove(&(j->j_queue[index]), &(j->j_queue[index + 1]), (end - index) * sizeof(struct katcp_notice *));
   } /* else index is end, no copy needed  */
 
   j->j_queue[end] = NULL;

@@ -3,6 +3,10 @@
 
 #include "katcp.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define AVL_LEFT        0x2 
 #define AVL_RIGHT       0x1
 #define AVL_MASK        0xF
@@ -67,5 +71,9 @@ int check_balances_avltree(struct avl_node *n, int depth);
 /*extra*/
 
 char *gen_id_avltree(char *prefix);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -69,6 +69,7 @@ struct getap_state{
   unsigned int s_instance;
   uint16_t s_iteration;
   unsigned int s_burst;
+  unsigned int s_deferrals;
 
   struct tbs_entry *s_register;
 

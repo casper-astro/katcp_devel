@@ -6,7 +6,7 @@ KATCP ?= katcp
 
 # compiler flags, -Wall is just the right thing to do 
 CFLAGS += -Wall
-CFLAGS += -O2
+#CFLAGS += -O2
 
 # where the C implementation has diverged from the katcp standard,
 # force standard behaviour. Currently only one case: log-level affects
@@ -42,8 +42,8 @@ CFLAGS += -DKATCP_SUBPROCESS
 # pick a protocol reversion from the list. Making up
 # your own major values doesn't work unless you also implement what 
 # the protocol requires
-#CFLAGS += -DKATCP_PROTOCOL_MAJOR_VERSION=5 -DKATCP_PROTOCOL_MINOR_VERSION=0
-CFLAGS += -DKATCP_PROTOCOL_MAJOR_VERSION=4 -DKATCP_PROTOCOL_MINOR_VERSION=9
+CFLAGS += -DKATCP_PROTOCOL_MAJOR_VERSION=5 -DKATCP_PROTOCOL_MINOR_VERSION=0
+#CFLAGS += -DKATCP_PROTOCOL_MAJOR_VERSION=4 -DKATCP_PROTOCOL_MINOR_VERSION=9
 
 # amount of debugging logic to enable 
 #CFLAGS += -DDEBUG=4
@@ -52,6 +52,8 @@ CFLAGS += -ggdb
 
 # what compiler to use 
 CC = $(CROSS_COMPILE)gcc
+# C++ implements stronger type checks... so this gives loads of warnings
+#CC = g++ -fpermissive
 
 GITVER = $(shell git describe --always --tags --dirty 2> /dev/null || echo unknown)
 

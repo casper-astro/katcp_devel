@@ -30,10 +30,17 @@ struct katcl_gueue
   unsigned int g_head;  /* current position */
   unsigned int g_count; /* No of entries */
 
-  void (*g_release)(void *datum);
+  void (*g_release)(void *datum);  /* the cleanup function */
+
+  /* this may actually one day be a proper priority queue, here just the 
+   * feeble attempts: g_precedence is a user function which computes a metric
+   * of the stored item, can be used to retrieve an which is at the head of the
+   * queue but also has a precendence of greater or equal the given value */
+
+  unsigned int (*g_precedence)(void *datum); 
 };
 
-struct katcl_gueue *create_gueue_katcl(void (*release)(void *datum))
+struct katcl_gueue *create_precedence_gueue_katcl(void (*release)(void *datum), unsigned int (*precedence)(void *datum))
 {
   struct katcl_gueue *g;
 
@@ -49,8 +56,14 @@ struct katcl_gueue *create_gueue_katcl(void (*release)(void *datum))
   g->g_size = 0;
 
   g->g_release = release;
+  g->g_precedence = precedence;
 
   return g;
+}
+
+struct katcl_gueue *create_gueue_katcl(void (*release)(void *datum))
+{
+  return create_precedence_gueue_katcl(release, NULL);
 }
 
 void destroy_gueue_katcl(struct katcl_gueue *g)
@@ -159,16 +172,23 @@ int add_tail_gueue_katcl(struct katcl_gueue *g, void *datum)
 
 /*************************************************************************/
 
-void *get_index_gueue_katcl(struct katcl_gueue *g, unsigned int index)
+void *get_from_head_gueue_katcl(struct katcl_gueue *g, unsigned int position)
 {
   unsigned int wrap;
 
-  if((g->g_count == 0) || (g->g_size == 0) || (g->g_count >= g->g_size)){
+  if((g->g_count == 0) || (g->g_size == 0) || (g->g_count > g->g_size)){
     return NULL;
   }
 
-  if((g->g_count > index) && (index < g->g_size)){
-    wrap = ((g->g_head + index) % g->g_size);
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(g->g_size < g->g_count){
+    fprintf(stderr, "generic queue: more elements %u than slots %u\n", g->g_count, g->g_size);
+    abort();
+  }
+#endif
+
+  if(position < g->g_count){
+    wrap = ((g->g_head + position) % g->g_size);
     return g->g_queue[wrap];
   } else {
     return NULL;
@@ -180,14 +200,50 @@ void *get_head_gueue_katcl(struct katcl_gueue *g)
   return (g->g_count > 0) ? g->g_queue[g->g_head] : NULL;
 }
 
+void *get_precedence_head_gueue_katcl(struct katcl_gueue *g, unsigned int precedence)
+{
+  unsigned int value, i, j;
+
+  if(g->g_precedence == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "generic queue: get request with no precedence calculation\n");
+#endif
+    return get_head_gueue_katcl(g);
+  }
+
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if((g->g_count == 0) || (g->g_size == 0) || (g->g_count > g->g_size)){
+#ifdef DEBUG
+    fprintf(stderr, "generic queue: reasonability test on get failed (count=%u, size=%u)\n", g->g_count, g->g_size);
+#endif
+    return NULL;
+  }
+#endif
+
+  for(j = 0; j < g->g_count; j++){
+    i = (g->g_head + j) % g->g_size;
+    value =  (*(g->g_precedence))(g->g_queue[i]);
+#ifdef DEBUG
+    fprintf(stderr, "generic queue: %p->%u, looking for at least %u\n", g->g_queue[i], value, precedence);
+#endif
+    if(value >= precedence){
+      return g->g_queue[i];
+    }
+  }
+
+#ifdef DEBUG
+  fprintf(stderr, "generic queue: no match found, need precedence %u, searched %u\n", precedence, g->g_count);
+#endif
+
+  return NULL;
+}
+
 /*************************************************************************/
 
-void *remove_index_gueue_katcl(struct katcl_gueue *g, unsigned int index)
+static void *remove_index_gueue_katcl(struct katcl_gueue *g, unsigned int index)
 {
   unsigned int end;
   void *datum;
-
-  /* WARNING: removing from queue does not decrease reference count */
 
   if(g->g_count <= 0){
 #ifdef DEBUG
@@ -207,55 +263,52 @@ void *remove_index_gueue_katcl(struct katcl_gueue *g, unsigned int index)
   }
 #endif
 
-#if DEBUG > 1
-  fprintf(stderr, "generic queue: del[%d]=%p\n", index, g->g_queue[index]);
+#if DEBUG
+  fprintf(stderr, "generic queue: del[%u]=%p\n", index, g->g_queue[index]);
 #endif
 
   datum = g->g_queue[index];
   g->g_queue[index] = NULL;
 
   if(index == g->g_head){
-    /* hopefully the common, simple case: only one interested party */
+    /* hopefully the common, simple case - remove from head */
     g->g_head = (g->g_head + 1) % g->g_size;
     g->g_count--;
 
-#if DEBUG > 1
+#if DEBUG 
     fprintf(stderr, "generic gueue: removed %p from %p\n", datum, g);
 #endif
 
     return datum;
   }
 
-  if((g->g_head + g->g_count) > g->g_size){ /* wrapping case */
-    if(index >= g->g_head){ /* position before wrap around, move up head */
-      if(index > g->g_head){
-        memcpy(&(g->g_queue[g->g_head + 1]), &(g->g_queue[g->g_head]), (index - g->g_head) * sizeof(void *));
-      }
-      g->g_queue[g->g_head] = NULL;
-      g->g_head = (g->g_head + 1) % g->g_size;
-      g->g_count--;
-#if DEBUG > 1
-      fprintf(stderr, "generic queue: removed %p from %p (wrap)\n", datum, g);
+  if(index > g->g_head){ /* index ahead of head, move head toward index */
+    memmove(&(g->g_queue[g->g_head + 1]), &(g->g_queue[g->g_head]), (index - g->g_head) * sizeof(void *));
+    g->g_queue[g->g_head] = NULL;
+    g->g_head = (g->g_head + 1) % g->g_size;
+    g->g_count--;
+#if DEBUG 
+    fprintf(stderr, "generic queue: removed %p from %p, head advanced to %u\n", datum, g, g->g_head);
 #endif
-      return datum; /* WARNING: done here */
-    }
-  } else { /* if no wrapping, we can not be before head */
-    if(index < g->g_head){
-      return NULL;
-    }
+    return datum; /* WARNING: done here */
   }
+
+  /* else index < g->g_head, move tail back */
 
   /* now move back end by one, to overwrite position at index */
-  end = g->g_head + g->g_count - 1; /* WARNING: relies on count+head never being zero, hence earlier test */
+  end = (g->g_head + g->g_count - 1) % g->g_size; /* WARNING: relies on count+head never being zero, hence earlier test */
+#ifdef KATCP_CONSISTENCY_CHECKS
   if(index > end){
-    return NULL;
+    fprintf(stderr, "generic queue: logic problem: attempting to remove %u, queue only valid from head=%u to head+count=%u+%u-1=%u", index, g->g_head, g->g_head, g->g_count, end);
+    abort();
   }
+#endif
 
   if(index < end){
-    memcpy(&(g->g_queue[index]), &(g->g_queue[index + 1]), (end - index) * sizeof(void *));
+    memmove(&(g->g_queue[index]), &(g->g_queue[index + 1]), (end - index) * sizeof(void *));
   } /* else index is end, no copy needed  */
 
-  fprintf(stderr, "generic queue: remove[%d]=%p\n", index, g->g_queue[index]);
+  fprintf(stderr, "generic queue: removed %p from %p, tail reduced from %u\n", datum, g, end);
 
   g->g_queue[end] = NULL;
   g->g_count--;
@@ -265,6 +318,64 @@ void *remove_index_gueue_katcl(struct katcl_gueue *g, unsigned int index)
 #endif
 
   return datum;
+}
+
+void *remove_from_head_gueue_katcl(struct katcl_gueue *g, unsigned int position)
+{
+  unsigned int index;
+
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if((g->g_count == 0) || (g->g_size == 0) || (g->g_count > g->g_size)){
+    return NULL;
+  }
+#endif
+
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(g->g_size < g->g_count){
+    fprintf(stderr, "generic queue: more elements %u than slots %u\n", g->g_count, g->g_size);
+    abort();
+  }
+#endif
+
+  if(position >= g->g_count){
+    return NULL;
+  }
+
+#ifdef DEBUG
+  fprintf(stderr, "generic queue: removing position %u from head (used=%u/size=%u)\n", position, g->g_count, g->g_size);
+#endif
+
+  index = (g->g_head + position) % g->g_size;
+
+  return remove_index_gueue_katcl(g, index);
+}
+
+void *remove_datum_gueue_katcl(struct katcl_gueue *g, void *datum)
+{
+  unsigned int i, j;
+
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if((g->g_count == 0) || (g->g_size == 0) || (g->g_count > g->g_size)){
+    return NULL;
+  }
+#endif
+
+  for(j = 0; j < g->g_count; j++){
+    i = (g->g_head + j) % g->g_size;
+    if(g->g_queue[i] == datum){
+      break;
+    }
+  }
+
+  if(j >= g->g_count){
+    return NULL;
+  }
+
+#ifdef DEBUG
+  fprintf(stderr, "generic queue: removing position %u from head (used=%u/size=%u)\n", i, g->g_count, g->g_size);
+#endif
+
+  return remove_index_gueue_katcl(g, i);
 }
 
 void *remove_head_gueue_katcl(struct katcl_gueue *g)
@@ -299,6 +410,7 @@ void dump_gueue(struct katcl_gueue *g, FILE *fp)
   for(k = g->g_head, i = 0; i < g->g_count; i++, k = (k + 1) % g->g_size){
     if(g->g_queue[k] == NULL){
       fprintf(stderr, "generic gueue: error: null field at %d\n", k);
+      abort();
     }
   }
 
@@ -306,6 +418,7 @@ void dump_gueue(struct katcl_gueue *g, FILE *fp)
 
     if(g->g_queue[k] != NULL){
       fprintf(stderr, "generic gueue: error: used field at %d\n", k);
+      abort();
     }
 
     k = (k + 1) % g->g_size;
@@ -319,13 +432,19 @@ void dump_gueue(struct katcl_gueue *g, FILE *fp)
 
 #include <unistd.h>
 
-#define FUDGE  100
 #define RUNS  2000
 
-int main()
+#define FROM_HEAD_RANGE       4
+#define REMOVE_BATCH        100
+/* these have to be primes */
+#define CHANCE_HEAD_REMOVE    3
+#define CHANCE_POS_REMOVE     7
+
+int main(int argc, char **argv)
 {
   struct katcl_gueue *g;
   unsigned int *a, *b;
+  unsigned int insert, remove, margin, arb, distance, seed;
   int i, k, r;
 
   g = create_gueue_katcl(free);
@@ -334,18 +453,69 @@ int main()
     return 1;
   }
 
-  for(i = 0; i < 200; i++){
-    r = rand() % FUDGE;
+  if(argc > 1){
+    seed = atoi(argv[1]);
+    fprintf(stderr, "using seed %u\n", seed);
+    srand(seed);
+  }
+
+  insert = 0;
+  remove = 0;
+
+  for(i = 0; i < RUNS; i++){
+    r = rand() % REMOVE_BATCH;
     if(r == 0){
-      for(k = 0; k < FUDGE; k++){
+      for(k = 0; k < REMOVE_BATCH; k++){
         b = remove_head_gueue_katcl(g);
         if(b){
+          if(distance > 0){
+            distance--;
+          } else {
+            margin = 0;
+          }
+          if((*b > remove) || ((*b + margin) < remove)){
+            fprintf(stderr, "test: implementation problem: expected to remove %u-%u, removed %u\n", remove - margin, remove, *b);
+            abort();
+          }
+          remove++;
           free(b);
+        } else {
+          if(remove != insert){
+            fprintf(stderr, "test: implementation problem: nothing to remove, yet remove is %u, not %u\n", remove, insert);
+            abort();
+          }
         }
       }
-    } else if((r % 3) == 0){
+    } else if((r % CHANCE_HEAD_REMOVE) == 0){
       b = remove_head_gueue_katcl(g);
       if(b){
+        if(distance > 0){
+          distance--;
+        } else {
+          margin = 0;
+        }
+        if((*b > remove) || ((*b + margin) < remove)){
+          fprintf(stderr, "test: implementation problem: expected to remove %u-%u, removed %u\n", remove - margin, remove, *b);
+          abort();
+        }
+        remove++;
+        free(b);
+      }
+    } else if((r % CHANCE_POS_REMOVE) == 0){
+      arb = rand() % FROM_HEAD_RANGE;
+      
+      if(arb > distance){
+        distance = arb;
+      }
+
+      b = remove_from_head_gueue_katcl(g, arb);
+      if(b){
+        if((*b > (remove + arb)) || (*b + margin < (remove + arb))){
+          fprintf(stderr, "test: implementation problem: expected to remove %u-%u, removed %u\n", remove + arb - margin, remove + arb, *b);
+          abort();
+        }
+        remove++;
+        margin++;
         free(b);
       }
     } else {
@@ -353,13 +523,16 @@ int main()
       if(a == NULL){
         return 1;
       }
-      *a = i;
+      *a = insert;
+      insert++;
       add_tail_gueue_katcl(g, a);
     }
     dump_gueue(g, stderr);
   }
 
   destroy_gueue_katcl(g);
+  
+  fprintf(stderr, "test: done\n");
 
   return 0;
 }

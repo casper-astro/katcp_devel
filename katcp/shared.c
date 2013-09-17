@@ -190,7 +190,8 @@ int startup_shared_katcp(struct katcp_dispatch *d)
 
   s->s_notices = NULL;
   s->s_pending = 0;
-  s->s_woken = 0;
+
+  s->s_busy = 0;
 
   s->s_groups = NULL;
   s->s_fallback = NULL;
@@ -284,11 +285,6 @@ void shutdown_shared_katcp(struct katcp_dispatch *d)
     return;
   }
 
-  /* TODO: what about duplex logic here - bit too far down ? */
-#ifdef KATCP_EXPERIMENTAL
-  release_endpoints_katcp(d);
-#endif
-
   /* clear modes only once, when we clear the template */
   /* modes want callbacks, so we invoke them before operating on internals */
   if(d->d_clone < 0){
@@ -342,7 +338,6 @@ void shutdown_shared_katcp(struct katcp_dispatch *d)
 
   /* TODO: what about destroying jobs, need to happen before sensors ? */
 
-
   destroy_notices_katcp(d);
 
   /* WARNING: s_mode_sensor used to leak, hopefully fixed now */
@@ -352,6 +347,8 @@ void shutdown_shared_katcp(struct katcp_dispatch *d)
   destroy_versions_katcp(d);
   
   destroy_type_list_katcp(d);
+
+  destroy_arbs_katcp(d);
 
   while(s->s_count > 0){
 #ifdef DEBUG
@@ -365,8 +362,12 @@ void shutdown_shared_katcp(struct katcp_dispatch *d)
   /* at this point it is unsafe to call API functions on the shared structure */
 
 #ifdef KATCP_EXPERIMENTAL
+  /* TODO: destroy groups ... */
   destroy_flats_katcp(d);
+  destroy_groups_katcp(d);
+  release_endpoints_katcp(d);
 #endif
+
 
   free(s->s_clients);
   s->s_clients = NULL;
