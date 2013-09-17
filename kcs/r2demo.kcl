@@ -1,0 +1,53 @@
+#!/bin/bash
+?sm loadmod ../modules/mod_roach_comms.so
+
+?sm node start
+?sm node spawner
+?sm node program
+?sm node done
+?sm node error
+?sm node writeval1
+?sm node writeval2
+?sm node sleep1
+?sm node sleep2
+
+?sm error op push string ERROR
+
+?sm done op push string DONE
+
+?sm start op push url katcp://localhost:7145
+?sm start op push url katcp://localhost:7146
+?sm start edge spawner
+#?sm start edge program
+
+?sm spawner edge done is_stackempty
+?sm spawner op spawn program
+?sm spawner edge spawner
+
+?sm program op roachconnect
+?sm program op push string ?progdev
+?sm program op push string lots_of_registers_2011_Nov_01_1803.bof
+?sm program edge writeval1 relaykatcp
+?sm program edge error
+
+?sm writeval1 op push string ?write
+?sm writeval1 op push string sys_scratchpad
+?sm writeval1 op push string 0:0
+?sm writeval1 op push string PPPP
+?sm writeval1 op push string 4:0
+?sm writeval1 edge sleep1 relaykatcp
+?sm writeval1 edge error
+
+?sm sleep1 op push int 1000
+?sm sleep1 edge writeval2 msleep
+
+?sm writeval2 op push string ?write
+?sm writeval2 op push string sys_scratchpad
+?sm writeval2 op push string 0:0
+?sm writeval2 op push string GCUA
+?sm writeval2 op push string 4:0
+?sm writeval2 edge sleep2 relaykatcp
+?sm writeval2 edge error
+
+?sm sleep2 op push int 1000
+?sm sleep2 edge writeval1 msleep
