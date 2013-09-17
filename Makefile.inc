@@ -47,7 +47,7 @@ CFLAGS += -DKATCP_PROTOCOL_MAJOR_VERSION=4 -DKATCP_PROTOCOL_MINOR_VERSION=9
 
 # amount of debugging logic to enable 
 #CFLAGS += -DDEBUG=4
-#CFLAGS += -DDEBUG
+CFLAGS += -DDEBUG
 CFLAGS += -ggdb
 
 # what compiler to use 
