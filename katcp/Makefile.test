@@ -2,6 +2,9 @@ include ../Makefile.inc
 
 INC = -I.
 
+
+CFLAGS += -DDEBUG
+
 TESTS = test-generic-queue test-parse test-map test-line test-rpc test-job test-queue test-kurl test-ktype test-avl test-bytebit
 
 all: $(TESTS)

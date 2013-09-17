@@ -6,6 +6,8 @@
 #include "katpriv.h"
 #include "katcp.h"
 
+static void destroy_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a);
+
 struct katcp_arb *create_arb_katcp(struct katcp_dispatch *d, char *name, int fd, unsigned int mode, int (*run)(struct katcp_dispatch *d, struct katcp_arb *a, unsigned int mode), void *data)
 {
   struct katcp_arb *a, **tmp;
@@ -48,6 +50,34 @@ struct katcp_arb *create_arb_katcp(struct katcp_dispatch *d, char *name, int fd,
   s->s_total++;
 
   return a;
+}
+
+void destroy_arbs_katcp(struct katcp_dispatch *d)
+{
+  struct katcp_arb *a;
+  unsigned int i;
+  struct katcp_shared *s;
+
+  s = d->d_shared;
+  if(s == NULL){
+    return;
+  }
+
+  for(i = 0; i < s->s_total; i++){
+    a = s->s_extras[i];
+
+    /* TODO: might want to run callback once to inform of shutdown */
+    destroy_arb_katcp(d, a);
+
+    s->s_extras[i] = NULL;
+  }
+
+  s->s_total = 0;
+
+  if(s->s_extras){
+    free(s->s_extras);
+    s->s_extras = NULL;
+  }
 }
 
 static void destroy_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a)

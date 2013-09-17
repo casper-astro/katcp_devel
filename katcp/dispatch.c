@@ -365,6 +365,17 @@ void *get_state_katcp(struct katcp_dispatch *d)
 
 /***************************************************/
 
+void mark_busy_katcp(struct katcp_dispatch *d)
+{
+  struct katcp_shared *s;
+
+  s = d->d_shared;
+
+  if(s){
+    s->s_busy++;
+  }
+}
+
 /***************************************************/
 
 #if 0
@@ -1170,19 +1181,6 @@ void reset_katcp(struct katcp_dispatch *d, int fd)
   }
 }
 
-struct katcl_parse *ready_katcp(struct katcp_dispatch *d)
-{
-  struct katcl_line *l;
-  
-  sane_katcp(d);
-
-  l = line_katcp(d);
-  if (l == NULL)
-    return NULL;
-
-  return ready_katcl(l);
-}
-
 /**************************************************************/
 
 int help_cmd_katcp(struct katcp_dispatch *d, int argc)
@@ -1528,14 +1526,35 @@ int log_relay_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
   return result;
 }
 
+static int check_log_message_katcp(struct katcl_line *l, int sum, unsigned int limit, unsigned int level, char *name, char *fmt, va_list args)
+{
+  int result;
+
+  if(level < limit){
+    return 0;
+  }
+
+  result = vlog_message_katcl(l, level, name, fmt, args);
+  if(sum < 0){
+    return sum;
+  }
+  if(result < 0){
+    return result;
+  }
+
+  return sum + result;
+}
+
 int log_message_katcp(struct katcp_dispatch *d, unsigned int priority, char *name, char *fmt, ...)
 {
   va_list args;
-  int result, sum;
-  unsigned int level, i;
+  int sum;
+  unsigned int level, i, j;
   struct katcp_shared *s;
   struct katcp_entry *e;
-  char *fixed_name;
+  char *prefix;
+  struct katcp_group *gx;
+  struct katcp_flat *fx;
 
   level = priority & KATCP_MASK_LEVELS;
   sum = 0;
@@ -1551,17 +1570,49 @@ int log_message_katcp(struct katcp_dispatch *d, unsigned int priority, char *nam
   }
 
   if(name){
-    fixed_name = name;
+    prefix = name;
   } else {
     e = &(s->s_vector[s->s_mode]);
     if(e->e_name){
-      fixed_name = e->e_name;
+      prefix = e->e_name;
     } else {
       /* WARNING: not the most elegant option ... */
-#if 0
-      fixed_name = "tcpborphserver";
-#endif
-      fixed_name = KATCP_CODEBASE_NAME;
+      prefix = KATCP_CODEBASE_NAME;
+    }
+  }
+
+  if(priority & KATCP_LEVEL_LOCAL){ 
+    fx = this_flat_katcp(d);
+    if(fx){
+      va_start(args, fmt);
+      sum = check_log_message_katcp(fx->f_line, sum, fx->f_log_level, level, prefix, fmt, args);
+      va_end(args);
+    }
+  } else if(priority & KATCP_LEVEL_GROUP){ /* within the same group */
+    gx = this_group_katcp(d);
+    if(gx){
+      for(i = 0; i < gx->g_count; i++){
+        fx = gx->g_flats[i];
+        if(fx){
+          va_start(args, fmt);
+          sum = check_log_message_katcp(fx->f_line, sum, fx->f_log_level, level, prefix, fmt, args);
+          va_end(args);
+        }
+      }
+    }
+  } else { /* message goes everywhere */
+    if(s->s_groups){
+      for(j = 0; j < s->s_members; j++){
+        gx = s->s_groups[j];
+        for(i = 0; i < gx->g_count; i++){
+          fx = gx->g_flats[i];
+          if(fx){
+            va_start(args, fmt);
+            sum = check_log_message_katcp(fx->f_line, sum, fx->f_log_level, level, prefix, fmt, args);
+            va_end(args);
+          }
+        }
+      }
     }
   }
 
@@ -1578,25 +1629,14 @@ int log_message_katcp(struct katcp_dispatch *d, unsigned int priority, char *nam
   if(s){
     for(i = 0; i < s->s_used; i++){
       d = s->s_clients[i];
-      if(level >= d->d_level){
-        va_start(args, fmt);
-        result = vlog_message_katcl(d->d_line, level, fixed_name, fmt, args);
-        va_end(args);
-        if(result < 0){
-          sum = result;
-        } else {
-          if(sum >= 0){
-            sum += result;
-          }
-        }
-      }
-    }
-  } else {
-    if(level >= d->d_level){
       va_start(args, fmt);
-      sum = vlog_message_katcl(d->d_line, level, fixed_name, fmt, args);
+      sum = check_log_message_katcp(d->d_line, sum, d->d_level, level, prefix, fmt, args);
       va_end(args);
     }
+  } else {
+    va_start(args, fmt);
+    sum = check_log_message_katcp(d->d_line, sum, d->d_level, level, prefix, fmt, args);
+    va_end(args);
   }
  
   return sum;
@@ -1651,65 +1691,184 @@ int basic_inform_katcp(struct katcp_dispatch *d, char *name, char *arg)
   return 0;
 }
 
+/* argument retrieval *******************************************************/
+
+unsigned int arg_count_katcp(struct katcp_dispatch *d)
+{
+  struct katcp_flat *fx;
+
+  sane_katcp(d);
+
+  fx = this_flat_katcp(d);
+  if(fx){
+    if(fx->f_rx == NULL){
+      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "argument retrieval invoked incorrectly, no message to process");
+      return 0;
+    }
+    return get_count_parse_katcl(fx->f_rx);
+  }
+
+  return arg_count_katcl(d->d_line);
+}
+
+int arg_tag_katcp(struct katcp_dispatch *d)
+{
+  struct katcp_flat *fx;
+
+  sane_katcp(d);
+
+  fx = this_flat_katcp(d);
+  if(fx){
+    if(fx->f_rx == NULL){
+      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "argument retrieval invoked incorrectly, no message to process");
+      return -1;
+    }
+    return get_tag_parse_katcl(fx->f_rx);
+  }
+
+  return arg_tag_katcl(d->d_line);
+}
+
 int arg_request_katcp(struct katcp_dispatch *d)
 {
+  struct katcp_flat *fx;
+
   sane_katcp(d);
+
+  fx = this_flat_katcp(d);
+  if(fx){
+    if(fx->f_rx == NULL){
+      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "argument retrieval invoked incorrectly, no message to process");
+      return -1;
+    }
+    return is_request_parse_katcl(fx->f_rx);
+  }
 
   return arg_request_katcl(d->d_line);
 }
 
 int arg_reply_katcp(struct katcp_dispatch *d)
 {
+  struct katcp_flat *fx;
+
   sane_katcp(d);
+
+  fx = this_flat_katcp(d);
+  if(fx){
+    if(fx->f_rx == NULL){
+      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "argument retrieval invoked incorrectly, no message to process");
+      return -1;
+    }
+    return is_reply_parse_katcl(fx->f_rx);
+  }
 
   return arg_reply_katcl(d->d_line);
 }
 
 int arg_inform_katcp(struct katcp_dispatch *d)
 {
+  struct katcp_flat *fx;
+
   sane_katcp(d);
+
+  fx = this_flat_katcp(d);
+  if(fx){
+    if(fx->f_rx == NULL){
+      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "argument retrieval invoked incorrectly, no message to process");
+      return -1;
+    }
+    return is_inform_parse_katcl(fx->f_rx);
+  }
 
   return arg_inform_katcl(d->d_line);
 }
 
 int arg_null_katcp(struct katcp_dispatch *d, unsigned int index)
 {
+  struct katcp_flat *fx;
+
   sane_katcp(d);
+
+  fx = this_flat_katcp(d);
+  if(fx){
+    if(fx->f_rx == NULL){
+      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "argument retrieval invoked incorrectly, no message to process");
+      return -1;
+    }
+    return is_null_parse_katcl(fx->f_rx, index);
+  }
 
   return arg_null_katcl(d->d_line, index);
 }
 
-unsigned int arg_count_katcp(struct katcp_dispatch *d)
-{
-  sane_katcp(d);
-
-  return arg_count_katcl(d->d_line);
-}
-
 char *arg_string_katcp(struct katcp_dispatch *d, unsigned int index)
 {
+  struct katcp_flat *fx;
+
   sane_katcp(d);
+
+  fx = this_flat_katcp(d);
+  if(fx){
+    if(fx->f_rx == NULL){
+      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "argument retrieval invoked incorrectly, no message to process");
+      return NULL;
+    }
+    return get_string_parse_katcl(fx->f_rx, index);
+  }
 
   return arg_string_katcl(d->d_line, index);
 }
 
 char *arg_copy_string_katcp(struct katcp_dispatch *d, unsigned int index)
 {
+  struct katcp_flat *fx;
+
   sane_katcp(d);
+
+  fx = this_flat_katcp(d);
+  if(fx){
+    if(fx->f_rx == NULL){
+      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "argument retrieval invoked incorrectly, no message to process");
+      return NULL;
+    }
+    return copy_string_parse_katcl(fx->f_rx, index);
+  }
 
   return arg_copy_string_katcl(d->d_line, index);
 }
 
 unsigned long arg_unsigned_long_katcp(struct katcp_dispatch *d, unsigned int index)
 {
+  struct katcp_flat *fx;
+
   sane_katcp(d);
+
+  fx = this_flat_katcp(d);
+  if(fx){
+    if(fx->f_rx == NULL){
+      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "argument retrieval invoked incorrectly, no message to process");
+      return 0;
+    }
+    return get_unsigned_long_parse_katcl(fx->f_rx, index);
+  }
 
   return arg_unsigned_long_katcl(d->d_line, index);
 }
 
 int arg_bb_katcp(struct katcp_dispatch *d, unsigned int index, struct katcl_byte_bit *b)
 {
+  struct katcp_flat *fx;
+
   sane_katcp(d);
+
+  fx = this_flat_katcp(d);
+  if(fx){
+    if(fx->f_rx == NULL){
+      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "argument retrieval invoked incorrectly, no message to process");
+      return -1;
+    }
+    return get_bb_parse_katcl(fx->f_rx, index, b);
+  }
 
   return arg_bb_katcl(d->d_line, index, b);
 }
@@ -1717,7 +1876,18 @@ int arg_bb_katcp(struct katcp_dispatch *d, unsigned int index, struct katcl_byte
 #ifdef KATCP_USE_FLOATS
 double arg_double_katcp(struct katcp_dispatch *d, unsigned int index)
 {
+  struct katcp_flat *fx;
+
   sane_katcp(d);
+
+  fx = this_flat_katcp(d);
+  if(fx){
+    if(fx->f_rx == NULL){
+      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "argument retrieval invoked incorrectly, no message to process");
+      return 0.0; /* NaN instead ? */
+    }
+    return get_double_parse_katcl(fx->f_rx, index);
+  }
 
   return arg_double_katcl(d->d_line, index);
 }
@@ -1725,11 +1895,47 @@ double arg_double_katcp(struct katcp_dispatch *d, unsigned int index)
 
 unsigned int arg_buffer_katcp(struct katcp_dispatch *d, unsigned int index, void *buffer, unsigned int size)
 {
+  struct katcp_flat *fx;
+
   sane_katcp(d);
+
+  fx = this_flat_katcp(d);
+  if(fx){
+    if(fx->f_rx == NULL){
+      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "argument retrieval invoked incorrectly, no message to process");
+      return -1; /* or zero ? */
+    }
+    return get_buffer_parse_katcl(fx->f_rx, index, buffer, size);
+  }
 
   /* returns the number of bytes it wanted to copy, more than size indicates a failure */
   return arg_buffer_katcl(d->d_line, index, buffer, size);
 }
+
+struct katcl_parse *arg_parse_katcp(struct katcp_dispatch *d)
+{
+  struct katcl_line *l;
+  struct katcp_flat *fx;
+  
+  sane_katcp(d);
+
+  fx = this_flat_katcp(d);
+  if(fx){
+    if(fx->f_rx == NULL){
+      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "argument retrieval invoked incorrectly, no message to process");
+      return NULL;
+    }
+    return fx->f_rx;
+  }
+
+  l = line_katcp(d);
+  if (l == NULL){
+    return NULL;
+  }
+
+  return ready_katcl(l);
+}
+
 
 /**************************************************************/
 
@@ -1772,12 +1978,20 @@ int append_string_katcp(struct katcp_dispatch *d, int flags, char *buffer)
 {
   sane_katcp(d);
 
+  if(this_flat_katcp(d)){
+    return append_string_flat_katcp(d, flags, buffer);
+  }
+
   return append_string_katcl(d->d_line, flags, buffer);
 }
 
 int append_unsigned_long_katcp(struct katcp_dispatch *d, int flags, unsigned long v)
 {
   sane_katcp(d);
+
+  if(this_flat_katcp(d)){
+    return append_unsigned_long_flat_katcp(d, flags, v);
+  }
 
   return append_unsigned_long_katcl(d->d_line, flags, v);
 }
@@ -1786,12 +2000,21 @@ int append_signed_long_katcp(struct katcp_dispatch *d, int flags, unsigned long 
 {
   sane_katcp(d);
 
+  if(this_flat_katcp(d)){
+    return append_signed_long_flat_katcp(d, flags, v);
+  }
+
+
   return append_signed_long_katcl(d->d_line, flags, v);
 }
 
 int append_hex_long_katcp(struct katcp_dispatch *d, int flags, unsigned long v)
 {
   sane_katcp(d);
+
+  if(this_flat_katcp(d)){
+    return append_hex_long_flat_katcp(d, flags, v);
+  }
 
   return append_hex_long_katcl(d->d_line, flags, v);
 }
@@ -1801,6 +2024,11 @@ int append_double_katcp(struct katcp_dispatch *d, int flags, double v)
 {
   sane_katcp(d);
 
+  if(this_flat_katcp(d)){
+    return append_double_flat_katcp(d, flags, v);
+  }
+
+
   return append_double_katcl(d->d_line, flags, v);
 }
 #endif
@@ -1809,6 +2037,10 @@ int append_buffer_katcp(struct katcp_dispatch *d, int flags, void *buffer, int l
 {
   sane_katcp(d);
 
+  if(this_flat_katcp(d)){
+    return append_buffer_flat_katcp(d, flags, buffer, len);
+  }
+
   return append_buffer_katcl(d->d_line, flags, buffer, len);
 }
 
@@ -1816,12 +2048,20 @@ int append_parameter_katcp(struct katcp_dispatch *d, int flags, struct katcl_par
 {
   sane_katcp(d);
 
+  if(this_flat_katcp(d)){
+    return append_parameter_flat_katcp(d, flags, p, index);
+  }
+
   return append_parameter_katcl(d->d_line, flags, p, index);
 }
 
 int append_parse_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
 {
   sane_katcp(d);
+
+  if(this_flat_katcp(d)){
+    return append_parse_flat_katcp(d, p);
+  }
 
   return append_parse_katcl(d->d_line, p);
 }

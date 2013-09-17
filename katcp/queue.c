@@ -247,7 +247,7 @@ struct katcl_parse *remove_index_queue_katcl(struct katcl_queue *q, unsigned int
   if((q->q_head + q->q_count) > q->q_size){ /* wrapping case */
     if(index >= q->q_head){ /* position before wrap around, move up head */
       if(index > q->q_head){
-        memcpy(&(q->q_queue[q->q_head + 1]), &(q->q_queue[q->q_head]), (index - q->q_head) * sizeof(struct katcl_parse *));
+        memmove(&(q->q_queue[q->q_head + 1]), &(q->q_queue[q->q_head]), (index - q->q_head) * sizeof(struct katcl_parse *));
       }
       q->q_queue[q->q_head] = NULL;
       q->q_head = (q->q_head + 1) % q->q_size;
@@ -269,7 +269,7 @@ struct katcl_parse *remove_index_queue_katcl(struct katcl_queue *q, unsigned int
     return NULL;
   }
   if(index < end){
-    memcpy(&(q->q_queue[index]), &(q->q_queue[index + 1]), (end - index) * sizeof(struct katcl_parse *));
+    memmove(&(q->q_queue[index]), &(q->q_queue[index + 1]), (end - index) * sizeof(struct katcl_parse *));
   } /* else index is end, no copy needed  */
 
   fprintf(stderr, "queue remove[%d]=%p\n", index, q->q_queue[index]);
