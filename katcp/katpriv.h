@@ -460,6 +460,7 @@ struct katcp_response_handler{
   unsigned int r_flags;
   char *r_message;
   int (*r_reply)(struct katcp_dispatch *d, int argc);
+  struct katcp_endpoint *r_issuer;
 };
 
 #define KATCP_SIZE_REPLY         2
@@ -491,19 +492,22 @@ struct katcp_flat{
 
   int f_log_level;       /* log level currently set */
 
-  struct katcp_endpoint *f_peer; /* queue for internal messages, can be from different senders */
-  struct katcp_endpoint *f_remote; /* queue for remote messages, all come in from fd via a line */
+  struct katcp_endpoint *f_peer; /* queue for all messages, can be from different senders */
+  struct katcp_endpoint *f_remote; /* queue for remote messages, used to make remote messages "fit" into peer queue */
 
   struct katcl_line *f_line;
   struct katcp_shared *f_shared;
 
   struct katcl_parse *f_rx;      /* received message */
-
   struct katcl_parse *f_tx;      /* message about to send */
+
+#if 0
   unsigned int f_send;           /* message sending flags */
+#endif
 
   struct katcp_response_handler f_replies[KATCP_SIZE_DIRECTION];
-  int f_current_direction;
+ 
+  struct katcp_endpoint *f_current_endpoint;
 
 #if 0
   struct katcl_queue *f_backlog; /* backed up requests from the remote end, shouldn't happen */
@@ -960,7 +964,7 @@ void release_endpoints_katcp(struct katcp_dispatch *d);
 int answer_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep, struct katcl_parse *px);
 
 struct katcp_endpoint *create_endpoint_katcp(struct katcp_dispatch *d, int (*wake)(struct katcp_dispatch *d, struct katcp_endpoint *ep, struct katcp_message *msg, void *data), void (*release)(struct katcp_dispatch *d, void *data), void *data);
-void release_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep);
+int release_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep);
 
 void show_endpoint_katcp(struct katcp_dispatch *d, char *prefix, int level, struct katcp_endpoint *ep);
 

@@ -694,11 +694,8 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
     }
 
 #ifdef KATCP_EXPERIMENTAL
-    /* WARNING: new logic */
     run_flat_katcp(dl);
-#endif
-
-#ifdef KATCP_EXPERIMENTAL 
+    /* order between flat and endpoitn now important */
     run_endpoints_katcp(dl);
 #endif
 

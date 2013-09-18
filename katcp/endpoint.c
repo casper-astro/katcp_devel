@@ -180,7 +180,7 @@ int send_message_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint 
   if(is_reply_parse_katcl(px)){
 #ifdef KATCP_CONSISTENCY_CHECKS  
     if(from == NULL){
-      fprintf(stderr, "endpoint: probable logic problem: no message source of reply, unable to update precedence \n");
+      fprintf(stderr, "endpoint: probable logic problem: no message source of reply, unable to update precedence\n");
       sleep(1);
     }
 #endif
@@ -452,6 +452,7 @@ int turnaround_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *e
   return result;
 }
 
+#if 0
 int answer_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep, struct katcl_parse *px)
 {
   struct katcp_message *msg;
@@ -485,6 +486,7 @@ int answer_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep, s
   /* we expect no acknowledgement, it is some sort of reply or inform */
   return send_message_endpoint_katcp(d, msg->m_to, msg->m_from, px, 0);
 }
+#endif
 
 struct katcp_endpoint *source_endpoint_katcp(struct katcp_dispatch *d, struct katcp_message *msg)
 {
@@ -512,9 +514,10 @@ static void precedence_endpoint_katcp(struct katcp_dispatch *d, struct katcp_end
   ep->e_precedence = precedence;
 }
 
-void release_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep)
+int release_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep)
 {
   struct katcp_message *msg;
+  int count;
 
   sane_endpoint_katcp(ep);
 
@@ -522,7 +525,7 @@ void release_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep)
     ep->e_flags &= ~ENDPOINT_FLAG_UP;
   } else {
 #ifdef KATCP_CONSISTENCY_CHECKS
-    fprintf(stderr, "endpoint: logic failure: attempting to release abandoned endpoint\n");
+    fprintf(stderr, "endpoint: logic failure: attempting to release already abandoned endpoint\n");
     abort();
 #endif
     return;
@@ -536,9 +539,14 @@ void release_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep)
   ep->e_release = NULL;
   ep->e_data = NULL;
 
+  count = 0;
+
   while((msg = remove_head_gueue_katcl(ep->e_queue)) != NULL){
     turnaround_endpoint_katcp(d, ep, msg, KATCP_RESULT_FAIL, "handler detached");
+    count++;
   }
+
+  return count;
 
   /* do actual cleanup in global run_endpoints */
 }
@@ -590,10 +598,10 @@ void run_endpoints_katcp(struct katcp_dispatch *d)
 #endif
       if(msg != NULL){
 #ifdef KATCP_CONSISTENCY_CHECKS
-      if(msg->m_to != ep){
-        fprintf(stderr, "endpoint consistency failure: message for endpoint %p arrived on endpoint %p\n", msg->m_to, ep);
-        abort();
-      }
+        if(msg->m_to != ep){
+          fprintf(stderr, "endpoint consistency failure: message for endpoint %p arrived on endpoint %p\n", msg->m_to, ep);
+          abort();
+        }
 #endif
         result = (*(ep->e_wake))(d, ep, msg, ep->e_data);
 #ifdef DEBUG
