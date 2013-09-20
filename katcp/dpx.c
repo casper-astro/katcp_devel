@@ -40,11 +40,10 @@
 #define FLAT_STATE_GONE          0
 #define FLAT_STATE_CONNECTING    1
 #define FLAT_STATE_UP            2
-#define FLAT_STATE_QUITTING      3
-#define FLAT_STATE_STEP          4
-#define FLAT_STATE_FLUSHING      5
-#define FLAT_STATE_CRASHING      6
-#define FLAT_STATE_DEAD          7
+#define FLAT_STATE_FINISHING     3
+#define FLAT_STATE_ENDING        4
+#define FLAT_STATE_CRASHING      5
+#define FLAT_STATE_DEAD          6
 
 #if 0
 #define FLAT_STOP_IO             0
@@ -746,6 +745,31 @@ static void destroy_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *f)
   deallocate_flat_katcp(d, f);
 }
 
+static void cancel_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx)
+{
+  unsigned int i;
+
+  /* WARNING: unclear if we need trigger the r_reply. Might be needed to clean up
+   * stuff in flight. Thusfar we only dereference the issuser 
+   */
+
+
+  for(i = 0; i < KATCP_SIZE_REPLY; i++){
+    if(fx->f_replies[i].r_message){
+      free(fx->f_replies[i].r_message);
+      fx->f_replies[i].r_message = NULL;
+    }
+    fx->f_replies[i].r_flags = 0;
+    fx->f_replies[i].r_reply = NULL;
+
+    if(fx->f_replies[i].r_issuer){
+      forget_endpoint_katcp(d, fx->f_replies[i].r_issuer);
+      fx->f_replies[i].r_issuer = NULL;
+    }
+  }
+
+}
+
 /* callbacks ********************************************************/
 
 int process_parse_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, struct katcp_response_handler *rh)
@@ -899,6 +923,8 @@ int wake_endpoint_peer_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoin
 
   switch(fx->f_state){
     case FLAT_STATE_UP : 
+    case FLAT_STATE_FINISHING : 
+    case FLAT_STATE_ENDING : 
       /* all ok, go on */
       break;
     case FLAT_STATE_CONNECTING :
@@ -910,7 +936,7 @@ int wake_endpoint_peer_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoin
     default :
 #ifdef KATCP_CONSISTENCY_CHECKS
       fprintf(stderr, "duplex: possible problem: peer endpoint run while in state %u, not an operational one\n", fx->f_state);
-      abort();
+      sleep(1);
 #endif
       return result;
   }
@@ -1007,12 +1033,18 @@ int wake_endpoint_remote_flat_katcp(struct katcp_dispatch *d, struct katcp_endpo
   log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "task %p (%s) received message to send to remote", fx, fx->f_name);
 
   switch(fx->f_state){
+    case FLAT_STATE_CONNECTING :
+#ifdef DEBUG
+      fprintf(stderr, "duplex: message arrived early, we are still connecting\n");
+#endif
+      break;
     case FLAT_STATE_UP :
-    case FLAT_STATE_FLUSHING :
+    case FLAT_STATE_FINISHING :
+    case FLAT_STATE_ENDING :
       break;
     default :
 #ifdef DEBUG
-      fprintf(stderr, "duplex: message to remote arrived in unusual state %u, maybe shutting down\n");
+      fprintf(stderr, "duplex: message to remote arrived in unusual state %u, maybe shutting down\n", fx->f_state);
 #endif
       return KATCP_RESULT_OWN;
   }
@@ -1521,37 +1553,6 @@ int is_remote_flat_katcp(struct katcp_dispatch *d)
   }
 }
 
-#if 0
-void stop_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, unsigned int stop)
-{
-  switch(stop){
-    case FLAT_CRASHING :
-      if(fx->f_line){
-        destroy_katcl(fx->f_line, 1);
-        fx->f_line = NULL;
-      }
-
-      if(fx->f_remote){
-        release_endpoint_katcp(d, fx->f_remote);
-        fx->f_remote = NULL;
-      }
-      break;
-
-    case FLAT_STOP_PROPER :
-      if(fx->f_peer){
-        release_endpoint_katcp(d, fx->f_peer);
-        fx->f_peer = NULL;
-      }
-      break;
-
-    /* case FLAT_STOP_RUSH */
-    default :
-
-      break;
-  }
-}
-#endif
-
 /* output routines ********************************************************/
 
 static struct katcl_parse *prepare_append_flat_katcp(struct katcp_flat *fx, int flags)
@@ -1615,9 +1616,10 @@ static int finish_append_flat_katcp(struct katcp_dispatch *d, int flags, int res
 #ifdef DEBUG
     fprintf(stderr, "dpx: discarding message in fx=%p, no output set\n", fx);
 #endif
-    destroy_parse_katcl(fx->f_tx);
     result = 0;
   }
+
+  destroy_parse_katcl(fx->f_tx);
 
   fx->f_tx = NULL;
   return result;
@@ -1856,13 +1858,13 @@ int load_flat_katcp(struct katcp_dispatch *d)
   struct katcp_shared *s;
   struct katcp_group *gx;
   unsigned int i, j, inc;
-  int result, fd, count;
+  int result, fd;
 
   s = d->d_shared;
 
   result = 0;
 
-#if DEBUG > 2
+#if DEBUG 
   fprintf(stderr, "flat: loading %u groups\n", s->s_members);
 #endif
 
@@ -1875,38 +1877,15 @@ int load_flat_katcp(struct katcp_dispatch *d)
       fx = gx->g_flats[i];
       fd = fileno_katcl(fx->f_line);
 
+#if DEBUG
+  fprintf(stderr, "flat: loading flat %p (fd=%d, state=%u)\n", fx, fd, fx->f_state);
+#endif
+
 #if 0
       /* disabled: this log triggers io, which triggers this loop */
       log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "loading %p in state %d with fd %d", f, f->f_state, fd);
 #endif
 
-      switch(fx->f_state){
-        case FLAT_STATE_CRASHING :
-          if(fx->f_line){
-            destroy_katcl(fx->f_line, 1);
-            fx->f_line = NULL;
-          }
-
-          if(fx->f_remote){
-            release_endpoint_katcp(d, fx->f_remote);
-            fx->f_remote = NULL;
-          }
-
-          if(fx->f_peer){
-            release_endpoint_katcp(d, fx->f_peer);
-            fx->f_peer = NULL;
-          }
-
-          fx->f_state = FLAT_STATE_DEAD;
-          break;
-        case FLAT_STATE_FLUSHING :
-          if(fx->f_peer){
-            release_endpoint_katcp(d, fx->f_peer);
-            fx->f_peer = NULL;
-          }
-
-          break;
-      }
 
       switch(fx->f_state){
 
@@ -1927,56 +1906,52 @@ int load_flat_katcp(struct katcp_dispatch *d)
           }
           break;
 
-        case FLAT_STATE_QUITTING :
+        case FLAT_STATE_FINISHING : 
 
-          if(fx->f_remote){
-            count = release_endpoint_katcp(d, fx->f_remote);
-            fx->f_remote = NULL;
-          } else {
-            count = 0;
+          if(fx->f_peer){
+            /* accept no further messages on input queue */
+            close_endpoint_katcp(d, fx->f_peer);
           }
 
-#if 0
+          fx->f_state = FLAT_STATE_ENDING;
+          /* WARNING: falls */
 
-          if(fx->f_){
-            count = release_endpoint_katcp(d, fx->f_peer);
-            fx->f_peer = NULL;
-          } else {
-            count = 0;
-          }
+        case FLAT_STATE_ENDING : /* not to be set directly */
 
-          if(count > 0){
-            break;
+#ifdef KATCP_CONSISTENCY_CHECKS
+          if((fx->f_peer == NULL) || (fx->f_remote == NULL)){
+            fprintf(stderr, "duplex: peer or remote endpoint is gone in ending state for %p\n", fx);
+            abort();
           }
 #endif
 
-          /* WARNING: no endpoint triggered, move onto flushing immediately */
-          if(fx->f_line == NULL){
-            fx->f_state = FLAT_STATE_DEAD;
-            break;
-          }
-
-          fx->f_state = FLAT_STATE_FLUSHING;
-
-        case FLAT_STATE_FLUSHING :
           if(flushing_katcl(fx->f_line)){
             FD_SET(fd, &(s->s_write));
             if(fd > s->s_max){
               s->s_max = fd;
             }
-          } else {
-            fx->f_state = FLAT_STATE_CRASHING;
+            break;
+          } 
+
+          if(pending_endpoint_katcp(d, fx->f_peer) > 0){
+            break;
           }
+
+          if(pending_endpoint_katcp(d, fx->f_remote) > 0){
+            break;
+          }
+
+          /* TODO: another check if we have a response handler registered */
+
+
+          fx->f_state = FLAT_STATE_CRASHING;
+          /* WARNING: falls */
 
         case FLAT_STATE_CRASHING :
 
           if(fx->f_remote){
-            count = release_endpoint_katcp(d, fx->f_remote);
+            release_endpoint_katcp(d, fx->f_remote);
             fx->f_remote = NULL;
-          } else {
-            count = 0;
-            /* WARNING: could do a mark busy, or fall through */
-            fx->f_state = FLAT_STATE_DEAD;
           }
 
           if(fx->f_line){
@@ -1984,14 +1959,17 @@ int load_flat_katcp(struct katcp_dispatch *d)
             fx->f_line = NULL;
           }
 
+          cancel_flat_katcp(d, fx);
+
           if(fx->f_peer){
-            fx->f_state = FLAT_STATE_QUITTING;
-            break;
+            release_endpoint_katcp(d, fx->f_peer);
+            fx->f_peer = NULL;
           }
 
-          break;
+          fx->f_state = FLAT_STATE_DEAD;
+          /* WARNING: falls */
 
-        case FLAT_STATE_DEAD :
+        case FLAT_STATE_DEAD : /* not to be set directly */
           gx->g_count--;
           if(i < gx->g_count){
             gx->g_flats[i] = gx->g_flats[gx->g_count];
@@ -2085,7 +2063,7 @@ int run_flat_katcp(struct katcp_dispatch *d)
 
         if(FD_ISSET(fd, &(s->s_read))){
           /* acquire data */
-          if(read_katcl(fx->f_line) < 0){
+          if(read_katcl(fx->f_line) != 0){
             fx->f_state = FLAT_STATE_CRASHING;
           }
           /* load all data into request queue, all processing happens in the endpoint */

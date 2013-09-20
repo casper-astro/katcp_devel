@@ -693,7 +693,8 @@ struct katcp_message{
 
 struct katcp_endpoint{
   unsigned int e_magic;
-  unsigned int e_flags; 
+  unsigned short e_freeable;
+  unsigned int e_state; 
   unsigned int e_refcount;
 
 #if 0
@@ -961,14 +962,19 @@ int register_tag_katcp(struct katcp_dispatch *d, char *name, int level);
 void run_endpoints_katcp(struct katcp_dispatch *d);
 void release_endpoints_katcp(struct katcp_dispatch *d);
 
-int answer_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep, struct katcl_parse *px);
-
 struct katcp_endpoint *create_endpoint_katcp(struct katcp_dispatch *d, int (*wake)(struct katcp_dispatch *d, struct katcp_endpoint *ep, struct katcp_message *msg, void *data), void (*release)(struct katcp_dispatch *d, void *data), void *data);
 int release_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep);
 
+int flush_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep);
+void close_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep);
+
 void show_endpoint_katcp(struct katcp_dispatch *d, char *prefix, int level, struct katcp_endpoint *ep);
 
+int pending_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep);
 
+void forget_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep);
+void reference_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep);
+ 
 /******************************************/
 
 #define KATCL_PARSE_MAGIC 0xff7f1273
