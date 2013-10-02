@@ -439,9 +439,6 @@ struct katcp_arb{
 #define KATCP_DIRECTION_INNER     0
 #define KATCP_DIRECTION_REMOTE    1
 
-#define KATCP_SIZE_DIRECTION      2
-
-
 struct katcp_group{
   /* a set of flats which belong together, probably spawned off the same listener, probably same set of commands, probably same "mode" */
   char *g_name;
@@ -461,6 +458,7 @@ struct katcp_response_handler{
   char *r_message;
   int (*r_reply)(struct katcp_dispatch *d, int argc);
   struct katcp_endpoint *r_issuer;
+  struct katcp_endpoint *r_recipient;
 };
 
 #define KATCP_SIZE_REPLY         2
@@ -505,7 +503,7 @@ struct katcp_flat{
   unsigned int f_send;           /* message sending flags */
 #endif
 
-  struct katcp_response_handler f_replies[KATCP_SIZE_DIRECTION];
+  struct katcp_response_handler f_replies[KATCP_SIZE_REPLY]; /* this should probably be a dynamic number */
  
   struct katcp_endpoint *f_current_endpoint;
 
