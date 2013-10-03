@@ -447,6 +447,8 @@ struct katcp_group{
   struct katcp_flat **g_flats;
   unsigned int g_count;
 
+  unsigned int g_log_level;
+
   int g_use;             /* are we ref'ed by the listener */
 };
 
