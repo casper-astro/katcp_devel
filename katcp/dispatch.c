@@ -1651,6 +1651,9 @@ int extra_response_katcp(struct katcp_dispatch *d, int code, char *fmt, ...)
   char *result;
 
   if(code > KATCP_RESULT_OK){
+#ifdef DEBUG
+    fprintf(stderr, "extra response: suppressing output for virtual code %d", code);
+#endif
     return code;
   }
 
@@ -1668,6 +1671,9 @@ int extra_response_katcp(struct katcp_dispatch *d, int code, char *fmt, ...)
   prepend_reply_katcp(d);
 
   if(fmt != NULL){
+#ifdef DEBUG
+    fprintf(stderr, "extra response: status is %s\n", result);
+#endif
     append_string_katcp(d, KATCP_FLAG_STRING, result);
     va_start(args, fmt);
     append_vargs_katcp(d, KATCP_FLAG_LAST, fmt, args);
@@ -1810,6 +1816,9 @@ char *arg_string_katcp(struct katcp_dispatch *d, unsigned int index)
   fx = this_flat_katcp(d);
   if(fx){
     if(fx->f_rx == NULL){
+#ifdef DEBUG
+      fprintf(stderr, "arg: no received message set, unable to retrieve a parameter\n");
+#endif
       log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "argument retrieval invoked incorrectly, no message to process");
       return NULL;
     }
@@ -1944,9 +1953,9 @@ static int prepend_generic_katcp(struct katcp_dispatch *d, int reply)
   char *message, *string;
   int result;
 
-  message = arg_string_katcl(d->d_line, 0);
+  message = arg_string_katcp(d, 0);
   if((message == NULL) || (message[0] != KATCP_REQUEST)){
-#ifdef KATCP_STDERR_ERRORS
+#ifdef DEBUG
     fprintf(stderr, "prepend: arg0 is unavailable (%p)\n", message);
 #endif
     return -1;
@@ -1954,9 +1963,17 @@ static int prepend_generic_katcp(struct katcp_dispatch *d, int reply)
 
   string = strdup(message);
   if(string == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "prepend: unable to duplicate %s\n", message);
+#endif
     return -1;
   }
+
   string[0] = reply ? KATCP_REPLY : KATCP_INFORM;
+
+#ifdef DEBUG
+  fprintf(stderr, "prepend: prepending %s\n", string);
+#endif
 
   result = append_string_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, string);
   free(string);
@@ -2003,7 +2020,6 @@ int append_signed_long_katcp(struct katcp_dispatch *d, int flags, unsigned long 
   if(this_flat_katcp(d)){
     return append_signed_long_flat_katcp(d, flags, v);
   }
-
 
   return append_signed_long_katcl(d->d_line, flags, v);
 }
@@ -2078,7 +2094,11 @@ int append_vargs_katcp(struct katcp_dispatch *d, int flags, char *fmt, va_list a
   /* all of them, so not sure how much copying is really needed */
 
   va_copy(copy, args);
-  result = append_vargs_katcl(d->d_line, flags, fmt, copy);
+  if(this_flat_katcp(d)){ 
+    result = append_vargs_flat_katcp(d, flags, fmt, args);
+  } else {
+    result = append_vargs_katcl(d->d_line, flags, fmt, copy);
+  }
   va_end(copy);
 
   return result;
@@ -2092,7 +2112,11 @@ int append_args_katcp(struct katcp_dispatch *d, int flags, char *fmt, ...)
   sane_katcp(d);
 
   va_start(args, fmt);
-  result = append_vargs_katcl(d->d_line, flags, fmt, args);
+  if(this_flat_katcp(d)){
+    result = append_vargs_flat_katcp(d, flags, fmt, args);
+  } else {
+    result = append_vargs_katcl(d->d_line, flags, fmt, args);
+  }
   va_end(args);
 
   return result;

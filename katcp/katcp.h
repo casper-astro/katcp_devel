@@ -669,6 +669,8 @@ int append_double_flat_katcp(struct katcp_dispatch *d, int flags, double v);
 int append_buffer_flat_katcp(struct katcp_dispatch *d, int flags, void *buffer, int len);
 int append_parameter_flat_katcp(struct katcp_dispatch *d, int flags, struct katcl_parse *p, unsigned int index);
 int append_parse_flat_katcp(struct katcp_dispatch *d, struct katcl_parse *p);
+int append_vargs_flat_katcp(struct katcp_dispatch *d, int flags, char *fmt, va_list args);
+int append_args_flat_katcp(struct katcp_dispatch *d, int flags, char *fmt, ...);
 
 /* endpoints */
 

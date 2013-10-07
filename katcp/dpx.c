@@ -1978,10 +1978,38 @@ int append_parse_flat_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
   return finish_append_flat_katcp(d, KATCP_FLAG_LAST, 0);
 }
 
-#if 0
 int append_vargs_flat_katcp(struct katcp_dispatch *d, int flags, char *fmt, va_list args)
+{
+  struct katcl_parse *px;
+  struct katcp_flat *fx;
+  int result;
+
+  fx = require_flat_katcp(d);
+  if(fx == NULL){
+    return -1;
+  }
+
+  px = prepare_append_flat_katcp(fx, flags);
+  if(px == NULL){
+    return -1;
+  }
+
+  result = add_vargs_parse_katcl(px, flags, fmt, args);
+
+  return finish_append_flat_katcp(d, flags, result);
+}
+
 int append_args_flat_katcp(struct katcp_dispatch *d, int flags, char *fmt, ...)
-#endif
+{
+  int result;
+  va_list args;
+
+  va_start(args, fmt);
+  result = append_vargs_flat_katcp(d, flags, fmt, args);
+  va_end(args);
+
+  return result;
+}
 
 /**************************************************************************/
 /* mainloop related logic *************************************************/
@@ -2336,7 +2364,7 @@ struct katcp_arb *listen_flat_katcp(struct katcp_dispatch *d, char *name, struct
 
 /* commands, both old and new ***************************************/
 
-/* set log level support */
+/* logging related commands *****************************************/
 
 int set_group_log_level_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, struct katcp_group *gx, unsigned int level, unsigned int immediate)
 {
@@ -2526,7 +2554,14 @@ int generic_log_level_group_cmd_katcp(struct katcp_dispatch *d, int argc, unsign
     return KATCP_RESULT_FAIL;
   }
 
+#ifdef DEBUG
+  if(extra_response_katcp(d, KATCP_RESULT_OK, name) < 0){
+    fprintf(stderr, "dpx: unable to generate extended response\n");
+  }
+  fprintf(stderr, "dpx: completed log logic with own response messages\n");
+#else
   extra_response_katcp(d, KATCP_RESULT_OK, name);
+#endif
 
   return KATCP_RESULT_OWN;
 }
@@ -2551,6 +2586,8 @@ int log_override_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   return generic_log_level_group_cmd_katcp(d, argc, LEVEL_EXTENT_DETECT);
 }
+
+/* connection management commands ***********************************/
 
 int listen_duplex_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
