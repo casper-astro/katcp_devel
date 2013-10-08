@@ -815,7 +815,7 @@ int process_parse_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, st
 
   if((type == KATCP_REPLY) || (type == KATCP_INFORM)){
     log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "got %s reply or inform, checking how to process it", (fx->f_current_endpoint == fx->f_remote) ? "remote" : "internal");
-    if(rh && rh->r_reply && rh->r_message){
+    if(rh){
       if(strcmp(rh->r_message, str + 1)){
         if(type == KATCP_REPLY){
           log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "received unexpected response %s, was expecting %s", str + 1, rh->r_message);
@@ -998,10 +998,18 @@ int wake_endpoint_peer_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoin
 
       /* this could be made more complex to support multiple requests in flight */
       for(i = 0; i < KATCP_SIZE_REPLY; i++){
-        if(fx->f_replies[i].r_recipient == source){
-          rh = &(fx->f_replies[i]);
+        rh = &(fx->f_replies[i]);
+        if(rh->r_reply && rh->r_message && (rh->r_recipient == source)){
+#ifdef DEBUG
+          fprintf(stderr, "dpx: found candidate callback at %u: match for %s\n", i, rh->r_message);
+#endif
           fx->f_current_endpoint = fx->f_replies[i].r_issuer;
           break;
+        } else {
+#ifdef DEBUG
+          fprintf(stderr, "dpx: discarding slot %u: callback is %p, recipient %p\n", i, rh->r_reply, rh->r_message);
+#endif
+          rh = NULL;
         }
       }
 
@@ -1089,11 +1097,13 @@ int wake_endpoint_remote_flat_katcp(struct katcp_dispatch *d, struct katcp_endpo
 
     /* TODO: set timeout here ... */
 
+#if 0
     return KATCP_RESULT_PAUSE;
-  } else {
-    /* WARNING: unclear what the return code should be, we wouldn't want to generate acknowledgements to replies and informs */
-    return KATCP_RESULT_OWN; 
-  }
+#endif
+  } 
+
+  /* WARNING: unclear what the return code should be, we wouldn't want to generate acknowledgements to replies and informs */
+  return KATCP_RESULT_OWN; 
 }
 
 void release_endpoint_peer_flat_katcp(struct katcp_dispatch *d, void *data)
@@ -1272,7 +1282,20 @@ struct katcp_flat *find_name_flat_katcp(struct katcp_dispatch *d, char *group, c
 
 struct katcp_endpoint *peer_of_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx)
 {
+  if(fx == NULL){
+    return NULL;
+  }
+
   return fx->f_peer;
+}
+
+struct katcp_endpoint *remote_of_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx)
+{
+  if(fx == NULL){
+    return NULL;
+  }
+
+  return fx->f_remote;
 }
 
 struct katcp_cmd_map *map_of_flat_katcp(struct katcp_flat *fx)
@@ -1547,6 +1570,7 @@ int callback_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoint *issuer,
   char *tmp, *ptr;
   unsigned int actual, len, i, slot;
   struct katcp_response_handler *rh;
+  struct katcp_endpoint *ep;
 
 #ifdef KATCP_CONSISTENCY_CHECKS
   if(string == NULL){
@@ -1560,6 +1584,14 @@ int callback_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoint *issuer,
   if(fx == NULL){
     return -1;
   }
+
+#ifdef KATCP_CONSISTENCY_CHECKS
+  ep = peer_of_flat_katcp(d, fx);
+  if((issuer != NULL) && (ep != issuer)){
+    fprintf(stderr, "usage problem: registering callback for issuer which isn't current task. Not yet supported\n");
+    abort();
+  }
+#endif
 
   slot = KATCP_SIZE_REPLY;
 
@@ -1584,6 +1616,7 @@ int callback_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoint *issuer,
   }
 
   if(slot >= KATCP_SIZE_REPLY){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "resource problem: no free reply handler slots (%u in use)", slot);
 #ifdef KATCP_CONSISTENCY_CHECKS
     fprintf(stderr, "problem: no free callback slots\n");
 #endif
@@ -1639,6 +1672,8 @@ int callback_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoint *issuer,
     rh->r_recipient = recipient;
     reference_endpoint_katcp(d, recipient);
   }
+
+  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "registered callback in flat %p (%s) at slot %u for %s", fx, fx->f_name, slot, rh->r_message);
 
   return 0;
 }
@@ -2860,7 +2895,7 @@ int relay_generic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   struct katcp_shared *s;
   char *name, *cmd, *ptr;
   unsigned int len;
-  struct katcp_flat *fx;
+  struct katcp_flat *fx, *fy;
   struct katcl_parse *px;
   struct katcp_endpoint *source, *target;
 
@@ -2885,14 +2920,18 @@ int relay_generic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
   source = peer_of_flat_katcp(d, fx);
 
-  fx = find_name_flat_katcp(d, NULL, name);
-  if(fx == NULL){
+  fy = find_name_flat_katcp(d, NULL, name);
+  if(fy == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not look up name %s", name);
     return extra_response_katcp(d, KATCP_RESULT_FAIL, "resolver");
   }
-  target = peer_of_flat_katcp(d, fx);
+  if(fy == fx){
+    target = remote_of_flat_katcp(d, fx);
+  } else {
+    target = peer_of_flat_katcp(d, fy);
+  }
 
-  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "sending ping from endpoint %p to endpoint %p", source, target);
+  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "sending %s ... from endpoint %p to endpoint %p", cmd, source, target);
 
   px = create_parse_katcl();
   if(px == NULL){
@@ -2925,22 +2964,14 @@ int relay_generic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     ptr = cmd;
   }
 
-#if 0
-  if(set_inner_flat_katcp(d, &complete_relay_generic_group_cmd_katcp, ptr, 0)){
-#endif
-
-  if(callback_flat_katcp(d, fx->f_current_endpoint, target, &complete_relay_generic_group_cmd_katcp, ptr, 0)){
+  if(callback_flat_katcp(d, source, target, &complete_relay_generic_group_cmd_katcp, ptr, KATCP_REPLY_HANDLE_REPLIES | KATCP_REPLY_HANDLE_INFORMS)){
     log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "unable to register callback for %s", ptr);
     return KATCP_RESULT_FAIL;
   }
 
-  /* WARNING: broken - will currently not resume, despite returning an ok ... */
+  /* WARNING: complications: how do we know we have stalled handling a request ? */
 
-#if 1
-  return KATCP_RESULT_PAUSE;
-#else
-  return KATCP_RESULT_OK;
-#endif
+  return KATCP_RESULT_OWN;
 }
 
 /* uses previously defined commands *********************************/
