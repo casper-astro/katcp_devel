@@ -814,7 +814,7 @@ int process_parse_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, st
   overridden = 0;
 
   if((type == KATCP_REPLY) || (type == KATCP_INFORM)){
-    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "got %s reply or inform, checking how to process it", (fx->f_current_endpoint == fx->f_remote) ? "remote" : "internal");
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "got %s reply or inform (%s), checking how to process it (rh=%p)", (fx->f_current_endpoint == fx->f_remote) ? "remote" : "internal", str, rh);
     if(rh){
       if(strcmp(rh->r_message, str + 1)){
         if(type == KATCP_REPLY){
@@ -837,6 +837,7 @@ int process_parse_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, st
         /* WARNING: unclear if the return code makes sense here */
         overridden = 1;
         if(type == KATCP_REPLY){
+          log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "response handler got desired reply %s, now clearing it", str);
           /* forget reply handler once we see a response */
           if(rh->r_issuer){
             forget_endpoint_katcp(d, rh->r_issuer);
@@ -1001,7 +1002,7 @@ int wake_endpoint_peer_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoin
         rh = &(fx->f_replies[i]);
         if(rh->r_reply && rh->r_message && (rh->r_recipient == source)){
 #ifdef DEBUG
-          fprintf(stderr, "dpx: found candidate callback at %u: match for %s\n", i, rh->r_message);
+          fprintf(stderr, "dpx: found candidate callback (%p) at %u: match for %s\n", rh, i, rh->r_message);
 #endif
           fx->f_current_endpoint = fx->f_replies[i].r_issuer;
           break;

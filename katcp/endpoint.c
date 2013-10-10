@@ -401,6 +401,7 @@ int vturnaround_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *
 {
   /* WARNING: msg should be removed from previous queues beforehand */
   int result;
+  struct katcp_endpoint *tmp;
 
   result = 0;
 
@@ -434,9 +435,9 @@ int vturnaround_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *
       result = (-1);
     }
 
-    forget_endpoint_katcp(d, msg->m_to);
+    tmp = msg->m_to;
     msg->m_to = msg->m_from;
-    msg->m_from = NULL;
+    msg->m_from = tmp;
 
 #ifdef DEBUG
     fprintf(stderr, "turnaround: about to send reply (code=%d) to %p\n", code, msg->m_to);
