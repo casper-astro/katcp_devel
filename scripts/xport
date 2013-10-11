@@ -7,26 +7,18 @@ source functions.sh
 ROACHES=$(grep '^ *servers_' /etc/corr/* | cut -f2 -d= | tr , '\n'  | tr -d ' '  | sort -u)
 declare -a vector
 
-case "$1" in
-  start)
-    cmd=U
-    ;;
-  stop)
-    cmd=D
-    ;;
-  *)
-    kcs_error "invalid argument"
-    exit 1
-    ;;
-esac
+if [ "$1" = "stop" -o "$1" = "start" ] ; then
+  i=0; for name in ${ROACHES} ; do vector[$i]=$(echo kcpxport -D ${name}x) ; i=$[i+1] ; done
+  if ! kcpcon "${vector[@]}" ; then
+    sleep 1
+  fi
+  
+  if [ "$1" = "start" ] ; then
+    i=0; for name in ${ROACHES} ; do vector[$i]=$(echo kcpxport -U ${name}x) ; i=$[i+1] ; done
+    kcpcon "${vector[@]}"
+  fi
+else 
+  kcs_error "invalid argument"
+  exit 1
+fi
 
-i=0; for name in ${ROACHES} ; do vector[$i]=$(echo kcpxport -${cmd} ${name}x) ; i=$[i+1] ; done
-
-kcpcon "${vector[@]}"
-
-#for roach in $(grep roach.*x /etc/hosts | cut -f 1 -d \ ) ; do
-#  echo -n -e "${cmd}" | netcat -q 2 -w 2 ${roach} 10001 > /dev/null &
-#  sleep 0.003
-#done
-#
-#sleep 3
