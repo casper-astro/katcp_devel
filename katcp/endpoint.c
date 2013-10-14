@@ -130,11 +130,8 @@ static void destroy_message_katcp(struct katcp_dispatch *d, struct katcp_message
     return;
   }
 
-#ifdef KATCP_CONSISTENCY_CHECKS
-  if(msg->m_flags & KATCP_MESSAGE_WACK){
-    fprintf(stderr, "endpoint: expected an acknowledged request to be turned around, not destroyed\n");
-    sleep(1);
-  }
+#ifdef DEBUG
+  fprintf(stderr, "msg destroy: deallocating %p (from=%p, parse=%p, to=%p)\n", msg, msg->m_from, msg->m_parse, msg->m_to);
 #endif
 
   if(msg->m_parse){
@@ -163,7 +160,7 @@ int send_message_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint 
 
   if(to == NULL){
 #ifdef KATCP_CONSISTENCY_CHECKS
-    fprintf(stderr, "endpoint: usage/logic problem: no destination given\n");
+    fprintf(stderr, "msg send: usage/logic problem: no destination given\n");
     abort();
 #endif
     return -1;
@@ -176,7 +173,7 @@ int send_message_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint 
 
   if(queue_message_katcp(d, msg) < 0){
 #ifdef DEBUG
-    fprintf(stderr, "send: unable to queue message %p\n", msg);
+    fprintf(stderr, "msg send: unable to queue message %p\n", msg);
 #endif
     destroy_message_katcp(d, msg);
     return -1;
@@ -185,7 +182,7 @@ int send_message_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint 
   if(is_reply_parse_katcl(px)){
 #ifdef KATCP_CONSISTENCY_CHECKS  
     if(from == NULL){
-      fprintf(stderr, "endpoint: probable logic problem: no message source of reply, unable to update precedence\n");
+      fprintf(stderr, "msg send: probable logic problem: no message source of reply, unable to update precedence\n");
       sleep(1);
     }
 #endif
@@ -440,14 +437,14 @@ int vturnaround_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *
     msg->m_from = tmp;
 
 #ifdef DEBUG
-    fprintf(stderr, "turnaround: about to send reply (code=%d) to %p\n", code, msg->m_to);
+    fprintf(stderr, "msg turnaround: about to send reply (code=%d) to %p\n", code, msg->m_to);
 #endif
 
     msg->m_flags &= ~KATCP_MESSAGE_WACK;
 
     if(queue_message_katcp(d, msg) < 0){
 #ifdef DEBUG
-      fprintf(stderr, "turnaround: unable to queue message %p\n", msg);
+      fprintf(stderr, "msg turnaround: unable to queue message %p\n", msg);
 #endif
       destroy_message_katcp(d, msg);
       result = (-1);
@@ -560,7 +557,7 @@ int flush_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep)
   sane_endpoint_katcp(ep);
 
 #ifdef DEBUG
-  fprintf(stderr, "flushing pending input on endpoint %p\n", ep);
+  fprintf(stderr, "endpoint[%p]: about to flush queue\n", ep);
 #endif
 
   count = 0;
@@ -594,7 +591,7 @@ int release_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep)
   }
 
 #ifdef DEBUG
-  fprintf(stderr, "releasing endpoint %p\n", ep);
+  fprintf(stderr, "endpoint[%p]: releasing\n", ep);
 #endif
 
   ep->e_wake = NULL;
@@ -655,19 +652,19 @@ void run_endpoints_katcp(struct katcp_dispatch *d)
       case ENDPOINT_STATE_READY  : 
       case ENDPOINT_STATE_CLOSED :
         msg = get_precedence_head_gueue_katcl(ep->e_queue, ep->e_precedence);
-#ifdef DEBUG
-        fprintf(stderr, "endpoint: on %p got message %p (from=%p, parse=%p)\n", ep, msg, msg ? msg->m_from : NULL, msg ? msg->m_parse : NULL);
-#endif
         if(msg != NULL){
+#ifdef DEBUG
+          fprintf(stderr, "endpoint[%p]: got message %p (from=%p, parse=%p)\n", ep, msg, msg->m_from, msg->m_parse);
+#endif
 #ifdef KATCP_CONSISTENCY_CHECKS
           if(msg->m_to != ep){
-            fprintf(stderr, "endpoint consistency failure: message for endpoint %p arrived on endpoint %p\n", msg->m_to, ep);
+            fprintf(stderr, "endpoint[%p]: consistency failure: message destined for endpoint %p\n", msg->m_to, ep);
             abort();
           }
 #endif
           result = (*(ep->e_wake))(d, ep, msg, ep->e_data);
 #ifdef DEBUG
-          fprintf(stderr, "endpoint: callback %p returns %d\n", ep->e_wake, result);
+          fprintf(stderr, "endpoint[%p]: callback %p returns %d\n", ep, ep->e_wake, result);
 #endif
           switch(result){
             case KATCP_RESULT_OWN :
@@ -725,7 +722,11 @@ void run_endpoints_katcp(struct katcp_dispatch *d)
             mark_busy_katcp(d);
           }
 
-        } 
+#ifdef DEBUG
+        } else {
+          fprintf(stderr, "endpoint[%p]: idle\n", ep);
+#endif
+        }
 
         break;
     }

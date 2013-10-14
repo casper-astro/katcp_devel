@@ -461,6 +461,7 @@ struct katcp_response_handler{
   int (*r_reply)(struct katcp_dispatch *d, int argc);
   struct katcp_endpoint *r_issuer;
   struct katcp_endpoint *r_recipient;
+  struct katcl_parse *r_initial;
 };
 
 #define KATCP_SIZE_REPLY         2
