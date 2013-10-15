@@ -848,6 +848,8 @@ int is_reply_parse_katcl(struct katcl_parse *p);
 int is_inform_parse_katcl(struct katcl_parse *p);
 int is_null_parse_katcl(struct katcl_parse *p, unsigned int index);
 
+int is_reply_ok_parse_katcl(struct katcl_parse *p);
+
 char *get_string_parse_katcl(struct katcl_parse *p, unsigned int index);
 char *copy_string_parse_katcl(struct katcl_parse *p, unsigned int index);
 unsigned long get_unsigned_long_parse_katcl(struct katcl_parse *p, unsigned int index);

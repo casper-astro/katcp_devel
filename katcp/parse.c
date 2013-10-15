@@ -734,11 +734,15 @@ unsigned int get_count_parse_katcl(struct katcl_parse *p)
 
 int get_tag_parse_katcl(struct katcl_parse *p)
 {
+  sane_parse_katcl(p);
+
   return p->p_tag;
 }
 
 int is_type_parse_katcl(struct katcl_parse *p, char type)
 {
+  sane_parse_katcl(p);
+
   if(p->p_got <= 0){
     return 0;
   }
@@ -763,6 +767,32 @@ int is_reply_parse_katcl(struct katcl_parse *p)
 int is_inform_parse_katcl(struct katcl_parse *p)
 {
   return is_type_parse_katcl(p, KATCP_INFORM);
+}
+
+int is_reply_ok_parse_katcl(struct katcl_parse *p)
+{
+  char *str;
+
+  /* WARNING: this function presents an interface not symmetrical with the 
+   * various KATCP_RESULT_* codes used by a sending side. However, usage is 
+   * different too - this function is a convenience wrapper to quickly tell
+   * us if a request worked out. Fancy decoding should be done by hand ? 
+   * Furthermore the sending side API has virtual codes (eg KATCP_RESULT_OWN)
+   * which can't show up here at all ... 
+   */
+
+  if(is_type_parse_katcl(p, KATCP_REPLY)){
+    str = get_string_parse_katcl(p, 1);
+    if(str){
+      if(!strcmp(str, KATCP_OK)){
+        return 1;
+      } else 
+        return 0;
+      }
+    }
+  }
+
+  return -1;
 }
 
 int is_null_parse_katcl(struct katcl_parse *p, unsigned int index)
