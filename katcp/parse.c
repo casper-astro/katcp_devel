@@ -786,7 +786,7 @@ int is_reply_ok_parse_katcl(struct katcl_parse *p)
     if(str){
       if(!strcmp(str, KATCP_OK)){
         return 1;
-      } else 
+      } else {
         return 0;
       }
     }
