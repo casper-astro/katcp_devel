@@ -166,6 +166,13 @@ int send_message_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint 
     return -1;
   }
 
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(from == to){
+    fprintf(stderr, "msg send: usage/logic problem: looping message to self is probably not a good idea\n");
+    abort();
+  }
+#endif
+
   msg = create_message_katcp(d, from, to, px, acknowledged);
   if(msg == NULL){
     return -1;
@@ -397,6 +404,9 @@ int pending_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep)
 int vturnaround_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep, struct katcp_message *msg, int code, char *fmt, va_list args)
 {
   /* WARNING: msg should be removed from previous queues beforehand */
+
+  /* WARNING: unclear if MESSAGE_WACK buys us anything - a request could imply WACK */
+
   int result;
   struct katcp_endpoint *tmp;
 
@@ -563,7 +573,11 @@ int flush_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep)
   count = 0;
 
   while((msg = remove_head_gueue_katcl(ep->e_queue)) != NULL){
-    turnaround_endpoint_katcp(d, ep, msg, KATCP_RESULT_FAIL, "handler detached");
+    if(is_request_parse_katcl(msg->m_parse)){
+      turnaround_endpoint_katcp(d, ep, msg, KATCP_RESULT_FAIL, "handler detached");
+    } else {
+      destroy_message_katcp(d, msg);
+    }
     count++;
   }
 
@@ -667,7 +681,9 @@ void run_endpoints_katcp(struct katcp_dispatch *d)
           fprintf(stderr, "endpoint[%p]: callback %p returns %d\n", ep, ep->e_wake, result);
 #endif
           switch(result){
+
             case KATCP_RESULT_OWN :
+              /* all comms done internal to wake callback */
               if(remove_datum_gueue_katcl(ep->e_queue, msg) == NULL){
 #ifdef KATCP_CONSISTENCY_CHECKS
                 fprintf(stderr, "endpoint: major corruption in queue: unable to remove %p\n", msg);
@@ -675,10 +691,14 @@ void run_endpoints_katcp(struct katcp_dispatch *d)
 #endif
               }
               destroy_message_katcp(d, msg);
-
-              /* all comms done internal to wake callback */
-
+              /* WARNING: fall - pause also removes queued message */
+            case KATCP_RESULT_PAUSE :
+#ifdef KATCP_CONSISTENCY_CHECKS
+              /* TODO: check that we aren't in a HIGH state already, check that only requests stall the processing queue */
+#endif
+              precedence_endpoint_katcp(d, ep, ENDPOINT_PRECEDENCE_HIGH);
               break;
+
             case KATCP_RESULT_OK :
             case KATCP_RESULT_FAIL :
             case KATCP_RESULT_INVALID :
@@ -689,24 +709,19 @@ void run_endpoints_katcp(struct katcp_dispatch *d)
                 abort();
 #endif
               }
-              turnaround_endpoint_katcp(d, ep, msg, result, NULL);
+              if(is_request_parse_katcl(msg->m_parse)){
+                turnaround_endpoint_katcp(d, ep, msg, result, NULL);
+              } else {
+                destroy_message_katcp(d, msg);
+              }
 
               break;
+
             case KATCP_RESULT_YIELD :
 #if 0
-              /* WARNING: redundant, run for all cases below, but case needed to avoid setting precedence */
+              /* WARNING: redundant, run for all cases below, but case needed to avoid triggering paranoia check */
               mark_busy_katcp(d);
 #endif
-              break;
-
-            case KATCP_RESULT_PAUSE :
-#ifdef KATCP_CONSISTENCY_CHECKS
-              /* TODO: check that we aren't in a HIGH state already, check that only requests stall the processing queue */
-#endif
-              precedence_endpoint_katcp(d, ep, ENDPOINT_PRECEDENCE_HIGH);
-
-              /* WARNING: do we do a remove and destroy on the message, else how does one get it out of the queue */
-
               break;
 
             default :
