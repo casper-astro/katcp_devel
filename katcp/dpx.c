@@ -902,6 +902,10 @@ int process_map_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, int 
     }
   }
 
+#ifdef DEBUG
+  fprintf(stderr, "dpx[%p]: attempting to match %s to %s tree\n", fx, str + 1, (fx->f_current_endpoint == fx->f_remote) ? "remote" : "internal");
+#endif
+
   log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "attempting to match %s to %s tree", str + 1, (fx->f_current_endpoint == fx->f_remote) ? "remote" : "internal");
 
   ix = find_data_avltree(mx->m_tree, str + 1);
@@ -919,6 +923,10 @@ int process_map_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, int 
     log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "skipping handler for message %s - already processed using reply", str);
     return KATCP_RESULT_OWN;
   }
+
+#ifdef DEBUG
+  fprintf(stderr, "dpx[%p]: about to invoke request handler %p (matching %s)\n", fx, ix->i_call, str + 1);
+#endif
 
   result = (*(ix->i_call))(d, argc);
 
@@ -1107,6 +1115,9 @@ int wake_endpoint_peer_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoin
 #endif
 
   log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "task %p (%s) received message", fx, fx->f_name);
+#ifdef DEBUG
+  fprintf(stderr, "dpx[%p]: received message %p\n", fx, msg);
+#endif
 
   switch(fx->f_state){
     case FLAT_STATE_UP : 
@@ -3078,7 +3089,7 @@ int complete_relay_generic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
 
   if(!is_reply_parse_katcl(px)){
-    return KATCP_RESULT_PAUSE;
+    return KATCP_RESULT_OK;
   }
 
 #if 0
@@ -3105,7 +3116,7 @@ int relay_generic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   s = d->d_shared;
 
   if(argc < 2){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "insufficient parameters to relay logic");
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "insufficient parameters (%d) to relay logic", argc);
     return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
   }
 
@@ -3135,6 +3146,9 @@ int relay_generic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
 
   log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "sending %s ... from endpoint %p to endpoint %p", cmd, source, target);
+#ifdef DEBUG
+  fprintf(stderr, "dpx[%p]: sending %s ... from endpoint %p to endpoint %p at dpx[%p]\n", fx, cmd, source, target, fy);
+#endif
 
   px = create_parse_katcl();
   if(px == NULL){

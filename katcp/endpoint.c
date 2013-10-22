@@ -419,6 +419,12 @@ int vturnaround_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *
   }
 #endif
   if(msg->m_flags & KATCP_MESSAGE_WACK){
+
+
+#ifdef DEBUG
+    fprintf(stderr, "endpoin: message %p (from=%p, to=%p) needs to be turned around\n", msg, msg->m_from, msg->m_to);
+#endif
+
 #ifdef KATCP_CONSISTENCY_CHECKS
     if(msg->m_parse == NULL){
       fprintf(stderr, "endpoint: logic failure: message set to require acknowledgment but doesn't have a message\n");
@@ -656,6 +662,9 @@ void run_endpoints_katcp(struct katcp_dispatch *d)
   struct katcp_shared *s;
   struct katcp_message *msg, *msx;
   int result;
+#ifdef DEBUG
+  char *ptr;
+#endif
 
   s = d->d_shared;
 
@@ -668,7 +677,12 @@ void run_endpoints_katcp(struct katcp_dispatch *d)
         msg = get_precedence_head_gueue_katcl(ep->e_queue, ep->e_precedence);
         if(msg != NULL){
 #ifdef DEBUG
-          fprintf(stderr, "endpoint[%p]: got message %p (from=%p, parse=%p)\n", ep, msg, msg->m_from, msg->m_parse);
+          if(msg->m_parse){
+            ptr = get_string_parse_katcl(msg->m_parse, 0);
+          } else {
+            ptr = NULL;
+          }
+          fprintf(stderr, "endpoint[%p]: got message %p (from=%p, parse[%p]=%s ...)\n", ep, msg, msg->m_from, msg->m_parse, ptr);
 #endif
 #ifdef KATCP_CONSISTENCY_CHECKS
           if(msg->m_to != ep){
