@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sysexits.h>
+#include <signal.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -19,6 +20,8 @@
 #define SMON_MODULE_NAME       "smon"
 #define SMON_POLL_INTERVAL 	1000
 #define SMON_POLL_MIN          	  50 
+
+#define DEBUG 0
 
 /**********System Monitoring Sensors Template***************************************************/
 
@@ -72,7 +75,6 @@ typedef struct mem_struct_t
 
 struct smon_state
 {
-	unsigned int s_magic;
 	char *s_symbolic;
 	struct smon_sensor smon_sensors[SMON_SENSORS];
 
@@ -82,6 +84,9 @@ struct smon_state
 	int *temp_limit;
 	int *temp_val;
 };
+/************************************************************/
+volatile int run;
+/************************************************************/
 
 /*************Parsing /proc/meminfo*****************************************/
 
@@ -277,6 +282,8 @@ void destroy_smon(struct smon_state *s)
 	}
 
 	free(s);
+
+	fprintf(stderr, "FINISHED DESTROY SMON\n");
 }
 
 int populate_sensor_smon(struct smon_sensor *s, struct smon_sensor_template *t)
@@ -400,7 +407,19 @@ int print_sensor_status_smon(struct katcp_dispatch *d,struct smon_state *s, stru
 }
 
 /****************************************************************************/
-
+static void handle_signal(int s)
+{
+  switch(s){
+    case SIGHUP :
+      run = (-1);
+      break;
+    case SIGINT :
+    case SIGTERM :
+      run = 0;
+      break;
+  }
+}
+/****************************************************************************/
 
 int main(int argc, char **argv)
 {
@@ -423,6 +442,7 @@ int main(int argc, char **argv)
 	unsigned long remain;
 	int max = 0;
 	int retval;
+	struct sigaction sag;
 
 	mount_point = malloc(15 * sizeof(char));
 	if(mount_point == NULL){
@@ -502,9 +522,19 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
+	sag.sa_handler = handle_signal;
+	sigemptyset(&(sag.sa_mask));
+	sag.sa_flags = SA_RESTART;
+
+	sigaction(SIGINT, &sag, NULL);
+	sigaction(SIGHUP, &sag, NULL);
+	sigaction(SIGTERM, &sag, NULL);
+
+
+	gettimeofday(&now, NULL);
 	gettimeofday(&when, NULL);
 
-	for(;;){
+	for(run = 1; run > 0; ){
 
 		if(cmp_time_katcp(&now, &when) >= 0){
 #ifdef DEBUG
