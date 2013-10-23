@@ -21,7 +21,6 @@
 #define SMON_POLL_INTERVAL 	1000
 #define SMON_POLL_MIN          	  50 
 
-#define DEBUG 0
 
 /**********System Monitoring Sensors Template***************************************************/
 
@@ -160,7 +159,7 @@ int make_temp_labels(struct katcp_dispatch *d, struct smon_state *s)
 			log_message_katcp(d, KATCP_LEVEL_TRACE, SMON_MODULE_NAME, "Nothing more to open, %d sensors \n", i);
 			break;
 		}else{
-			tmp_int = realloc(s->temp_sensor_fd, (i+1) * sizeof(int)); 
+			tmp_int = realloc(s->temp_sensor_fd, (i + 1) * sizeof(int)); 
 			if(tmp_int == NULL){
 				log_message_katcp(d, KATCP_LEVEL_TRACE, SMON_MODULE_NAME, "s->temp_sensor_fd realloc failed\n");
 				return -1;
@@ -249,12 +248,12 @@ void destroy_smon(struct smon_state *s)
 
 		ss->s_type = (-1);
 
-		if(ss->s_name == NULL){
+		if(ss->s_name){
 			free(ss->s_name);
 			ss->s_name = NULL;
 		}
 
-		if(ss->s_description == NULL){
+		if(ss->s_description){
 			free(ss->s_description);
 			ss->s_description = NULL;
 		}
@@ -283,7 +282,6 @@ void destroy_smon(struct smon_state *s)
 
 	free(s);
 
-	fprintf(stderr, "FINISHED DESTROY SMON\n");
 }
 
 int populate_sensor_smon(struct smon_sensor *s, struct smon_sensor_template *t)
@@ -444,13 +442,6 @@ int main(int argc, char **argv)
 	int retval;
 	struct sigaction sag;
 
-	mount_point = malloc(15 * sizeof(char));
-	if(mount_point == NULL){
-		return -1;
-	}
-
-	memset(mount_point, 0, 15);
-
 	d = setup_katcp(STDOUT_FILENO);
 	if(d == NULL){
 		return EX_OSERR;
@@ -472,11 +463,10 @@ int main(int argc, char **argv)
 		} 
 	}
 	if(argc > 2){
-		mount_point = argv[2];	
-	}
-	/* If no mount point provided display the root file system stats */
-	if(!*mount_point){
-		*mount_point = '/';
+		mount_point = strdup(argv[2]);	
+	}else{
+		/* If no mount point provided display the root file system stats */
+		mount_point = strdup("/");	
 	}
 
 	log_message_katcp(d, KATCP_LEVEL_INFO, SMON_MODULE_NAME, "about to start system monitor");
@@ -503,12 +493,9 @@ int main(int argc, char **argv)
 
 	m = parse_meminfo(d);
 	remain = (m.MemTotal - (m.MemFree + m.Cached + m.Buffers));
-
-#ifdef DEBUG 
-	fprintf( stderr, "Before -> MemTotal: %ldk MemFree: %ldk Cached: %ldk Buffers: %ldk Total: %ldk\n",
-			m.MemTotal, m.MemFree, m.Cached, m.Buffers, remain );
+#if 0
+	log_message_katcp(d, KATCP_LEVEL_DEBUG, "Before -> MemTotal: %ldk MemFree: %ldk Cached: %ldk Buffers: %ldk Total: %ldk\n", m.MemTotal, m.MemFree, m.Cached, m.Buffers, remain);
 #endif
-
 	retval = make_temp_labels(d, s);
 	if(retval){
 		fprintf(stderr, "The memory allocation failed for the temperature sensors\n");
@@ -636,6 +623,11 @@ int main(int argc, char **argv)
 			write_katcp(d);
 		}
 
+
+	}
+
+	if(mount_point){
+		free(mount_point);
 
 	}
 
