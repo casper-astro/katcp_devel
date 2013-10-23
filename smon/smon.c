@@ -145,12 +145,15 @@ int make_temp_labels(struct katcp_dispatch *d, struct smon_state *s)
 	char buf[32];
 	int *tmp_int;
 
-	k = strlen("/sys/class/hwmon/hwmon0/temp_input") + 8;
+	k = (strlen("/sys/class/hwmon/hwmon0/temp_input") + 8);
+
 	tmp_char = realloc(s->s_symbolic, k); 
 	if(tmp_char == NULL){
 		return -1;
 	}
+
 	s->s_symbolic = tmp_char;
+
 	do{
 		snprintf(s->s_symbolic, k - 1, "/sys/class/hwmon/hwmon0/temp%d_input", i + 1);
 		s->s_symbolic[k - 1] = '\0';
@@ -174,7 +177,7 @@ int make_temp_labels(struct katcp_dispatch *d, struct smon_state *s)
 #endif
 			}else{
 				if(read(fd, &buf, sizeof(buf)) > 0){
-					tmp_int = realloc(s->temp_limit, (i+1) * sizeof(int)); 
+					tmp_int = realloc(s->temp_limit, (i + 1) * sizeof(int)); 
 					if(tmp_int == NULL){
 						log_message_katcp(d, KATCP_LEVEL_ERROR, SMON_MODULE_NAME, "s->temp_limit realloc failed\n");
 						return -1;
@@ -210,6 +213,7 @@ int read_temp_sensors(struct katcp_dispatch *d, struct smon_state *s)
 
 
 	while(i < s->no_sensors){
+		/* pread was used so that it seeks back to origin offset*/
 		if(pread(s->temp_sensor_fd[i], &buf, sizeof(buf), 0) > 0){
 			s->temp_val[i] = atoi(buf);
 		}else{
@@ -426,6 +430,9 @@ int main(int argc, char **argv)
 	struct smon_sensor *ss;
 	struct katcp_dispatch *d;
 	struct timeval tv , now, when ,delta;
+	struct sigaction sag;
+	MemStruct m;
+	unsigned long remain;
 	fd_set fsr;
 	int sfd;
 	unsigned int period;
@@ -436,11 +443,8 @@ int main(int argc, char **argv)
 	int i;
 	unsigned long long  disk_size, total_free_bytes;
 	char *mount_point;
-	MemStruct m;
-	unsigned long remain;
 	int max = 0;
 	int retval;
-	struct sigaction sag;
 
 	d = setup_katcp(STDOUT_FILENO);
 	if(d == NULL){
@@ -504,7 +508,7 @@ int main(int argc, char **argv)
 
 	log_message_katcp(d, KATCP_LEVEL_TRACE, SMON_MODULE_NAME,"Found [%d] sensors\n" , s->no_sensors);  
 
-	s->temp_val = (int *)malloc(s->no_sensors * sizeof(int));
+	s->temp_val = (int *) malloc(s->no_sensors * sizeof(int));
 	if(s->temp_val == NULL){
 		return -1;
 	}
