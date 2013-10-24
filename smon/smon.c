@@ -589,7 +589,7 @@ int main(int argc, char **argv)
 
 
 			ss = &(s->smon_sensors[4]);
-			total_free_bytes = ((unsigned long)s_sf.f_bfree * (unsigned long)s_sf.f_bsize ) / 1048576;
+			total_free_bytes = ((unsigned long)s_sf.f_bavail * (unsigned long)s_sf.f_bsize ) / 1048576;
 			ss->s_fvalue = total_free_bytes;
 			print_sensor_status_smon(d, s, ss);
 
