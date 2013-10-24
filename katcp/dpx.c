@@ -3108,9 +3108,9 @@ int relay_generic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   struct katcp_shared *s;
   char *name, *cmd, *ptr;
-  unsigned int len;
+  unsigned int len, flags;
   struct katcp_flat *fx, *fy;
-  struct katcl_parse *px;
+  struct katcl_parse *px, *py;
   struct katcp_endpoint *source, *target;
 
   s = d->d_shared;
@@ -3147,7 +3147,7 @@ int relay_generic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
   log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "sending %s ... from endpoint %p to endpoint %p", cmd, source, target);
 #ifdef DEBUG
-  fprintf(stderr, "dpx[%p]: sending %s ... from endpoint %p to endpoint %p at dpx[%p]\n", fx, cmd, source, target, fy);
+  fprintf(stderr, "dpx[%p]: sending %s ...(%d) from endpoint %p to endpoint %p at dpx[%p]\n", fx, cmd, argc, source, target, fy);
 #endif
 
   px = create_parse_katcl();
@@ -3155,8 +3155,15 @@ int relay_generic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     return extra_response_katcp(d, KATCP_RESULT_FAIL, "allocation");
   }
 
+
+  if(argc > 3){
+    flags = KATCP_FLAG_FIRST;
+  } else {
+    flags = KATCP_FLAG_FIRST | KATCP_FLAG_LAST;
+  }
+
   if(cmd[0] == KATCP_REQUEST){
-    add_string_parse_katcl(px, KATCP_FLAG_FIRST | KATCP_FLAG_LAST | KATCP_FLAG_STRING, cmd);
+    add_string_parse_katcl(px, flags | KATCP_FLAG_STRING, cmd);
   } else {
     len = strlen(cmd);
     ptr = malloc(len + 2);
@@ -3167,8 +3174,13 @@ int relay_generic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     ptr[0] = KATCP_REQUEST;
     strcpy(ptr + 1, cmd);
 
-    add_string_parse_katcl(px, KATCP_FLAG_FIRST | KATCP_FLAG_LAST | KATCP_FLAG_STRING, ptr);
+    add_string_parse_katcl(px, flags | KATCP_FLAG_STRING, ptr);
     free(ptr);
+  }
+
+  if(argc > 3){
+    py = arg_parse_katcp(d);
+    add_trailing_parse_katcl(px, KATCP_FLAG_LAST, py, 3);
   }
 
   if(send_message_endpoint_katcp(d, source, target, px, 1) < 0){

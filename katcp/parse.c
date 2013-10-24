@@ -491,6 +491,9 @@ int add_trailing_parse_katcl(struct katcl_parse *pd, int flags, struct katcl_par
   result = 0;
 
   for(i = start; i < penulti; i++){
+#ifdef DEBUG
+    fprintf(stderr, "parse trailing: adding position %u (0x%x:%s)\n", i, f & KATCP_FLAG_FIRST, (f & KATCP_FLAG_FIRST) ? "first" : "middle");
+#endif
     r = add_parameter_parse_katcl(pd, f & KATCP_FLAG_FIRST, ps, i); 
 
     if(r < 0){
@@ -500,6 +503,10 @@ int add_trailing_parse_katcl(struct katcl_parse *pd, int flags, struct katcl_par
     result += r;
     f = 0;
   }
+
+#ifdef DEBUG
+    fprintf(stderr, "parse trailing: adding position %u (0x%x:%s)\n", i, f | (flags & KATCP_FLAG_LAST), (flags & KATCP_FLAG_LAST) ? "last" : "middle");
+#endif
 
   r = add_parameter_parse_katcl(pd, f | (flags & KATCP_FLAG_LAST), ps, i); 
   if(r < 0){
