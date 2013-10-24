@@ -36,9 +36,9 @@ struct smon_sensor_template sensor_template[SMON_SENSORS] = {
 	{"loadavg.1min", 	"system load average for 1min", 	KATCP_SENSOR_FLOAT}, 
 	{"loadavg.5min", 	"system load average for 5min", 	KATCP_SENSOR_FLOAT}, 
 	{"loadavg.15min", 	"system load average for 15min", 	KATCP_SENSOR_FLOAT}, 
-	{"disksize", 		"disksize", 				KATCP_SENSOR_INTEGER}, 
-	{"freesize", 		"freediskpace", 			KATCP_SENSOR_INTEGER}, 
-	{"memremain", 		"remainmemory", 			KATCP_SENSOR_INTEGER}, 
+	{"disksize", 		"disksize", 				KATCP_SENSOR_FLOAT}, 
+	{"freesize", 		"freediskpace", 			KATCP_SENSOR_FLOAT}, 
+	{"memremain", 		"remainmemory", 			KATCP_SENSOR_FLOAT}, 
 	{"temp1.input", 	"temp1.input",		 		KATCP_SENSOR_INTEGER}, 
 	{"temp2.input", 	"temp2.input",		 		KATCP_SENSOR_INTEGER}, 
 	{"temp3.input", 	"temp3.input",		 		KATCP_SENSOR_INTEGER}, 
@@ -495,8 +495,6 @@ int main(int argc, char **argv)
 
 	}
 
-	m = parse_meminfo(d);
-	remain = (m.MemTotal - (m.MemFree + m.Cached + m.Buffers));
 #if 0
 	log_message_katcp(d, KATCP_LEVEL_DEBUG, "Before -> MemTotal: %ldk MemFree: %ldk Cached: %ldk Buffers: %ldk Total: %ldk\n", m.MemTotal, m.MemFree, m.Cached, m.Buffers, remain);
 #endif
@@ -583,21 +581,25 @@ int main(int argc, char **argv)
 
 		if(statfs(mount_point, &(s_sf)) == 0){
 
+			/*Info send in MB*/
 			ss = &(s->smon_sensors[3]);
-			disk_size = s_sf.f_bsize * s_sf.f_blocks;
-			ss->s_value = disk_size;
+			disk_size = ((unsigned long)s_sf.f_bsize * (unsigned long)s_sf.f_blocks) / 1048576;
+			ss->s_fvalue = disk_size;
 			print_sensor_status_smon(d, s, ss);
 
 
 			ss = &(s->smon_sensors[4]);
-			total_free_bytes = s_sf.f_bfree * s_sf.f_bsize;
-			ss->s_value = total_free_bytes;
+			total_free_bytes = ((unsigned long)s_sf.f_bfree * (unsigned long)s_sf.f_bsize ) / 1048576;
+			ss->s_fvalue = total_free_bytes;
 			print_sensor_status_smon(d, s, ss);
 
 		}
 
+		m = parse_meminfo(d);
+		remain = (m.MemTotal - (m.MemFree + m.Cached + m.Buffers));
+
 		ss = &(s->smon_sensors[5]);
-		ss->s_value = remain;
+		ss->s_fvalue = remain;
 		print_sensor_status_smon(d, s, ss);
 
 		if(read_temp_sensors(d, s)){
