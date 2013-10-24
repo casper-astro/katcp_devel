@@ -463,6 +463,54 @@ int add_parameter_parse_katcl(struct katcl_parse *pd, int flags, struct katcl_pa
   return after_add_parse_katcl(pd, len, 1);
 }
 
+int add_trailing_parse_katcl(struct katcl_parse *pd, int flags, struct katcl_parse *ps, unsigned int start)
+{
+  unsigned int i, penulti, f;
+  int result, r;
+
+  sane_parse_katcl(pd);
+  sane_parse_katcl(ps);
+
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(ps->p_state != KATCL_PARSE_DONE){
+    fprintf(stderr, "warning: copy argument %u from incomplete parse (state=%u)\n", start, ps->p_state);
+  }
+#endif
+
+  if(ps->p_got <= 0){
+    return -1;
+  }
+
+  if(start >= ps->p_got){
+    return -1;
+  }
+
+  penulti = ps->p_got - 1;
+
+  f = flags;
+  result = 0;
+
+  for(i = start; i < penulti; i++){
+    r = add_parameter_parse_katcl(pd, f & KATCP_FLAG_FIRST, ps, i); 
+
+    if(r < 0){
+      return -1;
+    }
+
+    result += r;
+    f = 0;
+  }
+
+  r = add_parameter_parse_katcl(pd, f | (flags & KATCP_FLAG_LAST), ps, i); 
+  if(r < 0){
+    return -1;
+  }
+
+  result += r;
+
+  return result;
+}
+
 /*********************************************************************/
 
 int add_plain_parse_katcl(struct katcl_parse *p, int flags, char *string)

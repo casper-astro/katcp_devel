@@ -835,6 +835,8 @@ int add_double_parse_katcl(struct katcl_parse *p, int flags, double v);
 #endif
 int add_buffer_parse_katcl(struct katcl_parse *p, int flags, void *buffer, unsigned int len);
 int add_parameter_parse_katcl(struct katcl_parse *pd, int flags, struct katcl_parse *ps, unsigned int index);
+int add_parameter_parse_katcl(struct katcl_parse *pd, int flags, struct katcl_parse *ps, unsigned int index);
+int add_trailing_parse_katcl(struct katcl_parse *pd, int flags, struct katcl_parse *ps, unsigned int start);
 
 int buffer_from_parse_katcl(struct katcl_parse *p, char *buffer, unsigned int len);
 
