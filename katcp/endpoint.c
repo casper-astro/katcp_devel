@@ -173,6 +173,10 @@ int send_message_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint 
   }
 #endif
 
+#ifdef DEBUG
+  fprintf(stderr, "endpoint: %p send message %p->%p\n", px, from, to);
+#endif
+
   msg = create_message_katcp(d, from, to, px, acknowledged);
   if(msg == NULL){
     return -1;
