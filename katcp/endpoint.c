@@ -660,6 +660,25 @@ void release_endpoints_katcp(struct katcp_dispatch *d)
 #endif
 }
 
+void load_endpoints_katcp(struct katcp_dispatch *d)
+{
+  struct katcp_endpoint *ep;
+  struct katcp_shared *s;
+
+  s = d->d_shared;
+
+  ep = s->s_endpoints;
+  while(ep){
+
+    if(get_precedence_head_gueue_katcl(ep->e_queue, ep->e_precedence) != NULL){
+      mark_busy_katcp(d);
+      return;
+    }
+
+    ep = ep->e_next;
+  }
+}
+
 void run_endpoints_katcp(struct katcp_dispatch *d)
 {
   struct katcp_endpoint *ep, *ex, *en;

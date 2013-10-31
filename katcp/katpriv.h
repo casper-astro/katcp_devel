@@ -422,6 +422,10 @@ struct katcp_arb{
 /* duplex structures: was supposed to be called duplex, but flat is punnier */
 /********************************************************************/
 
+#define KATCP_SCOPE_INVALID    (-1)
+#define KATCP_SCOPE_GROUP        0
+#define KATCP_SCOPE_GLOBAL       1
+
 #define KATCP_MAP_UNSET        (-1)
 
 #define KATCP_MAP_INNER_REQUEST  0
@@ -447,7 +451,8 @@ struct katcp_group{
   struct katcp_flat **g_flats;
   unsigned int g_count;
 
-  unsigned int g_log_level;
+  int g_log_level;
+  int g_scope;
 
   int g_use;             /* are we ref'ed by the listener */
 };
@@ -492,6 +497,8 @@ struct katcp_flat{
   int f_exit_code;       /* reported exit status */
 
   int f_log_level;       /* log level currently set */
+
+  int f_scope;           /* how much we see */
 
   struct katcp_endpoint *f_peer; /* queue for all messages, can be from different senders */
   struct katcp_endpoint *f_remote; /* queue for remote messages, used to make remote messages "fit" into peer queue */
@@ -965,6 +972,8 @@ int register_tag_katcp(struct katcp_dispatch *d, char *name, int level);
 /* endpoints: internal ********************/
 
 void run_endpoints_katcp(struct katcp_dispatch *d);
+void load_endpoints_katcp(struct katcp_dispatch *d);
+
 void release_endpoints_katcp(struct katcp_dispatch *d);
 
 struct katcp_endpoint *create_endpoint_katcp(struct katcp_dispatch *d, int (*wake)(struct katcp_dispatch *d, struct katcp_endpoint *ep, struct katcp_message *msg, void *data), void (*release)(struct katcp_dispatch *d, void *data), void *data);

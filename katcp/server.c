@@ -618,6 +618,7 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
     if(load_flat_katcp(dl) < 0){
       run = (-1);
     }
+    load_endpoints_katcp(dl);
 #endif
 
 
@@ -695,7 +696,7 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
 
 #ifdef KATCP_EXPERIMENTAL
     run_flat_katcp(dl);
-    /* order between flat and endpoitn now important */
+    /* order between flat and endpoint now important */
     run_endpoints_katcp(dl);
 #endif
 

@@ -127,6 +127,7 @@ void destroy_group_katcp(struct katcp_dispatch *d, struct katcp_group *g)
   }
 
   g->g_log_level = (-1);
+  g->g_scope = KATCP_SCOPE_INVALID;
 
   if(g->g_flats){
     free(g->g_flats);
@@ -191,6 +192,7 @@ struct katcp_group *create_group_katcp(struct katcp_dispatch *d, char *name)
   g->g_count = 0;
 
   g->g_log_level = s->s_default;
+  g->g_scope = KATCP_SCOPE_GROUP;
 
   g->g_use = 0;
 
@@ -723,7 +725,11 @@ static void deallocate_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *f
 
   f->f_group = NULL;
 
+  f->f_log_level = (-1);
+  f->f_scope = KATCP_SCOPE_INVALID;
+
   f->f_magic = 0;
+
 
   free(f);
 }
@@ -1373,6 +1379,7 @@ struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, int up, c
   f->f_exit_code = 0; /* WARNING: should technically be a fail, to catch cases where it isn't set at exit time */
 
   f->f_log_level = gx->g_log_level;
+  f->f_scope = gx->g_scope;
 
   f->f_peer = NULL;
   f->f_remote = NULL;
@@ -2296,7 +2303,7 @@ int load_flat_katcp(struct katcp_dispatch *d)
       fd = fileno_katcl(fx->f_line);
 
 #if DEBUG
-  fprintf(stderr, "dpx[%p]: loading: peer=%p, remote=%p, name=%s, fd=%d, state=%u, level=%d\n", fx, fx->f_peer, fx->f_remote, fx->f_name, fd, fx->f_state, fx->f_log_level);
+  fprintf(stderr, "dpx[%p]: loading: peer=%p, remote=%p, name=%s, fd=%d, state=%u, log=%d, scope=%d\n", fx, fx->f_peer, fx->f_remote, fx->f_name, fd, fx->f_state, fx->f_log_level, fx->f_scope);
 #endif
 
 #if 0
@@ -3215,6 +3222,82 @@ int relay_generic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   return KATCP_RESULT_OWN;
 }
 
+static int print_client_list_katcp(struct katcp_dispatch *d, struct katcp_flat *fx)
+{
+  int result, r;
+
+  r = prepend_inform_katcp(d);
+  if(r < 0){
+#ifdef DEBUG
+    fprintf(stderr, "print_client_list: prepend failed\n");
+#endif
+    return -1;
+  }
+  result = r;
+
+  r = append_string_katcp(d, KATCP_FLAG_LAST | KATCP_FLAG_STRING, fx->f_name);
+  if(r < 0){
+#ifdef DEBUG
+    fprintf(stderr, "print_client_list: append of %s failed\n", fx->f_name);
+#endif
+    return -1;
+  }
+
+  result += r;
+
+  return result;
+}
+
+int client_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  struct katcp_shared *s;
+  struct katcp_group *gx;
+  struct katcp_flat *fx, *fy;
+  unsigned int i, j, total;
+
+  s = d->d_shared;
+  total = 0;
+
+  fx = this_flat_katcp(d);
+  if(fx == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no client data available, probably called in incorrect context");
+    return KATCP_RESULT_FAIL;
+  }
+
+  switch(fx->f_scope){
+    case KATCP_SCOPE_GROUP :
+      gx = this_group_katcp(d);
+      if(gx){
+        for(i = 0; i < gx->g_count; i++){
+          fy = gx->g_flats[i];
+          if(print_client_list_katcp(d, fy) > 0){
+            total++;
+          }
+        }
+      }
+      break;
+    case KATCP_SCOPE_GLOBAL :
+      for(j = 0; j < s->s_members; j++){
+        gx = s->s_groups[i];
+        if(gx){
+          for(i = 0; i < gx->g_count; i++){
+            fy = gx->g_flats[i];
+            if(print_client_list_katcp(d, fy) > 0){
+              total++;
+            }
+          }
+        }
+      }
+      break;
+    default :
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "invalid client scope %d for %s\n", fx->f_scope, fx->f_name);
+      return KATCP_RESULT_FAIL;
+  }
+
+
+  return extra_response_katcp(d, KATCP_RESULT_OK, "%u", total);
+}
+
 /* uses previously defined commands *********************************/
 
 int setup_default_group(struct katcp_dispatch *d, char *name)
@@ -3241,6 +3324,7 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
     hold_cmd_map(m);
 
     add_full_cmd_map(m, "help", "display help messages (?help [command])", 0, &help_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map(m, "client-list", "display currently connected clients (?client-list)", 0, &client_list_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map(m, "watchdog", "pings the system (?watchdog)", 0, &watchdog_group_cmd_katcp, NULL, NULL);
 #if 0
     add_full_cmd_map(m, "relay-watchdog", "ping a peer within the same process (?relay-watchdog peer)", 0, &relay_watchdog_group_cmd_katcp, NULL, NULL);
