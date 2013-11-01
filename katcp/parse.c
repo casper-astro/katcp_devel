@@ -710,6 +710,9 @@ struct katcl_parse *vturnaround_extra_parse_katcl(struct katcl_parse *p, int cod
 {
   char *string;
   struct katcl_parse *px;
+#ifdef KATCP_ENABLE_TAGS
+  int tag;
+#endif
 
 #ifdef KATCP_CONSISTENCY_CHECKS
   if(p->p_state != KATCL_PARSE_DONE){
@@ -730,6 +733,10 @@ struct katcl_parse *vturnaround_extra_parse_katcl(struct katcl_parse *p, int cod
   }
 #endif
 
+#ifdef KATCP_ENABLE_TAGS
+  tag = get_tag_parse_katcl(p);
+#endif
+
   px = reuse_parse_katcl(p);
   if(px == NULL){
     destroy_parse_katcl(p);
@@ -737,7 +744,16 @@ struct katcl_parse *vturnaround_extra_parse_katcl(struct katcl_parse *p, int cod
   }
 
   string[0] = KATCP_REPLY;
-  add_string_parse_katcl(px, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, string);
+#ifdef KATCP_ENABLE_TAGS
+  if(tag >= 0){
+    add_args_parse_katcl(px, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "%s[%d]", string, tag);
+  } else {
+#endif   
+    add_string_parse_katcl(px, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, string);
+#ifdef KATCP_ENABLE_TAGS
+  }
+#endif   
+
   free(string);
 
   string = code_to_name_katcm(code);

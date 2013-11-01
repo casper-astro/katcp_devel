@@ -1952,6 +1952,9 @@ static int prepend_generic_katcp(struct katcp_dispatch *d, int reply)
 {
   char *message, *string;
   int result;
+#ifdef KATCP_ENABLE_TAGS
+  int tag;
+#endif
 
   message = arg_string_katcp(d, 0);
   if((message == NULL) || (message[0] != KATCP_REQUEST)){
@@ -1975,7 +1978,16 @@ static int prepend_generic_katcp(struct katcp_dispatch *d, int reply)
   fprintf(stderr, "prepend: prepending %s\n", string);
 #endif
 
-  result = append_string_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, string);
+#ifdef KATCP_ENABLE_TAGS
+  tag = arg_tag_katcp(d);
+  if(tag >= 0){
+    result = append_args_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "%s[%d]", string, tag);
+  } else {
+#endif
+    result = append_string_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, string);
+#ifdef KATCP_ENABLE_TAGS
+  }
+#endif
   free(string);
 
   return result;

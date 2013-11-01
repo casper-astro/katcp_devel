@@ -338,7 +338,12 @@ void print_help_cmd_item(struct katcp_dispatch *d, char *key, void *v)
     return;
   }
 
+  prepend_inform_katcp(d);
+
+#if 0
   append_string_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, KATCP_HELP_INFORM);
+#endif
+
   append_string_katcp(d, KATCP_FLAG_STRING, i->i_name);
   append_string_katcp(d, KATCP_FLAG_LAST | KATCP_FLAG_STRING, i->i_help);
 
@@ -3336,6 +3341,8 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
     add_full_cmd_map(m, "log-local", "adjust the log level of the current connection (?log-default [level])", 0, &log_local_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map(m, "log-default", "retrieve or adjust the log level of subsequent connections (?log-default [level])", 0, &log_default_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map(m, "log-override", "retrieve or adjust the log level in various permutations (?log-override [level [client|group|default [name]]])", 0, &log_override_group_cmd_katcp, NULL, NULL);
+
+    add_full_cmd_map(m, "?version-list", "list versions (?version-list)", 0, &version_list_cmd_katcp, NULL, NULL);
 
   } else {
     m = gx->g_maps[KATCP_MAP_REMOTE_REQUEST];

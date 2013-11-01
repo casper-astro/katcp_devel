@@ -30,6 +30,9 @@ CFLAGS += -DKATCP_CONSISTENCY_CHECKS
 # log selected noncritical failures to stderr 
 CFLAGS += -DKATCP_STDERR_ERRORS
 
+# log selected noncritical failures to stderr 
+CFLAGS += -DKATCP_ENABLE_TAGS
+
 # log client messages 
 CFLAGS += -DKATCP_LOG_REQUESTS
 
