@@ -775,6 +775,7 @@ int match_sensor_list_katcp(struct katcp_dispatch *d, struct katcp_notice *n, vo
 char *code_to_name_katcm(int code);
 char **copy_vector_katcm(char **vector, unsigned int size);
 void delete_vector_katcm(char **vector, unsigned int size);
+char *default_message_type_katcm(char *string, int type);
 
 /* timing support */
 int empty_timers_katcp(struct katcp_dispatch *d);
