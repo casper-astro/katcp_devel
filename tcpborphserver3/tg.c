@@ -1135,6 +1135,7 @@ struct getap_state *create_getap(struct katcp_dispatch *d, unsigned int instance
 
   gs->s_tap_io = NULL;
   gs->s_tap_fd = (-1);
+  gs->s_mcast_fd = (-1);
 
   gs->s_timer = 0;
 
@@ -1402,3 +1403,157 @@ int tap_info_cmd(struct katcp_dispatch *d, int argc)
 
   return KATCP_RESULT_FAIL;
 }
+
+int tap_multicast_add_group_cmd(struct katcp_dispatch *d, int argc)
+{
+  struct tbs_raw *tr;
+  struct katcp_arb *a;
+  struct getap_state *gs;
+  char *grpip, *name, *mode;
+
+  /*recv*/
+  int reuse = 1, loopch = 0;
+  struct sockaddr_in  locosock;
+  struct ip_mreq        grp;
+  
+  /*send*/
+  struct in_addr        locoif;
+
+
+  tr = get_current_mode_katcp(d);
+  if(tr == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to get raw state");
+    return KATCP_RESULT_FAIL;
+  }
+
+  if (argc < 4){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "usage tap-name [recv|send] multicast-address");
+    return KATCP_RESULT_FAIL;
+  }
+  
+  name = arg_string_katcp(d, 1);
+  mode = arg_string_katcp(d, 2);
+  grpip  = arg_string_katcp(d, 3);
+
+  a = find_arb_katcp(d, name);
+  if(a == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to locate %s", name);
+    return KATCP_RESULT_FAIL;
+  }
+
+  gs = data_arb_katcp(d, a);
+  if(gs == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no user state found for %s", name);
+    return KATCP_RESULT_FAIL;
+  }
+
+  gs->s_mcast_fd = socket(AF_INET, SOCK_DGRAM, 0);
+  if (gs->s_mcast_fd < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to open multicast %s socket on %s", mode, name);
+    return KATCP_RESULT_FAIL;
+  }
+
+
+  memset((char*) &locosock, 0, sizeof(locosock));
+  locosock.sin_family       = AF_INET;
+  locosock.sin_port         = htons(gs->s_port);
+
+  if (strncmp(mode,"recv", 4) == 0){
+
+    if (setsockopt(gs->s_mcast_fd, SOL_SOCKET, SO_REUSEADDR, (char *)&reuse, sizeof(reuse)) < 0){
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to set reuseaddr on mcast socket");
+    }
+    
+    locosock.sin_addr.s_addr  = inet_addr(gs->s_address_name);
+
+    if (bind(gs->s_mcast_fd, (struct sockaddr *) &locosock, sizeof(locosock)) < 0){
+      close(gs->s_mcast_fd);
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to bind multicast %s socket on %s (%s)", mode, name, strerror(errno));
+      return KATCP_RESULT_FAIL;
+    }
+
+    grp.imr_multiaddr.s_addr = inet_addr(grpip);
+    grp.imr_interface.s_addr = inet_addr(gs->s_address_name);
+    if (setsockopt(gs->s_mcast_fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *) &grp, sizeof(grp)) < 0){
+      close(gs->s_mcast_fd);
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to add multicast membership to %s on %s (%s)", grpip, name, strerror(errno));
+      return KATCP_RESULT_FAIL;
+    }
+    
+  } else if (strncmp(mode, "send", 4) == 0){
+    
+    if (setsockopt(gs->s_mcast_fd, IPPROTO_IP, IP_MULTICAST_LOOP, (char *) &loopch, sizeof(loopch)) < 0){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to disable multicast loop back (%s)", strerror(errno));
+      close(gs->s_mcast_fd);
+      return KATCP_RESULT_FAIL;
+    }
+
+    /*this may be unessesary*/
+    locosock.sin_addr.s_addr = inet_addr(grpip);
+    
+    locoif.s_addr   = inet_addr(gs->s_address_name);
+    if (setsockopt(gs->s_mcast_fd, IPPROTO_IP, IP_MULTICAST_IF, (char *) &locoif, sizeof(locoif)) < 0){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to set multicast back (%s)", strerror(errno));
+      close(gs->s_mcast_fd);
+      return KATCP_RESULT_FAIL;
+    }
+    
+    
+  } else {
+    log_message_katcp(d, KATCP_LEVEL_ERROR , NULL, "invalid mode <%s> [send | recv]", mode);
+    return KATCP_RESULT_FAIL;
+  }
+  
+
+
+  /*    
+
+    An IP host group address is mapped to an Ethernet multicast address
+    by placing the low-order 23-bits of the IP address into the low-order
+    23 bits of the Ethernet multicast address 01-00-5E-00-00-00 (hex).
+    Because there are 28 significant bits in an IP host group address,
+    more than one host group address may map to the same Ethernet
+    multicast address.
+    i.e. take multicast address and it with 0x7FFFFF 
+        
+  */
+
+
+  return KATCP_RESULT_OK;
+} 
+
+int tap_multicast_remove_group_cmd(struct katcp_dispatch *d, int argc)
+{
+  struct tbs_raw *tr;
+  struct katcp_arb *a;
+  struct getap_state *gs;
+  char *grpip, *name;
+  
+  tr = get_current_mode_katcp(d);
+  if(tr == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to get raw state");
+    return KATCP_RESULT_FAIL;
+  }
+
+  if (argc < 3){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "usage tap-name multicast-address");
+    return KATCP_RESULT_FAIL;
+  }
+  
+  name  = arg_string_katcp(d, 1);
+  grpip = arg_string_katcp(d, 2);
+  
+  a = find_arb_katcp(d, name);
+  if(a == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to locate %s", name);
+    return KATCP_RESULT_FAIL;
+  }
+
+  gs = data_arb_katcp(d, a);
+  if(gs == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no user state found for %s", name);
+    return KATCP_RESULT_FAIL;
+  }
+
+  return KATCP_RESULT_OK;
+} 
