@@ -54,26 +54,6 @@
 
 /*******************************************************************************/
 
-struct katcp_cmd_item{
-  /* a single command */
-  char *i_name;
-  char *i_help;
-  int (*i_call)(struct katcp_dispatch *d, int argc);
-  unsigned int i_flags; 
-  char *i_data;
-  void (*i_clear)(void *data);
-};
-
-#include <avltree.h>
-
-struct katcp_cmd_map{
-  /* "table" of commands */
-  char *m_name;
-  unsigned int m_refs;
-  struct avl_tree *m_tree;
-  struct katcp_cmd_item *m_fallback;
-};
-
 /********************************************************************/
 
 void destroy_cmd_map(struct katcp_cmd_map *m);
@@ -694,6 +674,8 @@ static void deallocate_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *f
     f->f_tx = NULL;
   }
 
+  f->f_cmd = NULL;
+
   for(i = 0; i < KATCP_SIZE_REPLY; i++){
     rh = &(f->f_replies[i]);
 
@@ -943,7 +925,11 @@ int process_map_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, int 
   fprintf(stderr, "dpx[%p]: about to invoke <request handler %p> (matching %s)\n", fx, ix->i_call, str + 1);
 #endif
 
+  fx->f_cmd = ix;
+
   result = (*(ix->i_call))(d, argc);
+
+  fx->f_cmd = NULL;
 
   log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "%s callback invocation returns %d", (fx->f_current_endpoint == fx->f_remote) ? "remote" : "internal", result);
 
@@ -1399,6 +1385,8 @@ struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, int up, c
 
   f->f_tx = NULL;
 
+  f->f_cmd = NULL;
+
   for(i = 0; i < KATCP_SIZE_REPLY; i++){
     f->f_replies[i].r_flags = 0;
     f->f_replies[i].r_message = NULL;
@@ -1581,6 +1569,29 @@ struct katcp_flat *require_flat_katcp(struct katcp_dispatch *d)
 #endif
 
   return f;
+}
+
+struct katcp_cmd_item *this_cmd_katcp(struct katcp_dispatch *d)
+{
+  struct katcp_flat *fx;
+
+  fx = this_flat_katcp(d);
+  if(fx == NULL){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "flat: logic error: no command item data structure as we are not in duplex context\n");
+    abort();
+#endif
+    return NULL;
+  }
+
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(fx->f_cmd == NULL){
+    fprintf(stderr, "flat: logic error: no command item data structure as we are not in command handler\n");
+    abort();
+  }
+#endif
+
+  return fx->f_cmd;
 }
 
 struct katcp_flat *this_flat_katcp(struct katcp_dispatch *d)
@@ -3343,6 +3354,9 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
     add_full_cmd_map(m, "log-override", "retrieve or adjust the log level in various permutations (?log-override [level [client|group|default [name]]])", 0, &log_override_group_cmd_katcp, NULL, NULL);
 
     add_full_cmd_map(m, "?version-list", "list versions (?version-list)", 0, &version_list_cmd_katcp, NULL, NULL);
+
+    add_full_cmd_map(m, "?forward-symbolic", "create a command which generates a request against another party (?forward-symbolic)", 0, &forward_symbolic_group_cmd_katcp, NULL, NULL);
+
 
   } else {
     m = gx->g_maps[KATCP_MAP_REMOTE_REQUEST];

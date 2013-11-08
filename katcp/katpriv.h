@@ -7,6 +7,8 @@
 #include <sys/time.h>
 #include <sys/types.h>
 
+#include <avltree.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -422,6 +424,24 @@ struct katcp_arb{
 /* duplex structures: was supposed to be called duplex, but flat is punnier */
 /********************************************************************/
 
+struct katcp_cmd_item{
+  /* a single command */
+  char *i_name;
+  char *i_help;
+  int (*i_call)(struct katcp_dispatch *d, int argc);
+  unsigned int i_flags; 
+  void *i_data;
+  void (*i_clear)(void *data);
+};
+
+struct katcp_cmd_map{
+  /* "table" of commands */
+  char *m_name;
+  unsigned int m_refs;
+  struct avl_tree *m_tree;
+  struct katcp_cmd_item *m_fallback;
+};
+
 #define KATCP_SCOPE_INVALID    (-1)
 #define KATCP_SCOPE_GROUP        0
 #define KATCP_SCOPE_GLOBAL       1
@@ -508,6 +528,8 @@ struct katcp_flat{
 
   struct katcl_parse *f_rx;      /* received message */
   struct katcl_parse *f_tx;      /* message about to send */
+
+  struct katcp_cmd_item *f_cmd;  /* command currently matched */
 
 #if 0
   unsigned int f_send;           /* message sending flags */

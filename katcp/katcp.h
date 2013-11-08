@@ -656,8 +656,8 @@ int list_duplex_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 struct katcp_group *this_group_katcp(struct katcp_dispatch *d);
 struct katcp_flat *this_flat_katcp(struct katcp_dispatch *d);
+struct katcp_cmd_item *this_cmd_katcp(struct katcp_dispatch *d);
 struct katcp_flat *require_flat_katcp(struct katcp_dispatch *d);
-
 
 int append_string_flat_katcp(struct katcp_dispatch *d, int flags, char *buffer);
 int append_unsigned_long_flat_katcp(struct katcp_dispatch *d, int flags, unsigned long v);
@@ -671,6 +671,10 @@ int append_parameter_flat_katcp(struct katcp_dispatch *d, int flags, struct katc
 int append_parse_flat_katcp(struct katcp_dispatch *d, struct katcl_parse *p);
 int append_vargs_flat_katcp(struct katcp_dispatch *d, int flags, char *fmt, va_list args);
 int append_args_flat_katcp(struct katcp_dispatch *d, int flags, char *fmt, ...);
+
+/* endpoints */
+
+int forward_symbolic_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 /* endpoints */
 
