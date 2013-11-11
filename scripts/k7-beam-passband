@@ -1,0 +1,18 @@
+#!/bin/bash
+
+set -e 
+source functions.sh
+
+kcs_arg_check $# 3
+
+if kcs_is_beamformer ${KATCP_MODE} ; then
+  if kcs_set_passband $* ; then
+    exit 0
+  fi
+else
+  echo "#return fail unavailable"
+  kcs_error "beam selection not available in mode ${KATCP_MODE}"
+fi  
+
+exit 1
+

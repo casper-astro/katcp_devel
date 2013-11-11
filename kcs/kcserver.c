@@ -92,6 +92,8 @@ int main(int argc, char **argv)
           }
           if (i >= argc) {
             fprintf(stderr, "%s: option -%c requires a parameter\n", argv[0], c);
+            return EX_USAGE;
+
           }
           switch(c){
             case 's' :

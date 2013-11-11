@@ -16,7 +16,7 @@ CFLAGS += -DKATCP_STRICT_CONFORMANCE
 # how many messages to hold before forcing a flush, only useful 
 # on memory constrained systems. When this value is unset the 
 # system buffers as much as needed
-CFLAGS += -DKATCP_FLUSH_THRESHOLD=4
+#CFLAGS += -DKATCP_FLUSH_THRESHOLD=4
 
 # enable floating point support (floating point sensor type)
 # unless you don't want to use your fpu (or don't have one) enable this
@@ -29,6 +29,9 @@ CFLAGS += -DKATCP_CONSISTENCY_CHECKS
 
 # log selected noncritical failures to stderr 
 CFLAGS += -DKATCP_STDERR_ERRORS
+
+# log client messages 
+CFLAGS += -DKATCP_LOG_REQUESTS
 
 # enable the ability to manage katcp subprocesses
 CFLAGS += -DKATCP_SUBPROCESS
@@ -44,13 +47,15 @@ CFLAGS += -DKATCP_PROTOCOL_MAJOR_VERSION=5 -DKATCP_PROTOCOL_MINOR_VERSION=0
 
 # amount of debugging logic to enable 
 #CFLAGS += -DDEBUG=4
-#CFLAGS += -DDEBUG
+CFLAGS += -DDEBUG
 CFLAGS += -ggdb
 
 # what compiler to use 
 CC = $(CROSS_COMPILE)gcc
+# C++ implements stronger type checks... so this gives loads of warnings
+#CC = g++ -fpermissive
 
-GITVER = $(shell git describe  --tags --dirty  2> /dev/null || echo unknown)
+GITVER = $(shell git describe --always --tags --dirty 2> /dev/null || echo unknown)
 
 INSTALL = install
 RM = rm -f

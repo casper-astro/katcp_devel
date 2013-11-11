@@ -642,7 +642,7 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
       FD_ZERO(&(s->s_read));
     }
     
-    if(s->s_woken > 0){
+    if(s->s_busy > 0){
       suspend = 0;
       delta.tv_sec = 0;
       delta.tv_nsec = KATCP_BRIEF_WAIT;
@@ -661,6 +661,8 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
 #ifdef DEBUG
     fprintf(stderr, "multi: select=%d, used=%d\n", result, s->s_used);
 #endif
+
+    s->s_busy = 0;
 
     if(result < 0){
 
@@ -694,6 +696,10 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
 #ifdef KATCP_EXPERIMENTAL
     /* WARNING: new logic */
     run_flat_katcp(dl);
+#endif
+
+#ifdef KATCP_EXPERIMENTAL 
+    run_endpoints_katcp(dl);
 #endif
 
     run_shared_katcp(dl);

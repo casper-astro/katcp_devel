@@ -24,11 +24,3 @@ API
 
   described in the file API
 
-Example code:
-
-  examples/client-example.c  - high level api example which connects to server
-  examples/server-example    - high level api example which runs a server
-
-Test code:
-
-

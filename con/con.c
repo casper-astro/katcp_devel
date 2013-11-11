@@ -21,8 +21,6 @@
 #include "katcl.h"
 #include "katpriv.h"
 
-#define DEBUG
-
 #define KCPCON_NAME "concurrent"
 
 #define BUFFER 1024
@@ -373,7 +371,7 @@ int main(int argc, char **argv)
       switch (c) {
 
         case 'h' :
-          usage(KCPCON_NAME);
+          usage(argv[0]);
           return 0;
 
         case 'v' : 
@@ -486,7 +484,9 @@ int main(int argc, char **argv)
             if(result < 0){
               sync_message_katcl(ss->s_up, KATCP_LEVEL_ERROR, KCPCON_NAME, "read failed: %s", strerror(error_katcl(cx->c_line)));
             } else {
-              log_message_katcl(ss->s_up, KATCP_LEVEL_INFO, KCPCON_NAME, "subordinate job %u ended", cx->c_pid);
+              if(cx->c_pid > 0){
+                log_message_katcl(ss->s_up, KATCP_LEVEL_DEBUG, KCPCON_NAME, "subordinate job %u ended", cx->c_pid);
+              }
             }
             destroy_katcl(cx->c_line, 1);
             cx->c_line = NULL;
@@ -529,7 +529,7 @@ int main(int argc, char **argv)
 
             if (WIFEXITED(status)) {
               result = WEXITSTATUS(status);
-              log_message_katcl(ss->s_up, KATCP_LEVEL_INFO, KCPCON_NAME, "subordinate job[%u] %u exited with code %d", i, cx->c_pid, result);
+              log_message_katcl(ss->s_up, KATCP_LEVEL_DEBUG, KCPCON_NAME, "subordinate job[%u] %u exited with code %d", i, cx->c_pid, result);
               cx->c_status = (result > 4) ? 4 : result;
             } else if (WIFSIGNALED(status)) {
               result = WTERMSIG(status);

@@ -1,0 +1,49 @@
+#!/bin/bash
+
+function expectation()
+{
+  value=$(kcpcmd -p 2 -i wordread sys_scratchpad 0)
+  if [ "${value}" != "$1" ] ; then
+    echo "test failed: expected ${1}, got ${value}"
+    return 1;
+  else 
+    echo "test ok: result is ${value}"
+    return 0;
+  fi
+}
+
+kcpcmd -i write sys_scratchpad 0 3333
+
+kcpcmd -i write sys_scratchpad 0 D
+expectation 0x44333333
+
+kcpcmd -i write sys_scratchpad 1 U
+expectation 0x44553333
+
+kcpcmd -i write sys_scratchpad 2 f
+expectation 0x44556633
+
+kcpcmd -i write sys_scratchpad 3 w
+expectation 0x44556677
+
+kcpcmd -i write sys_scratchpad 0 3333
+
+kcpcmd -i write sys_scratchpad 0 DD
+expectation 0x44443333
+
+kcpcmd -i write sys_scratchpad 1 UU
+expectation 0x44555533
+
+kcpcmd -i write sys_scratchpad 2 ff
+expectation 0x44556666
+
+kcpcmd -i write sys_scratchpad 0 3333
+
+kcpcmd -i write sys_scratchpad 0 DDD
+expectation 0x44444433
+
+kcpcmd -i write sys_scratchpad 1 UUU
+expectation 0x44555555
+
+kcpcmd -i write sys_scratchpad 1 fffff 2:7
+expectation 0x44666667

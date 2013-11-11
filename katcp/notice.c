@@ -490,7 +490,7 @@ int add_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int (*cal
     v = &(n->n_vector[i]);
 
     if((v->v_call == call) && (v->v_data == data)){
-      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "callback %p of notice %s is a duplicate\n", call, n->n_name ? n->n_name : "<anonymous>");
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "callback %p of notice %s is a duplicate", call, n->n_name ? n->n_name : "<anonymous>");
       return 0;
     }
   }
@@ -746,7 +746,7 @@ int cancel_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n)
     v = &(n->n_vector[i]);
 
     if(dispatch_compact_notice_katcp(v->v_client, n) == 0){
-      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "no back link from dispatch %p to notice %p\n", v->v_client, n);
+      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "no back link from dispatch %p to notice %p", v->v_client, n);
     }
   }
 
@@ -891,7 +891,6 @@ int add_parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, str
 
 static int configure_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, int trigger, void *data)
 {
-  struct katcp_shared *s;
   int i;
 #ifdef DEBUG
   int w;
@@ -924,11 +923,8 @@ static int configure_notice_katcp(struct katcp_dispatch *d, struct katcp_notice 
         }
 #endif
 
-      }
+        mark_busy_katcp(d);
 
-      s = d->d_shared;
-      if(s){
-        s->s_woken++;
       }
 
       return 0;
@@ -1045,8 +1041,6 @@ int run_notices_katcp(struct katcp_dispatch *d)
 
   s = d->d_shared;
   i = 0;
-
-  s->s_woken = 0;
 
 #ifdef DEBUG
   fprintf(stderr, "notice: running %d pending entries\n", s->s_pending);

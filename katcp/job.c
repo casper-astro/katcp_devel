@@ -150,7 +150,7 @@ static struct katcp_notice *remove_index_job(struct katcp_dispatch *d, struct ka
   if((j->j_head + j->j_count) > j->j_size){ /* wrapping case */
     if(index >= j->j_head){ /* position before wrap around, move up head */
       if(index > j->j_head){
-        memcpy(&(j->j_queue[j->j_head + 1]), &(j->j_queue[j->j_head]), (index - j->j_head) * sizeof(struct katcp_notice *));
+        memmove(&(j->j_queue[j->j_head + 1]), &(j->j_queue[j->j_head]), (index - j->j_head) * sizeof(struct katcp_notice *));
       }
       j->j_queue[j->j_head] = NULL;
       j->j_head = (j->j_head + 1) % j->j_size;
@@ -169,7 +169,7 @@ static struct katcp_notice *remove_index_job(struct katcp_dispatch *d, struct ka
     return NULL;
   }
   if(index < end){
-    memcpy(&(j->j_queue[index]), &(j->j_queue[index + 1]), (end - index) * sizeof(struct katcp_notice *));
+    memmove(&(j->j_queue[index]), &(j->j_queue[index + 1]), (end - index) * sizeof(struct katcp_notice *));
   } /* else index is end, no copy needed  */
 
   j->j_queue[end] = NULL;
@@ -320,7 +320,7 @@ static int relay_cmd_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n,
   log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "about to relay cmd message %s ...", inform);
   
   if(!strcmp(inform, KATCP_RETURN_JOB)){
-    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "detaching command match in response to %s", inform);
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "detaching command match in response to %s", inform);
     return 0;
   }
 
@@ -423,7 +423,7 @@ static int get_request_job_katcp(struct katcp_dispatch *d, struct katcp_notice *
   }
   
   if(!strcmp(cmd, KATCP_RETURN_JOB)){
-    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "detaching get command match in response to %s", cmd);
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "detaching get command match in response to %s", cmd);
     return 0;
   }
 
@@ -468,7 +468,7 @@ static int set_request_job_katcp(struct katcp_dispatch *d, struct katcp_notice *
   }
   
   if(!strcmp(cmd, KATCP_RETURN_JOB)){
-    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "detaching set command match in response to %s", cmd);
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "detaching set command match in response to %s", cmd);
     return 0;
   }
 
@@ -515,7 +515,7 @@ static int dict_request_job_katcp(struct katcp_dispatch *d, struct katcp_notice 
     return 0;
 
   if(!strcmp(cmd, KATCP_RETURN_JOB)){
-    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "detaching dict command match in response to %s", cmd);
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "detaching dict command match in response to %s", cmd);
     return 0;
   }
 
@@ -551,7 +551,7 @@ static int relay_log_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n,
   }
   
   if(!strcmp(inform, KATCP_RETURN_JOB)){
-    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "detaching log match in response to %s", inform);
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "detaching log match in response to %s", inform);
     return 0;
   }
 
@@ -576,7 +576,7 @@ static int hold_version_job_katcp(struct katcp_dispatch *d, struct katcp_notice 
   }
   
   if(!strcmp(inform, KATCP_RETURN_JOB)){
-    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "detaching in response to %s", inform);
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "detaching in response to %s", inform);
     return 0;
   }
 
@@ -772,7 +772,7 @@ int stop_job_katcp(struct katcp_dispatch *d, struct katcp_job *j)
   } else if(j->j_state & JOB_MAY_WRITE){
     j->j_state &= ~JOB_MAY_WRITE;
   } else {
-    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "attempting to stop job which is already finished (state=0x%x)\n", j->j_state);
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "attempting to stop job which is already finished (state=0x%x)", j->j_state);
   }
 
   return result;
@@ -1467,13 +1467,12 @@ int run_jobs_katcp(struct katcp_dispatch *d)
   struct katcp_notice *n;
   struct katcp_job *j;
   struct katcl_parse *p, *px;
-  int i, count, fd, result, code;
+  int i, fd, result, code;
   unsigned int len;
   char *string;
 
   s = d->d_shared;
 
-  count = 0;
   i = 0;
   while(i < s->s_number){
     j = s->s_tasks[i];
@@ -1895,18 +1894,15 @@ struct katcp_job *network_connect_job_katcp(struct katcp_dispatch *d, struct kat
 
 int subprocess_resume_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 {
-  char *ptr;
   struct katcl_parse *p;
-  unsigned int count, i;
+  int count, i;
 
   p = get_parse_notice_katcp(d, n);
   if(p){
-    ptr = get_string_parse_katcl(p, 1);
+    count = get_count_parse_katcl(p);
   } else {
-    ptr = NULL;
+    count = 0;
   }
-
-  count = get_count_parse_katcl(p);
 
   prepend_reply_katcp(d);
 

@@ -7,6 +7,10 @@
 #include <sys/time.h>
 #include <sys/types.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define KATCP_NAME_LENGTH     64
 
 #define KATCL_IO_SIZE       4096  /* block we want to write out */
@@ -21,6 +25,11 @@
 #define KATCL_PARSE_ESCAPE     5  /* parsing escape sequence */
 #define KATCL_PARSE_FAKE       6  /* generated manually, not parsed */
 #define KATCL_PARSE_DONE       7  /* a complete message */
+
+
+#define KATCL_ALIGN_NONE       0x0
+#define KATCL_ALIGN_BYTE       0x1
+#define KATCL_ALIGN_WORD       0x2  /* 32 bits */
 
 /***************************************************************************/
 
@@ -410,6 +419,110 @@ struct katcp_arb{
   void *a_data;
 };
 
+/* duplex structures: was supposed to be called duplex, but flat is punnier */
+/********************************************************************/
+
+#define KATCP_MAP_UNSET        (-1)
+
+#define KATCP_MAP_INNER_REQUEST  0
+#define KATCP_MAP_REMOTE_REQUEST 1
+#define KATCP_MAP_INNER_INFORM   2
+#define KATCP_MAP_REMOTE_INFORM  3
+
+#define KATCP_SIZE_MAP  4
+
+#define KATCP_MAP_INNER_REPLY    4 
+#define KATCP_MAP_REMOTE_REPLY   5 
+
+#define KATCP_DIRECTION_INVALID (-1)
+
+#define KATCP_DIRECTION_INNER     0
+#define KATCP_DIRECTION_REMOTE    1
+
+#define KATCP_SIZE_DIRECTION      2
+
+
+struct katcp_group{
+  /* a set of flats which belong together, probably spawned off the same listener, probably same set of commands, probably same "mode" */
+  char *g_name;
+  struct katcp_cmd_map *g_maps[KATCP_SIZE_MAP];
+
+  struct katcp_flat **g_flats;
+  unsigned int g_count;
+
+  int g_use;             /* are we ref'ed by the listener */
+};
+
+#define KATCP_REPLY_HANDLE_REPLIES   0x1
+#define KATCP_REPLY_HANDLE_INFORMS   0x2
+
+struct katcp_response_handler{
+  unsigned int r_flags;
+  char *r_message;
+  int (*r_reply)(struct katcp_dispatch *d, int argc);
+};
+
+#define KATCP_SIZE_REPLY         2
+
+
+#define KATCP_DPX_SEND_INVALID   0x00
+
+#define KATCP_DPX_SEND_DESTINATION 0x0f
+#define KATCP_DPX_SEND_NULL        0x01  /* throw IO away */
+#define KATCP_DPX_SEND_STREAM      0x02  /* goes to f_line */
+#define KATCP_DPX_SEND_PEER        0x03  /* goes to top of endpoint */
+
+#define KATCP_DPX_SEND_PERSISTENCE 0xf0
+#define KATCP_DPX_SEND_CURRENTLY   0x10  /* set until callback finishes */
+#define KATCP_DPX_SEND_LOCKED      0x20  /* user set indefinitely */
+
+#define KATCP_DPX_SEND_RESET      0x100  /* clear lock flag */
+
+struct katcp_flat{
+  /* a client instance, intended to replace what was job and dispatch previously */
+  unsigned int f_magic;
+  char *f_name;          /* locate the thing by name */
+
+  int f_flags;           /* which directions can we do */
+
+  int f_state;           /* up, shutting down, etc */
+  int f_blocked;         /* TODO: shim, should be handled properly, maybe in line */
+  int f_exit_code;       /* reported exit status */
+
+  int f_log_level;       /* log level currently set */
+
+  struct katcp_endpoint *f_peer; /* queue for internal messages, can be from different senders */
+  struct katcp_endpoint *f_remote; /* queue for remote messages, all come in from fd via a line */
+
+  struct katcl_line *f_line;
+  struct katcp_shared *f_shared;
+
+  struct katcl_parse *f_rx;      /* received message */
+
+  struct katcl_parse *f_tx;      /* message about to send */
+  unsigned int f_send;           /* message sending flags */
+
+  struct katcp_response_handler f_replies[KATCP_SIZE_DIRECTION];
+  int f_current_direction;
+
+#if 0
+  struct katcl_queue *f_backlog; /* backed up requests from the remote end, shouldn't happen */
+#endif
+
+  struct katcp_cmd_map *f_maps[KATCP_SIZE_MAP];
+  int f_current_map; 
+
+  struct katcp_group *f_group;
+
+  /* TODO: */
+  
+  /* notices, sensors */
+
+  /* a sensor could probably be a special type of notice */
+};
+
+#define KATCP_FLAT_STACK 4
+
 struct katcp_shared{
   unsigned int s_magic;
   struct katcp_entry *s_vector;
@@ -455,12 +568,18 @@ struct katcp_shared{
 
   struct katcp_notice **s_notices;
   unsigned int s_pending;
-  unsigned int s_woken;
+
+  unsigned int s_busy; /* more things to do, keep select short */
 
   struct katcp_group **s_groups;
   struct katcp_group *s_fallback;
-  struct katcp_flat *s_this;
   unsigned int s_members;
+
+  struct katcp_flat **s_this;
+  int s_level;
+  unsigned int s_stories;
+
+  struct katcp_endpoint *s_endpoints;
 
 #if 0
   int s_version_major;
@@ -559,6 +678,47 @@ struct katcp_dynamic_mode{
 };
 #endif
 
+/**********************************************************************************/
+
+struct katcp_message{
+  unsigned int m_flags;
+  struct katcl_parse *m_parse;
+  struct katcp_endpoint *m_from;
+  struct katcp_endpoint *m_to;
+};
+
+struct katcp_endpoint{
+  unsigned int e_magic;
+  unsigned int e_flags; 
+  unsigned int e_refcount;
+
+#if 0
+  char *e_name;
+  struct katcp_endpoint *e_peer;
+#endif
+
+  struct katcl_gueue *e_queue;
+  unsigned int e_precedence;
+
+  int (*e_wake)(struct katcp_dispatch *d, struct katcp_endpoint *ep, struct katcp_message *msg, void *data);
+  void (*e_release)(struct katcp_dispatch *d, void *data);
+  void *e_data;
+
+  struct katcp_endpoint *e_next;
+};
+
+#if 0
+#define KATCP_ENDPOINT_OWN    0x00
+#define KATCP_ENDPOINT_FAIL   0x01
+#define KATCP_ENDPOINT_OK     0x02
+#define KATCP_ENDPOINT_QUICK  0x03
+#define KATCP_ENDPOINT_STALL  0x04
+#define KATCP_MASK_ENDPOINT   0x0f
+#define KATCP_ENDPOINT_DEAD   0xf0
+#endif
+
+/**********************************************************************************/
+
 void exchange_katcl(struct katcl_line *l, int fd);
 
 int dispatch_cmd_katcp(struct katcp_dispatch *d, int argc);
@@ -644,6 +804,10 @@ int ended_jobs_katcp(struct katcp_dispatch *d);
 int run_flat_katcp(struct katcp_dispatch *d);
 int load_flat_katcp(struct katcp_dispatch *d);
 
+int init_flats_katcp(struct katcp_dispatch *d, unsigned int stories);
+void destroy_flats_katcp(struct katcp_dispatch *d);
+void destroy_groups_katcp(struct katcp_dispatch *d);
+
 /* parse: setup */
 struct katcl_parse *create_parse_katcl();
 struct katcl_parse *create_referenced_parse_katcl();
@@ -666,6 +830,8 @@ int add_double_parse_katcl(struct katcl_parse *p, int flags, double v);
 int add_buffer_parse_katcl(struct katcl_parse *p, int flags, void *buffer, unsigned int len);
 int add_parameter_parse_katcl(struct katcl_parse *pd, int flags, struct katcl_parse *ps, unsigned int index);
 
+int buffer_from_parse_katcl(struct katcl_parse *p, char *buffer, unsigned int len);
+
 /* parse: extracting, testing fields */
 unsigned int get_count_parse_katcl(struct katcl_parse *p);
 int get_tag_parse_katcl(struct katcl_parse *p);
@@ -680,7 +846,7 @@ char *get_string_parse_katcl(struct katcl_parse *p, unsigned int index);
 char *copy_string_parse_katcl(struct katcl_parse *p, unsigned int index);
 unsigned long get_unsigned_long_parse_katcl(struct katcl_parse *p, unsigned int index);
 long get_signed_long_parse_katcl(struct katcl_parse *p, unsigned int index);
-int get_byte_bit_parse_katcl(struct katcl_parse *p, unsigned int index, struct katcl_byte_bit *b);
+int get_bb_parse_katcl(struct katcl_parse *p, unsigned int index, struct katcl_byte_bit *b);
 #ifdef KATCP_USE_FLOATS
 double get_double_parse_katcl(struct katcl_parse *p, unsigned int index);
 #endif
@@ -689,7 +855,6 @@ unsigned int get_buffer_parse_katcl(struct katcl_parse *p, unsigned int index, v
 /* parse: parsing from line */
 int parse_katcl(struct katcl_line *l);
 struct katcl_parse *ready_katcl(struct katcl_line *l);
-struct katcl_parse *ready_katcp(struct katcp_dispatch *d);
 
 int add_vargs_parse_katcl(struct katcl_parse *p, int flags, char *fmt, va_list args);
 int add_args_parse_katcl(struct katcl_parse *p, int flags, char *fmt, ...);
@@ -733,8 +898,9 @@ int log_map_katcp(struct katcp_dispatch *d, char *prefix, struct katcp_map *km);
 /* arbitrary filedescriptor callback support */
 
 void load_arb_katcp(struct katcp_dispatch *d);
-int run_arb_katcp(struct katcp_dispatch *d);
 int arb_cmd_katcp(struct katcp_dispatch *d, int argc);
+int run_arb_katcp(struct katcp_dispatch *d);
+void destroy_arbs_katcp(struct katcp_dispatch *d);
 
 /*katcp_type*/
 void destroy_type_katcp(struct katcp_type *t);
@@ -786,6 +952,19 @@ char *getkey_tag_katcp(void *data);
 int register_tag_katcp(struct katcp_dispatch *d, char *name, int level);
 
 
+/* endpoints: internal ********************/
+
+void run_endpoints_katcp(struct katcp_dispatch *d);
+void release_endpoints_katcp(struct katcp_dispatch *d);
+
+int answer_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep, struct katcl_parse *px);
+
+struct katcp_endpoint *create_endpoint_katcp(struct katcp_dispatch *d, int (*wake)(struct katcp_dispatch *d, struct katcp_endpoint *ep, struct katcp_message *msg, void *data), void (*release)(struct katcp_dispatch *d, void *data), void *data);
+void release_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep);
+
+void show_endpoint_katcp(struct katcp_dispatch *d, char *prefix, int level, struct katcp_endpoint *ep);
+
+
 /******************************************/
 
 #define KATCL_PARSE_MAGIC 0xff7f1273
@@ -793,5 +972,9 @@ int register_tag_katcp(struct katcp_dispatch *d, char *name, int level);
 #define KATCP_PRINT_VERSION_CONNECT  0
 #define KATCP_PRINT_VERSION_LIST     1
 #define KATCP_PRINT_VERSION          2 /* deprecated as of V5 */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

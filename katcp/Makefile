@@ -4,7 +4,7 @@ include ../Makefile.inc
 
 VERSION = 0.1
 
-BUILD = $(shell date +%Y-%m-%dT%H:%M:%S)
+BUILD = $(shell date -u +%Y-%m-%dT%H:%M:%S)
 VERSION = $(GITVER)
 
 INC = -I.
@@ -18,8 +18,8 @@ CFLAGS += -DVERSION=\"$(VERSION)\"
 CFLAGS += -DBUILD=\"$(BUILD)\"
 
 SUB = examples utils
-SRC = line.c netc.c dispatch.c loop.c log.c time.c shared.c misc.c server.c client.c ts.c nonsense.c notice.c job.c parse.c rpc.c queue.c map.c kurl.c version.c fork-parent.c avltree.c ktype.c stack.c services.c dbase.c arb.c dpx.c
-HDR = katcp.h katcl.h katpriv.h fork-parent.h avltree.h
+SRC = line.c netc.c dispatch.c loop.c log.c time.c shared.c misc.c server.c client.c ts.c nonsense.c notice.c job.c parse.c rpc.c queue.c map.c kurl.c version.c fork-parent.c avltree.c ktype.c stack.c services.c dbase.c arb.c dpx.c spointer.c event.c bytebit.c endpoint.c generic-queue.c
+HDR = katcp.h katcl.h katpriv.h fork-parent.h avltree.h netc.h
 
 OBJ = $(patsubst %.c,%.o,$(SRC))
 
@@ -36,10 +36,14 @@ $(SHARED): $(OBJ)
 %.o: %.c $(wildcard *.h)
 	$(CC) $(CFLAGS) -c $< -o $@ $(INC)
 
+show:
+	@echo 'VERSION="$(VERSION)"'
+	@echo 'BUILD="$(BUILD)"'
+
 clean:
 	$(RM) $(LIB) $(SHARED) *.o core
 
 install: all
-	$(INSTALL) -d $(PREFIX)/include $(prefix)/lib
+	$(INSTALL) -d $(PREFIX)/include $(PREFIX)/lib
 	$(INSTALL) $(LIB) $(PREFIX)/lib
 	$(INSTALL) $(HDR) $(PREFIX)/include

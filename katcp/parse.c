@@ -179,6 +179,80 @@ void destroy_parse_katcl(struct katcl_parse *p)
 }
 
 /******************************************************************/
+
+int buffer_from_parse_katcl(struct katcl_parse *p, char *buffer, unsigned int len)
+{
+  struct katcl_larg *la;
+  unsigned int i;
+  int offset, size, space;
+
+  sane_parse_katcl(p);
+
+  switch(p->p_state){
+    case KATCL_PARSE_FAKE :
+    case KATCL_PARSE_DONE :
+      break;
+    default :
+      return -1;
+  }
+
+  if((buffer == NULL) || (len == 0)){
+    return -1;
+  }
+
+  offset = (-1); /* WARNING, trickery */
+  space = len;
+
+  if(p->p_got == 0){
+    offset++;
+  }
+
+  for(i = 0; i < p->p_got; i++){
+
+    offset++;
+
+    la = &(p->p_args[i]);
+
+    size = la->a_end - la->a_begin;
+#ifdef KATCP_CONSISTENCY_CHECKS
+    if(size < 0){
+      fprintf(stderr, "buffer from parse: bad element size %d for item %u of %p", size, i, p);
+      abort();
+    }
+#endif
+
+    if(size >= space){
+
+      if(len < 4){
+        buffer[0] = '\0';
+        return -1;
+      }
+
+      memcpy(buffer + offset, p->p_buffer + la->a_begin, space);
+      memcpy(buffer + len - 4, "...", 4);
+
+      return len; /* indicate overflow, primitively */
+
+    } else {
+
+      memcpy(buffer + offset, p->p_buffer + la->a_begin, size);
+
+      offset += size;
+      space -= size;
+
+      buffer[offset] = ' ';
+      space--;
+
+      /* WARNING: offset gets updated unconventionally */
+    }
+  }
+
+  buffer[offset] = '\0';
+
+  return offset;
+}
+
+/******************************************************************/
 /* logic to populate the parse ************************************/
 
 static int before_add_parse_katcl(struct katcl_parse *p, unsigned int flags)
@@ -761,19 +835,14 @@ long get_signed_long_parse_katcl(struct katcl_parse *p, unsigned int index)
   return value;
 }
 
-int get_byte_bit_parse_katcl(struct katcl_parse *p, unsigned int index, struct katcl_byte_bit *b)
+int get_bb_parse_katcl(struct katcl_parse *p, unsigned int index, struct katcl_byte_bit *b)
 {
   char *string, *end;
-#if 0
-  unsigned int extra;
-#endif
+  unsigned long byte, bit; 
 
   if(b == NULL){
     return -1;
   }
-
-  b->b_bit = 0;
-  b->b_byte = 0;
 
   string = get_string_parse_katcl(p, index);
   if(string == NULL){
@@ -781,28 +850,21 @@ int get_byte_bit_parse_katcl(struct katcl_parse *p, unsigned int index, struct k
   }
 
   if(string[0] != ':'){
-    b->b_byte = strtoul(string, &end, 0);
+    byte = strtoul(string, &end, 0);
     if(end[0] == ':'){
       string = end;
     }
   } else {
-    b->b_byte = 0;
+    byte = 0;
   }
 
   if(string[0] == ':'){
-    b->b_bit = strtoul(string + 1, NULL, 0);
+    bit = strtoul(string + 1, NULL, 0);
   } else {
-    b->b_bit = 0;
+    bit = 0;
   }
 
-  /* WARNING: relies on other code to make sure bit is within reasonable range */
-
-#if 0 /* insufficient, use normalisation functions elsewhere */
-  b->b_byte += (extra / 32) * 4;
-  b->b_bit   = extra % 32;
-#endif
-
-  return 0;
+  return make_bb_katcl(b, byte, bit);
 }
 
 #ifdef KATCP_USE_FLOATS
@@ -1245,8 +1307,10 @@ int dump_parse_katcl(struct katcl_parse *p, char *prefix, FILE *fp)
 
 int main()
 {
+#define BUFFER 32
   struct katcl_parse *p, *pc;
   char *ptr;
+  char buffer[BUFFER];
 
   p = create_referenced_parse_katcl();
   if(p == NULL){
@@ -1281,12 +1345,16 @@ int main()
 
   dump_parse_katcl(pc, "copy", stderr);
 
+  buffer_from_parse_katcl(p, buffer, BUFFER);
+  fprintf(stderr, "buffer of parse: <%s>\n", buffer);
+
   destroy_parse_katcl(p);
   destroy_parse_katcl(pc);
 
   printf("parse test: ok\n");
 
   return 0;
+#undef BUFFER
 }
   
 #endif

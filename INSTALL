@@ -17,9 +17,10 @@ use GNU Make features.
 Configuration
 -------------
 
-There is no configure script. If you really want to change
-some compiler flag (eg amount of debug information, floating
-point support) edit Makefile.inc
+There is no configure script. If you wish to change some
+build option (eg amount of debug information, floating
+point support, version support) edit Makefile.inc. The various 
+options are documented there.
 
 Build
 -----

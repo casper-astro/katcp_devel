@@ -235,7 +235,7 @@ int store_data_at_type_katcp(struct katcp_dispatch *d, struct katcp_type *t, int
     return -1;
   
   if (t->t_print != fn_print || t->t_free != fn_free || t->t_copy != fn_copy || t->t_compare != fn_compare || t->t_parse != fn_parse || t->t_getkey != fn_getkey){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "callbacks for data with key <%s> dont match type %s\n", d_name, t->t_name);
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "callbacks for data with key <%s> dont match type %s", d_name, t->t_name);
 #ifdef DEBUG
     fprintf(stderr, "katcp_type: callbacks for data with key <%s> dont match type %s\n", d_name, t->t_name); 
 #endif
@@ -300,7 +300,7 @@ int store_data_type_katcp(struct katcp_dispatch *d, char *t_name, int dep, char 
       but it needs to be decremented and flipped positive*/
     pos = register_at_id_type_katcp(d, (pos+1)*(-1), t_name, dep, fn_print, fn_free, fn_copy, fn_compare, fn_parse, fn_getkey);
     if (pos < 0){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not create new type %s\n", t_name);
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not create new type %s", t_name);
 #ifdef DEBUG
       fprintf(stderr, "katcp_type: could not create new type: %s\n", t_name); 
 #endif

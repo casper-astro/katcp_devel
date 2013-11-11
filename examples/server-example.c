@@ -35,6 +35,10 @@ int simple_integer_check_sensor(struct katcp_dispatch *d, struct katcp_acquire *
 
 int own_check_cmd(struct katcp_dispatch *d, int argc)
 {
+  if(argc > 1){
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "my first parameter is %s", arg_string_katcp(d, 1));
+  }
+
   send_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "!check-own", KATCP_FLAG_BUFFER, "\0\n\r ", 4, KATCP_FLAG_LAST | KATCP_FLAG_ULONG, 42UL);
 
   return KATCP_RESULT_OWN; /* we send our own return codes */

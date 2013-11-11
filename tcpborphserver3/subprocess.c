@@ -51,6 +51,7 @@ struct katcp_job *run_child_process_tbs(struct katcp_dispatch *d, struct katcp_u
   pid_t pid;
   struct katcp_job *j;
   struct katcl_line *xl;
+  int result;
 
   if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) < 0) 
     return NULL;
@@ -75,16 +76,17 @@ struct katcp_job *run_child_process_tbs(struct katcp_dispatch *d, struct katcp_u
       log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "unable to allocate job logic so terminating child process");
       kill(pid, SIGTERM);
       close(fds[1]);
-      destroy_kurl_katcp(url);
+      /* semantics are that on failure, parent cleans up */
+      /* destroy_kurl_katcp(url); */
     }
     return j;
   }
 
+  /* WARNING: now we are in child - use exit not return */
 #ifdef DEBUG
   fprintf(stderr,"%s: in child: %d\n", __func__, getpid());
 #endif
 
-  /*in child use exit not return*/
   xl = create_katcl(fds[0]);
   close(fds[1]);
  
@@ -117,9 +119,9 @@ struct katcp_job *run_child_process_tbs(struct katcp_dispatch *d, struct katcp_u
   }
 #endif
 
-  if ((*call)(xl, data) < 0)
-    sync_message_katcl(xl, KATCP_LEVEL_ERROR, NULL, "run child process tbs fail"); 
-  
-  exit(EX_OK);
+  result = ((*call)(xl, data));
+
+  exit((result < 0) ? (result * -1) : result);
+
   return NULL;
 }

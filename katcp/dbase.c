@@ -862,7 +862,7 @@ int get_dbase_cmd_katcp(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
   
-  ptx = ready_katcp(d);
+  ptx = arg_parse_katcp(d);
   if (ptx == NULL)
     return KATCP_RESULT_FAIL;
 
@@ -885,7 +885,7 @@ int set_dbase_cmd_katcp(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
   
-  p = ready_katcp(d);
+  p = arg_parse_katcp(d);
   if (p == NULL)
     return KATCP_RESULT_FAIL;
 
@@ -904,7 +904,7 @@ int dict_cmd_katcp(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
-  p = ready_katcp(d);
+  p = arg_parse_katcp(d);
   if (p == NULL)
     return KATCP_RESULT_FAIL;
 
@@ -1356,7 +1356,7 @@ int search_cmd_katcp(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
   
-  p = ready_katcp(d);
+  p = arg_parse_katcp(d);
   if (p == NULL)
     return KATCP_RESULT_FAIL;
 
