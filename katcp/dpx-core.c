@@ -25,10 +25,6 @@
 #define MAP_REMOTE                1
 #endif
 
-#define KATCP_MAP_FLAG_NONE       0
-#define KATCP_MAP_FLAG_HIDDEN   0x1
-#define KATCP_MAP_FLAG_GREEDY   0x2
-
 #if 0
 #define KATCP_MAP_FLAG_REQUEST  0x10
 #define KATCP_MAP_FLAG_INFORM   0x20
@@ -56,8 +52,9 @@
 
 /********************************************************************/
 
+int setup_default_group(struct katcp_dispatch *d, char *name);
+
 void destroy_cmd_map(struct katcp_cmd_map *m);
-struct katcp_cmd_map *map_of_flat_katcp(struct katcp_flat *fx);
 
 static void clear_current_flat(struct katcp_dispatch *d);
 static void set_current_flat(struct katcp_dispatch *d, struct katcp_flat *fx);
@@ -308,27 +305,6 @@ void destroy_cmd_item_void(void *v)
   destroy_cmd_item(i);
 }
 
-void print_help_cmd_item(struct katcp_dispatch *d, char *key, void *v)
-{
-  struct katcp_cmd_item *i;
-
-  i = v;
-
-  if(i->i_flags & KATCP_MAP_FLAG_HIDDEN){ 
-    return;
-  }
-
-  prepend_inform_katcp(d);
-
-#if 0
-  append_string_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, KATCP_HELP_INFORM);
-#endif
-
-  append_string_katcp(d, KATCP_FLAG_STRING, i->i_name);
-  append_string_katcp(d, KATCP_FLAG_LAST | KATCP_FLAG_STRING, i->i_help);
-
-}
-
 struct katcp_cmd_item *create_cmd_item(char *name, char *help, unsigned int flags, int (*call)(struct katcp_dispatch *d, int argc), void *data, void (*clear)(void *data)){
   struct katcp_cmd_item *i;
 
@@ -449,7 +425,7 @@ struct katcp_cmd_map *create_cmd_map(char *name)
   return m;
 }
 
-int add_full_cmd_map(struct katcp_cmd_map *m, char *name, char *help, unsigned int flags, int (*call)(struct katcp_dispatch *d, int argc), void *data, void (*clear)(void *data))
+int add_full_cmd_map_katcp(struct katcp_cmd_map *m, char *name, char *help, unsigned int flags, int (*call)(struct katcp_dispatch *d, int argc), void *data, void (*clear)(void *data))
 {
   struct katcp_cmd_item *i;
   struct avl_node *n;
@@ -493,9 +469,9 @@ int add_full_cmd_map(struct katcp_cmd_map *m, char *name, char *help, unsigned i
   return 0;
 }
 
-int add_cmd_map(struct katcp_cmd_map *m, char *name, char *help, int (*call)(struct katcp_dispatch *d, int argc))
+int add_cmd_map_katcp(struct katcp_cmd_map *m, char *name, char *help, int (*call)(struct katcp_dispatch *d, int argc))
 {
-  return add_full_cmd_map(m, name, help, 0, call, NULL, NULL);
+  return add_full_cmd_map_katcp(m, name, help, 0, call, NULL, NULL);
 }
 
 struct katcp_cmd_item *locate_cmd_item(struct katcp_flat *f, struct katcl_parse *p)
@@ -2642,227 +2618,6 @@ struct katcp_arb *listen_flat_katcp(struct katcp_dispatch *d, char *name, struct
 
 /* commands, both old and new ***************************************/
 
-/* logging related commands *****************************************/
-
-int set_group_log_level_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, struct katcp_group *gx, unsigned int level, unsigned int immediate)
-{
-  struct katcp_flat *fy;
-  unsigned int i;
-
-  if(level >= KATCP_MAX_LEVELS){
-    return -1;
-  }
-
-  if(fx){
-    fx->f_log_level = level;
-    return level;
-  }
-
-  if(gx){
-    if(immediate){
-      for(i = 0; i < gx->g_count; i++){
-        fy = gx->g_flats[i];
-        fy->f_log_level = level;
-      }
-    } 
-    gx->g_log_level = level;
-    return level;
-  }
-
-  return -1;
-}
-
-#define LEVEL_EXTENT_DETECT     0
-#define LEVEL_EXTENT_FLAT       1
-#define LEVEL_EXTENT_GROUP      2
-#define LEVEL_EXTENT_DEFAULT    3
-
-int generic_log_level_group_cmd_katcp(struct katcp_dispatch *d, int argc, unsigned int clue)
-{
-  struct katcp_shared *s;
-  struct katcp_flat *fx;
-  struct katcp_group *gx;
-  int level;
-  unsigned int type;
-  char *name, *requested, *extent;
-
-  s = d->d_shared;
-
-  level = (-1);
-
-  if(argc > 1){
-    requested = arg_string_katcp(d, 1);
-
-    if(requested){
-      if(!strcmp(requested, "all")){
-        level = KATCP_LEVEL_TRACE;
-      } else {
-        level = log_to_code_katcl(requested);
-        if(level < 0){
-          log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unknown log level %s", requested);
-          return KATCP_RESULT_FAIL;
-        }
-      }
-    }
-  }
-
-  fx = NULL;
-  gx = NULL;
-
-  if(clue == LEVEL_EXTENT_DETECT){
-    type = LEVEL_EXTENT_FLAT;
-    if(argc > 2){
-      extent = arg_string_katcp(d, 2);
-      if(extent){
-        if(!strcmp("client", extent)){
-          type = LEVEL_EXTENT_FLAT;
-        } else if(!strcmp("group", extent)){
-          type = LEVEL_EXTENT_GROUP;
-        } else if(!strcmp("default", extent)){
-          type = LEVEL_EXTENT_DEFAULT;
-        } else {
-          log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unknown log extent %s", extent);
-          return KATCP_RESULT_FAIL;
-        }
-      }
-    }
-
-    if(argc > 3){
-      name = arg_string_katcp(d, 3);
-      if(name == NULL){
-        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no or null subject for log level supplied");
-        return KATCP_RESULT_FAIL;
-      }
-      switch(type){
-        case LEVEL_EXTENT_FLAT    :
-          fx = find_name_flat_katcp(d, NULL, name);
-          if(fx == NULL){
-            log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to locate a client with the name %s", name);
-            return KATCP_RESULT_FAIL;
-          }
-          break;
-        case LEVEL_EXTENT_GROUP   :
-        case LEVEL_EXTENT_DEFAULT :
-          gx = find_group_katcp(d, name);
-          if(gx == NULL){
-            log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to locate a client group with the name %s", name);
-            return KATCP_RESULT_FAIL;
-          }
-        break;
-      }
-    } 
-
-    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "decided to use log extent %u", type);
-  } else {
-    type = clue;
-  }
-
-  switch(type){
-    case LEVEL_EXTENT_FLAT    :
-      if(fx == NULL){
-        fx = this_flat_katcp(d);
-      }
-      break;
-    case LEVEL_EXTENT_GROUP   :
-      if(level < 0){ /* request */
-        if(fx == NULL){
-          fx = this_flat_katcp(d);
-        }
-      } else { /* set */
-        if(gx == NULL){
-          gx = this_group_katcp(d);
-        }
-      }
-      break;
-    case LEVEL_EXTENT_DEFAULT :
-      if(gx == NULL){
-        gx = this_group_katcp(d);
-      }
-      break;
-  }
-
-  if((fx == NULL) && (gx == NULL)){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to work out which entity should have its log level accessed for extent %u", type);
-    return KATCP_RESULT_FAIL;
-  }
-
-  if(level < 0){
-    switch(type){
-      case LEVEL_EXTENT_FLAT    :
-        if(fx){
-          level = fx->f_log_level;
-        }
-        break;
-      case LEVEL_EXTENT_GROUP   :
-        if(fx){ /* WARNING: cheats, pick the current connection */
-          level = fx->f_log_level;
-        }
-        break;
-      case LEVEL_EXTENT_DEFAULT :
-        if(gx){
-          level = gx->g_log_level;
-        }
-        break;
-    }
-  } else {
-    switch(type){
-      case LEVEL_EXTENT_FLAT    :
-        level = set_group_log_level_katcp(d, fx, NULL, level, 0);
-        break;
-      case LEVEL_EXTENT_GROUP   :
-        level = set_group_log_level_katcp(d, NULL, gx, level, 1);
-        break;
-      case LEVEL_EXTENT_DEFAULT :
-        level = set_group_log_level_katcp(d, NULL, gx, level, 0);
-        break;
-    }
-  }
-
-  if(level < 0){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to retrieve or set a log level in this context");
-    return KATCP_RESULT_FAIL;
-  } 
-
-  name = log_to_string_katcl(level);
-  if(name == NULL){
-#ifdef KATCP_CONSISTENCY_CHECKS
-    fprintf(stderr, "dpx: major logic problem: unable to convert %d to a symbolic log name", level);
-    abort();
-#endif
-    return KATCP_RESULT_FAIL;
-  }
-
-#ifdef DEBUG
-  if(extra_response_katcp(d, KATCP_RESULT_OK, name) < 0){
-    fprintf(stderr, "dpx[%p]: unable to generate extended response\n", fx);
-  }
-  fprintf(stderr, "dpx[%p]: completed log logic with own response messages\n", fx);
-#else
-  extra_response_katcp(d, KATCP_RESULT_OK, name);
-#endif
-
-  return KATCP_RESULT_OWN;
-}
-
-int log_level_group_cmd_katcp(struct katcp_dispatch *d, int argc)
-{
-  return generic_log_level_group_cmd_katcp(d, argc, LEVEL_EXTENT_GROUP);
-}
-
-int log_local_group_cmd_katcp(struct katcp_dispatch *d, int argc)
-{
-  return generic_log_level_group_cmd_katcp(d, argc, LEVEL_EXTENT_FLAT);
-}
-
-int log_default_group_cmd_katcp(struct katcp_dispatch *d, int argc)
-{
-  return generic_log_level_group_cmd_katcp(d, argc, LEVEL_EXTENT_DEFAULT);
-}
-
-int log_override_group_cmd_katcp(struct katcp_dispatch *d, int argc)
-{
-  return generic_log_level_group_cmd_katcp(d, argc, LEVEL_EXTENT_DETECT);
-}
 
 /* connection management commands ***********************************/
 
@@ -2934,71 +2689,6 @@ int list_duplex_cmd_katcp(struct katcp_dispatch *d, int argc)
       log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s is part of group %p", fx->f_name, fx->f_group);
     }
   }
-
-  return KATCP_RESULT_OK;
-}
-
-int help_group_cmd_katcp(struct katcp_dispatch *d, int argc)
-{
-  struct katcp_flat *fx;
-  struct katcp_cmd_item *i;
-  struct katcp_cmd_map *mx;
-  char *name, *match;
-
-  fx = require_flat_katcp(d);
-
-  if(fx == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "help group called outside expected path");
-    return KATCP_RESULT_FAIL;
-  }
-
-  mx = map_of_flat_katcp(fx);
-  if(mx == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no map to be found for client %s", fx->f_name);
-    return KATCP_RESULT_FAIL;
-  }
-
-  name = arg_string_katcp(d, 1);
-  if(name == NULL){
-    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "should generate list of commands");
-    if(mx->m_tree){
-      print_inorder_avltree(d, mx->m_tree->t_root, &print_help_cmd_item, 0);
-    }
-  } else {
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "should provide help for %s", name);
-    switch(name[0]){
-      case KATCP_REQUEST : 
-      case KATCP_REPLY   :
-      case KATCP_INFORM  :
-        match = name + 1;
-        break;
-      default :
-        match = name;
-    }
-    if(match[0] == '\0'){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to provide help on a null command");
-      return KATCP_RESULT_FAIL;
-    } else {
-      i = find_data_avltree(mx->m_tree, match);
-      if(i == NULL){
-        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no match for %s found", name);
-      } else {
-        print_help_cmd_item(d, NULL, (void *)i);
-      }
-#if 0
-      if(i->i_flags & KATCP_MAP_FLAG_REQUEST){
-        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "should print help message %s for %s", i->i_help, i->i_name);
-      }
-#endif
-    }
-  }
-
-  return KATCP_RESULT_OK;
-}
-
-int watchdog_group_cmd_katcp(struct katcp_dispatch *d, int argc)
-{
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "fielding %s ping request", is_inner_flat_katcp(d) ? "internal" : "remote");
 
   return KATCP_RESULT_OK;
 }
@@ -3094,226 +2784,6 @@ int relay_watchdog_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
 /*********************************************************************************/
 
-int complete_relay_generic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
-{
-  struct katcp_flat *fx;
-  struct katcl_parse *px;
-  char *cmd;
-
-#ifdef KATCP_CONSISTENCY_CHECKS
-  fx = require_flat_katcp(d);
-  if(fx == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not retrive current session detail");
-    return extra_response_katcp(d, KATCP_RESULT_FAIL, "cmd not run within a session");
-  }
-#endif
-
-  cmd = arg_string_katcp(d, 0);
-  if(cmd == NULL){
-    return extra_response_katcp(d, KATCP_RESULT_INVALID, "internal/usage");
-  }
-
-  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "triggering generic completion logic for %s", cmd);
-
-  px = arg_parse_katcp(d);
-  if(px == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to retrieve message from relay");
-    return KATCP_RESULT_FAIL;
-  }
-
-  if(!is_reply_parse_katcl(px)){
-    return KATCP_RESULT_OK;
-  }
-
-#if 0
-  /* TODO relay the response payload */
-  append_parse_katcp(d, px);
-#endif
-
-  if(is_reply_ok_parse_katcl(px)){
-    return KATCP_RESULT_OK;
-  }
-
-  return KATCP_RESULT_FAIL;
-}
-
-int relay_generic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
-{
-  struct katcp_shared *s;
-  char *name, *cmd, *ptr;
-  unsigned int len, flags;
-  struct katcp_flat *fx, *fy;
-  struct katcl_parse *px, *py;
-  struct katcp_endpoint *source, *target;
-
-  s = d->d_shared;
-
-  if(argc < 2){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "insufficient parameters (%d) to relay logic", argc);
-    return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
-  }
-
-  name = arg_string_katcp(d, 1);
-  cmd = arg_string_katcp(d, 2);
-
-  if((name == NULL) || (cmd == NULL)){
-    return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
-  }
-
-  fx = require_flat_katcp(d);
-  if(fx == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not retrive current session detail");
-    return extra_response_katcp(d, KATCP_RESULT_FAIL, "cmd not run within a session");
-  }
-  source = peer_of_flat_katcp(d, fx);
-
-  fy = find_name_flat_katcp(d, NULL, name);
-  if(fy == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not look up name %s", name);
-    return extra_response_katcp(d, KATCP_RESULT_FAIL, "resolver");
-  }
-  if(fy == fx){
-    target = remote_of_flat_katcp(d, fx);
-  } else {
-    target = peer_of_flat_katcp(d, fy);
-  }
-
-  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "sending %s ... from endpoint %p to endpoint %p", cmd, source, target);
-#ifdef DEBUG
-  fprintf(stderr, "dpx[%p]: sending %s ...(%d) from endpoint %p to endpoint %p at dpx[%p]\n", fx, cmd, argc, source, target, fy);
-#endif
-
-  px = create_parse_katcl();
-  if(px == NULL){
-    return extra_response_katcp(d, KATCP_RESULT_FAIL, "allocation");
-  }
-
-
-  if(argc > 3){
-    flags = KATCP_FLAG_FIRST;
-  } else {
-    flags = KATCP_FLAG_FIRST | KATCP_FLAG_LAST;
-  }
-
-  if(cmd[0] == KATCP_REQUEST){
-    add_string_parse_katcl(px, flags | KATCP_FLAG_STRING, cmd);
-  } else {
-    len = strlen(cmd);
-    ptr = malloc(len + 2);
-    if(ptr == NULL){
-      return extra_response_katcp(d, KATCP_RESULT_FAIL, "allocation");
-    }
-
-    ptr[0] = KATCP_REQUEST;
-    strcpy(ptr + 1, cmd);
-
-    add_string_parse_katcl(px, flags | KATCP_FLAG_STRING, ptr);
-    free(ptr);
-  }
-
-  if(argc > 3){
-    py = arg_parse_katcp(d);
-    add_trailing_parse_katcl(px, KATCP_FLAG_LAST, py, 3);
-  }
-
-  if(send_message_endpoint_katcp(d, source, target, px, 1) < 0){
-    return KATCP_RESULT_FAIL;
-  }
-
-  if(cmd[0] == KATCP_REQUEST){
-    ptr = cmd + 1;
-  } else {
-    ptr = cmd;
-  }
-
-  /* TODO: use wrappers to access fx members */
-
-  if(callback_flat_katcp(d, fx->f_current_endpoint, fx->f_rx, target, &complete_relay_generic_group_cmd_katcp, ptr, KATCP_REPLY_HANDLE_REPLIES | KATCP_REPLY_HANDLE_INFORMS)){
-    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "unable to register callback for %s", ptr);
-    return KATCP_RESULT_FAIL;
-  }
-
-  /* WARNING: complications: how do we know we have stalled handling a request ? */
-
-  return KATCP_RESULT_OWN;
-}
-
-static int print_client_list_katcp(struct katcp_dispatch *d, struct katcp_flat *fx)
-{
-  int result, r;
-
-  r = prepend_inform_katcp(d);
-  if(r < 0){
-#ifdef DEBUG
-    fprintf(stderr, "print_client_list: prepend failed\n");
-#endif
-    return -1;
-  }
-  result = r;
-
-  r = append_string_katcp(d, KATCP_FLAG_LAST | KATCP_FLAG_STRING, fx->f_name);
-  if(r < 0){
-#ifdef DEBUG
-    fprintf(stderr, "print_client_list: append of %s failed\n", fx->f_name);
-#endif
-    return -1;
-  }
-
-  result += r;
-
-  return result;
-}
-
-int client_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
-{
-  struct katcp_shared *s;
-  struct katcp_group *gx;
-  struct katcp_flat *fx, *fy;
-  unsigned int i, j, total;
-
-  s = d->d_shared;
-  total = 0;
-
-  fx = this_flat_katcp(d);
-  if(fx == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no client data available, probably called in incorrect context");
-    return KATCP_RESULT_FAIL;
-  }
-
-  switch(fx->f_scope){
-    case KATCP_SCOPE_GROUP :
-      gx = this_group_katcp(d);
-      if(gx){
-        for(i = 0; i < gx->g_count; i++){
-          fy = gx->g_flats[i];
-          if(print_client_list_katcp(d, fy) > 0){
-            total++;
-          }
-        }
-      }
-      break;
-    case KATCP_SCOPE_GLOBAL :
-      for(j = 0; j < s->s_members; j++){
-        gx = s->s_groups[i];
-        if(gx){
-          for(i = 0; i < gx->g_count; i++){
-            fy = gx->g_flats[i];
-            if(print_client_list_katcp(d, fy) > 0){
-              total++;
-            }
-          }
-        }
-      }
-      break;
-    default :
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "invalid client scope %d for %s\n", fx->f_scope, fx->f_name);
-      return KATCP_RESULT_FAIL;
-  }
-
-
-  return extra_response_katcp(d, KATCP_RESULT_OK, "%u", total);
-}
-
 /* uses previously defined commands *********************************/
 
 int setup_default_group(struct katcp_dispatch *d, char *name)
@@ -3339,23 +2809,24 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
     gx->g_maps[KATCP_MAP_REMOTE_REQUEST] = m;
     hold_cmd_map(m);
 
-    add_full_cmd_map(m, "help", "display help messages (?help [command])", 0, &help_group_cmd_katcp, NULL, NULL);
-    add_full_cmd_map(m, "client-list", "display currently connected clients (?client-list)", 0, &client_list_group_cmd_katcp, NULL, NULL);
-    add_full_cmd_map(m, "watchdog", "pings the system (?watchdog)", 0, &watchdog_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "help", "display help messages (?help [command])", 0, &help_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "client-list", "display currently connected clients (?client-list)", 0, &client_list_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "watchdog", "pings the system (?watchdog)", 0, &watchdog_group_cmd_katcp, NULL, NULL);
+
+    add_full_cmd_map_katcp(m, "list-duplex", "display active connection detail (?list-duplex)", 0, &list_duplex_cmd_katcp, NULL, NULL);
+
+    add_full_cmd_map_katcp(m, "log-level", "retrieve or adjust the log level (?log-level [level])", 0, &log_level_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "log-local", "adjust the log level of the current connection (?log-default [level])", 0, &log_local_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "log-default", "retrieve or adjust the log level of subsequent connections (?log-default [level])", 0, &log_default_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "log-override", "retrieve or adjust the log level in various permutations (?log-override [level [client|group|default [name]]])", 0, &log_override_group_cmd_katcp, NULL, NULL);
+
+    add_full_cmd_map_katcp(m, "?version-list", "list versions (?version-list)", 0, &version_list_cmd_katcp, NULL, NULL);
+
 #if 0
     add_full_cmd_map(m, "relay-watchdog", "ping a peer within the same process (?relay-watchdog peer)", 0, &relay_watchdog_group_cmd_katcp, NULL, NULL);
 #endif
-    add_full_cmd_map(m, "relay", "issue a request to a peer within the same process (?relay peer cmd)", 0, &relay_generic_group_cmd_katcp, NULL, NULL);
-    add_full_cmd_map(m, "list-duplex", "display active connection detail (?list-duplex)", 0, &list_duplex_cmd_katcp, NULL, NULL);
-
-    add_full_cmd_map(m, "log-level", "retrieve or adjust the log level (?log-level [level])", 0, &log_level_group_cmd_katcp, NULL, NULL);
-    add_full_cmd_map(m, "log-local", "adjust the log level of the current connection (?log-default [level])", 0, &log_local_group_cmd_katcp, NULL, NULL);
-    add_full_cmd_map(m, "log-default", "retrieve or adjust the log level of subsequent connections (?log-default [level])", 0, &log_default_group_cmd_katcp, NULL, NULL);
-    add_full_cmd_map(m, "log-override", "retrieve or adjust the log level in various permutations (?log-override [level [client|group|default [name]]])", 0, &log_override_group_cmd_katcp, NULL, NULL);
-
-    add_full_cmd_map(m, "?version-list", "list versions (?version-list)", 0, &version_list_cmd_katcp, NULL, NULL);
-
-    add_full_cmd_map(m, "?forward-symbolic", "create a command which generates a request against another party (?forward-symbolic)", 0, &forward_symbolic_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "relay", "issue a request to a peer within the same process (?relay peer cmd)", 0, &relay_generic_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "?forward-symbolic", "create a command which generates a request against another party (?forward-symbolic)", 0, &forward_symbolic_group_cmd_katcp, NULL, NULL);
 
 
   } else {
