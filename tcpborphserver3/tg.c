@@ -1529,6 +1529,8 @@ int tap_multicast_remove_group_cmd(struct katcp_dispatch *d, int argc)
   struct getap_state *gs;
   char *grpip, *name;
   
+  struct ip_mreq grp;
+
   tr = get_current_mode_katcp(d);
   if(tr == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to get raw state");
@@ -1555,5 +1557,15 @@ int tap_multicast_remove_group_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
+  grp.imr_multiaddr.s_addr = inet_addr(grpip);
+  grp.imr_interface.s_addr = inet_addr(gs->s_address_name);
+  if (setsockopt(gs->s_mcast_fd, IPPROTO_IP, IP_DROP_MEMBERSHIP, (char *) &grp, sizeof(grp)) < 0){
+    close(gs->s_mcast_fd);
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to drop multicast membership to %s on %s (%s)", grpip, name, strerror(errno));
+    return KATCP_RESULT_FAIL;
+  }
+  
+  close(gs->s_mcast_fd);
+  
   return KATCP_RESULT_OK;
 } 
