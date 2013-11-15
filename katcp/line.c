@@ -641,6 +641,24 @@ int append_parameter_katcl(struct katcl_line *l, int flags, struct katcl_parse *
   return after_append_katcl(l, flags, result);
 }
 
+int append_trailing_katcl(struct katcl_line *l, int flags, struct katcl_parse *px, unsigned int start)
+{
+  struct katcl_parse *p;
+  int result;
+
+  p = before_append_katcl(l, flags);
+  if(p == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "append: before_append failed\n");
+#endif
+    return -1;
+  }
+
+  result = add_trailing_parse_katcl(p, flags, px, start);
+
+  return after_append_katcl(l, flags, result);
+}
+
 int append_parse_katcl(struct katcl_line *l, struct katcl_parse *p)
 {
   int result;

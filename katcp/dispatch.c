@@ -1649,6 +1649,7 @@ int extra_response_katcp(struct katcp_dispatch *d, int code, char *fmt, ...)
   int result;
 #endif
   char *result;
+  int r;
 
   if(code > KATCP_RESULT_OK){
 #ifdef DEBUG
@@ -1668,7 +1669,13 @@ int extra_response_katcp(struct katcp_dispatch *d, int code, char *fmt, ...)
     result = KATCP_INVALID;
   }
 
-  prepend_reply_katcp(d);
+  r = prepend_reply_katcp(d);
+  if(r < 0){
+#ifdef DEBUG
+    fprintf(stderr, "extra response: nothing to prepend\n");
+#endif
+    return KATCP_RESULT_FAIL;
+  }
 
   if(fmt != NULL){
 #ifdef DEBUG
@@ -1956,8 +1963,17 @@ static int prepend_generic_katcp(struct katcp_dispatch *d, int reply)
   int tag;
 #endif
 
+  if(this_flat_katcp(d)){
+    /* duplex code is special, uses origin related logic */
+    return prepend_generic_flat_katcp(d, reply);
+  }
+
   message = arg_string_katcp(d, 0);
-  if((message == NULL) || (message[0] != KATCP_REQUEST)){
+#if 0
+  /* we now invoke this also when getting responses ... somewhat unexpected usage ... */
+  if(message == NULL) || (message[0] != KATCP_REQUEST)){
+#endif
+  if(message == NULL){
 #ifdef DEBUG
     fprintf(stderr, "prepend: arg0 is unavailable (%p)\n", message);
 #endif
@@ -2081,6 +2097,17 @@ int append_parameter_katcp(struct katcp_dispatch *d, int flags, struct katcl_par
   }
 
   return append_parameter_katcl(d->d_line, flags, p, index);
+}
+
+int append_trailing_katcp(struct katcp_dispatch *d, int flags, struct katcl_parse *p, unsigned int start)
+{
+  sane_katcp(d);
+
+  if(this_flat_katcp(d)){
+    return append_trailing_flat_katcp(d, flags, p, start);
+  }
+
+  return append_trailing_katcl(d->d_line, flags, p, start);
 }
 
 int append_parse_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
