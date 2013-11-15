@@ -55,7 +55,7 @@ CFLAGS += -ggdb
 
 # what compiler to use 
 CC = $(CROSS_COMPILE)gcc
-# C++ implements stronger type checks... so this gives loads of warnings
+# C++ implements more finicky type checks... so this gives loads of warnings
 #CC = g++ -fpermissive
 
 GITVER = $(shell git describe --always --tags --dirty 2> /dev/null || echo unknown)
