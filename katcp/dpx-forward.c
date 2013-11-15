@@ -57,7 +57,6 @@ int complete_relay_generic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   struct katcp_flat *fx;
   struct katcl_parse *px;
-  char *cmd;
 
 #ifdef KATCP_CONSISTENCY_CHECKS
   fx = require_flat_katcp(d);
@@ -67,12 +66,23 @@ int complete_relay_generic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
 #endif
 
+#ifdef DEBUG
+  fprintf(stderr, "complete relay: got %d parameters\n", argc);
+#endif
+
+#if 0
+  /* testing nonsense */
+  return extra_response_katcp(d, KATCP_RESULT_FAIL, "just because");
+#endif
+
+#if 0
   cmd = arg_string_katcp(d, 0);
   if(cmd == NULL){
     return extra_response_katcp(d, KATCP_RESULT_INVALID, "internal/usage");
   }
 
-  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "triggering generic completion logic for %s", cmd);
+  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "triggering generic completion logic for %s (%d args)", cmd, argc);
+#endif
 
   px = arg_parse_katcp(d);
   if(px == NULL){
@@ -80,20 +90,37 @@ int complete_relay_generic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
-  if(!is_reply_parse_katcl(px)){
-    return KATCP_RESULT_OK;
+#ifdef DEBUG
+  dump_parse_katcl(px, "complete-relay", stderr);
+#endif
+
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(is_request_parse_katcl(px)){
+    fprintf(stderr, "complete-relay: did not expect to see a request message\n");
+    abort();
   }
+#endif
+
+  if(is_reply_parse_katcl(px)){
+    prepend_reply_katcp(d);
+  } else {
+    prepend_reply_katcp(d);
+  }
+
+  /* TODO - what about a px without any parameters ? */
+
+  append_trailing_katcp(d, KATCP_FLAG_LAST, px, 1);
 
 #if 0
   /* TODO relay the response payload */
   append_parse_katcp(d, px);
-#endif
 
   if(is_reply_ok_parse_katcl(px)){
     return KATCP_RESULT_OK;
   }
+#endif
 
-  return KATCP_RESULT_FAIL;
+  return KATCP_RESULT_OWN;
 }
 
 int relay_generic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
@@ -204,7 +231,7 @@ int perform_forward_symbolic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   struct forward_symbolic_state *fs;
   struct katcp_endpoint *target, *source;
   struct katcl_parse *px, *py;
-  char *ptr, *req;
+  char *req;
 
   req = arg_string_katcp(d, 0);
   if(req == NULL){
@@ -273,14 +300,8 @@ int perform_forward_symbolic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
       add_string_parse_katcl(px, KATCP_FLAG_LAST | KATCP_FLAG_STRING, fs->f_as);
       add_trailing_parse_katcl(px, KATCP_FLAG_LAST, py, 1);
     }
-    ptr = fs->f_as;
   } else {
     add_trailing_parse_katcl(px, KATCP_FLAG_LAST, py, 0);
-    if(req[0] == KATCP_REQUEST){
-      ptr = req + 1;
-    } else {
-      ptr = req;
-    }
   }
 
   if(send_message_endpoint_katcp(d, source, target, px, 1) < 0){
@@ -290,12 +311,12 @@ int perform_forward_symbolic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
   /* TODO: use wrappers to access fx members */
 
-  if(callback_flat_katcp(d, fx->f_current_endpoint, fx->f_rx, target, &complete_relay_generic_group_cmd_katcp, ptr, KATCP_REPLY_HANDLE_REPLIES | KATCP_REPLY_HANDLE_INFORMS)){
-    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "unable to register callback for %s", ptr);
+  if(callback_flat_katcp(d, fx->f_current_endpoint, fx->f_rx, target, &complete_relay_generic_group_cmd_katcp, "relay", KATCP_REPLY_HANDLE_REPLIES | KATCP_REPLY_HANDLE_INFORMS)){
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "unable to register relay callback for %s", req);
     return KATCP_RESULT_FAIL;
   }
 
-  return KATCP_RESULT_FAIL;
+  return KATCP_RESULT_OWN;
 }
 
 int forward_symbolic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
