@@ -526,6 +526,7 @@ struct katcp_flat{
   struct katcl_line *f_line;
   struct katcp_shared *f_shared;
 
+  struct katcl_parse *f_orx;     /* originating received message (needed for replies) */
   struct katcl_parse *f_rx;      /* received message */
   struct katcl_parse *f_tx;      /* message about to send */
 
@@ -1012,6 +1013,11 @@ int pending_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep);
 void forget_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep);
 void reference_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep);
  
+/******************************************/
+
+int prepend_generic_flat_katcp(struct katcp_dispatch *d, int reply);
+
+
 /******************************************/
 
 #define KATCL_PARSE_MAGIC 0xff7f1273
