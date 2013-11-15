@@ -637,6 +637,14 @@ static void deallocate_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *f
   }
 #endif
 
+  if(f->f_orx){
+#if 0
+    /* destroy currently not needed, operate on assumption that it is transient ? */
+    destroy_parse_katcl(f->f_orx);
+#endif
+    f->f_orx = NULL;
+  }
+
   if(f->f_rx){
 #if 0
     /* destroy currently not needed, operate on assumption that it is transient ? */
@@ -1194,8 +1202,10 @@ int wake_endpoint_peer_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoin
   if((type == KATCP_REPLY) || (type == KATCP_INFORM)){
     if(rh){
 #ifdef DEBUG
-      fprintf(stderr, "dpx[%p]: found candidate callback (%p) match for %s\n", fx, rh, str);
+      fprintf(stderr, "dpx[%p]: processing candidate callback (%p) match for %s\n", fx, rh, str);
 #endif
+      /* replies may have a different initiating message */
+      fx->f_orx = rh->r_initial;
       process_outstanding_flat_katcp(d, fx, argc, rh, type);
 #ifdef DEBUG
     } else {
@@ -1205,6 +1215,8 @@ int wake_endpoint_peer_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoin
   }
 
   if((type == KATCP_REQUEST) || (type == KATCP_INFORM)){
+    /* for plain requests, origin is same as received */
+    fx->f_orx = fx->f_rx;
     result = process_map_flat_katcp(d, fx, argc, str, rh ? 1 : 0);
   }
 
@@ -1218,6 +1230,7 @@ int wake_endpoint_peer_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoin
   fx->f_current_map = KATCP_MAP_UNSET;
 
   fx->f_rx = NULL;
+  fx->f_orx = NULL;
 
   return result;
 }
@@ -1954,6 +1967,7 @@ static struct katcl_parse *prepare_append_flat_katcp(struct katcp_flat *fx, int 
     } else {
 #ifdef KATCP_CONSISTENCY_CHECKS
       fprintf(stderr, "logic or allocation problem: attempting to initialise message without it being marked as first word\n");
+      abort();
 #endif
     }
 #ifdef KATCP_CONSISTENCY_CHECKS
@@ -2043,6 +2057,53 @@ static int finish_append_flat_katcp(struct katcp_dispatch *d, int flags, int res
   }
 #endif
 
+}
+
+int prepend_generic_flat_katcp(struct katcp_dispatch *d, int reply)
+{
+  struct katcp_flat *fx;
+  char *message;
+  int result;
+#ifdef KATCP_ENABLE_TAGS
+  int tag;
+#endif
+
+  fx = require_flat_katcp(d);
+  if(fx == NULL){
+    return -1;
+  }
+
+  if(fx->f_orx == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "prepend: no origin message available\n");
+#endif
+    return -1;
+  }
+
+  message = copy_string_parse_katcl(fx->f_orx, 0);
+  if(message == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "prepend: unable to duplicate message\n");
+#endif
+    return -1;
+  }
+
+  message[0] = reply ? KATCP_REPLY : KATCP_INFORM;
+
+#ifdef KATCP_ENABLE_TAGS
+  tag = get_tag_parse_katcl(fx->f_orx);
+  if(tag >= 0){
+    result = append_args_flat_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "%s[%d]", message, tag);
+  } else {
+#endif
+    result = append_string_flat_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, message);
+#ifdef KATCP_ENABLE_TAGS
+  }
+#endif
+
+  free(message);
+
+  return result;
 }
 
 int append_string_flat_katcp(struct katcp_dispatch *d, int flags, char *buffer)
@@ -2190,6 +2251,27 @@ int append_parameter_flat_katcp(struct katcp_dispatch *d, int flags, struct katc
   }
 
   result = add_parameter_parse_katcl(px, flags, p, index);
+
+  return finish_append_flat_katcp(d, flags, result);
+}
+
+int append_trailing_flat_katcp(struct katcp_dispatch *d, int flags, struct katcl_parse *p, unsigned int start)
+{
+  struct katcl_parse *px;
+  struct katcp_flat *fx;
+  int result;
+
+  fx = require_flat_katcp(d);
+  if(fx == NULL){
+    return -1;
+  }
+
+  px = prepare_append_flat_katcp(fx, flags);
+  if(px == NULL){
+    return -1;
+  }
+
+  result = add_trailing_parse_katcl(px, flags, p, start);
 
   return finish_append_flat_katcp(d, flags, result);
 }
