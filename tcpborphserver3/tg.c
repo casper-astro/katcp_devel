@@ -1000,6 +1000,11 @@ void destroy_getap(struct katcp_dispatch *d, struct getap_state *gs)
     gs->s_tap_name = NULL;
   }
 
+  if (gs->s_mcast_fd > 0){
+    close(gs->s_mcast_fd);
+    gs->s_mcast_fd = (-1);
+  }
+
   /* now ensure that things are invalidated */
 
   gs->s_raw_mode = NULL;
