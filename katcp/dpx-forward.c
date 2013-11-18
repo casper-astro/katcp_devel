@@ -104,7 +104,7 @@ int complete_relay_generic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   if(is_reply_parse_katcl(px)){
     prepend_reply_katcp(d);
   } else {
-    prepend_reply_katcp(d);
+    prepend_inform_katcp(d);
   }
 
   /* TODO - what about a px without any parameters ? */
