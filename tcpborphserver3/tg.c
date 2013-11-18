@@ -550,14 +550,46 @@ static int transmit_frame_fpga(struct getap_state *gs)
   return result;
 }
 
+ /*    
+    An IP host group address is mapped to an Ethernet multicast address
+    by placing the low-order 23-bits of the IP address into the low-order
+    23 bits of the Ethernet multicast address 01-00-5E-00-00-00 (hex).
+    Because there are 28 significant bits in an IP host group address,
+    more than one host group address may map to the same Ethernet
+    multicast address.
+    i.e. take multicast address and it with 0x7FFFFF 
+  */
+
 int transmit_ip_fpga(struct getap_state *gs)
 {
+  uint8_t mcast_mac[6] = { 0x01, 0x00, 0x5E, 0x00, 0x00, 0x00 };
   uint8_t *mac;
+  uint32_t temp;
 
-  mac = gs->s_arp_table[gs->s_txb[SIZE_FRAME_HEADER + IP_DEST4]];
+  if (gs->s_txb[SIZE_FRAME_HEADER + IP_DEST1] >= 0xE0 && gs->s_txb[SIZE_FRAME_HEADER + IP_DEST1] < 0xF0){
+
+#ifdef DEBUG
+    fprintf(stderr, "txf: calculating multicast mac\n");
+#endif
+
+    temp = 0x7FFFFF & ( gs->s_txb[SIZE_FRAME_HEADER + IP_DEST1] << 24 
+                      | gs->s_txb[SIZE_FRAME_HEADER + IP_DEST2] << 16 
+                      | gs->s_txb[SIZE_FRAME_HEADER + IP_DEST3] << 8 
+                      | gs->s_txb[SIZE_FRAME_HEADER + IP_DEST4] );
+
+    mcast_mac[3] = temp & 0xFF0000;
+    mcast_mac[4] = temp & 0xFF00;
+    mcast_mac[5] = temp & 0xFF;
+
+    mac = &mcast_mac;
+  } else {
+    mac = gs->s_arp_table[gs->s_txb[SIZE_FRAME_HEADER + IP_DEST4]];
+  }
+
 #ifdef DEBUG
   fprintf(stderr, "txf: looked up dst mac: %x:%x:%x:%x:%x:%x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 #endif
+  
   memcpy(gs->s_txb, mac, GETAP_MAC_SIZE);
 
   return transmit_frame_fpga(gs);
@@ -998,6 +1030,11 @@ void destroy_getap(struct katcp_dispatch *d, struct getap_state *gs)
   if(gs->s_tap_name){
     free(gs->s_tap_name);
     gs->s_tap_name = NULL;
+  }
+
+  if (gs->s_mcast_fd > 0){
+    close(gs->s_mcast_fd);
+    gs->s_mcast_fd = (-1);
   }
 
   /* now ensure that things are invalidated */
@@ -1506,19 +1543,7 @@ int tap_multicast_add_group_cmd(struct katcp_dispatch *d, int argc)
   
 
 
-  /*    
-
-    An IP host group address is mapped to an Ethernet multicast address
-    by placing the low-order 23-bits of the IP address into the low-order
-    23 bits of the Ethernet multicast address 01-00-5E-00-00-00 (hex).
-    Because there are 28 significant bits in an IP host group address,
-    more than one host group address may map to the same Ethernet
-    multicast address.
-    i.e. take multicast address and it with 0x7FFFFF 
-        
-  */
-
-
+ 
   return KATCP_RESULT_OK;
 } 
 
