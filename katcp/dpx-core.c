@@ -1473,6 +1473,40 @@ struct katcp_flat *find_name_flat_katcp(struct katcp_dispatch *d, char *group, c
   return NULL;
 }
 
+int rename_flat_katcp(struct katcp_dispatch *d, char *group, char *was, char *should)
+{
+  struct katcp_flat *fx;
+  char *ptr;
+  int len;
+
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if((was == NULL) || (should == NULL)){
+    fprintf(stderr, "dpx: usage problem - rename needs valid parameters\n");
+    abort();
+  }
+#endif
+
+  len = strlen(should) + 1;
+
+  fx = find_name_flat_katcp(d, group, was);
+  if(fx == NULL){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "no entry %s found", was);
+    return -1;
+  }
+
+  ptr = realloc(fx->f_name, len);
+  if(ptr == NULL){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "allocation failure");
+    return -1;
+  }
+
+  fx->f_name = ptr;
+  memcpy(fx->f_name, should, len);
+
+  return 0;
+}
+
+
 struct katcp_endpoint *peer_of_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx)
 {
   if(fx == NULL){
