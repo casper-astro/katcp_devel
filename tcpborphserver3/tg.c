@@ -40,6 +40,9 @@
 #define GO_MAC          0x00
 #define GO_GATEWAY      0x0c
 #define GO_ADDRESS      0x10
+#define GO_MCADDR       0x30 /*mcast ip*/
+#define GO_MCMASK       0x34 /*mcast count ff.ff.ff.f8 to encode ip base +8 addresses
+                               or          ff.ff.ff.fc to encode ip base +4 addresses*/
 #define GO_BUFFER_SIZES 0x18
 #define GO_EN_RST_PORT  0x20
 
@@ -1501,6 +1504,7 @@ int tap_multicast_add_group_cmd(struct katcp_dispatch *d, int argc)
       log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to set reuseaddr on mcast socket");
     }
     
+    /*change to inet_aton*/
     locosock.sin_addr.s_addr  = inet_addr(gs->s_address_name);
 
     if (bind(gs->s_mcast_fd, (struct sockaddr *) &locosock, sizeof(locosock)) < 0){
@@ -1525,9 +1529,11 @@ int tap_multicast_add_group_cmd(struct katcp_dispatch *d, int argc)
       return KATCP_RESULT_FAIL;
     }
 
+#if 0
     /*this may be unessesary*/
     locosock.sin_addr.s_addr = inet_addr(grpip);
-    
+#endif
+
     locoif.s_addr   = inet_addr(gs->s_address_name);
     if (setsockopt(gs->s_mcast_fd, IPPROTO_IP, IP_MULTICAST_IF, (char *) &locoif, sizeof(locoif)) < 0){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to set multicast back (%s)", strerror(errno));
