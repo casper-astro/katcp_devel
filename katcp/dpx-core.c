@@ -1575,6 +1575,7 @@ struct katcp_flat *require_flat_katcp(struct katcp_dispatch *d)
   }
 
   if(s->s_level < 0){
+    /* require() aborts if not called inside a duplex context, this() does not */
 #ifdef KATCP_CONSISTENCY_CHECKS
     log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "duplex logic: level variable set to %d", s->s_level);
     abort();
@@ -2943,6 +2944,7 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
 #endif
     add_full_cmd_map_katcp(m, "relay", "issue a request to a peer within the same process (?relay peer cmd)", 0, &relay_generic_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "?forward-symbolic", "create a command which generates a request against another party (?forward-symbolic)", 0, &forward_symbolic_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "?client-rename", "rename a client (?client-rename new-name [old-name [group]])", 0, &client_rename_group_cmd_katcp, NULL, NULL);
 
 
   } else {
