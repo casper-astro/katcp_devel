@@ -416,6 +416,8 @@ struct katcp_arb{
   char *a_name;
   int a_fd;
 
+  unsigned int a_type;
+
   unsigned int a_mode;
   int (*a_run)(struct katcp_dispatch *d, struct katcp_arb *a, unsigned int mode);
   void *a_data;

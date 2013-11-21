@@ -8,7 +8,7 @@
 
 static void destroy_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a);
 
-struct katcp_arb *create_arb_katcp(struct katcp_dispatch *d, char *name, int fd, unsigned int mode, int (*run)(struct katcp_dispatch *d, struct katcp_arb *a, unsigned int mode), void *data)
+struct katcp_arb *create_type_arb_katcp(struct katcp_dispatch *d, char *name, unsigned int type, int fd, unsigned int mode, int (*run)(struct katcp_dispatch *d, struct katcp_arb *a, unsigned int mode), void *data)
 {
   struct katcp_arb *a, **tmp;
   struct katcp_shared *s;
@@ -42,6 +42,8 @@ struct katcp_arb *create_arb_katcp(struct katcp_dispatch *d, char *name, int fd,
 
   a->a_fd = fd;
 
+  a->a_type = type;
+
   a->a_mode = mode & (KATCP_ARB_READ | KATCP_ARB_WRITE);
   a->a_run = run;
   a->a_data = data;
@@ -50,6 +52,11 @@ struct katcp_arb *create_arb_katcp(struct katcp_dispatch *d, char *name, int fd,
   s->s_total++;
 
   return a;
+}
+
+struct katcp_arb *create_arb_katcp(struct katcp_dispatch *d, char *name, int fd, unsigned int mode, int (*run)(struct katcp_dispatch *d, struct katcp_arb *a, unsigned int mode), void *data)
+{
+  return create_type_arb_katcp(d, name, 0, fd, mode, run, data);
 }
 
 void destroy_arbs_katcp(struct katcp_dispatch *d)
@@ -94,6 +101,11 @@ static void destroy_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a)
     close(a->a_fd);
     a->a_fd = (-1);
   }
+
+  a->a_type = 0;
+  a->a_mode = 0;
+  a->a_run = NULL;
+  a->a_data = NULL;
 
   free(a);
 }
@@ -163,6 +175,34 @@ int fileno_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a)
   }
 
   return a->a_fd;
+}
+
+int foreach_arb_katcp(struct katcp_dispatch *d, unsigned int type, int (*call)(struct katcp_dispatch *d, struct katcp_arb *a))
+{
+  unsigned int i;
+  int count;
+  struct katcp_shared *s;
+  struct katcp_arb *a;
+
+  s = d->d_shared;
+  if(s == NULL){
+    return -1;
+  }
+
+  count = 0;
+  
+  for(i = 0; i < s->s_total; i++){
+    a = s->s_extras[i];
+
+    if((type == 0) || (type == a->a_type)){
+      if((*(call))(d, a) == 0){
+        count++;
+      }
+    }
+  }
+
+  return count;
+
 }
 
 struct katcp_arb *find_arb_katcp(struct katcp_dispatch *d, char *name)
