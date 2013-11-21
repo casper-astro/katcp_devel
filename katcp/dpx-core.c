@@ -2707,7 +2707,19 @@ int accept_flat_katcp(struct katcp_dispatch *d, struct katcp_arb *a, unsigned in
 #undef LABEL_BUFFER
 }
 
-struct katcp_arb *listen_flat_katcp(struct katcp_dispatch *d, char *name, struct katcp_group *g)
+int destroy_listen_flat_katcp(struct katcp_dispatch *d, char *name)
+{
+  struct katcp_arb *a;
+
+  a = find_type_arb_katcp(d, name, KATCP_ARB_TYPE_LISTENER);
+  if(a == NULL){
+    return -1;
+  }
+
+  return unlink_arb_katcp(d, a);
+}
+
+struct katcp_arb *create_listen_flat_katcp(struct katcp_dispatch *d, char *name, struct katcp_group *g)
 {
   int fd;
   struct katcp_arb *a;
@@ -2735,7 +2747,7 @@ struct katcp_arb *listen_flat_katcp(struct katcp_dispatch *d, char *name, struct
     opts = fcntl(fd, F_SETFL, opts | O_NONBLOCK);
   }
 
-  a = create_arb_katcp(d, name, fd, KATCP_ARB_READ, &accept_flat_katcp, gx);
+  a = create_type_arb_katcp(d, name, KATCP_ARB_TYPE_LISTENER, fd, KATCP_ARB_READ, &accept_flat_katcp, gx);
   if(a == NULL){
     close(fd);
     return NULL;
@@ -2750,46 +2762,6 @@ struct katcp_arb *listen_flat_katcp(struct katcp_dispatch *d, char *name, struct
 
 
 /* connection management commands ***********************************/
-
-int listen_duplex_cmd_katcp(struct katcp_dispatch *d, int argc)
-{
-  char *name, *group;
-  struct katcp_group *gx;
-  struct katcp_shared *s;
-
-  s = d->d_shared;
-
-#ifdef KATCP_CONSISTENCY_CHECKS
-  if(s->s_fallback == NULL){
-    fprintf(stderr, "listen: expected an initialised fallback group\n");
-    abort();
-  }
-#endif
-
-  name = arg_string_katcp(d, 1);
-  if(name == NULL){
-    return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
-  }
-
-  group = arg_string_katcp(d, 2);
-  if(group == NULL){
-    gx = s->s_fallback;
-  } else {
-    gx = find_group_katcp(d, group);
-  }
-
-  if(gx == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to find a group to associate with listen on %s", name);
-    return KATCP_RESULT_FAIL;
-  }
-
-  if(listen_flat_katcp(d, name, gx) == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to listen on %s: %s", name, strerror(errno));
-    return KATCP_RESULT_FAIL;
-  }
-
-  return KATCP_RESULT_OK;
-}
 
 int list_duplex_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
@@ -2941,7 +2913,6 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
     hold_cmd_map(m);
 
     add_full_cmd_map_katcp(m, "help", "display help messages (?help [command])", 0, &help_group_cmd_katcp, NULL, NULL);
-    add_full_cmd_map_katcp(m, "client-list", "display currently connected clients (?client-list)", 0, &client_list_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "watchdog", "pings the system (?watchdog)", 0, &watchdog_group_cmd_katcp, NULL, NULL);
 
     add_full_cmd_map_katcp(m, "list-duplex", "display active connection detail (?list-duplex)", 0, &list_duplex_cmd_katcp, NULL, NULL);
@@ -2958,7 +2929,15 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
 #endif
     add_full_cmd_map_katcp(m, "relay", "issue a request to a peer within the same process (?relay peer cmd)", 0, &relay_generic_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "?forward-symbolic", "create a command which generates a request against another party (?forward-symbolic)", 0, &forward_symbolic_group_cmd_katcp, NULL, NULL);
+
+    add_full_cmd_map_katcp(m, "client-list", "display currently connected clients (?client-list)", 0, &client_list_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "?client-rename", "rename a client (?client-rename new-name [old-name [group]])", 0, &client_rename_group_cmd_katcp, NULL, NULL);
+
+    add_full_cmd_map_katcp(m, "?listener-create", "create a listener (?listener-create port [group]", 0, &listener_create_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "?listener-halt", "create a listener (?listener-halt port", 0, &listener_halt_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "?listener-list", "list listeners (?listener-list [port]", 0, &listener_list_group_cmd_katcp, NULL, NULL);
+
+
 
 
   } else {

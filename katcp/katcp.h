@@ -558,11 +558,13 @@ struct katcp_arb *create_arb_katcp(struct katcp_dispatch *d, char *name, int fd,
 int unlink_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a);
 
 int foreach_arb_katcp(struct katcp_dispatch *d, unsigned int type, int (*call)(struct katcp_dispatch *d, struct katcp_arb *a));
+struct katcp_arb *find_type_arb_katcp(struct katcp_dispatch *d, char *name, unsigned int type);
 struct katcp_arb *find_arb_katcp(struct katcp_dispatch *d, char *name);
 
 void mode_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a, unsigned int mode);
 void *data_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a);
 char *name_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a);
+unsigned int type_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a);
 int fileno_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a);
 
 
@@ -713,6 +715,9 @@ int relay_generic_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 int client_rename_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 
+int listener_create_group_cmd_katcp(struct katcp_dispatch *d, int argc);
+int listener_halt_group_cmd_katcp(struct katcp_dispatch *d, int argc);
+int listener_list_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 /* endpoints */
 

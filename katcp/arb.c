@@ -159,6 +159,15 @@ char *name_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a)
   return a->a_name;
 }
 
+unsigned int type_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a)
+{
+  if(a == NULL){
+    return 0;
+  }
+
+  return a->a_type;
+}
+
 void *data_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a)
 {
   if(a == NULL){
@@ -204,7 +213,7 @@ int foreach_arb_katcp(struct katcp_dispatch *d, unsigned int type, int (*call)(s
   return count;
 }
 
-struct katcp_arb *find_arb_katcp(struct katcp_dispatch *d, char *name)
+struct katcp_arb *find_type_arb_katcp(struct katcp_dispatch *d, char *name, unsigned int type)
 {
   unsigned int i;
   struct katcp_shared *s;
@@ -218,12 +227,19 @@ struct katcp_arb *find_arb_katcp(struct katcp_dispatch *d, char *name)
   for(i = 0; i < s->s_total; i++){
     a = s->s_extras[i];
 
-    if(a->a_name && (strcmp(a->a_name, name) == 0)){
-      return a;
+    if((type == 0) || (a->a_type == type)){
+      if(a->a_name && (strcmp(a->a_name, name) == 0)){
+        return a;
+      }
     }
   }
 
   return NULL;
+}
+
+struct katcp_arb *find_arb_katcp(struct katcp_dispatch *d, char *name)
+{
+  return find_type_arb_katcp(d, name, 0);
 }
 
 void load_arb_katcp(struct katcp_dispatch *d)

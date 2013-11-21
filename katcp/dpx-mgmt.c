@@ -69,5 +69,112 @@ int client_rename_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   return KATCP_RESULT_OK;
 }
 
+/* listener related commands ******************************************************/
+
+int listener_create_group_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  char *name, *group;
+  struct katcp_group *gx;
+  struct katcp_shared *s;
+
+  s = d->d_shared;
+
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(s->s_fallback == NULL){
+    fprintf(stderr, "listen: expected an initialised fallback group\n");
+    abort();
+  }
+#endif
+
+  name = arg_string_katcp(d, 1);
+  if(name == NULL){
+    return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
+  }
+
+  group = arg_string_katcp(d, 2);
+  if(group == NULL){
+    gx = s->s_fallback;
+  } else {
+    gx = find_group_katcp(d, group);
+  }
+
+  if(gx == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to find a group to associate with listen on %s", name);
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(create_listen_flat_katcp(d, name, gx) == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to listen on %s: %s", name, strerror(errno));
+    return KATCP_RESULT_FAIL;
+  }
+
+  return KATCP_RESULT_OK;
+}
+
+int listener_halt_group_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  char *name;
+
+  name = arg_string_katcp(d, 1);
+  if(name == NULL){
+    return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
+  }
+
+  if(destroy_listen_flat_katcp(d, name) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to destroy listener instance %s  which might not even exist", name);
+    return KATCP_RESULT_FAIL;
+  }
+
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "halted listener %s", name);
+
+  return KATCP_RESULT_OK;
+}
+
+int print_listener_katcp(struct katcp_dispatch *d, struct katcp_arb *a)
+{
+  char *name;
+
+  name = name_arb_katcp(d, a);
+  if(name == NULL){
+    return -1;
+  }
+
+  prepend_inform_katcp(d);
+  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, name);
+
+  return 0;
+}
+
+int listener_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  char *name;
+  int count;
+  struct katcp_arb *a;
+
+  if(argc > 1){
+    name = arg_string_katcp(d, 1);
+    if(name == NULL){
+      return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
+    }
+
+    /* a bit too "close" to the internals ... there should be find listener function */
+    a = find_type_arb_katcp(d, name, KATCP_ARB_TYPE_LISTENER);
+    if(a == NULL){
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "no listener %s found", name);
+      return KATCP_RESULT_FAIL;
+    }
+
+    count = print_listener_katcp(d, a);
+  } else {
+    count = foreach_arb_katcp(d, KATCP_ARB_TYPE_LISTENER, &print_listener_katcp);
+  }
+
+  if(count < 0){
+    return KATCP_RESULT_FAIL;
+
+  }
+
+  return extra_response_katcp(d, KATCP_RESULT_OK, "%d", count);
+}
 
 #endif
