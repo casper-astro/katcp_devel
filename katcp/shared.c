@@ -259,7 +259,10 @@ int startup_shared_katcp(struct katcp_dispatch *d)
 
 #ifdef KATCP_EXPERIMENTAL
   if(init_flats_katcp(d, KATCP_FLAT_STACK) < 0){
-    shutdown_shared_katcp(d);
+    /* TODO: provide proper destruction function ... */
+    free(s->s_vector);
+    free(s);
+    d->d_shared = NULL;
     return -1;
   }
 #endif

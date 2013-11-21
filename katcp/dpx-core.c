@@ -550,6 +550,19 @@ int init_flats_katcp(struct katcp_dispatch *d, unsigned int stories)
 
   s->s_stories = stories;
 
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(s->s_fallback){
+    fprintf(stderr, "flat: fallback group already initialised\n");
+    abort();
+  }
+
+#endif
+
+  if(setup_default_group(d, "default") < 0){
+    /* TODO: should actually delete s_this, need a proper shutdown function */
+    return -1;
+  }
+
   return 0;
 }
 
@@ -2746,11 +2759,12 @@ int listen_duplex_cmd_katcp(struct katcp_dispatch *d, int argc)
 
   s = d->d_shared;
 
+#ifdef KATCP_CONSISTENCY_CHECKS
   if(s->s_fallback == NULL){
-    if(setup_default_group(d, "default") < 0){
-      return -1;
-    }
+    fprintf(stderr, "listen: expected an initialised fallback group\n");
+    abort();
   }
+#endif
 
   name = arg_string_katcp(d, 1);
   if(name == NULL){

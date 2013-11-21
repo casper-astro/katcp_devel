@@ -202,7 +202,6 @@ int foreach_arb_katcp(struct katcp_dispatch *d, unsigned int type, int (*call)(s
   }
 
   return count;
-
 }
 
 struct katcp_arb *find_arb_katcp(struct katcp_dispatch *d, char *name)
