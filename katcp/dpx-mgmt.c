@@ -69,6 +69,34 @@ int client_rename_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   return KATCP_RESULT_OK;
 }
 
+/* group related commands *********************************************************/
+
+int group_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  struct katcp_group *gx;
+  struct katcp_shared *s;
+  int j, count;
+
+  s = d->d_shared;
+
+  count = 0;
+
+  for(j = 0; j < s->s_members; j++){
+    gx = s->s_groups[j];
+
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "group %s has %d references and %u members", gx->g_name ? gx->g_name : "<anonymous>", gx->g_use, gx->g_count);
+
+    if(gx->g_name){
+      prepend_inform_katcp(d);
+      append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, gx->g_name);
+      count++;
+    }
+  }
+
+  return extra_response_katcp(d, KATCP_RESULT_OK, "%d", count);
+
+}
+
 /* listener related commands ******************************************************/
 
 int listener_create_group_cmd_katcp(struct katcp_dispatch *d, int argc)

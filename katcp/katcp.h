@@ -715,6 +715,8 @@ int relay_generic_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 int client_rename_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 
+int group_list_group_cmd_katcp(struct katcp_dispatch *d, int argc);
+
 int listener_create_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 int listener_halt_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 int listener_list_group_cmd_katcp(struct katcp_dispatch *d, int argc);

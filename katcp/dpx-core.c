@@ -2933,6 +2933,8 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
     add_full_cmd_map_katcp(m, "client-list", "display currently connected clients (?client-list)", 0, &client_list_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "?client-rename", "rename a client (?client-rename new-name [old-name [group]])", 0, &client_rename_group_cmd_katcp, NULL, NULL);
 
+    add_full_cmd_map_katcp(m, "?group-list", "list groups (?group-list)", 0, &group_list_group_cmd_katcp, NULL, NULL);
+
     add_full_cmd_map_katcp(m, "?listener-create", "create a listener (?listener-create port [group]", 0, &listener_create_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "?listener-halt", "create a listener (?listener-halt port", 0, &listener_halt_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "?listener-list", "list listeners (?listener-list [port]", 0, &listener_list_group_cmd_katcp, NULL, NULL);
