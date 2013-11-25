@@ -19,6 +19,49 @@
 #include <katpriv.h>
 #include <katcl.h>
 
+int client_halt_group_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  char *client, *group;
+  struct katcp_flat *fx;
+
+  if(argc < 2){
+    client = NULL;
+  } else {
+    client = arg_string_katcp(d, 1);
+    if(client == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire new name");
+      return extra_response_katcp(d, KATCP_RESULT_FAIL, "internal");
+    }
+  }
+
+  if(argc > 2){
+    group = arg_string_katcp(d, 3);
+    if(group == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire group name");
+      return extra_response_katcp(d, KATCP_RESULT_FAIL, "internal");
+    } 
+  } else {
+    group = NULL;
+  }
+
+  if(client){
+    fx = find_name_flat_katcp(d, group, client);
+    if(fx == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no client with name %s", client);
+      return extra_response_katcp(d, KATCP_RESULT_FAIL, "usage");
+    }
+  } else {
+    fx = require_flat_katcp(d);
+  }
+
+  if(terminate_flat_katcp(d, fx) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to terminate client");
+    return KATCP_RESULT_FAIL;
+  }
+
+  return KATCP_RESULT_OK;
+}
+
 int client_rename_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   char *from, *to, *group;

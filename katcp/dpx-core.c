@@ -474,6 +474,7 @@ int add_cmd_map_katcp(struct katcp_cmd_map *m, char *name, char *help, int (*cal
   return add_full_cmd_map_katcp(m, name, help, 0, call, NULL, NULL);
 }
 
+#if 0
 struct katcp_cmd_item *locate_cmd_item(struct katcp_flat *f, struct katcl_parse *p)
 {
   struct katcp_cmd_item *i;
@@ -501,6 +502,7 @@ struct katcp_cmd_item *locate_cmd_item(struct katcp_flat *f, struct katcl_parse 
 
   return m->m_fallback;
 }
+#endif
 
 /* duplex setup *****************************************************/
 
@@ -1519,6 +1521,27 @@ int rename_flat_katcp(struct katcp_dispatch *d, char *group, char *was, char *sh
   return 0;
 }
 
+int terminate_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx)
+{
+  if(fx == NULL){
+    return -1;
+  }
+
+  sane_flat_katcp(fx);
+
+  switch(fx->f_state){
+    case FLAT_STATE_CONNECTING : 
+      /* WARNING: at the moment we refuse to queue messages in this state. If this changes, then a termination has to happen more carefully here */
+      fx->f_state = FLAT_STATE_CRASHING;
+      return 0;
+    case FLAT_STATE_UP : 
+      fx->f_state = FLAT_STATE_FINISHING;
+      return 0;
+    default :
+      /* already terminating */
+      return -1;
+  }
+}
 
 struct katcp_endpoint *peer_of_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx)
 {
@@ -2932,6 +2955,7 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
 
     add_full_cmd_map_katcp(m, "client-list", "display currently connected clients (?client-list)", 0, &client_list_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "?client-rename", "rename a client (?client-rename new-name [old-name [group]])", 0, &client_rename_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "?client-halt", "stop a client (?client-halt [name [group]])", 0, &client_halt_group_cmd_katcp, NULL, NULL);
 
     add_full_cmd_map_katcp(m, "?group-list", "list groups (?group-list)", 0, &group_list_group_cmd_katcp, NULL, NULL);
 

@@ -674,6 +674,8 @@ struct katcp_group *find_group_katcp(struct katcp_dispatch *d, char *name);
 
 struct katcp_flat *find_name_flat_katcp(struct katcp_dispatch *d, char *group, char *name);
 int rename_flat_katcp(struct katcp_dispatch *d, char *group, char *was, char *should);
+int terminate_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx);
+
 struct katcp_endpoint *peer_of_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx);
 struct katcp_endpoint *remote_of_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx);
 struct katcp_cmd_map *map_of_flat_katcp(struct katcp_flat *fx);
@@ -714,6 +716,7 @@ int forward_symbolic_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 int relay_generic_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 int client_rename_group_cmd_katcp(struct katcp_dispatch *d, int argc);
+int client_halt_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 int group_list_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 

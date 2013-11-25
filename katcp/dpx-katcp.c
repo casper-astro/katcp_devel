@@ -334,7 +334,9 @@ int watchdog_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
 static int print_client_list_katcp(struct katcp_dispatch *d, struct katcp_flat *fx)
 {
-  int result, r;
+  int result, r, pending;
+  char *ptr;
+  struct katcp_group *gx;
 
   r = prepend_inform_katcp(d);
   if(r < 0){
@@ -354,6 +356,27 @@ static int print_client_list_katcp(struct katcp_dispatch *d, struct katcp_flat *
   }
 
   result += r;
+
+  ptr = log_to_string_katcl(fx->f_log_level);
+  if(ptr){
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "client %s has log level <%s>", fx->f_name, ptr);
+  } else {
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "client %s has unreasonable log level", fx->f_name);
+  }
+
+  gx = fx->f_group;
+  if(gx && gx->g_name){
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "client %s member of group <%s>", fx->f_name, gx->g_name);
+  }
+
+  pending = pending_endpoint_katcp(d, fx->f_peer);
+  if(pending > 0){
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "client %s has %d %s in queue", fx->f_name, pending, (pending > 1) ? "commands" : "command");
+  }
+
+  if(flushing_katcl(fx->f_line)){
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "client %s has output pending", fx->f_name);
+  }
 
   return result;
 }
