@@ -1349,7 +1349,7 @@ struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, int up, c
     return NULL;
   }
 
-  gx = (g != NULL) ? g : s->s_fallback;
+  gx = (g == NULL) ? s->s_fallback : g;
 
   tmp = realloc(gx->g_flats, sizeof(struct katcp_flat *) * (gx->g_count + 1));
   if(tmp == NULL){
@@ -2606,6 +2606,7 @@ int run_flat_katcp(struct katcp_dispatch *d)
         if(FD_ISSET(fd, &(s->s_write))){
           /* resume connect */
           if(fx->f_state == FLAT_STATE_CONNECTING){
+            len = sizeof(int);
             result = getsockopt(fd, SOL_SOCKET, SO_ERROR, &code, &len);
             if(result == 0){
               switch(code){
@@ -2621,6 +2622,8 @@ int run_flat_katcp(struct katcp_dispatch *d)
                   fx->f_state = FLAT_STATE_CRASHING;
                   break;
               }
+            } else {
+              fx->f_state = FLAT_STATE_CRASHING;
             }
           } else {
             /* flush messages */
@@ -2956,6 +2959,7 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
     add_full_cmd_map_katcp(m, "client-list", "display currently connected clients (?client-list)", 0, &client_list_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "?client-rename", "rename a client (?client-rename new-name [old-name [group]])", 0, &client_rename_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "?client-halt", "stop a client (?client-halt [name [group]])", 0, &client_halt_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "?client-connect", "create a client to a remote host (?client-connect host:port [group])", 0, &client_connect_group_cmd_katcp, NULL, NULL);
 
     add_full_cmd_map_katcp(m, "?group-list", "list groups (?group-list)", 0, &group_list_group_cmd_katcp, NULL, NULL);
 

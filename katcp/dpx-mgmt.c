@@ -19,6 +19,53 @@
 #include <katpriv.h>
 #include <katcl.h>
 
+int client_connect_group_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  char *client, *group;
+  struct katcp_flat *fx;
+  struct katcp_group *gx;
+  int fd;
+
+  if(argc < 2){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a destination to connect to");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, "usage");
+  }
+
+  client = arg_string_katcp(d, 1);
+  if(client == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire new name");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, "internal");
+  }
+
+  if(argc > 2){
+    group = arg_string_katcp(d, 3);
+    if(group == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire group name");
+      return extra_response_katcp(d, KATCP_RESULT_FAIL, "internal");
+    } 
+    gx = find_group_katcp(d, group);
+    if(gx == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to locate group called %s", group);
+      return extra_response_katcp(d, KATCP_RESULT_FAIL, "internal");
+    }
+  } else {
+    gx = this_group_katcp(d);
+  }
+
+  fd = net_connect(client, 0, NETC_ASYNC);
+  if(fd < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to initiate connection to %s: %s", client, errno ? strerror(errno) : "unknown error");
+  }
+
+  if(create_flat_katcp(d, fd, 0, client, gx) == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate client connection");
+    close(fd);
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, "allocation");
+  }
+
+  return KATCP_RESULT_OK;
+}
+
 int client_halt_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   char *client, *group;
