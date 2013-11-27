@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <sysexits.h>
 
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -1333,6 +1334,103 @@ void release_endpoint_remote_flat_katcp(struct katcp_dispatch *d, void *data)
 }
 
 /********************************************************************/
+
+struct katcp_flat *create_exec_flat_katcp(struct katcp_dispatch *d, char *name, struct katcp_group *gx, char **vector)
+{
+  struct katcp_flat *fx;
+  struct katcl_line *xl;
+  int fds[2], copies;
+#if 0
+  int efd;
+#endif
+  char *fallback[2];
+  pid_t pid;
+
+  if(socketpair(AF_UNIX, SOCK_STREAM, 0, fds) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to create socketpair: %s", strerror(errno));
+    return NULL;
+  }
+
+  pid = fork();
+  if(pid < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to start process: %s", strerror(errno));
+    close(fds[0]);
+    close(fds[1]);
+    return NULL;
+  }
+
+  if(pid > 0){
+    close(fds[0]);
+    fcntl(fds[1], F_SETFD, FD_CLOEXEC);
+
+    fx = create_flat_katcp(d, fds[1], 1, name, gx);
+    if(fx == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate duplex state, terminating new child");
+      kill(pid, SIGTERM);
+      close(fds[1]);
+      return NULL;
+    }
+
+    /* TODO: what about exit events ? */
+
+    return fx;
+
+  }
+
+  /* WARNING: now in child - never return from here onwards */
+
+  setenv("KATCP_CLIENT", name, 1);
+
+  xl = create_katcl(fds[0]);
+
+  close(fds[1]);
+
+  copies = 0;
+  if(fds[0] != STDOUT_FILENO){
+    if(dup2(fds[0], STDOUT_FILENO) != STDOUT_FILENO){
+      sync_message_katcl(xl, KATCP_LEVEL_ERROR, NULL, "unable to set up standard output for child task <%s> (%s)", name, strerror(errno)); 
+      exit(EX_OSERR);
+    }
+    copies++;
+  }
+  if(fds[0] != STDIN_FILENO){
+    if(dup2(fds[0], STDIN_FILENO) != STDIN_FILENO){
+      sync_message_katcl(xl, KATCP_LEVEL_ERROR, NULL, "unable to set up standard input for child task <%s> (%s)", name, strerror(errno)); 
+      exit(EX_OSERR);
+    }
+    copies++;
+  }
+  if(copies >= 2){
+    close(fds[0]);
+  }
+
+#if 0 
+  /* would be ifndef KATCP_STDERR_ERRORS, but may not be needed if all CLO_EXECs are done */
+  efd = open("/dev/null", O_WRONLY);
+  if(efd >= 0){
+    if(efd != STDERR_FILENO){
+      dup2(efd, STDERR_FILENO);
+    }
+  }
+#endif
+
+  if(vector == NULL){
+    fallback[0] = name;
+    fallback[1] = NULL;
+    execvp(name, fallback);
+  } else {
+    execvp(vector[0], vector);
+  }
+
+  sync_message_katcl(xl, KATCP_LEVEL_ERROR, NULL, "unable to launch command <%s>", vector ? vector[0] : name, strerror(errno)); 
+
+  destroy_katcl(xl, 0);
+
+  exit(EX_OSERR);
+
+  /* pacify compiler */
+  return NULL;
+}
 
 struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, int up, char *name, struct katcp_group *g)
 {
@@ -2773,6 +2871,8 @@ struct katcp_arb *create_listen_flat_katcp(struct katcp_dispatch *d, char *name,
     opts = fcntl(fd, F_SETFL, opts | O_NONBLOCK);
   }
 
+  fcntl(fd, F_SETFD, FD_CLOEXEC);
+
   a = create_type_arb_katcp(d, name, KATCP_ARB_TYPE_LISTENER, fd, KATCP_ARB_READ, &accept_flat_katcp, gx);
   if(a == NULL){
     close(fd);
@@ -2960,6 +3060,7 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
     add_full_cmd_map_katcp(m, "?client-rename", "rename a client (?client-rename new-name [old-name [group]])", 0, &client_rename_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "?client-halt", "stop a client (?client-halt [name [group]])", 0, &client_halt_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "?client-connect", "create a client to a remote host (?client-connect host:port [group])", 0, &client_connect_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "?client-exec", "create a client to a local process (?client-exec label [group [binary [args]*])", 0, &client_exec_group_cmd_katcp, NULL, NULL);
 
     add_full_cmd_map_katcp(m, "?group-list", "list groups (?group-list)", 0, &group_list_group_cmd_katcp, NULL, NULL);
 

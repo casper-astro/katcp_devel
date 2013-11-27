@@ -848,6 +848,7 @@ void destroy_flats_katcp(struct katcp_dispatch *d);
 void destroy_groups_katcp(struct katcp_dispatch *d);
 
 struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, int up, char *name, struct katcp_group *g);
+struct katcp_flat *create_exec_flat_katcp(struct katcp_dispatch *d, char *name, struct katcp_group *gx, char **vector);
 
 #define KATCP_ARB_TYPE_LISTENER 0xacce97
 

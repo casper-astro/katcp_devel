@@ -19,10 +19,74 @@
 #include <katpriv.h>
 #include <katcl.h>
 
+int client_exec_group_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  char *label, *group;
+  struct katcp_flat *fx;
+  struct katcp_group *gx;
+  int i, size;
+  char **vector;
+
+  if(argc < 2){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a command");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, "usage");
+  }
+
+  label = arg_string_katcp(d, 1);
+  if(label == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire new name");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, "internal");
+  }
+
+  if(argc > 2){
+    group = arg_string_katcp(d, 2);
+    if(group == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire group name");
+      return extra_response_katcp(d, KATCP_RESULT_FAIL, "internal");
+    } 
+    gx = find_group_katcp(d, group);
+    if(gx == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to locate group called %s", group);
+      return extra_response_katcp(d, KATCP_RESULT_FAIL, "internal");
+    }
+  } else {
+    gx = this_group_katcp(d);
+  }
+
+  if(argc > 3){
+    vector = malloc(sizeof(char *) * (argc - 2));
+    if(vector == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate %u element vector", argc - 2);
+      return extra_response_katcp(d, KATCP_RESULT_FAIL, "internal");
+    }
+    size = argc - 3;
+    for(i = 0; i < size; i++){
+      vector[i] = arg_string_katcp(d, i + 3);
+#ifdef DEBUG
+      fprintf(stderr, "exec: vector[%u]=%s\n", i, vector[i]);
+#endif
+    }
+    vector[i] = NULL;
+  } else {
+    vector = NULL;
+  }
+
+  fx = create_exec_flat_katcp(d, label, gx, vector);
+  if(vector){
+    free(vector);
+  }
+
+  if(fx == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate client connection");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, "internal");
+  }
+
+  return KATCP_RESULT_OK;
+}
+
 int client_connect_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   char *client, *group;
-  struct katcp_flat *fx;
   struct katcp_group *gx;
   int fd;
 
@@ -56,6 +120,8 @@ int client_connect_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   if(fd < 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to initiate connection to %s: %s", client, errno ? strerror(errno) : "unknown error");
   }
+
+  fcntl(fd, F_SETFD, FD_CLOEXEC);
 
   if(create_flat_katcp(d, fd, 0, client, gx) == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate client connection");

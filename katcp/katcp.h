@@ -715,6 +715,7 @@ int list_duplex_cmd_katcp(struct katcp_dispatch *d, int argc);
 int forward_symbolic_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 int relay_generic_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 
+int client_exec_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 int client_connect_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 int client_rename_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 int client_halt_group_cmd_katcp(struct katcp_dispatch *d, int argc);
