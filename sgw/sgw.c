@@ -193,6 +193,10 @@ int main(int argc, char **argv)
 
   }
 
+  if(net == NULL){
+    net = "7148";
+  }
+
   if(speed <= 0){
     speed = 9600;
   }
@@ -219,7 +223,7 @@ int main(int argc, char **argv)
 
   lfd = net_listen(net, 0, 0);
   if(lfd < 0){
-    sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "unknown option -%c", argv[i][j]);
+    sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "unable to create listener on %s", net);
     return 3;
   }
 
