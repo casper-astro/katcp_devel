@@ -1677,12 +1677,15 @@ int map_raw_tbs(struct katcp_dispatch *d)
 int stop_fpga_tbs(struct katcp_dispatch *d)
 {
   struct tbs_raw *tr;
+  int dfd, result;
 
   tr = get_mode_katcp(d, TBS_MODE_RAW);
   if(tr == NULL){
     log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "unable to acquire state");
     return -1;
   }
+
+  result = 0;
 
   stop_all_getap(d, 0);
 
@@ -1700,7 +1703,18 @@ int stop_fpga_tbs(struct katcp_dispatch *d)
     status_fpga_tbs(d, TBS_FPGA_DOWN);
 #endif
 
-    /* TODO: actually unprogram FPGA */
+#ifdef __PPC__
+    dfd = open(TBS_FPGA_CONFIG, O_WRONLY);
+#else
+    /* for debugging, simply write out the bitstream */
+    dfd = open(TBS_FPGA_CONFIG, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+#endif
+    if(dfd < 0){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to open %s: %s", TBS_FPGA_CONFIG, strerror(errno));
+      result = (-1);
+    } else {
+      close(dfd);
+    }
   }
 
   if(tr->r_image){
@@ -1713,7 +1727,7 @@ int stop_fpga_tbs(struct katcp_dispatch *d)
     tr->r_registers = NULL;
   }
 
-  return 0;
+  return result;
 }
 
 int start_fpga_tbs(struct katcp_dispatch *d, struct bof_state *bs)
