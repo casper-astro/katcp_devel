@@ -39,6 +39,10 @@ void clear_forward_symbolic_state(void *data)
   fs = data;
   if(fs){
 #ifdef KATCP_CONSISTENCY_CHECKS 
+    if(fs->f_magic != FORWARD_STATE_MAGIC){
+      fprintf(stderr, "logic problem: expected %p to be a symbolic state structure, but magic 0x%x\n", fs->f_magic);
+      abort();
+    }
     fs->f_magic = 0;
 #endif
     if(fs->f_peer){
@@ -377,13 +381,15 @@ int forward_symbolic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   if(argc > 3){
     fs->f_as = arg_copy_string_katcp(d, 3);
   }
-  
+
   if((fs->f_peer == NULL) || ((argc > 3) && (fs->f_as == NULL))){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to copy parameters, argument count is %d", argc);
     free(ptr);
     clear_forward_symbolic_state(fs);
     return extra_response_katcp(d, KATCP_RESULT_FAIL, "internal");
   }
+
+  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "about to register request %s to %s", ptr, fs->f_peer);
 
   if(add_full_cmd_map_katcp(mx, ptr, "user requested relay", 0, &perform_forward_symbolic_group_cmd_katcp, fs, &clear_forward_symbolic_state) < 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to register handler for %s", ptr);

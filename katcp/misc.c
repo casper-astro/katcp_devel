@@ -82,7 +82,10 @@ char *default_message_type_katcm(char *string, int type)
 
   len = strlen(string);
 
-  ptr = malloc(sizeof(char) + 2);
+  ptr = malloc(len + 2);
+  if(ptr == NULL){
+    return NULL;
+  }
 
   ptr[0] = type;
   memcpy(ptr + 1, string, len + 1);

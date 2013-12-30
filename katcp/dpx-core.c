@@ -463,6 +463,8 @@ int add_full_cmd_map_katcp(struct katcp_cmd_map *m, char *name, char *help, unsi
   }
   
   if(add_node_avltree(m->m_tree, n) < 0){
+    /* WARNING: the convention requires a caller to clean up if something fails, hence can't invoke the clear function yet */
+    i->i_clear = NULL;
     free_node_avltree(n, &destroy_cmd_item_void);
     return -1;
   }
