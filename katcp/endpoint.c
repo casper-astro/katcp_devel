@@ -61,10 +61,19 @@ static struct katcp_message *create_message_katcp(struct katcp_dispatch *d, stru
 
   msg = malloc(sizeof(struct katcp_message));
   if(msg == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "endpoint: unable to allocate %u bytes\n", sizeof(struct katcp_message));
+#endif
     return NULL;
   }
 
   msg->m_flags = 0;
+
+  msg->m_parse = NULL;
+  msg->m_from = NULL;
+  msg->m_to = NULL;
+
+
   if(acknowledged){
 #ifdef KATCP_CONSISTENCY_CHECKS
     if(from == NULL){
@@ -75,16 +84,19 @@ static struct katcp_message *create_message_katcp(struct katcp_dispatch *d, stru
     msg->m_flags |= KATCP_MESSAGE_WACK;
   }
 
-  msg->m_from  = from;
   if(from){
-    reference_endpoint_katcp(d, from);
+    msg->m_from = from;
+    reference_endpoint_katcp(d, msg->m_from);
   }
 
-  msg->m_to    = to;
-  reference_endpoint_katcp(d, to);
+  msg->m_to = to;
+  reference_endpoint_katcp(d, msg->m_to);
 
   msg->m_parse = copy_parse_katcl(px);
   if(msg->m_parse == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "endpoint: unable to copy parse at %p\n", px);
+#endif
     destroy_message_katcp(d, msg);
     return NULL;
   }
@@ -174,11 +186,14 @@ int send_message_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint 
 #endif
 
 #ifdef DEBUG
-  fprintf(stderr, "endpoint: %p send message %p->%p\n", px, from, to);
+  fprintf(stderr, "msg send: %p send message %p->%p\n", px, from, to);
 #endif
 
   msg = create_message_katcp(d, from, to, px, acknowledged);
   if(msg == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "msg send: unable to create message\n");
+#endif
     return -1;
   }
 
@@ -426,7 +441,7 @@ int vturnaround_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *
 
 
 #ifdef DEBUG
-    fprintf(stderr, "endpoin: message %p (from=%p, to=%p) needs to be turned around\n", msg, msg->m_from, msg->m_to);
+    fprintf(stderr, "endpoint: message %p (from=%p, to=%p) needs to be turned around\n", msg, msg->m_from, msg->m_to);
 #endif
 
 #ifdef KATCP_CONSISTENCY_CHECKS

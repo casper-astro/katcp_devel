@@ -40,7 +40,7 @@ void clear_forward_symbolic_state(void *data)
   if(fs){
 #ifdef KATCP_CONSISTENCY_CHECKS 
     if(fs->f_magic != FORWARD_STATE_MAGIC){
-      fprintf(stderr, "logic problem: expected %p to be a symbolic state structure, but magic 0x%x\n", fs->f_magic);
+      fprintf(stderr, "logic problem: expected %p to be a symbolic state structure, but magic 0x%x\n", fs, fs->f_magic);
       abort();
     }
     fs->f_magic = 0;
@@ -298,10 +298,10 @@ int perform_forward_symbolic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   py = arg_parse_katcp(d);
 
   if(fs->f_as){
-    if(argc > 1){
-      add_string_parse_katcl(px, KATCP_FLAG_STRING, fs->f_as);
+    if(argc <= 1){
+      add_string_parse_katcl(px, KATCP_FLAG_STRING | KATCP_FLAG_LAST, fs->f_as);
     } else {
-      add_string_parse_katcl(px, KATCP_FLAG_LAST | KATCP_FLAG_STRING, fs->f_as);
+      add_string_parse_katcl(px, KATCP_FLAG_STRING, fs->f_as);
       add_trailing_parse_katcl(px, KATCP_FLAG_LAST, py, 1);
     }
   } else {
@@ -309,6 +309,7 @@ int perform_forward_symbolic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
 
   if(send_message_endpoint_katcp(d, source, target, px, 1) < 0){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to send relay message to target %s", fy->f_name);
     destroy_parse_katcl(px);
     return KATCP_RESULT_FAIL;
   }
@@ -316,7 +317,7 @@ int perform_forward_symbolic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   /* TODO: use wrappers to access fx members */
 
   if(callback_flat_katcp(d, fx->f_current_endpoint, fx->f_rx, target, &complete_relay_generic_group_cmd_katcp, "relay", KATCP_REPLY_HANDLE_REPLIES | KATCP_REPLY_HANDLE_INFORMS)){
-    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "unable to register relay callback for %s", req);
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to register relay callback for %s", req);
     return KATCP_RESULT_FAIL;
   }
 
