@@ -1699,9 +1699,6 @@ int stop_fpga_tbs(struct katcp_dispatch *d)
 
   if(tr->r_fpga == TBS_FPGA_PROGRAMMED){
     log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "should deprogram fpga");
-#if 0
-    status_fpga_tbs(d, TBS_FPGA_DOWN);
-#endif
 
 #ifdef __PPC__
     dfd = open(TBS_FPGA_CONFIG, O_WRONLY);
@@ -1713,6 +1710,7 @@ int stop_fpga_tbs(struct katcp_dispatch *d)
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to open %s: %s", TBS_FPGA_CONFIG, strerror(errno));
       result = (-1);
     } else {
+      status_fpga_tbs(d, TBS_FPGA_DOWN);
       close(dfd);
     }
   }
