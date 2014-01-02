@@ -1365,6 +1365,10 @@ void tap_print_info(struct katcp_dispatch *d, struct getap_state *gs)
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "current iteration %u", gs->s_iteration);
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "current arp spam deferrals %u", gs->s_deferrals);
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "current buffers arp=%u/rx=%u/tx=%u", gs->s_arp_len, gs->s_rx_len, gs->s_tx_len);
+
+  prepend_inform_katcp(d);
+  append_string_katcp(d, KATCP_FLAG_STRING, gs->s_tap_name);
+  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, gs->s_address_name);
 }
 
 int tap_info_cmd(struct katcp_dispatch *d, int argc)
@@ -1399,6 +1403,8 @@ int tap_info_cmd(struct katcp_dispatch *d, int argc)
       return KATCP_RESULT_OK;
     }
   }
+
+  log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no active tap instance %s found", name);
 
   return KATCP_RESULT_FAIL;
 }
