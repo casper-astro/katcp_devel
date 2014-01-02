@@ -310,11 +310,6 @@ int help_group_cmd_katcp(struct katcp_dispatch *d, int argc)
       } else {
         print_help_cmd_item(d, NULL, (void *)i);
       }
-#if 0
-      if(i->i_flags & KATCP_MAP_FLAG_REQUEST){
-        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "should print help message %s for %s", i->i_help, i->i_name);
-      }
-#endif
     }
   }
 

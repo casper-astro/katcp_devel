@@ -434,6 +434,7 @@ struct katcp_cmd_item{
   unsigned int i_flags; 
   void *i_data;
   void (*i_clear)(void *data);
+  int i_refs;
 };
 
 struct katcp_cmd_map{
@@ -456,9 +457,6 @@ struct katcp_cmd_map{
 #define KATCP_MAP_REMOTE_INFORM  3
 
 #define KATCP_SIZE_MAP  4
-
-#define KATCP_MAP_INNER_REPLY    4 
-#define KATCP_MAP_REMOTE_REPLY   5 
 
 #define KATCP_DIRECTION_INVALID (-1)
 

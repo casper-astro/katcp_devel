@@ -227,11 +227,63 @@ int client_rename_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
 /* group related commands *********************************************************/
 
+int group_create_group_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  char *name, *group, *tmp;
+  struct katcp_group *go, *gx;
+  struct katcp_shared *s;
+  int depth, i;
+
+  s = d->d_shared;
+  depth = 1;
+
+  if(argc <= 1){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a new group name");
+    return KATCP_RESULT_FAIL;
+  }
+
+  name = arg_string_katcp(d, 1);
+  if(name == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a group name");
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(find_group_katcp(d, name)){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "group %s already exists", name);
+    return KATCP_RESULT_FAIL;
+  }
+
+  group = arg_string_katcp(d, 2);
+  if(group == NULL){
+    go = s->s_fallback;
+  } else {
+    go = find_group_katcp(d, group);
+  }
+
+  for(i = 3; i < argc; i++){
+    tmp = arg_string_katcp(d, i);
+    if(tmp){
+      if(!strcmp(tmp, "linked")){
+        depth = 0;
+      }
+    }
+  }
+
+  gx = duplicate_group_katcp(d, go, name, depth);
+  if(gx == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to duplicate group as %s", name);
+    return KATCP_RESULT_FAIL;
+  }
+
+  return KATCP_RESULT_OK;
+}
+
 int group_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   struct katcp_group *gx;
   struct katcp_shared *s;
-  int j, count;
+  struct katcp_cmd_map *mx;
+  int j, count, i;
 
   s = d->d_shared;
 
@@ -240,7 +292,15 @@ int group_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   for(j = 0; j < s->s_members; j++){
     gx = s->s_groups[j];
 
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "group %s has %d references and %u members", gx->g_name ? gx->g_name : "<anonymous>", gx->g_use, gx->g_count);
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "group %s has %d references", gx->g_name ? gx->g_name : "<anonymous>", gx->g_use);
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "group %s has %u members", gx->g_name ? gx->g_name : "<anonymous>", gx->g_count);
+
+    for(i = 0; i < KATCP_SIZE_MAP; i++){
+      mx = gx->g_maps[i];
+      if(mx){
+        log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "group %s command map %d has %s %s and is referenced %d times", gx->g_name ? gx->g_name : "<anonymous>", i, mx->m_name ? "name" : "no", mx->m_name ? mx->m_name : "name", mx->m_refs);
+      }
+    }
 
     if(gx->g_name){
       prepend_inform_katcp(d);
