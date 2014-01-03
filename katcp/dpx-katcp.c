@@ -241,7 +241,7 @@ int log_override_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   return generic_log_level_group_cmd_katcp(d, argc, LEVEL_EXTENT_DETECT);
 }
 
-/* help */
+/* help ********************************************************************/
 
 void print_help_cmd_item(struct katcp_dispatch *d, char *key, void *v)
 {
@@ -254,10 +254,6 @@ void print_help_cmd_item(struct katcp_dispatch *d, char *key, void *v)
   }
 
   prepend_inform_katcp(d);
-
-#if 0
-  append_string_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, KATCP_HELP_INFORM);
-#endif
 
   append_string_katcp(d, KATCP_FLAG_STRING, i->i_name);
   append_string_katcp(d, KATCP_FLAG_LAST | KATCP_FLAG_STRING, i->i_help);
@@ -393,6 +389,11 @@ int client_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
 
   switch(fx->f_scope){
+    case KATCP_SCOPE_SINGLE :
+      if(print_client_list_katcp(d, fx) > 0){
+        total++;
+      }
+      break;
     case KATCP_SCOPE_GROUP :
       gx = this_group_katcp(d);
       if(gx){
@@ -423,6 +424,88 @@ int client_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
 
   return extra_response_katcp(d, KATCP_RESULT_OK, "%u", total);
+}
+
+/* halt and restart *************************************************/
+
+int restart_group_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  /* halt and restart handlers could really be merged into one function */
+
+  struct katcp_shared *s;
+  struct katcp_group *gx;
+  struct katcp_flat *fx;
+
+  s = d->d_shared;
+
+  fx = this_flat_katcp(d);
+  if(fx == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no client data available, probably called in incorrect context");
+    return KATCP_RESULT_FAIL;
+  }
+
+  switch(fx->f_scope){
+    case KATCP_SCOPE_SINGLE :
+      if(terminate_flat_katcp(d, fx) < 0){
+        return KATCP_RESULT_FAIL;
+      }
+      return KATCP_RESULT_OK;
+    case KATCP_SCOPE_GROUP :
+      gx = this_group_katcp(d);
+      if(gx){
+        if(terminate_group_katcp(d, gx, 0) == 0){
+          return KATCP_RESULT_OK;
+        }
+      }
+      return KATCP_RESULT_FAIL;
+    case KATCP_SCOPE_GLOBAL :
+      terminate_katcp(d, KATCP_EXIT_RESTART);
+      return KATCP_RESULT_OK;
+    default :
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "invalid client scope %d for %s\n", fx->f_scope, fx->f_name);
+      return KATCP_RESULT_FAIL;
+  }
+
+  return KATCP_RESULT_OK;
+}
+
+int halt_group_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  struct katcp_shared *s;
+  struct katcp_group *gx;
+  struct katcp_flat *fx;
+
+  s = d->d_shared;
+
+  fx = this_flat_katcp(d);
+  if(fx == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no client data available, probably called in incorrect context");
+    return KATCP_RESULT_FAIL;
+  }
+
+  switch(fx->f_scope){
+    case KATCP_SCOPE_SINGLE :
+      if(terminate_flat_katcp(d, fx) < 0){
+        return KATCP_RESULT_FAIL;
+      }
+      return KATCP_RESULT_OK;
+    case KATCP_SCOPE_GROUP :
+      gx = this_group_katcp(d);
+      if(gx){
+        if(terminate_group_katcp(d, gx, 1) == 0){
+          return KATCP_RESULT_OK;
+        }
+      }
+      return KATCP_RESULT_FAIL;
+    case KATCP_SCOPE_GLOBAL :
+      terminate_katcp(d, KATCP_EXIT_HALT);
+      return KATCP_RESULT_OK;
+    default :
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "invalid client scope %d for %s\n", fx->f_scope, fx->f_name);
+      return KATCP_RESULT_FAIL;
+  }
+
+  return KATCP_RESULT_OK;
 }
 
 #endif

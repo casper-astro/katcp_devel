@@ -446,8 +446,9 @@ struct katcp_cmd_map{
 };
 
 #define KATCP_SCOPE_INVALID    (-1)
-#define KATCP_SCOPE_GROUP        0
-#define KATCP_SCOPE_GLOBAL       1
+#define KATCP_SCOPE_SINGLE       0
+#define KATCP_SCOPE_GROUP        1
+#define KATCP_SCOPE_GLOBAL       2
 
 #define KATCP_MAP_UNSET        (-1)
 

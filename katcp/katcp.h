@@ -674,6 +674,7 @@ struct katcp_group *find_group_katcp(struct katcp_dispatch *d, char *name);
 int hold_group_katcp(struct katcp_group *g);
 struct katcp_group *duplicate_group_katcp(struct katcp_dispatch *d, struct katcp_group *go, char *name, int depth);
 struct katcp_group *create_group_katcp(struct katcp_dispatch *d, char *name);
+int terminate_group_katcp(struct katcp_dispatch *d, struct katcp_group *gx, int hard);
 
 struct katcp_flat *find_name_flat_katcp(struct katcp_dispatch *d, char *group, char *name);
 int rename_flat_katcp(struct katcp_dispatch *d, char *group, char *was, char *should);
@@ -729,6 +730,9 @@ int group_list_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 int listener_create_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 int listener_halt_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 int listener_list_group_cmd_katcp(struct katcp_dispatch *d, int argc);
+
+int restart_group_cmd_katcp(struct katcp_dispatch *d, int argc);
+int halt_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 /* endpoints */
 

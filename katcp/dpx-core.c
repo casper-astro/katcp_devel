@@ -313,6 +313,30 @@ struct katcp_group *find_group_katcp(struct katcp_dispatch *d, char *name)
   return NULL;
 }
 
+int terminate_group_katcp(struct katcp_dispatch *d, struct katcp_group *gx, int hard)
+{
+  unsigned int i;
+  struct katcp_flat *fx;
+  int result;
+
+  if(gx == NULL){
+    return -1;
+  }
+
+  result = 0;
+
+  /* TODO: for the hard option do more, probably stop listener too, mark group for later destruction ... */
+
+  for(i = 0; i < gx->g_count; i++){
+    fx = gx->g_flats[i];
+    if(terminate_flat_katcp(d, fx) < 0){
+      result = (-1);
+    }
+  }
+
+  return result;
+}
+
 /* cmd handling *****************************************************/
 
 void destroy_cmd_item(struct katcp_cmd_item *i)
@@ -1711,6 +1735,82 @@ struct katcp_flat *find_name_flat_katcp(struct katcp_dispatch *d, char *group, c
   }
 
   return NULL;
+}
+
+struct katcp_flat *search_name_flat_katcp(struct katcp_dispatch *d, char *name, struct katcp_group *gx, int limit)
+{
+  struct katcp_flat *fx;
+  struct katcp_group *gt;
+  struct katcp_shared *s;
+  unsigned int i, j;
+
+  s = d->d_shared;
+
+  if(name == NULL){
+    return NULL;
+  }
+
+  if(gx){
+    for(i = 0; i < gx->g_count; i++){
+      fx = gx->g_flats[i];
+      if(fx->f_name && (strcmp(name, fx->f_name) == 0)){
+        return fx;
+      }
+    }
+  }
+
+  if(limit){
+    return NULL;
+  }
+
+  for(j = 0; j < s->s_members; j++){
+    gt = s->s_groups[j];
+    if(gt == gx){
+      continue;
+    }
+    for(i = 0; i < gt->g_count; i++){
+      fx = gt->g_flats[i];
+      if(fx->f_name && (strcmp(name, fx->f_name) == 0)){
+        return fx;
+      }
+    }
+  }
+
+  return NULL;
+}
+
+struct katcp_flat *scope_name_flat_katcp(struct katcp_dispatch *d, char *name, struct katcp_flat *fx)
+{
+  if((fx == NULL) || (name == NULL)){
+    return NULL;
+  }
+
+  switch(fx->f_scope){
+    case KATCP_SCOPE_SINGLE :
+      if(fx->f_name == NULL){
+        return NULL;
+      }
+      if(strcmp(name, fx->f_name)){
+        return NULL;
+      }
+      return fx;
+    case KATCP_SCOPE_GROUP :
+#ifdef KATCP_CONSISTENCY_CHECKS
+      if(fx->f_group == NULL){
+        fprintf(stderr, "logic problem: flat %p does not have a group\n", fx);
+        abort();
+      }
+#endif
+      return search_name_flat_katcp(d, name, fx->f_group, 1);
+    case KATCP_SCOPE_GLOBAL :
+      return search_name_flat_katcp(d, name, fx->f_group, 0);
+    default :
+#ifdef KATCP_CONSISTENCY_CHECKS
+      fprintf(stderr, "logic problem: flat %p has scope value %d which is invalid\n", fx, fx->f_scope);
+      abort();
+#endif
+      return NULL;
+  }
 }
 
 int rename_flat_katcp(struct katcp_dispatch *d, char *group, char *was, char *should)
@@ -3192,9 +3292,12 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
     add_full_cmd_map_katcp(m, "?group-create", "create a new group (?group-create name [group])", 0, &group_create_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "?group-list", "list groups (?group-list)", 0, &group_list_group_cmd_katcp, NULL, NULL);
 
-    add_full_cmd_map_katcp(m, "?listener-create", "create a listener (?listener-create port [group]", 0, &listener_create_group_cmd_katcp, NULL, NULL);
-    add_full_cmd_map_katcp(m, "?listener-halt", "stop a listener (?listener-halt port", 0, &listener_halt_group_cmd_katcp, NULL, NULL);
-    add_full_cmd_map_katcp(m, "?listener-list", "list listeners (?listener-list [port]", 0, &listener_list_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "?listener-create", "create a listener (?listener-create port [group])", 0, &listener_create_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "?listener-halt", "stop a listener (?listener-halt port)", 0, &listener_halt_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "?listener-list", "list listeners (?listener-list [port])", 0, &listener_list_group_cmd_katcp, NULL, NULL);
+
+    add_full_cmd_map_katcp(m, "?restart", "restart (?restart)", 0, &restart_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "?halt", "halt (?halt)", 0, &halt_group_cmd_katcp, NULL, NULL);
 
 
   } else {
