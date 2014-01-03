@@ -75,6 +75,7 @@ struct getap_state{
 
   struct katcp_arb *s_tap_io;
   int s_tap_fd;
+  int s_mcast_fd;
 
 #if 0
   struct timeval s_timeout;
