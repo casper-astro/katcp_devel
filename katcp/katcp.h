@@ -552,6 +552,8 @@ int version_list_cmd_katcp(struct katcp_dispatch *d, int argc);
 #define KATCP_ARB_READ  0x1
 #define KATCP_ARB_WRITE 0x2
 #define KATCP_ARB_BOTH  (KATCP_ARB_READ | KATCP_ARB_WRITE)
+#define KATCP_ARB_STOP  0x4
+#define KATCP_ARB_ALL   (KATCP_ARB_BOTH | KATCP_ARB_STOP)
 
 struct katcp_arb *create_type_arb_katcp(struct katcp_dispatch *d, char *name, unsigned int type, int fd, unsigned int mode, int (*run)(struct katcp_dispatch *d, struct katcp_arb *a, unsigned int mode), void *data);
 struct katcp_arb *create_arb_katcp(struct katcp_dispatch *d, char *name, int fd, unsigned int mode, int (*run)(struct katcp_dispatch *d, struct katcp_arb *a, unsigned int mode), void *data);

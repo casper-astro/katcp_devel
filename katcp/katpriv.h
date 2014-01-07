@@ -426,6 +426,14 @@ struct katcp_arb{
 /* duplex structures: was supposed to be called duplex, but flat is punnier */
 /********************************************************************/
 
+struct katcp_listener{
+  unsigned int l_magic;
+  unsigned int l_port;
+  char *l_address;
+
+  struct katcp_group *l_group;
+};
+
 struct katcp_cmd_item{
   /* a single command */
   char *i_name;

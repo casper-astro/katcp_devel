@@ -73,10 +73,9 @@ void destroy_arbs_katcp(struct katcp_dispatch *d)
   for(i = 0; i < s->s_total; i++){
     a = s->s_extras[i];
 
-    /* TODO: might want to run callback once to inform of shutdown */
-    destroy_arb_katcp(d, a);
-
     s->s_extras[i] = NULL;
+
+    destroy_arb_katcp(d, a);
   }
 
   s->s_total = 0;
@@ -92,6 +91,11 @@ static void destroy_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a)
   if(a == NULL){
     return;
   }
+
+  if(a->a_mode & KATCP_ARB_STOP){
+    (*(a->a_run))(d, a, KATCP_ARB_STOP);
+  }
+
   if(a->a_name){
     free(a->a_name);
     a->a_name = NULL;
@@ -309,11 +313,12 @@ int run_arb_katcp(struct katcp_dispatch *d)
         ran++;
         result = (*(a->a_run))(d, a, mode);
         if(result != 0){
-           destroy_arb_katcp(d, a);
            s->s_total--;
            if(i < s->s_total){ /* WARNING: this messes with the order of execution - might be problematic later */
              s->s_extras[i] = s->s_extras[s->s_total];
            }
+           /* remove from list before calling destroy, thus destroyed one is unreachable ... */
+           destroy_arb_katcp(d, a);
            continue; /* WARNING */
         }
       }

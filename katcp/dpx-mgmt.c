@@ -365,7 +365,7 @@ int listener_halt_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
 
   if(destroy_listen_flat_katcp(d, name) < 0){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to destroy listener instance %s  which might not even exist", name);
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to destroy listener instance %s which might not even exist", name);
     return KATCP_RESULT_FAIL;
   }
 
@@ -377,14 +377,21 @@ int listener_halt_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 int print_listener_katcp(struct katcp_dispatch *d, struct katcp_arb *a)
 {
   char *name;
+  struct katcp_listener *kl;
 
   name = name_arb_katcp(d, a);
   if(name == NULL){
     return -1;
   }
 
-  prepend_inform_katcp(d);
-  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, name);
+  kl = data_arb_katcp(d, a);
+  if(kl){
+    prepend_inform_katcp(d);
+
+    append_string_katcp(d, KATCP_FLAG_STRING, name);
+
+    append_unsigned_long_katcp(d, KATCP_FLAG_ULONG | KATCP_FLAG_LAST, kl->l_port);
+  }
 
   return 0;
 }
