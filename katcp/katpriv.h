@@ -859,7 +859,7 @@ struct katcp_flat *create_exec_flat_katcp(struct katcp_dispatch *d, char *name, 
 
 #define KATCP_ARB_TYPE_LISTENER 0xacce97
 
-struct katcp_arb *create_listen_flat_katcp(struct katcp_dispatch *d, char *name, struct katcp_group *g);
+struct katcp_arb *create_listen_flat_katcp(struct katcp_dispatch *d, char *name, unsigned int port, char *address, struct katcp_group *g);
 int destroy_listen_flat_katcp(struct katcp_dispatch *d, char *name);
 
 /* parse: setup */

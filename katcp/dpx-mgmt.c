@@ -317,7 +317,8 @@ int group_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
 int listener_create_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
-  char *name, *group;
+  char *name, *group, *address;
+  unsigned int port;
   struct katcp_group *gx;
   struct katcp_shared *s;
 
@@ -330,24 +331,51 @@ int listener_create_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
 #endif
 
+  if(argc < 3){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a label and port");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, "usage");
+  }
+
   name = arg_string_katcp(d, 1);
   if(name == NULL){
     return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
   }
 
-  group = arg_string_katcp(d, 2);
-  if(group == NULL){
-    gx = s->s_fallback;
-  } else {
+  if(find_type_arb_katcp(d, name, KATCP_ARB_TYPE_LISTENER)){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "listener with name %s already exists", name);
+    return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
+  }
+
+  port = arg_unsigned_long_katcp(d, 2);
+
+  address = NULL;
+  group = NULL;
+
+  if(argc > 3){
+    address = arg_string_katcp(d, 3);
+    if(argc > 4){
+      group = arg_string_katcp(d, 4);
+    }
+  }
+
+  if(group){
     gx = find_group_katcp(d, group);
+    if(gx == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no group with name %s found", group);
+      return KATCP_RESULT_FAIL;
+    }
+  } else {
+    gx = find_group_katcp(d, name);
+    if(gx == NULL){
+      gx = s->s_fallback;
+      if(gx == NULL){
+        log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "no default group available");
+        return KATCP_RESULT_FAIL;
+      }
+    }
   }
 
-  if(gx == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to find a group to associate with listen on %s", name);
-    return KATCP_RESULT_FAIL;
-  }
-
-  if(create_listen_flat_katcp(d, name, gx) == NULL){
+  if(create_listen_flat_katcp(d, name, port, address, gx) == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to listen on %s: %s", name, strerror(errno));
     return KATCP_RESULT_FAIL;
   }
@@ -376,8 +404,10 @@ int listener_halt_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
 int print_listener_katcp(struct katcp_dispatch *d, struct katcp_arb *a)
 {
-  char *name;
+  char *name, *first, *extra;
   struct katcp_listener *kl;
+  struct katcp_group *gx;
+  int flags;
 
   name = name_arb_katcp(d, a);
   if(name == NULL){
@@ -385,11 +415,33 @@ int print_listener_katcp(struct katcp_dispatch *d, struct katcp_arb *a)
   }
 
   kl = data_arb_katcp(d, a);
-  if(kl){
-    prepend_inform_katcp(d);
+  if(kl == NULL){
+    return -1;
+  }
 
-    append_string_katcp(d, KATCP_FLAG_STRING, name);
+  prepend_inform_katcp(d);
 
+  first = name;
+  extra = NULL;
+
+  if(kl->l_group){
+    gx = kl->l_group;
+    if(gx->g_name && strcmp(gx->g_name, name)){
+      extra = gx->g_name;
+    }
+  }
+
+  append_string_katcp(d, KATCP_FLAG_STRING, name);
+
+  flags = KATCP_FLAG_LAST;
+
+  if(extra || kl->l_address){
+    append_unsigned_long_katcp(d, KATCP_FLAG_ULONG, kl->l_port);
+    append_string_katcp(d, KATCP_FLAG_STRING | (extra ? 0 : KATCP_FLAG_LAST), kl->l_address ? kl->l_address : "0.0.0.0");
+    if(extra){
+      append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, extra);
+    }
+  } else {
     append_unsigned_long_katcp(d, KATCP_FLAG_ULONG | KATCP_FLAG_LAST, kl->l_port);
   }
 
