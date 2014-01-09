@@ -454,9 +454,11 @@ struct katcp_cmd_map{
 };
 
 #define KATCP_SCOPE_INVALID    (-1)
+/* dpx-misc has a lookuptable based on this order */
 #define KATCP_SCOPE_SINGLE       0
 #define KATCP_SCOPE_GROUP        1
 #define KATCP_SCOPE_GLOBAL       2
+#define KATCP_MAX_SCOPE          3
 
 #define KATCP_MAP_UNSET        (-1)
 
@@ -1029,6 +1031,11 @@ int pending_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep);
 
 void forget_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep);
 void reference_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep);
+
+/* misc duplex functions ******************/
+
+int code_from_scope_katcp(char *scope);
+char *string_from_scope_katcp(unsigned int scope);
  
 /******************************************/
 

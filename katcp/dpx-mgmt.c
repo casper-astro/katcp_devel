@@ -284,6 +284,7 @@ int group_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   struct katcp_shared *s;
   struct katcp_cmd_map *mx;
   int j, count, i;
+  char *ptr, *group;
 
   s = d->d_shared;
 
@@ -292,13 +293,33 @@ int group_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   for(j = 0; j < s->s_members; j++){
     gx = s->s_groups[j];
 
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "group %s has %d references", gx->g_name ? gx->g_name : "<anonymous>", gx->g_use);
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "group %s has %u members", gx->g_name ? gx->g_name : "<anonymous>", gx->g_count);
+    if(gx->g_name){
+      group = gx->g_name;
+    } else {
+      group = "<anonymous>";
+    }
+
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "group %s has %d references", group, gx->g_use);
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "group %s has %u members", group, gx->g_count);
+
+    ptr = log_to_string_katcl(gx->g_log_level);
+    if(ptr){
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "group %s sets client log level to %s", group, ptr);
+    } else {
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "group %s has unreasonable log level", group);
+    }
+
+    ptr = string_from_scope_katcp(gx->g_scope);
+    if(ptr){
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "group %s sets %s client scope", group, ptr);
+    } else {
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "group %s has invalid scope setting", group);
+    }
 
     for(i = 0; i < KATCP_SIZE_MAP; i++){
       mx = gx->g_maps[i];
       if(mx){
-        log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "group %s command map %d has %s %s and is referenced %d times", gx->g_name ? gx->g_name : "<anonymous>", i, mx->m_name ? "name" : "no", mx->m_name ? mx->m_name : "name", mx->m_refs);
+        log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "group %s command map %d has %s %s and is referenced %d times", group, i, mx->m_name ? "name" : "no", mx->m_name ? mx->m_name : "name", mx->m_refs);
       }
     }
 
@@ -331,8 +352,8 @@ int listener_create_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
 #endif
 
-  if(argc < 3){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a label and port");
+  if(argc < 2){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a label");
     return extra_response_katcp(d, KATCP_RESULT_FAIL, "usage");
   }
 
@@ -346,15 +367,17 @@ int listener_create_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
   }
 
-  port = arg_unsigned_long_katcp(d, 2);
-
+  port = 0;
   address = NULL;
   group = NULL;
 
-  if(argc > 3){
-    address = arg_string_katcp(d, 3);
-    if(argc > 4){
-      group = arg_string_katcp(d, 4);
+  if(argc > 2){
+    port = arg_unsigned_long_katcp(d, 2);
+    if(argc > 3){
+      address = arg_string_katcp(d, 3);
+      if(argc > 4){
+        group = arg_string_katcp(d, 4);
+      }
     }
   }
 

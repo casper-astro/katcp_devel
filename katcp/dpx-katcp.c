@@ -355,6 +355,17 @@ static int print_client_list_katcp(struct katcp_dispatch *d, struct katcp_flat *
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "client %s has unreasonable log level", fx->f_name);
   }
 
+  ptr = string_from_scope_katcp(fx->f_scope);
+  if(ptr){
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "client %s has %s scope", fx->f_name, ptr);
+  } else {
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "client %s has invalid scope", fx->f_name);
+  }
+
+  if(flushing_katcl(fx->f_line)){
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "client %s has output pending", fx->f_name);
+  }
+
   gx = fx->f_group;
   if(gx && gx->g_name){
     log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "client %s member of group <%s>", fx->f_name, gx->g_name);
