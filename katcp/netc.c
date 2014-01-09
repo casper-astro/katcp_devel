@@ -204,7 +204,9 @@ int net_listen(char *name, int port, int flags)
   }
 
   if(p == 0){
-    p = NETC_DEFAULT_PORT;
+    if(!(flags & NETC_AUTO_PORT)){
+      p = NETC_DEFAULT_PORT;
+    }
   }
 
   if(host){
@@ -280,6 +282,8 @@ int net_listen(char *name, int port, int flags)
 int main(int argc, char **argv)
 {
   int fd;
+  unsigned int len;
+  struct sockaddr_in sa;
 
   fprintf(stderr, "netc.c test\n");
 
@@ -288,13 +292,21 @@ int main(int argc, char **argv)
     return 1;
   }
 
-  fd = net_connect(argv[1], (argc > 2) ? atoi(argv[2]) : 0, NETC_VERBOSE_ERRORS | NETC_VERBOSE_STATS);
+  fd = net_listen(argv[1], (argc > 2) ? atoi(argv[2]) : 0, NETC_VERBOSE_ERRORS | NETC_VERBOSE_STATS | NETC_AUTO_PORT);
   if(fd < 0){
     fprintf(stderr, "%s: failed\n", argv[0]);
     return 1;
   }
 
   fprintf(stderr, "%s: ok\n", argv[0]);
+
+  len = sizeof(struct sockaddr_in);
+  if(getsockname(fd, (struct sockaddr *)&sa, &len) == 0){
+    fprintf(stderr, "%s: actuall bound port %d\n", argv[0], ntohs(sa.sin_port));
+  }
+
+  sleep(30);
+
   close(fd);
 
   return 0;

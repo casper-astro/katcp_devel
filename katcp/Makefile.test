@@ -5,7 +5,7 @@ INC = -I.
 
 CFLAGS += -DDEBUG
 
-TESTS = test-generic-queue test-parse test-map test-line test-rpc test-job test-queue test-kurl test-ktype test-avl test-bytebit
+TESTS = test-netc test-generic-queue test-parse test-map test-line test-rpc test-job test-queue test-kurl test-ktype test-avl test-bytebit
 
 all: $(TESTS)
 
@@ -41,6 +41,9 @@ test-bytebit: bytebit.c
 
 test-job: misc.c parse.c line.c time.c netc.c dispatch.c shared.c ts.c log.c notice.c nonsense.c job.c queue.c map.c kurl.c version.c
 	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_JOB -o $@ $^
+
+test-netc: netc.c
+	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_NETC -o $@ $^
 
 
 clean: 
