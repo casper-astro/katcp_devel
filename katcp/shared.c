@@ -351,6 +351,7 @@ void shutdown_shared_katcp(struct katcp_dispatch *d)
   
   destroy_type_list_katcp(d);
 
+  /* WARNING: invokes callbacks, assumes client API still available */
   destroy_arbs_katcp(d);
 
   while(s->s_count > 0){

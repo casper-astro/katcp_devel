@@ -559,7 +559,7 @@ struct katcp_arb *create_type_arb_katcp(struct katcp_dispatch *d, char *name, un
 struct katcp_arb *create_arb_katcp(struct katcp_dispatch *d, char *name, int fd, unsigned int mode, int (*run)(struct katcp_dispatch *d, struct katcp_arb *a, unsigned int mode), void *data);
 int unlink_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a);
 
-int foreach_arb_katcp(struct katcp_dispatch *d, unsigned int type, int (*call)(struct katcp_dispatch *d, struct katcp_arb *a));
+int foreach_arb_katcp(struct katcp_dispatch *d, unsigned int type, int (*call)(struct katcp_dispatch *d, struct katcp_arb *a, void *data), void *data);
 struct katcp_arb *find_type_arb_katcp(struct katcp_dispatch *d, char *name, unsigned int type);
 struct katcp_arb *find_arb_katcp(struct katcp_dispatch *d, char *name);
 

@@ -255,7 +255,7 @@ int hold_group_katcp(struct katcp_group *g)
 
 struct katcp_group *this_group_katcp(struct katcp_dispatch *d)
 {
-  /* WARNING: there may be cases when we are not in the context of a duplex/flat, but still within a group - this doesn't cater for such a case */
+  /* WARNING: maybe there are use-cases when we are not in the context of a duplex/flat, but still within a group - this doesn't cater for such a case */
   struct katcp_shared *s;
   struct katcp_flat *f;
 
@@ -313,6 +313,23 @@ struct katcp_group *find_group_katcp(struct katcp_dispatch *d, char *name)
   return NULL;
 }
 
+static int stop_listener_from_group_katcp(struct katcp_dispatch *d, struct katcp_arb *a, void *data)
+{
+  struct katcp_listener *kl;
+  struct katcp_group *gx;
+
+  gx = data;
+  kl = data_arb_katcp(d, a);
+
+  /* WARNING: close coupling, peers into listener internals from group logic, needs to be kept in sync with destroy_listen_flat_katcp */
+
+  if(kl->l_group == data){
+    unlink_arb_katcp(d, a);
+  }
+
+  return 0;
+}
+
 int terminate_group_katcp(struct katcp_dispatch *d, struct katcp_group *gx, int hard)
 {
   unsigned int i;
@@ -325,14 +342,14 @@ int terminate_group_katcp(struct katcp_dispatch *d, struct katcp_group *gx, int 
 
   result = 0;
 
-  /* TODO: for the hard option do more, probably stop listener too, mark group for later destruction ... */
-
   for(i = 0; i < gx->g_count; i++){
     fx = gx->g_flats[i];
     if(terminate_flat_katcp(d, fx) < 0){
       result = (-1);
     }
   }
+
+  foreach_arb_katcp(d, KATCP_ARB_TYPE_LISTENER, &stop_listener_from_group_katcp, gx);
 
   return result;
 }
@@ -3200,8 +3217,10 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
   /* WARNING: duplicates map to field internal requests too */
 
   if(gx->g_maps[KATCP_MAP_INNER_REQUEST] == NULL){
-    gx->g_maps[KATCP_MAP_INNER_REQUEST] = m;
-    hold_cmd_map(m);
+    gx->g_maps[KATCP_MAP_INNER_REQUEST] = duplicate_cmd_map(m, name);
+    if(gx->g_maps[KATCP_MAP_INNER_REQUEST]){
+      hold_cmd_map(gx->g_maps[KATCP_MAP_INNER_REQUEST]);
+    }
   }
 
   if(s->s_fallback == NULL){

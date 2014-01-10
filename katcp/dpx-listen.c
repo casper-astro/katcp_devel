@@ -67,6 +67,7 @@ void release_listener_katcp(struct katcp_dispatch *d, struct katcp_listener *kl)
   }
 
   if(kl->l_group){
+    /* WARNING: destroy may just dereference things */
     destroy_group_katcp(d, kl->l_group);
     kl->l_group = NULL;
   }

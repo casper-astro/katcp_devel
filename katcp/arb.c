@@ -6,6 +6,10 @@
 #include "katpriv.h"
 #include "katcp.h"
 
+#define ARB_REAP_LIVE   0
+#define ARB_REAP_FADE   1
+#define ARB_REAP_GONE   2
+
 static void destroy_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a);
 
 struct katcp_arb *create_type_arb_katcp(struct katcp_dispatch *d, char *name, unsigned int type, int fd, unsigned int mode, int (*run)(struct katcp_dispatch *d, struct katcp_arb *a, unsigned int mode), void *data)
@@ -44,7 +48,8 @@ struct katcp_arb *create_type_arb_katcp(struct katcp_dispatch *d, char *name, un
 
   a->a_type = type;
 
-  a->a_mode = mode & (KATCP_ARB_READ | KATCP_ARB_WRITE);
+  a->a_mode = mode & (KATCP_ARB_READ | KATCP_ARB_WRITE | KATCP_ARB_STOP);
+  a->a_reap = ARB_REAP_LIVE;
   a->a_run = run;
   a->a_data = data;
 
@@ -73,6 +78,16 @@ void destroy_arbs_katcp(struct katcp_dispatch *d)
   for(i = 0; i < s->s_total; i++){
     a = s->s_extras[i];
 
+    if((a->a_mode & KATCP_ARB_STOP) && a->a_run){
+      switch(a->a_reap){
+        case ARB_REAP_LIVE :
+        case ARB_REAP_FADE :
+          (*(a->a_run))(d, a, KATCP_ARB_STOP);
+        break;
+      }
+      a->a_reap = ARB_REAP_GONE;
+    }
+
     s->s_extras[i] = NULL;
 
     destroy_arb_katcp(d, a);
@@ -92,10 +107,6 @@ static void destroy_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a)
     return;
   }
 
-  if(a->a_mode & KATCP_ARB_STOP){
-    (*(a->a_run))(d, a, KATCP_ARB_STOP);
-  }
-
   if(a->a_name){
     free(a->a_name);
     a->a_name = NULL;
@@ -108,6 +119,7 @@ static void destroy_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a)
 
   a->a_type = 0;
   a->a_mode = 0;
+  a->a_reap = ARB_REAP_GONE;
   a->a_run = NULL;
   a->a_data = NULL;
 
@@ -116,31 +128,13 @@ static void destroy_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a)
 
 int unlink_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a)
 {
-  unsigned int i;
-  struct katcp_shared *s;
-
-  s = d->d_shared;
-  if(s == NULL){
-    return -1;
-  }
-  
-  for(i = 0; i < s->s_total; i++){
-    if(s->s_extras[i] == a){
-      break;
+  if(a->a_reap == ARB_REAP_LIVE){
+    if(a->a_mode & KATCP_ARB_STOP){
+      a->a_reap = ARB_REAP_FADE;
+    } else {
+      a->a_reap = ARB_REAP_GONE;
     }
   }
-
-  if(i >= s->s_total){
-    return -1;
-  }
-
-  s->s_total--;
-
-  if(i < s->s_total){
-    s->s_extras[i] = s->s_extras[s->s_total];
-  }
-
-  destroy_arb_katcp(d, a);
 
   return 0;
 }
@@ -151,7 +145,7 @@ void mode_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a, unsigned int 
     return;
   }
 
-  a->a_mode = mode & (KATCP_ARB_READ | KATCP_ARB_WRITE);
+  a->a_mode = mode & (KATCP_ARB_READ | KATCP_ARB_WRITE | KATCP_ARB_STOP);
 }
 
 char *name_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a)
@@ -190,7 +184,7 @@ int fileno_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a)
   return a->a_fd;
 }
 
-int foreach_arb_katcp(struct katcp_dispatch *d, unsigned int type, int (*call)(struct katcp_dispatch *d, struct katcp_arb *a))
+int foreach_arb_katcp(struct katcp_dispatch *d, unsigned int type, int (*call)(struct katcp_dispatch *d, struct katcp_arb *a, void *data), void *data)
 {
   unsigned int i;
   int count;
@@ -207,9 +201,11 @@ int foreach_arb_katcp(struct katcp_dispatch *d, unsigned int type, int (*call)(s
   for(i = 0; i < s->s_total; i++){
     a = s->s_extras[i];
 
-    if((type == 0) || (type == a->a_type)){
-      if((*(call))(d, a) == 0){
-        count++;
+    if(a && (a->a_reap == ARB_REAP_LIVE)){ 
+      if((type == 0) || (type == a->a_type)){
+        if((*(call))(d, a, data) == 0){
+          count++;
+        }
       }
     }
   }
@@ -256,24 +252,50 @@ void load_arb_katcp(struct katcp_dispatch *d)
   if(s == NULL){
     return;
   }
+
+  i = 0;
+  while(i < s->s_total){
   
-  for(i = 0; i < s->s_total; i++){
     a = s->s_extras[i];
 
-    if(a->a_fd >= 0){
-      if(a->a_mode & KATCP_ARB_READ){
-        FD_SET(a->a_fd, &(s->s_read));
-      } 
-      if(a->a_mode & KATCP_ARB_WRITE){
-        FD_SET(a->a_fd, &(s->s_write));
-      }
+    switch(a->a_reap){
+      case ARB_REAP_LIVE : 
+        if(a->a_fd >= 0){
+          if(a->a_mode & KATCP_ARB_READ){
+            FD_SET(a->a_fd, &(s->s_read));
+          } 
+          if(a->a_mode & KATCP_ARB_WRITE){
+            FD_SET(a->a_fd, &(s->s_write));
+          }
 
-      if(a->a_mode & (KATCP_ARB_WRITE | KATCP_ARB_READ)){
-        if(a->a_fd > s->s_max){ 
-          s->s_max = a->a_fd;
+          if(a->a_mode & (KATCP_ARB_WRITE | KATCP_ARB_READ)){
+            if(a->a_fd > s->s_max){ 
+              s->s_max = a->a_fd;
+            }
+          }
         }
-      }
+        i++;
+        break;
+      case ARB_REAP_FADE : 
+        mark_busy_katcp(d);
+        i++;
+        break;
+      case ARB_REAP_GONE : 
+        s->s_total--;
+        if(s->s_total > i){
+          s->s_extras[i] = s->s_extras[s->s_total];
+        }
+        destroy_arb_katcp(d, a);
+        break;
+      default :
+#ifdef KATCP_CONSISTENCY_CHECKS
+        fprintf(stderr, "logic problem: bad arb state %d for %p\n", a->a_reap, a);
+        abort();
+#endif
+        i++;
+        break;
     }
+
   }
 }
 
@@ -292,39 +314,53 @@ int run_arb_katcp(struct katcp_dispatch *d)
 
   ran = 0;
   
-  i = 0;
-  while(i < s->s_total){
+  for(i = 0; i < s->s_total; i++){
     a = s->s_extras[i];
 
-    fd = a->a_fd;
+    switch(a->a_reap){
+      case ARB_REAP_LIVE : 
+        fd = a->a_fd;
 
-    if(fd >= 0){
+        if(fd >= 0){
 
-      mode = 0;
+          mode = 0;
 
-      if(FD_ISSET(fd, &(s->s_read))){
-        mode = KATCP_ARB_READ;
-      }
-      if(FD_ISSET(fd, &(s->s_write))){
-        mode = KATCP_ARB_WRITE;
-      }
+          if(FD_ISSET(fd, &(s->s_read))){
+            mode = KATCP_ARB_READ;
+          }
+          if(FD_ISSET(fd, &(s->s_write))){
+            mode = KATCP_ARB_WRITE;
+          }
 
-      if(mode & (KATCP_ARB_READ | KATCP_ARB_WRITE)){
-        ran++;
-        result = (*(a->a_run))(d, a, mode);
-        if(result != 0){
-           s->s_total--;
-           if(i < s->s_total){ /* WARNING: this messes with the order of execution - might be problematic later */
-             s->s_extras[i] = s->s_extras[s->s_total];
-           }
-           /* remove from list before calling destroy, thus destroyed one is unreachable ... */
-           destroy_arb_katcp(d, a);
-           continue; /* WARNING */
+          if(mode & (KATCP_ARB_READ | KATCP_ARB_WRITE)){
+            ran++;
+            result = (*(a->a_run))(d, a, mode);
+            if(result != 0){
+              if(a->a_mode & KATCP_ARB_STOP){
+                a->a_reap = ARB_REAP_FADE;
+              } else {
+                a->a_reap = ARB_REAP_GONE;
+              }
+            }
+          }
+
         }
-      }
+      case ARB_REAP_FADE :
+        if(a->a_mode & KATCP_ARB_STOP){
+          (*(a->a_run))(d, a, KATCP_ARB_STOP);
+        }
+        a->a_mode = ARB_REAP_GONE;
+        break;
+      default :
+#ifdef KATCP_CONSISTENCY_CHECKS
+        fprintf(stderr, "logic problem: did not expect arb state %d while running for %p\n", a->a_reap, a);
+        abort();
+#endif
 
-      i++;
+        break;
+      break;
     }
+
   }
 
   return ran;
@@ -350,7 +386,7 @@ int arb_cmd_katcp(struct katcp_dispatch *d, int argc)
       for(i = 0; i < s->s_total; i++){
         a = s->s_extras[i];
         if(a){
-          log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s callback on fd %d which %s %s", a->a_name ? a->a_name : "<anonymous>", a->a_fd, (a->a_mode & KATCP_ARB_READ) ? "wants read" : "ignores read", (a->a_mode & KATCP_ARB_WRITE) ? "wants writes" : "ignores writes");
+          log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s callback on fd %d of type %d in state %d which %s %s and %s", a->a_name ? a->a_name : "<anonymous>", a->a_fd, a->a_type, a->a_reap, (a->a_mode & KATCP_ARB_READ) ? "wants read" : "ignores read", (a->a_mode & KATCP_ARB_WRITE) ? "wants writes" : "ignores writes", (a->a_mode & KATCP_ARB_STOP) ? "handles stop" : "ignores stop" );
         }
       }
       return KATCP_RESULT_OK;

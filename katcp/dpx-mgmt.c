@@ -425,7 +425,7 @@ int listener_halt_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   return KATCP_RESULT_OK;
 }
 
-int print_listener_katcp(struct katcp_dispatch *d, struct katcp_arb *a)
+int print_listener_katcp(struct katcp_dispatch *d, struct katcp_arb *a, void *data)
 {
   char *name, *first, *extra;
   struct katcp_listener *kl;
@@ -490,9 +490,9 @@ int listener_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
       return KATCP_RESULT_FAIL;
     }
 
-    count = print_listener_katcp(d, a);
+    count = print_listener_katcp(d, a, NULL);
   } else {
-    count = foreach_arb_katcp(d, KATCP_ARB_TYPE_LISTENER, &print_listener_katcp);
+    count = foreach_arb_katcp(d, KATCP_ARB_TYPE_LISTENER, &print_listener_katcp, NULL);
   }
 
   if(count < 0){
