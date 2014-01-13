@@ -107,6 +107,10 @@ static void destroy_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a)
     return;
   }
 
+#ifdef DEBUG
+  fprintf(stderr, "arb[%p]: destroy with mode=%u, reap=%u, fd=%d, name=%s\n", a, a->a_mode, a->a_reap, a->a_fd, a->a_name);
+#endif
+
   if(a->a_name){
     free(a->a_name);
     a->a_name = NULL;
@@ -259,7 +263,7 @@ void load_arb_katcp(struct katcp_dispatch *d)
     a = s->s_extras[i];
 
 #ifdef DEBUG
-    fprintf(stderr, "arb[%d]=%p: mode=%u, reap=%u, fd=%d name=%s\n", i, a, a->a_reap, a->a_mode, a->a_fd, a->a_name);
+    fprintf(stderr, "arb[%d]=%p: mode=%u, reap=%u, fd=%d, name=%s\n", i, a, a->a_mode, a->a_reap, a->a_fd, a->a_name);
 #endif
 
     switch(a->a_reap){
@@ -347,8 +351,9 @@ int run_arb_katcp(struct katcp_dispatch *d)
               }
             }
           }
-
         }
+        break;
+
       case ARB_REAP_FADE :
         if(a->a_mode & KATCP_ARB_STOP){
           (*(a->a_run))(d, a, KATCP_ARB_STOP);
