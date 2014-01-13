@@ -323,7 +323,7 @@ static int stop_listener_from_group_katcp(struct katcp_dispatch *d, struct katcp
 
   /* WARNING: close coupling, peers into listener internals from group logic, needs to be kept in sync with destroy_listen_flat_katcp */
 
-  if(kl->l_group == data){
+  if(kl->l_group == gx){
     unlink_arb_katcp(d, a);
   }
 

@@ -1526,7 +1526,7 @@ int tap_multicast_add_group_cmd(struct katcp_dispatch *d, int argc)
 
     gs->s_mcast_fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (gs->s_mcast_fd < 0){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to open multicast %s socket on %s", mode, name);
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to open multicast %s socket on %s", name);
       return KATCP_RESULT_FAIL;
     }
 
