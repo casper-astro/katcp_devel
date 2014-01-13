@@ -258,6 +258,10 @@ void load_arb_katcp(struct katcp_dispatch *d)
   
     a = s->s_extras[i];
 
+#ifdef DEBUG
+    fprintf(stderr, "arb[%d]=%p: mode=%u, reap=%u, fd=%d name=%s\n", i, a, a->a_reap, a->a_mode, a->a_fd, a->a_name);
+#endif
+
     switch(a->a_reap){
       case ARB_REAP_LIVE : 
         if(a->a_fd >= 0){

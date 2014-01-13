@@ -89,12 +89,13 @@ int accept_flat_katcp(struct katcp_dispatch *d, struct katcp_arb *a, unsigned in
   struct katcp_listener *kl;
   char label[LABEL_BUFFER];
   long opts;
+  int result;
 
+  result = 0;
 
   if(mode & KATCP_ARB_READ){
 
     fd = fileno_arb_katcp(d, a);
-
 
     len = sizeof(struct sockaddr_in);
     nfd = accept(fd, (struct sockaddr *) &sa, &len);
@@ -103,7 +104,6 @@ int accept_flat_katcp(struct katcp_dispatch *d, struct katcp_arb *a, unsigned in
       log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "accept on %s failed: %s", name_arb_katcp(d, a), strerror(errno));
       return 0;
     }
-
 
     kl = data_arb_katcp(d, a);
 
@@ -130,7 +130,6 @@ int accept_flat_katcp(struct katcp_dispatch *d, struct katcp_arb *a, unsigned in
       close(nfd);
     }
 
-    return 0;
   }
 
   if(mode & KATCP_ARB_STOP){
@@ -140,14 +139,14 @@ int accept_flat_katcp(struct katcp_dispatch *d, struct katcp_arb *a, unsigned in
 
     release_listener_katcp(d, kl);
 
-    return 0;
+  }
+  
+  if(mode & KATCP_ARB_WRITE){
+    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "listener callback called in mode 0x%x", mode);
+    result = (-1);
   }
 
-  log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "listener callback called in mode 0x%x", mode);
-
-  return -1;
-
-
+  return result;
 #undef LABEL_BUFFER
 }
 
