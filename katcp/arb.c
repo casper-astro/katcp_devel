@@ -326,13 +326,13 @@ int run_arb_katcp(struct katcp_dispatch *d)
           mode = 0;
 
           if(FD_ISSET(fd, &(s->s_read))){
-            mode = KATCP_ARB_READ;
+            mode |= KATCP_ARB_READ;
           }
           if(FD_ISSET(fd, &(s->s_write))){
-            mode = KATCP_ARB_WRITE;
+            mode |= KATCP_ARB_WRITE;
           }
 
-          if(mode & (KATCP_ARB_READ | KATCP_ARB_WRITE)){
+          if(a->a_mode & mode){
             ran++;
             result = (*(a->a_run))(d, a, mode);
             if(result != 0){
@@ -349,7 +349,7 @@ int run_arb_katcp(struct katcp_dispatch *d)
         if(a->a_mode & KATCP_ARB_STOP){
           (*(a->a_run))(d, a, KATCP_ARB_STOP);
         }
-        a->a_mode = ARB_REAP_GONE;
+        a->a_reap = ARB_REAP_GONE;
         break;
       default :
 #ifdef KATCP_CONSISTENCY_CHECKS
@@ -358,7 +358,6 @@ int run_arb_katcp(struct katcp_dispatch *d)
 #endif
 
         break;
-      break;
     }
 
   }
