@@ -503,4 +503,86 @@ int listener_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   return extra_response_katcp(d, KATCP_RESULT_OK, "%d", count);
 }
 
+/* command/map related commands ***************************************************/
+
+#define CMD_OP_REMOVE  0
+#define CMD_OP_FLAG    1
+
+static int configure_cmd_group_katcp(struct katcp_dispatch *d, int argc, int op, unsigned int flags)
+{
+  struct katcp_cmd_map *mx;
+  struct katcp_cmd_item *ix;
+  struct katcp_flat *fx;
+  char *name;
+
+  if(argc <= 1){
+    return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
+  }
+
+  name = arg_string_katcp(d, 1);
+  if(name == NULL){
+    return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
+  }
+
+  fx = this_flat_katcp(d);
+  if(fx == NULL){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "interesting failure: not called within a valid duplex context\n");
+    abort();
+#endif
+    return KATCP_RESULT_FAIL;
+  }
+
+  mx = map_of_flat_katcp(fx);
+  if(mx == NULL){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "interesting failure: no map available\n");
+    abort();
+#endif
+    return KATCP_RESULT_FAIL;
+  }
+
+  switch(op){
+    case CMD_OP_REMOVE :
+      if(remove_cmd_map_katcp(mx, name) < 0){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "removal of command %s failed", name);
+        return KATCP_RESULT_FAIL;
+      } else {
+        return KATCP_RESULT_OK;
+      }
+      break;
+    case CMD_OP_FLAG :
+      ix = find_cmd_map_katcp(mx, name);
+      if(ix == NULL){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no command %s found", name);
+        return KATCP_RESULT_FAIL;
+      }
+
+      set_flag_cmd_item_katcp(ix, flags);
+
+      log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "change on command used %d times", ix->i_refs);
+
+      return KATCP_RESULT_OK;
+    default :
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "internal usage problem while configuring a command");
+      return KATCP_RESULT_FAIL;
+  }
+
+}
+
+int hide_cmd_group_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  return configure_cmd_group_katcp(d, argc, CMD_OP_FLAG, KATCP_MAP_FLAG_HIDDEN);
+}
+
+int uncover_cmd_group_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  return configure_cmd_group_katcp(d, argc, CMD_OP_FLAG, 0);
+}
+
+int delete_cmd_group_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  return configure_cmd_group_katcp(d, argc, CMD_OP_REMOVE, 0);
+}
+
 #endif

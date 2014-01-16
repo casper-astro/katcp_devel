@@ -704,6 +704,11 @@ int append_parse_flat_katcp(struct katcp_dispatch *d, struct katcl_parse *p);
 int append_vargs_flat_katcp(struct katcp_dispatch *d, int flags, char *fmt, va_list args);
 int append_args_flat_katcp(struct katcp_dispatch *d, int flags, char *fmt, ...);
 
+/* cmd api */
+
+int add_full_cmd_map_katcp(struct katcp_cmd_map *m, char *name, char *help, unsigned int flags, int (*call)(struct katcp_dispatch *d, int argc), void *data, void (*clear)(void *data));
+int add_cmd_map_katcp(struct katcp_cmd_map *m, char *name, char *help, int (*call)(struct katcp_dispatch *d, int argc));
+
 /* duplex related command handlers */
 
 int log_level_group_cmd_katcp(struct katcp_dispatch *d, int argc);
@@ -735,6 +740,10 @@ int listener_list_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 int restart_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 int halt_group_cmd_katcp(struct katcp_dispatch *d, int argc);
+
+int hide_cmd_group_cmd_katcp(struct katcp_dispatch *d, int argc);
+int uncover_cmd_group_cmd_katcp(struct katcp_dispatch *d, int argc);
+int delete_cmd_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 /* endpoints */
 

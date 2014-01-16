@@ -249,6 +249,8 @@ void print_help_cmd_item(struct katcp_dispatch *d, char *key, void *v)
 
   i = v;
 
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "%s is %s with %d references and %s local data", i->i_name, i->i_flags & KATCP_MAP_FLAG_HIDDEN ? "hidden" : "visible", i->i_refs, i->i_data ? "own" : "no");
+
   if(i->i_flags & KATCP_MAP_FLAG_HIDDEN){ 
     return;
   }

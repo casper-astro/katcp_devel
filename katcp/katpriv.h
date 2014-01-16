@@ -416,17 +416,37 @@ struct katcp_arb{
   char *a_name;
   int a_fd;
   
-
   unsigned int a_type;
 
   unsigned short a_reap;
   unsigned short a_mode;
+
   int (*a_run)(struct katcp_dispatch *d, struct katcp_arb *a, unsigned int mode);
   void *a_data;
 };
 
 /* duplex structures: was supposed to be called duplex, but flat is punnier */
 /********************************************************************/
+
+#define KATCP_VRBL_INVALID 0
+#define KATCP_VRBL_STRING  1
+
+struct katcp_vrbl{
+  unsigned short v_type;
+  unsigned short v_status;
+
+  int (*v_refresh)(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx);
+  int (*v_change)(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx);
+  void (*v_release)(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx);
+
+  union{
+    char *u_string;
+  } v_union;
+};
+
+struct katcp_region{
+  struct avl_tree *r_tree;
+};
 
 struct katcp_listener{
   unsigned int l_magic;
@@ -849,6 +869,16 @@ int register_subprocess_cmd_katcp(struct katcp_dispatch *d, int argc);
 int submit_to_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, struct katcl_parse *p, char *name, int (*call)(struct katcp_dispatch *d, struct katcp_notice *n, void *data), void *data);
 int notice_to_job_katcp(struct katcp_dispatch *d, struct katcp_job *j, struct katcp_notice *n);
 int ended_jobs_katcp(struct katcp_dispatch *d);
+
+/* cmd stuff */
+
+struct katcp_cmd_map *create_cmd_map_katcp(char *name);
+void destroy_cmd_map_katcp(struct katcp_cmd_map *m);
+void hold_cmd_map_katcp(struct katcp_cmd_map *m);
+struct katcp_cmd_map *duplicate_cmd_map_katcp(struct katcp_cmd_map *mo, char *name);
+struct katcp_cmd_item *find_cmd_map_katcp(struct katcp_cmd_map *m, char *name);
+int remove_cmd_map_katcp(struct katcp_cmd_map *m, char *name);
+void set_flag_cmd_item_katcp(struct katcp_cmd_item *ix, unsigned int flags);
 
 /* flat stuff */
 int run_flat_katcp(struct katcp_dispatch *d);

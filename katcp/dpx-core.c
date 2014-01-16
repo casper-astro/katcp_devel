@@ -55,8 +55,6 @@
 
 int setup_default_group(struct katcp_dispatch *d, char *name);
 
-void destroy_cmd_map(struct katcp_cmd_map *m);
-
 static void clear_current_flat(struct katcp_dispatch *d);
 static void set_current_flat(struct katcp_dispatch *d, struct katcp_flat *fx);
 
@@ -65,9 +63,6 @@ static int actually_set_output_flat_katcp(struct katcp_flat *fx, unsigned int de
 #endif
 
 static void deallocate_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *f);
-
-void hold_cmd_map(struct katcp_cmd_map *m);
-struct katcp_cmd_map *duplicate_cmd_map(struct katcp_cmd_map *mo, char *name);
 
 /********************************************************************/
 
@@ -103,7 +98,7 @@ void destroy_group_katcp(struct katcp_dispatch *d, struct katcp_group *g)
   }
 
   for(i = 0; i < KATCP_SIZE_MAP; i++){
-    destroy_cmd_map(g->g_maps[i]);
+    destroy_cmd_map_katcp(g->g_maps[i]);
     g->g_maps[i] = NULL;
   }
 
@@ -228,7 +223,7 @@ struct katcp_group *duplicate_group_katcp(struct katcp_dispatch *d, struct katcp
 
       if(depth > 0){
         /* unclear what the name of the copied map should be ... */
-        gx->g_maps[i] = duplicate_cmd_map(go->g_maps[i], name);
+        gx->g_maps[i] = duplicate_cmd_map_katcp(go->g_maps[i], name);
         if(gx->g_maps[i] == NULL){
           log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to copy command map during deep copy of group");
           destroy_group_katcp(d, gx);
@@ -237,7 +232,7 @@ struct katcp_group *duplicate_group_katcp(struct katcp_dispatch *d, struct katcp
       } else {
         gx->g_maps[i] = go->g_maps[i];
       }
-      hold_cmd_map(gx->g_maps[i]);
+      hold_cmd_map_katcp(gx->g_maps[i]);
     }
   }
 
@@ -353,325 +348,6 @@ int terminate_group_katcp(struct katcp_dispatch *d, struct katcp_group *gx, int 
 
   return result;
 }
-
-/* cmd handling *****************************************************/
-
-void destroy_cmd_item(struct katcp_cmd_item *i)
-{
-  if(i == NULL){
-    return;
-  }
-
-  if(i->i_refs > 1){
-    /* not yet time */
-    i->i_refs--;
-    return;
-  }
-
-  i->i_refs = 0;
-
-  if(i->i_name){
-    free(i->i_name);
-    i->i_name = NULL;
-  }
-
-  if(i->i_help){
-    free(i->i_help);
-    i->i_help = NULL;
-  }
-
-  i->i_call = NULL;
-  i->i_flags = 0;
-
-  if(i->i_clear){
-    (*(i->i_clear))(i->i_data);
-    i->i_clear = NULL;
-  }
-
-  i->i_data = NULL;
-
-  free(i);
-}
-
-void destroy_cmd_item_void(void *v)
-{
-  struct katcp_cmd_item *i;
-
-  i = v;
-
-  destroy_cmd_item(i);
-}
-
-struct katcp_cmd_item *create_cmd_item(char *name, char *help, unsigned int flags, int (*call)(struct katcp_dispatch *d, int argc), void *data, void (*clear)(void *data)){
-  struct katcp_cmd_item *i;
-
-  i = malloc(sizeof(struct katcp_cmd_item));
-  if(i == NULL){
-    return NULL;
-  }
-
-  i->i_name = NULL;
-  i->i_help = NULL;
-
-  i->i_flags = 0;
-
-  i->i_call = NULL;
-  i->i_data = NULL;
-  i->i_clear = NULL;
-
-  if(name){
-    i->i_name = strdup(name);
-    if(i->i_name == NULL){
-      destroy_cmd_item(i);
-      return NULL;
-    }
-  }
-
-  if(help){
-    i->i_help = strdup(help);
-    if(i->i_help == NULL){
-      destroy_cmd_item(i);
-      return NULL;
-    }
-  }
-
-  i->i_flags = flags;
-
-  i->i_call = call;
-  i->i_data = data;
-  i->i_clear = clear;
-
-  i->i_refs = 0;
-
-  return i;
-}
-
-void destroy_cmd_map(struct katcp_cmd_map *m)
-{
-  if(m == NULL){
-    return;
-  }
-
-  if(m->m_refs > 0){
-    m->m_refs--;
-#ifdef DEBUG
-    fprintf(stderr, "map %p now decremented to %d\n", m, m->m_refs);
-#endif
-  }
-
-  if(m->m_refs > 0){
-    return;
-  }
-
-  if(m->m_tree){
-    destroy_avltree(m->m_tree, &destroy_cmd_item_void);
-    m->m_tree = NULL;
-  }
-
-  if(m->m_fallback){
-    destroy_cmd_item(m->m_fallback);
-    m->m_fallback = NULL;
-  }
-
-  if(m->m_name){
-    free(m->m_name);
-    m->m_name = NULL;
-  }
-
-  free(m);
-}
-
-void hold_cmd_map(struct katcp_cmd_map *m)
-{
-  m->m_refs++;
-#ifdef DEBUG
-  fprintf(stderr, "map %p now incremented to %d\n", m, m->m_refs);
-#endif
-}
-
-struct katcp_cmd_map *create_cmd_map(char *name)
-{
-  struct katcp_cmd_map *m;
-
-  m = malloc(sizeof(struct katcp_cmd_map));
-  if(m == NULL){
-    return NULL;
-  }
-
-#ifdef DEBUG
-  fprintf(stderr, "created map %p\n", m);
-#endif
-
-  m->m_name = NULL;
-  m->m_refs = 0;
-  m->m_tree = NULL;
-  m->m_fallback = NULL;
-
-  m->m_tree = create_avltree();
-  if(m->m_tree == NULL){
-    destroy_cmd_map(m);
-    return NULL;
-  }
-
-  if(name){
-    m->m_name = strdup(name);
-    if(m->m_name == NULL){
-      destroy_cmd_map(m);
-      return NULL;
-    }
-  }
-
-  return m;
-}
-
-/* WARNING: allows us to abuse print_inorder_avltree to duplicate tree. This line here makes the code thread unsafe */
-static struct katcp_cmd_map *duplicate_cmd_map_state = NULL;
-
-void duplicate_cmd_map_item(struct katcp_dispatch *d, char *key, void *v)
-{
-  struct katcp_cmd_item *i;
-  struct avl_node *n;
-
-  i = v;
-
-  if(duplicate_cmd_map_state == NULL){
-    return;
-  }
-
-  n = create_node_avltree(key, i);
-  if(n == NULL){
-    duplicate_cmd_map_state = NULL;
-    return;
-  }
-  
-  if(add_node_avltree(duplicate_cmd_map_state->m_tree, n) < 0){
-    free_node_avltree(n, NULL);
-    duplicate_cmd_map_state = NULL;
-    return;
-  }
-
-  i->i_refs++;
-
-#ifdef DEBUG
-  fprintf(stderr, "map: after duplication references to handler %s now %d\n", i->i_name, i->i_refs);
-#endif
-}
-
-struct katcp_cmd_map *duplicate_cmd_map(struct katcp_cmd_map *mo, char *name)
-{
-  struct katcp_cmd_map *mx;
-
-  /* threaded stuff might want to lock this, or even better just implement a clone_avltree function */
-  if(duplicate_cmd_map_state != NULL){
-    return NULL;
-  }
-
-  mx = create_cmd_map(name);
-  if(mx == NULL){
-    return NULL;
-  }
-
-  duplicate_cmd_map_state = mx;
-
-  /* WARNING: taking severe liberties with the API - assumes d unused if flags == 0 */
-  print_inorder_avltree(NULL, mo->m_tree->t_root, &duplicate_cmd_map_item, 0);
-
-  if(duplicate_cmd_map_state == NULL){
-    destroy_cmd_map(mx);
-    return NULL;
-  }
-
-#ifdef DEBUG
-  fprintf(stderr, "map: duplicating map %p as %p\n", mo, mx);
-#endif
-
-  duplicate_cmd_map_state = NULL;
-
-  return mx;
-}
-
-int add_full_cmd_map_katcp(struct katcp_cmd_map *m, char *name, char *help, unsigned int flags, int (*call)(struct katcp_dispatch *d, int argc), void *data, void (*clear)(void *data))
-{
-  struct katcp_cmd_item *i;
-  struct avl_node *n;
-  char *ptr;
-
-  if(name == NULL){
-    return -1;
-  }
-
-  switch(name[0]){
-    case KATCP_REQUEST : 
-    case KATCP_REPLY :
-    case KATCP_INFORM : 
-      ptr = name + 1;
-      break;
-    default: 
-      ptr = name;
-      break;
-  }
-
-  if(ptr[0] == '\0'){
-    return -1;
-  }
-
-  i = create_cmd_item(ptr, help, flags, call, data, clear);
-  if(i == NULL){
-    return -1;
-  }
-
-  n = create_node_avltree(ptr, i);
-  if(n == NULL){
-    destroy_cmd_item(i);
-    return -1;
-  }
-  
-  if(add_node_avltree(m->m_tree, n) < 0){
-    /* WARNING: the convention requires a caller to clean up if something fails, hence can't invoke the clear function yet */
-    i->i_clear = NULL;
-    free_node_avltree(n, &destroy_cmd_item_void);
-    return -1;
-  }
-
-  i->i_refs = 1;
-
-  return 0;
-}
-
-int add_cmd_map_katcp(struct katcp_cmd_map *m, char *name, char *help, int (*call)(struct katcp_dispatch *d, int argc))
-{
-  return add_full_cmd_map_katcp(m, name, help, 0, call, NULL, NULL);
-}
-
-#if 0
-struct katcp_cmd_item *locate_cmd_item(struct katcp_flat *f, struct katcl_parse *p)
-{
-  struct katcp_cmd_item *i;
-  struct katcp_cmd_map *m;
-  char *str;
-
-  str = get_string_parse_katcl(p, 0);
-  if(str == NULL){
-    return NULL;
-  }
-
-  if(str[0] == '\0'){
-    return NULL;
-  }
-
-#if 1
-  /* map not initialised */
-  return NULL;
-#endif
-
-  i = find_data_avltree(m->m_tree, str + 1);
-  if(i){
-    return i;
-  }
-
-  return m->m_fallback;
-}
-#endif
 
 /* duplex setup *****************************************************/
 
@@ -874,7 +550,7 @@ static void deallocate_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *f
   f->f_current_endpoint = NULL;
 
   for(i = 0; i < KATCP_SIZE_MAP; i++){
-    destroy_cmd_map(f->f_maps[i]);
+    destroy_cmd_map_katcp(f->f_maps[i]);
     f->f_maps[i] = NULL;
   }
 
@@ -3166,14 +2842,14 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
   }
 
   if(gx->g_maps[KATCP_MAP_REMOTE_REQUEST] == NULL){
-    m = create_cmd_map(name);
+    m = create_cmd_map_katcp(name);
     if(m == NULL){
       destroy_group_katcp(d, gx);
       return -1;
     }
 
     gx->g_maps[KATCP_MAP_REMOTE_REQUEST] = m;
-    hold_cmd_map(m);
+    hold_cmd_map_katcp(m);
 
     add_full_cmd_map_katcp(m, "help", "display help messages (?help [command])", 0, &help_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "watchdog", "pings the system (?watchdog)", 0, &watchdog_group_cmd_katcp, NULL, NULL);
@@ -3209,6 +2885,10 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
     add_full_cmd_map_katcp(m, "?restart", "restart (?restart)", 0, &restart_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "?halt", "halt (?halt)", 0, &halt_group_cmd_katcp, NULL, NULL);
 
+    add_full_cmd_map_katcp(m, "?cmd-hide", "hide a command (?cmd-hide)", 0, &hide_cmd_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "?cmd-uncover", "reveal a hidden command (?cmd-uncover)", 0, &uncover_cmd_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "?cmd-delete", "remove a command (?cmd-delete)", 0, &delete_cmd_group_cmd_katcp, NULL, NULL);
+
 
   } else {
     m = gx->g_maps[KATCP_MAP_REMOTE_REQUEST];
@@ -3217,9 +2897,9 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
   /* WARNING: duplicates map to field internal requests too */
 
   if(gx->g_maps[KATCP_MAP_INNER_REQUEST] == NULL){
-    gx->g_maps[KATCP_MAP_INNER_REQUEST] = duplicate_cmd_map(m, name);
+    gx->g_maps[KATCP_MAP_INNER_REQUEST] = duplicate_cmd_map_katcp(m, name);
     if(gx->g_maps[KATCP_MAP_INNER_REQUEST]){
-      hold_cmd_map(gx->g_maps[KATCP_MAP_INNER_REQUEST]);
+      hold_cmd_map_katcp(gx->g_maps[KATCP_MAP_INNER_REQUEST]);
     }
   }
 
