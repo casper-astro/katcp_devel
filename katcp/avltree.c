@@ -743,26 +743,73 @@ int add_node_avltree(struct avl_tree *t, struct avl_node *n)
   check_balances_avltree(t->t_root, 0);
 #endif
   return 0;
+
+}
+
+/* WARNING: using a datastructure to hold a function pointer might be a bit excessive - *global could have been the function pointer too ... */
+
+struct free_reducer{
+  void (*reduced_free)(void *payload);
+};
+  
+static void complex_to_reduced_free_avltree(void *global, char *key, void *datum)
+{
+  struct free_reducer *rs;
+
+  if(global == NULL){
+    abort();
+  }
+  
+  rs = global;
+
+  (*(rs->reduced_free))(datum);
+}
+
+void free_node_complex_avltree(struct avl_node *n, void *global, void (*complex_free)(void *global, char *key, void *payload))
+{
+  if(n == NULL){
+    return;
+  }
+
+  if (n->n_parent != NULL){ 
+    n->n_parent = NULL; 
+  }
+
+  if (n->n_left != NULL){ 
+    n->n_left = NULL; 
+  }
+
+  if (n->n_right != NULL){ 
+    n->n_right = NULL; 
+  }
+
+  n->n_balance = 0;
+
+  if((n->n_data != NULL) && (complex_free != NULL)) { 
+    (*complex_free)(global, n->n_key, n->n_data);
+    n->n_data = NULL; 
+  }
+
+  if(n->n_key != NULL){ 
+    free(n->n_key); 
+    n->n_key = NULL; 
+  }
+
+  free(n);
 }
 
 void free_node_avltree(struct avl_node *n, void (*d_free)(void *))
 {
-  if (n->n_parent != NULL) { n->n_parent = NULL; }
-  if (n->n_left != NULL) { n->n_left = NULL; }
-  if (n->n_right != NULL) { n->n_right = NULL; }
-  n->n_balance = 0;
-  if (n->n_key != NULL) { free(n->n_key); n->n_key = NULL; }
-#if 1 
-  if (n->n_data != NULL && d_free != NULL) { 
-    //free(n->n_data); 
-    (*d_free)(n->n_data);
-    n->n_data = NULL; 
-  }
-#endif
-  if (n != NULL) { free(n); n = NULL; }
+  struct free_reducer reducer, *rs;
+
+  rs = &reducer;
+
+  rs->reduced_free = d_free;
+
+  free_node_complex_avltree(n, rs, &complex_to_reduced_free_avltree);
 }
-  
-int del_node_avltree(struct avl_tree *t, struct avl_node *n, void (*d_free)(void*))
+
+int del_node_complex_avltree(struct avl_tree *t, struct avl_node *n, void *global, void (*complex_free)(void *global, char *key, void *payload))
 {
   struct avl_node *c, *s;
   int run, flag;
@@ -813,7 +860,7 @@ int del_node_avltree(struct avl_tree *t, struct avl_node *n, void (*d_free)(void
         run = 0;
     }
 
-    free_node_avltree(n, d_free);
+    free_node_complex_avltree(n, global, complex_free);
   
   } else {
     
@@ -845,7 +892,7 @@ int del_node_avltree(struct avl_tree *t, struct avl_node *n, void (*d_free)(void
       }
       c->n_balance = n->n_balance;
       
-      free_node_avltree(n, d_free);
+      free_node_complex_avltree(n, global, complex_free);
       
       c->n_balance--;
 #if DEBUG > 1
@@ -889,7 +936,7 @@ int del_node_avltree(struct avl_tree *t, struct avl_node *n, void (*d_free)(void
         }
       }
 
-      free_node_avltree(n, d_free);
+      free_node_complex_avltree(n, global, complex_free);
       
       if (c->n_balance == 0){
 #if DEBUG > 1
@@ -975,6 +1022,17 @@ int del_node_avltree(struct avl_tree *t, struct avl_node *n, void (*d_free)(void
   return 0;
 }
 
+int del_node_avltree(struct avl_tree *t, struct avl_node *n, void (*d_free)(void *payload))
+{
+  struct free_reducer reducer, *rs;
+
+  rs = &reducer;
+
+  rs->reduced_free = d_free;
+
+  return del_node_complex_avltree(t, n, rs, &complex_to_reduced_free_avltree);
+}
+
 struct avl_node *find_name_node_avltree(struct avl_tree *t, char *key)
 {
   struct avl_node *c;
@@ -1027,22 +1085,34 @@ void *find_data_avltree(struct avl_tree *t, char *key)
   return get_node_data_avltree(n);
 }
 
-int del_name_node_avltree(struct avl_tree *t, char *key, void (*d_free)(void *))
+int del_name_node_complex_avltree(struct avl_tree *t, char *key, void *global, void (*complex_free)(void *global, char *key, void *payload))
 {
   struct avl_node *dn;
   
-  if (t == NULL)
+  if (t == NULL){
     return -1;
+  }
 
   dn = find_name_node_avltree(t, key);
 
-  if (dn == NULL)
+  if (dn == NULL){
     return -1;
+  }
 
-  return del_node_avltree(t, dn, d_free);
+  return del_node_complex_avltree(t, dn, global, complex_free);
 }
 
-void destroy_avltree(struct avl_tree *t, void (*d_free)(void *))
+int del_name_node_avltree(struct avl_tree *t, char *key, void (*d_free)(void *))
+{
+  struct free_reducer reducer, *rs;
+
+  rs = &reducer;
+  rs->reduced_free = d_free;
+
+  return del_name_node_complex_avltree(t, key, rs, &complex_to_reduced_free_avltree);
+}
+
+void destroy_complex_avltree(struct avl_tree *t, void *global, void (*complex_free)(void *global, char *key, void *payload))
 {
   struct avl_node *c, *dn;
   int run;
@@ -1087,14 +1157,16 @@ void destroy_avltree(struct avl_tree *t, void (*d_free)(void *))
             c->n_right = NULL;
         } 
 
-        if (dn->n_key) { free(dn->n_key); dn->n_key = NULL; }
-#if 1
-        if (dn->n_data && d_free) { 
-          //free(dn->n_data); 
-          (*d_free)(dn->n_data);
+        if (dn->n_data && complex_free) { 
+          (*complex_free)(global, dn->n_key, dn->n_data);
           dn->n_data = NULL; 
         }
-#endif
+
+        if (dn->n_key) { 
+          free(dn->n_key); 
+          dn->n_key = NULL; 
+        }
+
         dn->n_parent = NULL;
 
         free(dn);
@@ -1110,6 +1182,18 @@ void destroy_avltree(struct avl_tree *t, void (*d_free)(void *))
   if (t != NULL)
     free(t);
 }
+
+void destroy_avltree(struct avl_tree *t, void (*d_free)(void *))
+{
+  struct free_reducer reducer, *rs;
+
+  rs = &reducer;
+  rs->reduced_free = d_free;
+
+  destroy_complex_avltree(t, rs, &complex_to_reduced_free_avltree);
+}
+
+/*********************************************************************************************************/
 
 char *gen_id_avltree(char *prefix)
 {
@@ -1154,7 +1238,7 @@ int store_named_node_avltree(struct avl_tree *t, char *key, void *data)
     return -1;
 
   if (add_node_avltree(t, n) < 0){
-    free_node_avltree(n, NULL);
+    free_node_complex_avltree(n, NULL, NULL);
     return -1;
   }
   
