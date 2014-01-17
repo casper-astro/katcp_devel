@@ -68,20 +68,17 @@ static void deallocate_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *f
 
 /* groups of things *************************************************/
 
-void destroy_group_katcp(struct katcp_dispatch *d, struct katcp_group *g)
+static int deallocate_group_katcp(struct katcp_dispatch *d, struct katcp_group *g)
 {
-  struct katcp_shared *s;
   unsigned int i;
 
-  s = d->d_shared;
-
   if(g == NULL){
-    return;
+    return -1;
   }
 
   if(g->g_use > 0){
     g->g_use--;
-    return;
+    return 1;
   }
 
   if(g->g_count > 0){
@@ -89,7 +86,7 @@ void destroy_group_katcp(struct katcp_dispatch *d, struct katcp_group *g)
     fprintf(stderr, "group destruction: group still in use (%u elements)\n", g->g_count);
     abort();
 #endif
-    return; 
+    return -1; 
   }
 
   if(g->g_name){
@@ -105,9 +102,32 @@ void destroy_group_katcp(struct katcp_dispatch *d, struct katcp_group *g)
   g->g_log_level = (-1);
   g->g_scope = KATCP_SCOPE_INVALID;
 
+  g->g_autoremove = 0;
+
   if(g->g_flats){
     free(g->g_flats);
     g->g_flats = NULL;
+  }
+
+  free(g);
+
+  return 0;
+}
+
+void destroy_group_katcp(struct katcp_dispatch *d, struct katcp_group *g)
+{
+  /* WARNING: this function unlinks group from shared ... */
+  struct katcp_shared *s;
+  unsigned int i;
+
+  s = d->d_shared;
+
+#ifdef DEBUG
+  fprintf(stderr, "group[%p]: destroying %s\n", g, g->g_name);
+#endif
+
+  if(deallocate_group_katcp(d, g)){
+    return;
   }
 
   for(i = 0; (i < s->s_members) && (g != s->s_groups[i]); i++);
@@ -117,16 +137,19 @@ void destroy_group_katcp(struct katcp_dispatch *d, struct katcp_group *g)
     s->s_groups[i] = s->s_groups[s->s_members];
   } else {
     if(i > s->s_members){
+#ifdef KATCP_CONSISTENCY_CHECKS
+      fprintf(stderr, "logic problem: attempting to remove group %p not in list of groups\n", g);
+      abort();
+#endif
       s->s_members++;
     }
   }
-
-  free(g);
 }
 
 void destroy_groups_katcp(struct katcp_dispatch *d)
 {
   struct katcp_shared *s;
+  struct katcp_group *gx;
 
   s = d->d_shared;
 
@@ -135,8 +158,10 @@ void destroy_groups_katcp(struct katcp_dispatch *d)
     s->s_fallback = NULL;
   }
 
-  while(s->s_members){
-    destroy_group_katcp(d, s->s_groups[0]);
+  while(s->s_members > 0){
+    gx = s->s_groups[s->s_members - 1];
+    deallocate_group_katcp(d, gx);
+    s->s_members--;
   }
 
   if(s->s_groups){
@@ -171,10 +196,12 @@ struct katcp_group *create_group_katcp(struct katcp_dispatch *d, char *name)
   g->g_scope = KATCP_SCOPE_GROUP;
 
   g->g_use = 0;
+  g->g_autoremove = 0;
 
   tmp = realloc(s->s_groups, sizeof(struct katcp_group *) * (s->s_members + 1));
   if(tmp == NULL){
-    destroy_group_katcp(d, g);
+    /* WARNING: destroy not yet appropriate, not yet in shared structure */
+    eallocate_group_katcp(d, g);
     return NULL;
   }
 
@@ -345,6 +372,8 @@ int terminate_group_katcp(struct katcp_dispatch *d, struct katcp_group *gx, int 
   }
 
   foreach_arb_katcp(d, KATCP_ARB_TYPE_LISTENER, &stop_listener_from_group_katcp, gx);
+
+  gx->g_autoremove = 1;
 
   return result;
 }
@@ -589,6 +618,9 @@ static void destroy_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *f)
 
     if(i < gx->g_count){
       gx->g_flats[i] = gx->g_flats[gx->g_count];
+#if 0
+      /* have a destroy_group_call here if we decide to increment hold count for group on flat creation */
+#endif
     } else {
       if(i > gx->g_count){
         /* undo, we are in not found case */
@@ -1393,7 +1425,10 @@ struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, int up, c
 
   f->f_group = gx;
 
+#if 0
+  /* WARNING: use count is actually g_use+g_count */
   hold_group_katcp(gx); 
+#endif
 
   log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "created instance for %s", name ? name : "<anonymous");
 
@@ -1546,6 +1581,10 @@ int terminate_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx)
   }
 
   sane_flat_katcp(fx);
+
+#ifdef DEBUG
+  fprintf(stderr, "dpx[%p]: terminating %s in state %d\n", fx, fx->f_name, fx->f_state);
+#endif
 
   switch(fx->f_state){
     case FLAT_STATE_CONNECTING : 
@@ -2445,7 +2484,7 @@ int load_flat_katcp(struct katcp_dispatch *d)
   struct katcp_flat *fx;
   struct katcp_shared *s;
   struct katcp_group *gx;
-  unsigned int i, j, inc;
+  unsigned int i, j, inc, jnc;
   int result, fd;
 
   s = d->d_shared;
@@ -2456,8 +2495,11 @@ int load_flat_katcp(struct katcp_dispatch *d)
   fprintf(stderr, "dpx[*]: loading %u groups\n", s->s_members);
 #endif
 
-  for(j = 0; j < s->s_members; j++){
+  j = 0;
+  while(j < s->s_members){
+    jnc = 1;
     gx = s->s_groups[j];
+
     i = 0;
     while(i < gx->g_count){
       inc = 1;
@@ -2589,8 +2631,23 @@ int load_flat_katcp(struct katcp_dispatch *d)
       i += inc;
     }
 
+    if((gx->g_autoremove > 0) && (gx->g_count == 0) && (gx->g_use == 0)){
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "about to remove group %s", gx->g_name);
+#if DEBUG 
+      fprintf(stderr, "group[%p]: %s about to be removed\n", gx, gx->g_name);
+#endif
 
-    /* TODO: maybe do something if group is empty */
+      deallocate_group_katcp(d, gx);
+      jnc  = 0;
+
+      s->s_members--;
+
+#if DEBUG 
+      fprintf(stderr, "dpx[*]: reduced to %u groups\n", s->s_members);
+#endif
+    }
+
+    j += jnc;
   }
 
   return result;
@@ -2878,7 +2935,7 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
     add_full_cmd_map_katcp(m, "?group-create", "create a new group (?group-create name [group])", 0, &group_create_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "?group-list", "list groups (?group-list)", 0, &group_list_group_cmd_katcp, NULL, NULL);
 
-    add_full_cmd_map_katcp(m, "?listener-create", "create a listener (?listener-create port [group])", 0, &listener_create_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "?listener-create", "create a listener (?listener-create label [port [interface [group]]])", 0, &listener_create_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "?listener-halt", "stop a listener (?listener-halt port)", 0, &listener_halt_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "?listener-list", "list listeners (?listener-list [port])", 0, &listener_list_group_cmd_katcp, NULL, NULL);
 

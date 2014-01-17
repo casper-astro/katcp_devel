@@ -258,6 +258,10 @@ int group_create_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     go = s->s_fallback;
   } else {
     go = find_group_katcp(d, group);
+    if(go == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "template group %s not found", name);
+      return KATCP_RESULT_FAIL;
+    }
   }
 
   for(i = 3; i < argc; i++){
@@ -301,6 +305,7 @@ int group_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
     log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "group %s has %d references", group, gx->g_use);
     log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "group %s has %u members", group, gx->g_count);
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "group %s will %s if not used", group, gx->g_autoremove ? "disappear" : "persist");
 
     ptr = log_to_string_katcl(gx->g_log_level);
     if(ptr){

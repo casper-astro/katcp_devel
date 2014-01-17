@@ -508,6 +508,7 @@ struct katcp_group{
   int g_scope;
 
   int g_use;             /* are we ref'ed by the listener */
+  int g_autoremove;      /* do we disappear if use and count are zero ? */
 };
 
 #define KATCP_REPLY_HANDLE_REPLIES   0x1
