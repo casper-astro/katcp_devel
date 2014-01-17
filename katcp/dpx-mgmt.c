@@ -282,6 +282,48 @@ int group_create_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   return KATCP_RESULT_OK;
 }
 
+int group_halt_group_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  struct katcp_group *gx;
+  struct katcp_shared *s;
+  char *name;
+
+  s = d->d_shared;
+
+  if(argc <= 1){
+    gx = this_group_katcp(d);
+    if(gx){
+      if(terminate_group_katcp(d, gx, 1) == 0){
+        return KATCP_RESULT_OK;
+      } else {
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to terminate %s", gx->g_name);
+      }
+    } else {
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no group available in this context");
+    }
+    return KATCP_RESULT_FAIL;
+  }
+
+  name = arg_string_katcp(d, 1);
+  if(name == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to retrieve group name");
+    return KATCP_RESULT_FAIL;
+  }
+
+  gx = find_group_katcp(d, name);
+  if(gx == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no group %s found", name);
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(terminate_group_katcp(d, gx, 1)){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to terminate group %s", name);
+    return KATCP_RESULT_FAIL;
+  }
+
+  return KATCP_RESULT_OK;
+}
+
 int group_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   struct katcp_group *gx;

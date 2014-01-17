@@ -371,9 +371,10 @@ int terminate_group_katcp(struct katcp_dispatch *d, struct katcp_group *gx, int 
     }
   }
 
-  foreach_arb_katcp(d, KATCP_ARB_TYPE_LISTENER, &stop_listener_from_group_katcp, gx);
-
-  gx->g_autoremove = 1;
+  if(hard){
+    foreach_arb_katcp(d, KATCP_ARB_TYPE_LISTENER, &stop_listener_from_group_katcp, gx);
+    gx->g_autoremove = 1;
+  }
 
   return result;
 }
@@ -2934,6 +2935,7 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
 
     add_full_cmd_map_katcp(m, "?group-create", "create a new group (?group-create name [group])", 0, &group_create_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "?group-list", "list groups (?group-list)", 0, &group_list_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "?group-halt", "halt a group (?group-halt [group])", 0, &group_halt_group_cmd_katcp, NULL, NULL);
 
     add_full_cmd_map_katcp(m, "?listener-create", "create a listener (?listener-create label [port [interface [group]]])", 0, &listener_create_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "?listener-halt", "stop a listener (?listener-halt port)", 0, &listener_halt_group_cmd_katcp, NULL, NULL);
