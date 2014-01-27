@@ -124,6 +124,12 @@ struct katcp_cmd_map;
 #define KATCP_CLIENT_CONNECT           "#client-connected"
 #define KATCP_CLIENT_DISCONNECT        "#client-disconnected"
 
+#define KATCP_FAIL_NOT_FOUND           "not-found"
+#define KATCP_FAIL_USAGE               "usage"
+#define KATCP_FAIL_API                 "api-usage"
+#define KATCP_FAIL_MALLOC              "allocation"
+#define KATCP_FAIL_BUG                 "internal"
+
 /******************* core api ********************/
 
 /* create a dispatch handler */
@@ -150,7 +156,6 @@ int build_katcp(struct katcp_dispatch *d, char *build);
 void *get_code_katcp(struct katcp_dispatch *d, unsigned int index);
 int set_code_katcp(struct katcp_dispatch *d, unsigned int index, void *state);
 int set_clear_code_katcp(struct katcp_dispatch *d, unsigned int index, void *p, void (*clear)(struct katcp_dispatch *d));
-
 void *get_state_katcp(struct katcp_dispatch *d);
 void set_state_katcp(struct katcp_dispatch *d, void *p);
 void set_clear_state_katcp(struct katcp_dispatch *d, void *p, void (*clear)(struct katcp_dispatch *d, unsigned int mode));
@@ -745,6 +750,10 @@ int halt_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 int hide_cmd_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 int uncover_cmd_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 int delete_cmd_group_cmd_katcp(struct katcp_dispatch *d, int argc);
+
+int sensor_list_group_cmd_katcp(struct katcp_dispatch *d, int argc);
+int sensor_sampling_group_cmd_katcp(struct katcp_dispatch *d, int argc);
+int sensor_value_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 /* endpoints */
 

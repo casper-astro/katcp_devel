@@ -66,7 +66,7 @@ int complete_relay_generic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   fx = require_flat_katcp(d);
   if(fx == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not retrive current session detail");
-    return extra_response_katcp(d, KATCP_RESULT_FAIL, "cmd not run within a session");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_API);
   }
 #endif
 
@@ -140,27 +140,27 @@ int relay_generic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
   if(argc < 2){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "insufficient parameters (%d) to relay logic", argc);
-    return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
+    return extra_response_katcp(d, KATCP_RESULT_INVALID, KATCP_FAIL_USAGE);
   }
 
   name = arg_string_katcp(d, 1);
   cmd = arg_string_katcp(d, 2);
 
   if((name == NULL) || (cmd == NULL)){
-    return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
+    return extra_response_katcp(d, KATCP_RESULT_INVALID, KATCP_FAIL_USAGE);
   }
 
   fx = require_flat_katcp(d);
   if(fx == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not retrive current session detail");
-    return extra_response_katcp(d, KATCP_RESULT_FAIL, "cmd not run within a session");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_API);
   }
   source = peer_of_flat_katcp(d, fx);
 
   fy = find_name_flat_katcp(d, NULL, name);
   if(fy == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not look up name %s", name);
-    return extra_response_katcp(d, KATCP_RESULT_FAIL, "resolver");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_NOT_FOUND);
   }
   if(fy == fx){
     target = remote_of_flat_katcp(d, fx);
@@ -175,7 +175,7 @@ int relay_generic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
   px = create_parse_katcl();
   if(px == NULL){
-    return extra_response_katcp(d, KATCP_RESULT_FAIL, "allocation");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_MALLOC);
   }
 
   if(argc > 3){
@@ -190,7 +190,7 @@ int relay_generic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     len = strlen(cmd);
     ptr = malloc(len + 2);
     if(ptr == NULL){
-      return extra_response_katcp(d, KATCP_RESULT_FAIL, "allocation");
+      return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_MALLOC);
     }
 
     ptr[0] = KATCP_REQUEST;
@@ -239,7 +239,7 @@ int perform_forward_symbolic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
   req = arg_string_katcp(d, 0);
   if(req == NULL){
-    return extra_response_katcp(d, KATCP_RESULT_FAIL, "internal");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_BUG);
   }
 
   ix = this_cmd_katcp(d);
@@ -267,7 +267,7 @@ int perform_forward_symbolic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   fx = require_flat_katcp(d);
   if(fx == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not retrive current session detail");
-    return extra_response_katcp(d, KATCP_RESULT_FAIL, "cmd not run within a session");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_API);
   }
   source = peer_of_flat_katcp(d, fx);
 
@@ -289,7 +289,7 @@ int perform_forward_symbolic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
   px = create_parse_katcl();
   if(px == NULL){
-    return extra_response_katcp(d, KATCP_RESULT_FAIL, "allocation");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_MALLOC);
   }
 
   add_string_parse_katcl(px, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "?relay");
@@ -337,38 +337,38 @@ int forward_symbolic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   fx = this_flat_katcp(d);
   if(fx == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "forward logic only available within duplex handlers");
-    return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
+    return extra_response_katcp(d, KATCP_RESULT_INVALID, KATCP_FAIL_USAGE);
   }
 
   mx = map_of_flat_katcp(fx);
   if(mx == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no map associated with current connection, unable to register callback");
-    return extra_response_katcp(d, KATCP_RESULT_INVALID, "logic");
+    return extra_response_katcp(d, KATCP_RESULT_INVALID, KATCP_FAIL_BUG);
   }
 
   if(argc < 2){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "insufficient parameters, need a command and remote party");
-    return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
+    return extra_response_katcp(d, KATCP_RESULT_INVALID, KATCP_FAIL_USAGE);
   }
 
   cmd = arg_string_katcp(d, 1);
   if(cmd == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "null command parameter");
-    return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
+    return extra_response_katcp(d, KATCP_RESULT_INVALID, KATCP_FAIL_USAGE);
   }
 
   /* this isn't quite ideal, we could end up handling a request handler within an inform map. Maybe eliminate the ptr code completely, not needed by add_full_cmd_map anyway */
   ptr = default_message_type_katcm(cmd, KATCP_REQUEST);
   if(ptr == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to duplicate %s", cmd);
-    return extra_response_katcp(d, KATCP_RESULT_FAIL, "allocation");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_MALLOC);
   }
 
   fs = malloc(sizeof(struct forward_symbolic_state));
   if(fs == NULL){
     free(ptr);
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate symbolic state");
-    return extra_response_katcp(d, KATCP_RESULT_FAIL, "internal");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_MALLOC);
   }
 
 #ifdef KATCP_CONSISTENCY_CHECKS 
@@ -387,7 +387,7 @@ int forward_symbolic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to copy parameters, argument count is %d", argc);
     free(ptr);
     clear_forward_symbolic_state(fs);
-    return extra_response_katcp(d, KATCP_RESULT_FAIL, "internal");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_BUG);
   }
 
   log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "about to register request %s to %s", ptr, fs->f_peer);
@@ -396,7 +396,7 @@ int forward_symbolic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to register handler for %s", ptr);
     free(ptr);
     clear_forward_symbolic_state(fs);
-    return extra_response_katcp(d, KATCP_RESULT_FAIL, "internal");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_MALLOC);
   }
 
   log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "registered forwarding handler for %s to %s", ptr, fs->f_peer);

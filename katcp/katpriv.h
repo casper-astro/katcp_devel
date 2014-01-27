@@ -425,6 +425,8 @@ struct katcp_arb{
   void *a_data;
 };
 
+#ifdef KATCP_EXPERIMENTAL
+
 /* duplex structures: was supposed to be called duplex, but flat is punnier */
 /********************************************************************/
 
@@ -589,6 +591,7 @@ struct katcp_flat{
 
   /* a sensor could probably be a special type of notice */
 };
+#endif
 
 #define KATCP_FLAT_STACK 4
 

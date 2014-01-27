@@ -29,25 +29,25 @@ int client_exec_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
   if(argc < 2){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a command");
-    return extra_response_katcp(d, KATCP_RESULT_FAIL, "usage");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
   }
 
   label = arg_string_katcp(d, 1);
   if(label == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire new name");
-    return extra_response_katcp(d, KATCP_RESULT_FAIL, "internal");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_BUG);
   }
 
   if(argc > 2){
     group = arg_string_katcp(d, 2);
     if(group == NULL){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire group name");
-      return extra_response_katcp(d, KATCP_RESULT_FAIL, "internal");
+      return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_BUG);
     } 
     gx = find_group_katcp(d, group);
     if(gx == NULL){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to locate group called %s", group);
-      return extra_response_katcp(d, KATCP_RESULT_FAIL, "internal");
+      return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_NOT_FOUND);
     }
   } else {
     gx = this_group_katcp(d);
@@ -57,7 +57,7 @@ int client_exec_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     vector = malloc(sizeof(char *) * (argc - 2));
     if(vector == NULL){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate %u element vector", argc - 2);
-      return extra_response_katcp(d, KATCP_RESULT_FAIL, "internal");
+      return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_MALLOC);
     }
     size = argc - 3;
     for(i = 0; i < size; i++){
@@ -78,7 +78,7 @@ int client_exec_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
   if(fx == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate client connection");
-    return extra_response_katcp(d, KATCP_RESULT_FAIL, "internal");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_MALLOC);
   }
 
   return KATCP_RESULT_OK;
@@ -92,25 +92,25 @@ int client_connect_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
   if(argc < 2){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a destination to connect to");
-    return extra_response_katcp(d, KATCP_RESULT_FAIL, "usage");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
   }
 
   client = arg_string_katcp(d, 1);
   if(client == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire new name");
-    return extra_response_katcp(d, KATCP_RESULT_FAIL, "internal");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_BUG);
   }
 
   if(argc > 2){
     group = arg_string_katcp(d, 3);
     if(group == NULL){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire group name");
-      return extra_response_katcp(d, KATCP_RESULT_FAIL, "internal");
+      return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_BUG);
     } 
     gx = find_group_katcp(d, group);
     if(gx == NULL){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to locate group called %s", group);
-      return extra_response_katcp(d, KATCP_RESULT_FAIL, "internal");
+      return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_NOT_FOUND);
     }
   } else {
     gx = this_group_katcp(d);
@@ -126,7 +126,7 @@ int client_connect_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   if(create_flat_katcp(d, fd, 0, client, gx) == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate client connection");
     close(fd);
-    return extra_response_katcp(d, KATCP_RESULT_FAIL, "allocation");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_MALLOC);
   }
 
   return KATCP_RESULT_OK;
@@ -143,7 +143,7 @@ int client_halt_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     client = arg_string_katcp(d, 1);
     if(client == NULL){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire new name");
-      return extra_response_katcp(d, KATCP_RESULT_FAIL, "internal");
+      return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_BUG);
     }
   }
 
@@ -151,7 +151,7 @@ int client_halt_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     group = arg_string_katcp(d, 3);
     if(group == NULL){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire group name");
-      return extra_response_katcp(d, KATCP_RESULT_FAIL, "internal");
+      return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_BUG);
     } 
   } else {
     group = NULL;
@@ -161,7 +161,7 @@ int client_halt_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     fx = find_name_flat_katcp(d, group, client);
     if(fx == NULL){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no client with name %s", client);
-      return extra_response_katcp(d, KATCP_RESULT_FAIL, "usage");
+      return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_NOT_FOUND);
     }
   } else {
     fx = require_flat_katcp(d);
@@ -182,25 +182,25 @@ int client_rename_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
   if(argc < 2){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "insufficient parameters");
-    return extra_response_katcp(d, KATCP_RESULT_FAIL, "usage");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
   }
 
   to = arg_string_katcp(d, 1);
   if(to == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire new name");
-    return extra_response_katcp(d, KATCP_RESULT_FAIL, "internal");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_BUG);
   }
 
   if(argc > 2){
     from = arg_string_katcp(d, 2);
     if(from == NULL){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire previous name");
-      return extra_response_katcp(d, KATCP_RESULT_FAIL, "internal");
+      return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_BUG);
     }
   } else {
     fx = require_flat_katcp(d);
     if(fx == NULL){
-      return extra_response_katcp(d, KATCP_RESULT_FAIL, "usage");
+      return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_API);
     }
     from = fx->f_name;
   }
@@ -209,7 +209,7 @@ int client_rename_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     group = arg_string_katcp(d, 3);
     if(group == NULL){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire group name");
-      return extra_response_katcp(d, KATCP_RESULT_FAIL, "internal");
+      return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_BUG);
     } 
   } else {
     group = NULL;
@@ -378,7 +378,6 @@ int group_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
 
   return extra_response_katcp(d, KATCP_RESULT_OK, "%d", count);
-
 }
 
 /* listener related commands ******************************************************/
@@ -401,17 +400,17 @@ int listener_create_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
   if(argc < 2){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a label");
-    return extra_response_katcp(d, KATCP_RESULT_FAIL, "usage");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
   }
 
   name = arg_string_katcp(d, 1);
   if(name == NULL){
-    return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
+    return extra_response_katcp(d, KATCP_RESULT_INVALID, KATCP_FAIL_BUG);
   }
 
   if(find_type_arb_katcp(d, name, KATCP_ARB_TYPE_LISTENER)){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "listener with name %s already exists", name);
-    return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
+    return extra_response_katcp(d, KATCP_RESULT_INVALID, KATCP_FAIL_USAGE);
   }
 
   port = 0;
@@ -459,7 +458,7 @@ int listener_halt_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
   name = arg_string_katcp(d, 1);
   if(name == NULL){
-    return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
+    return extra_response_katcp(d, KATCP_RESULT_INVALID, KATCP_FAIL_USAGE);
   }
 
   if(destroy_listen_flat_katcp(d, name) < 0){
@@ -527,7 +526,7 @@ int listener_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   if(argc > 1){
     name = arg_string_katcp(d, 1);
     if(name == NULL){
-      return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
+      return extra_response_katcp(d, KATCP_RESULT_INVALID, KATCP_FAIL_BUG);
     }
 
     /* a bit too "close" to the internals ... there should be find listener function */
@@ -563,12 +562,12 @@ static int configure_cmd_group_katcp(struct katcp_dispatch *d, int argc, int op,
   char *name;
 
   if(argc <= 1){
-    return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
+    return extra_response_katcp(d, KATCP_RESULT_INVALID, KATCP_FAIL_USAGE);
   }
 
   name = arg_string_katcp(d, 1);
   if(name == NULL){
-    return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
+    return extra_response_katcp(d, KATCP_RESULT_INVALID, KATCP_FAIL_BUG);
   }
 
   fx = this_flat_katcp(d);

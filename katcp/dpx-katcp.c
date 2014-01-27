@@ -305,6 +305,7 @@ int help_group_cmd_katcp(struct katcp_dispatch *d, int argc)
       i = find_data_avltree(mx->m_tree, match);
       if(i == NULL){
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no match for %s found", name);
+        return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_NOT_FOUND);
       } else {
         print_help_cmd_item(d, NULL, (void *)i);
       }
@@ -519,6 +520,37 @@ int halt_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
 
   return KATCP_RESULT_OK;
+}
+
+/* sensor related functions ***************************************************/
+
+int sensor_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  /* TODO */
+  return extra_response_katcp(d, KATCP_RESULT_OK, "%d", 0);
+}
+
+int sensor_sampling_group_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  /* TODO */
+
+  if(argc <= 1){
+    return extra_response_katcp(d, KATCP_RESULT_INVALID, KATCP_FAIL_USAGE);
+  }
+
+  return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_NOT_FOUND);
+}
+
+int sensor_value_group_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  /* TODO */
+
+  if(argc <= 1){
+    return extra_response_katcp(d, KATCP_RESULT_OK, "%d", 0);
+  }
+
+  return extra_response_katcp(d, KATCP_RESULT_INVALID, KATCP_FAIL_NOT_FOUND);
+
 }
 
 #endif

@@ -201,7 +201,7 @@ struct katcp_group *create_group_katcp(struct katcp_dispatch *d, char *name)
   tmp = realloc(s->s_groups, sizeof(struct katcp_group *) * (s->s_members + 1));
   if(tmp == NULL){
     /* WARNING: destroy not yet appropriate, not yet in shared structure */
-    eallocate_group_katcp(d, g);
+    deallocate_group_katcp(d, g);
     return NULL;
   }
 
@@ -2925,7 +2925,7 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
     add_full_cmd_map(m, "relay-watchdog", "ping a peer within the same process (?relay-watchdog peer)", 0, &relay_watchdog_group_cmd_katcp, NULL, NULL);
 #endif
     add_full_cmd_map_katcp(m, "relay", "issue a request to a peer within the same process (?relay peer cmd)", 0, &relay_generic_group_cmd_katcp, NULL, NULL);
-    add_full_cmd_map_katcp(m, "?forward-symbolic", "create a command which generates a request against another party (?forward-symbolic)", 0, &forward_symbolic_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "?forward-symbolic", "create a command which generates a request against another party (?forward-symbolic command remote [remote-command])", 0, &forward_symbolic_group_cmd_katcp, NULL, NULL);
 
     add_full_cmd_map_katcp(m, "client-list", "display currently connected clients (?client-list)", 0, &client_list_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "?client-rename", "rename a client (?client-rename new-name [old-name [group]])", 0, &client_rename_group_cmd_katcp, NULL, NULL);
@@ -2939,14 +2939,18 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
 
     add_full_cmd_map_katcp(m, "?listener-create", "create a listener (?listener-create label [port [interface [group]]])", 0, &listener_create_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "?listener-halt", "stop a listener (?listener-halt port)", 0, &listener_halt_group_cmd_katcp, NULL, NULL);
-    add_full_cmd_map_katcp(m, "?listener-list", "list listeners (?listener-list [port])", 0, &listener_list_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "?listener-list", "list listeners (?listener-list [label])", 0, &listener_list_group_cmd_katcp, NULL, NULL);
 
     add_full_cmd_map_katcp(m, "?restart", "restart (?restart)", 0, &restart_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "?halt", "halt (?halt)", 0, &halt_group_cmd_katcp, NULL, NULL);
 
-    add_full_cmd_map_katcp(m, "?cmd-hide", "hide a command (?cmd-hide)", 0, &hide_cmd_group_cmd_katcp, NULL, NULL);
-    add_full_cmd_map_katcp(m, "?cmd-uncover", "reveal a hidden command (?cmd-uncover)", 0, &uncover_cmd_group_cmd_katcp, NULL, NULL);
-    add_full_cmd_map_katcp(m, "?cmd-delete", "remove a command (?cmd-delete)", 0, &delete_cmd_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "?cmd-hide", "hide a command (?cmd-hide command)", 0, &hide_cmd_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "?cmd-uncover", "reveal a hidden command (?cmd-uncover command)", 0, &uncover_cmd_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "?cmd-delete", "remove a command (?cmd-delete command)", 0, &delete_cmd_group_cmd_katcp, NULL, NULL);
+
+    add_full_cmd_map_katcp(m, "?sensor-list", "lists available sensors (?sensor-list [sensor])", 0, &sensor_list_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "?sensor-value", "query a sensor (?sensor-value sensor)", 0, &sensor_value_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "?sensor-sampling", "configure a sensor (?sensor-sampling sensor [strategy [parameter]])", 0, &sensor_sampling_group_cmd_katcp, NULL, NULL);
 
 
   } else {
