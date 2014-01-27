@@ -802,8 +802,12 @@ void free_node_avltree(struct avl_node *n, void (*d_free)(void *))
 {
   struct free_reducer reducer, *rs;
 
-  rs = &reducer;
+  if(d_free == NULL){
+    free_node_complex_avltree(n, NULL, NULL);
+    return;
+  }
 
+  rs = &reducer;
   rs->reduced_free = d_free;
 
   free_node_complex_avltree(n, rs, &complex_to_reduced_free_avltree);
@@ -1026,8 +1030,11 @@ int del_node_avltree(struct avl_tree *t, struct avl_node *n, void (*d_free)(void
 {
   struct free_reducer reducer, *rs;
 
-  rs = &reducer;
+  if(d_free == NULL){
+    return del_node_complex_avltree(t, n, NULL, NULL);
+  }
 
+  rs = &reducer;
   rs->reduced_free = d_free;
 
   return del_node_complex_avltree(t, n, rs, &complex_to_reduced_free_avltree);
@@ -1105,6 +1112,10 @@ int del_name_node_complex_avltree(struct avl_tree *t, char *key, void *global, v
 int del_name_node_avltree(struct avl_tree *t, char *key, void (*d_free)(void *))
 {
   struct free_reducer reducer, *rs;
+
+  if(d_free == NULL){
+    return del_name_node_complex_avltree(t, key, NULL, NULL);
+  }
 
   rs = &reducer;
   rs->reduced_free = d_free;
@@ -1186,6 +1197,11 @@ void destroy_complex_avltree(struct avl_tree *t, void *global, void (*complex_fr
 void destroy_avltree(struct avl_tree *t, void (*d_free)(void *))
 {
   struct free_reducer reducer, *rs;
+
+  if(d_free == NULL){
+    destroy_complex_avltree(t, NULL, NULL);
+    return;
+  }
 
   rs = &reducer;
   rs->reduced_free = d_free;
