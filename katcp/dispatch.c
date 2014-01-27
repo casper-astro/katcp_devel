@@ -1549,12 +1549,15 @@ int log_message_katcp(struct katcp_dispatch *d, unsigned int priority, char *nam
 {
   va_list args;
   int sum;
-  unsigned int level, i, j;
+  unsigned int level, i;
   struct katcp_shared *s;
   struct katcp_entry *e;
   char *prefix;
+#ifdef KATCP_EXPERIMENTAL
   struct katcp_group *gx;
   struct katcp_flat *fx;
+  unsigned int j;
+#endif
 
   level = priority & KATCP_MASK_LEVELS;
   sum = 0;
@@ -1581,6 +1584,7 @@ int log_message_katcp(struct katcp_dispatch *d, unsigned int priority, char *nam
     }
   }
 
+#ifdef KATCP_EXPERIMENTAL
   if(priority & KATCP_LEVEL_LOCAL){ 
     fx = this_flat_katcp(d);
     if(fx){
@@ -1615,6 +1619,7 @@ int log_message_katcp(struct katcp_dispatch *d, unsigned int priority, char *nam
       }
     }
   }
+#endif
 
   if(s->s_count > 0){ /* do we have clones ? Then send it to them */
     if(s->s_template != d){ /* only honour local messages if we are not the template (which doesn't do IO) */
@@ -1708,10 +1713,13 @@ int basic_inform_katcp(struct katcp_dispatch *d, char *name, char *arg)
 
 unsigned int arg_count_katcp(struct katcp_dispatch *d)
 {
+#ifdef KATCP_EXPERIMENTAL
   struct katcp_flat *fx;
+#endif
 
   sane_katcp(d);
 
+#ifdef KATCP_EXPERIMENTAL
   fx = this_flat_katcp(d);
   if(fx){
     if(fx->f_rx == NULL){
@@ -1720,16 +1728,20 @@ unsigned int arg_count_katcp(struct katcp_dispatch *d)
     }
     return get_count_parse_katcl(fx->f_rx);
   }
+#endif
 
   return arg_count_katcl(d->d_line);
 }
 
 int arg_tag_katcp(struct katcp_dispatch *d)
 {
+#ifdef KATCP_EXPERIMENTAL
   struct katcp_flat *fx;
+#endif
 
   sane_katcp(d);
 
+#ifdef KATCP_EXPERIMENTAL
   fx = this_flat_katcp(d);
   if(fx){
     if(fx->f_rx == NULL){
@@ -1738,16 +1750,20 @@ int arg_tag_katcp(struct katcp_dispatch *d)
     }
     return get_tag_parse_katcl(fx->f_rx);
   }
+#endif
 
   return arg_tag_katcl(d->d_line);
 }
 
 int arg_request_katcp(struct katcp_dispatch *d)
 {
+#ifdef KATCP_EXPERIMENTAL
   struct katcp_flat *fx;
+#endif
 
   sane_katcp(d);
 
+#ifdef KATCP_EXPERIMENTAL
   fx = this_flat_katcp(d);
   if(fx){
     if(fx->f_rx == NULL){
@@ -1756,16 +1772,20 @@ int arg_request_katcp(struct katcp_dispatch *d)
     }
     return is_request_parse_katcl(fx->f_rx);
   }
+#endif
 
   return arg_request_katcl(d->d_line);
 }
 
 int arg_reply_katcp(struct katcp_dispatch *d)
 {
+#ifdef KATCP_EXPERIMENTAL
   struct katcp_flat *fx;
+#endif
 
   sane_katcp(d);
 
+#ifdef KATCP_EXPERIMENTAL
   fx = this_flat_katcp(d);
   if(fx){
     if(fx->f_rx == NULL){
@@ -1774,16 +1794,20 @@ int arg_reply_katcp(struct katcp_dispatch *d)
     }
     return is_reply_parse_katcl(fx->f_rx);
   }
+#endif
 
   return arg_reply_katcl(d->d_line);
 }
 
 int arg_inform_katcp(struct katcp_dispatch *d)
 {
+#ifdef KATCP_EXPERIMENTAL
   struct katcp_flat *fx;
+#endif
 
   sane_katcp(d);
 
+#ifdef KATCP_EXPERIMENTAL
   fx = this_flat_katcp(d);
   if(fx){
     if(fx->f_rx == NULL){
@@ -1792,16 +1816,20 @@ int arg_inform_katcp(struct katcp_dispatch *d)
     }
     return is_inform_parse_katcl(fx->f_rx);
   }
+#endif
 
   return arg_inform_katcl(d->d_line);
 }
 
 int arg_null_katcp(struct katcp_dispatch *d, unsigned int index)
 {
+#ifdef KATCP_EXPERIMENTAL
   struct katcp_flat *fx;
+#endif
 
   sane_katcp(d);
 
+#ifdef KATCP_EXPERIMENTAL
   fx = this_flat_katcp(d);
   if(fx){
     if(fx->f_rx == NULL){
@@ -1810,16 +1838,20 @@ int arg_null_katcp(struct katcp_dispatch *d, unsigned int index)
     }
     return is_null_parse_katcl(fx->f_rx, index);
   }
+#endif
 
   return arg_null_katcl(d->d_line, index);
 }
 
 char *arg_string_katcp(struct katcp_dispatch *d, unsigned int index)
 {
+#ifdef KATCP_EXPERIMENTAL
   struct katcp_flat *fx;
+#endif
 
   sane_katcp(d);
 
+#ifdef KATCP_EXPERIMENTAL
   fx = this_flat_katcp(d);
   if(fx){
     if(fx->f_rx == NULL){
@@ -1831,16 +1863,20 @@ char *arg_string_katcp(struct katcp_dispatch *d, unsigned int index)
     }
     return get_string_parse_katcl(fx->f_rx, index);
   }
+#endif
 
   return arg_string_katcl(d->d_line, index);
 }
 
 char *arg_copy_string_katcp(struct katcp_dispatch *d, unsigned int index)
 {
+#ifdef KATCP_EXPERIMENTAL
   struct katcp_flat *fx;
+#endif
 
   sane_katcp(d);
 
+#ifdef KATCP_EXPERIMENTAL
   fx = this_flat_katcp(d);
   if(fx){
     if(fx->f_rx == NULL){
@@ -1849,16 +1885,20 @@ char *arg_copy_string_katcp(struct katcp_dispatch *d, unsigned int index)
     }
     return copy_string_parse_katcl(fx->f_rx, index);
   }
+#endif
 
   return arg_copy_string_katcl(d->d_line, index);
 }
 
 unsigned long arg_unsigned_long_katcp(struct katcp_dispatch *d, unsigned int index)
 {
+#ifdef KATCP_EXPERIMENTAL
   struct katcp_flat *fx;
+#endif
 
   sane_katcp(d);
 
+#ifdef KATCP_EXPERIMENTAL
   fx = this_flat_katcp(d);
   if(fx){
     if(fx->f_rx == NULL){
@@ -1867,16 +1907,20 @@ unsigned long arg_unsigned_long_katcp(struct katcp_dispatch *d, unsigned int ind
     }
     return get_unsigned_long_parse_katcl(fx->f_rx, index);
   }
+#endif
 
   return arg_unsigned_long_katcl(d->d_line, index);
 }
 
 int arg_bb_katcp(struct katcp_dispatch *d, unsigned int index, struct katcl_byte_bit *b)
 {
+#ifdef KATCP_EXPERIMENTAL
   struct katcp_flat *fx;
+#endif
 
   sane_katcp(d);
 
+#ifdef KATCP_EXPERIMENTAL
   fx = this_flat_katcp(d);
   if(fx){
     if(fx->f_rx == NULL){
@@ -1885,6 +1929,7 @@ int arg_bb_katcp(struct katcp_dispatch *d, unsigned int index, struct katcl_byte
     }
     return get_bb_parse_katcl(fx->f_rx, index, b);
   }
+#endif
 
   return arg_bb_katcl(d->d_line, index, b);
 }
@@ -1892,10 +1937,13 @@ int arg_bb_katcp(struct katcp_dispatch *d, unsigned int index, struct katcl_byte
 #ifdef KATCP_USE_FLOATS
 double arg_double_katcp(struct katcp_dispatch *d, unsigned int index)
 {
+#ifdef KATCP_EXPERIMENTAL
   struct katcp_flat *fx;
+#endif
 
   sane_katcp(d);
 
+#ifdef KATCP_EXPERIMENTAL
   fx = this_flat_katcp(d);
   if(fx){
     if(fx->f_rx == NULL){
@@ -1904,6 +1952,7 @@ double arg_double_katcp(struct katcp_dispatch *d, unsigned int index)
     }
     return get_double_parse_katcl(fx->f_rx, index);
   }
+#endif
 
   return arg_double_katcl(d->d_line, index);
 }
@@ -1911,10 +1960,13 @@ double arg_double_katcp(struct katcp_dispatch *d, unsigned int index)
 
 unsigned int arg_buffer_katcp(struct katcp_dispatch *d, unsigned int index, void *buffer, unsigned int size)
 {
+#ifdef KATCP_EXPERIMENTAL
   struct katcp_flat *fx;
+#endif
 
   sane_katcp(d);
 
+#ifdef KATCP_EXPERIMENTAL
   fx = this_flat_katcp(d);
   if(fx){
     if(fx->f_rx == NULL){
@@ -1923,6 +1975,7 @@ unsigned int arg_buffer_katcp(struct katcp_dispatch *d, unsigned int index, void
     }
     return get_buffer_parse_katcl(fx->f_rx, index, buffer, size);
   }
+#endif
 
   /* returns the number of bytes it wanted to copy, more than size indicates a failure */
   return arg_buffer_katcl(d->d_line, index, buffer, size);
@@ -1931,10 +1984,13 @@ unsigned int arg_buffer_katcp(struct katcp_dispatch *d, unsigned int index, void
 struct katcl_parse *arg_parse_katcp(struct katcp_dispatch *d)
 {
   struct katcl_line *l;
+#ifdef KATCP_EXPERIMENTAL
   struct katcp_flat *fx;
+#endif
   
   sane_katcp(d);
 
+#ifdef KATCP_EXPERIMENTAL
   fx = this_flat_katcp(d);
   if(fx){
     if(fx->f_rx == NULL){
@@ -1943,6 +1999,7 @@ struct katcl_parse *arg_parse_katcp(struct katcp_dispatch *d)
     }
     return fx->f_rx;
   }
+#endif
 
   l = line_katcp(d);
   if (l == NULL){
@@ -1963,10 +2020,12 @@ static int prepend_generic_katcp(struct katcp_dispatch *d, int reply)
   int tag;
 #endif
 
+#ifdef KATCP_EXPERIMENTAL
   if(this_flat_katcp(d)){
     /* duplex code is special, uses origin related logic */
     return prepend_generic_flat_katcp(d, reply);
   }
+#endif
 
   message = arg_string_katcp(d, 0);
 #if 0
@@ -2023,9 +2082,11 @@ int append_string_katcp(struct katcp_dispatch *d, int flags, char *buffer)
 {
   sane_katcp(d);
 
+#ifdef KATCP_EXPERIMENTAL
   if(this_flat_katcp(d)){
     return append_string_flat_katcp(d, flags, buffer);
   }
+#endif
 
   return append_string_katcl(d->d_line, flags, buffer);
 }
@@ -2034,9 +2095,11 @@ int append_unsigned_long_katcp(struct katcp_dispatch *d, int flags, unsigned lon
 {
   sane_katcp(d);
 
+#ifdef KATCP_EXPERIMENTAL
   if(this_flat_katcp(d)){
     return append_unsigned_long_flat_katcp(d, flags, v);
   }
+#endif
 
   return append_unsigned_long_katcl(d->d_line, flags, v);
 }
@@ -2045,9 +2108,11 @@ int append_signed_long_katcp(struct katcp_dispatch *d, int flags, unsigned long 
 {
   sane_katcp(d);
 
+#ifdef KATCP_EXPERIMENTAL
   if(this_flat_katcp(d)){
     return append_signed_long_flat_katcp(d, flags, v);
   }
+#endif
 
   return append_signed_long_katcl(d->d_line, flags, v);
 }
@@ -2056,9 +2121,11 @@ int append_hex_long_katcp(struct katcp_dispatch *d, int flags, unsigned long v)
 {
   sane_katcp(d);
 
+#ifdef KATCP_EXPERIMENTAL
   if(this_flat_katcp(d)){
     return append_hex_long_flat_katcp(d, flags, v);
   }
+#endif
 
   return append_hex_long_katcl(d->d_line, flags, v);
 }
@@ -2068,10 +2135,11 @@ int append_double_katcp(struct katcp_dispatch *d, int flags, double v)
 {
   sane_katcp(d);
 
+#ifdef KATCP_EXPERIMENTAL
   if(this_flat_katcp(d)){
     return append_double_flat_katcp(d, flags, v);
   }
-
+#endif
 
   return append_double_katcl(d->d_line, flags, v);
 }
@@ -2081,9 +2149,11 @@ int append_buffer_katcp(struct katcp_dispatch *d, int flags, void *buffer, int l
 {
   sane_katcp(d);
 
+#ifdef KATCP_EXPERIMENTAL
   if(this_flat_katcp(d)){
     return append_buffer_flat_katcp(d, flags, buffer, len);
   }
+#endif
 
   return append_buffer_katcl(d->d_line, flags, buffer, len);
 }
@@ -2092,9 +2162,11 @@ int append_parameter_katcp(struct katcp_dispatch *d, int flags, struct katcl_par
 {
   sane_katcp(d);
 
+#ifdef KATCP_EXPERIMENTAL
   if(this_flat_katcp(d)){
     return append_parameter_flat_katcp(d, flags, p, index);
   }
+#endif
 
   return append_parameter_katcl(d->d_line, flags, p, index);
 }
@@ -2103,9 +2175,11 @@ int append_trailing_katcp(struct katcp_dispatch *d, int flags, struct katcl_pars
 {
   sane_katcp(d);
 
+#ifdef KATCP_EXPERIMENTAL
   if(this_flat_katcp(d)){
     return append_trailing_flat_katcp(d, flags, p, start);
   }
+#endif
 
   return append_trailing_katcl(d->d_line, flags, p, start);
 }
@@ -2114,9 +2188,11 @@ int append_parse_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
 {
   sane_katcp(d);
 
+#ifdef KATCP_EXPERIMENTAL
   if(this_flat_katcp(d)){
     return append_parse_flat_katcp(d, p);
   }
+#endif
 
   return append_parse_katcl(d->d_line, p);
 }
@@ -2133,11 +2209,15 @@ int append_vargs_katcp(struct katcp_dispatch *d, int flags, char *fmt, va_list a
   /* all of them, so not sure how much copying is really needed */
 
   va_copy(copy, args);
+#ifdef KATCP_EXPERIMENTAL
   if(this_flat_katcp(d)){ 
     result = append_vargs_flat_katcp(d, flags, fmt, args);
   } else {
+#endif
     result = append_vargs_katcl(d->d_line, flags, fmt, copy);
+#ifdef KATCP_EXPERIMENTAL
   }
+#endif
   va_end(copy);
 
   return result;
@@ -2151,11 +2231,15 @@ int append_args_katcp(struct katcp_dispatch *d, int flags, char *fmt, ...)
   sane_katcp(d);
 
   va_start(args, fmt);
+#ifdef KATCP_EXPERIMENTAL
   if(this_flat_katcp(d)){
     result = append_vargs_flat_katcp(d, flags, fmt, args);
   } else {
+#endif
     result = append_vargs_katcl(d->d_line, flags, fmt, args);
+#ifdef KATCP_EXPERIMENTAL
   }
+#endif
   va_end(args);
 
   return result;
