@@ -51,6 +51,10 @@ int del_name_node_avltree(struct avl_tree *t, char *key, void (*d_free)(void *))
 void free_node_avltree(struct avl_node *n, void (*d_free)(void *));
 void destroy_avltree(struct avl_tree *t, void (*d_free)(void *));
 
+int del_name_node_complex_avltree(struct avl_tree *t, char *key, void *global, void (*complex_free)(void *global, char *key, void *payload));
+int del_node_complex_avltree(struct avl_tree *t, struct avl_node *n, void *global, void (*complex_free)(void *global, char *key, void *payload));
+void destroy_complex_avltree(struct avl_tree *t, void *global, void (*complex_free)(void *global, char *key, void *payload));
+
 struct avl_node *walk_inorder_avltree(struct avl_node *n);
 void *walk_data_inorder_avltree(struct avl_node *n);
 

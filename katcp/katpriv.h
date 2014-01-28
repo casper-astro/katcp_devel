@@ -430,12 +430,18 @@ struct katcp_arb{
 /* duplex structures: was supposed to be called duplex, but flat is punnier */
 /********************************************************************/
 
-#define KATCP_VRBL_INVALID 0
-#define KATCP_VRBL_STRING  1
+#define KATCP_VRT_INVALID 0
+#define KATCP_VRT_STRING  1
+
+#define KATCP_VRF_NONE     0
+#define KATCP_VRF_ENV    0x1  /* exported to environment */
+#define KATCP_VRF_VER    0x2  /* a version variable */
+#define KATCP_VRF_SEN    0x4  /* a variable visible as a sensor */
 
 struct katcp_vrbl{
   unsigned short v_type;
   unsigned short v_status;
+  unsigned short v_flags;
 
   int (*v_refresh)(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx);
   int (*v_change)(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx);
@@ -511,6 +517,8 @@ struct katcp_group{
 
   int g_use;             /* are we ref'ed by the listener */
   int g_autoremove;      /* do we disappear if use and count are zero ? */
+
+  struct katcp_region *g_region;
 };
 
 #define KATCP_REPLY_HANDLE_REPLIES   0x1
@@ -590,6 +598,8 @@ struct katcp_flat{
   /* notices, sensors */
 
   /* a sensor could probably be a special type of notice */
+
+  struct katcp_region *f_region;
 };
 #endif
 
@@ -652,6 +662,8 @@ struct katcp_shared{
   unsigned int s_stories;
 
   struct katcp_endpoint *s_endpoints;
+
+  struct katcp_region *s_region;
 
 #if 0
   int s_version_major;
@@ -888,9 +900,9 @@ void set_flag_cmd_item_katcp(struct katcp_cmd_item *ix, unsigned int flags);
 int run_flat_katcp(struct katcp_dispatch *d);
 int load_flat_katcp(struct katcp_dispatch *d);
 
-int init_flats_katcp(struct katcp_dispatch *d, unsigned int stories);
-void destroy_flats_katcp(struct katcp_dispatch *d);
-void destroy_groups_katcp(struct katcp_dispatch *d);
+/* duplex (flat+group) setup */
+int startup_duplex_katcp(struct katcp_dispatch *d, unsigned int stories);
+void shutdown_duplex_katcp(struct katcp_dispatch *d);
 
 struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, int up, char *name, struct katcp_group *g);
 struct katcp_flat *create_exec_flat_katcp(struct katcp_dispatch *d, char *name, struct katcp_group *gx, char **vector);
@@ -1072,11 +1084,15 @@ void reference_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *e
 
 int code_from_scope_katcp(char *scope);
 char *string_from_scope_katcp(unsigned int scope);
+
+/* internal variable use ******************/
+
+struct katcp_region *create_region_katcp(struct katcp_dispatch *d);
+void destroy_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx);
  
 /******************************************/
 
 int prepend_generic_flat_katcp(struct katcp_dispatch *d, int reply);
-
 
 /******************************************/
 

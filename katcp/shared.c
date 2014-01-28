@@ -200,6 +200,8 @@ int startup_shared_katcp(struct katcp_dispatch *d)
 
   s->s_endpoints = NULL;
 
+  s->s_region = NULL;
+
   s->s_build_state = NULL;
   s->s_build_items = 0;
 
@@ -258,8 +260,9 @@ int startup_shared_katcp(struct katcp_dispatch *d)
   d->d_shared = s;
 
 #ifdef KATCP_EXPERIMENTAL
-  if(init_flats_katcp(d, KATCP_FLAT_STACK) < 0){
-    /* TODO: provide proper destruction function ... */
+  if(startup_duplex_katcp(d, KATCP_FLAT_STACK) < 0){
+
+    /* TODO: provide proper destruction function to undo setup_shared ... */
     free(s->s_vector);
     free(s);
     d->d_shared = NULL;
@@ -366,10 +369,12 @@ void shutdown_shared_katcp(struct katcp_dispatch *d)
   /* at this point it is unsafe to call API functions on the shared structure */
 
 #ifdef KATCP_EXPERIMENTAL
-  /* TODO: destroy groups ... */
+  shutdown_duplex_katcp(d);
+#if 0 /* was previously */
   destroy_flats_katcp(d);
   destroy_groups_katcp(d);
   release_endpoints_katcp(d);
+#endif
 #endif
 
 

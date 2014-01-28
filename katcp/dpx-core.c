@@ -89,6 +89,11 @@ static int deallocate_group_katcp(struct katcp_dispatch *d, struct katcp_group *
     return -1; 
   }
 
+  if(g->g_region){
+    destroy_region_katcp(d, g->g_region);
+    g->g_region = NULL;
+  }
+
   if(g->g_name){
     free(g->g_name);
     g->g_name = NULL;
@@ -198,6 +203,8 @@ struct katcp_group *create_group_katcp(struct katcp_dispatch *d, char *name)
   g->g_use = 0;
   g->g_autoremove = 0;
 
+  g->g_region = NULL;
+
   tmp = realloc(s->s_groups, sizeof(struct katcp_group *) * (s->s_members + 1));
   if(tmp == NULL){
     /* WARNING: destroy not yet appropriate, not yet in shared structure */
@@ -217,6 +224,12 @@ struct katcp_group *create_group_katcp(struct katcp_dispatch *d, char *name)
       destroy_group_katcp(d, g);
       return NULL;
     }
+  }
+
+  g->g_region = create_region_katcp(d);
+  if(g->g_region == NULL){
+    destroy_group_katcp(d, g);
+    return NULL;
   }
 
   return g;
@@ -397,52 +410,6 @@ static void sane_flat_katcp(struct katcp_flat *f)
 #define sane_flat_katcp(f);
 #endif
 
-int init_flats_katcp(struct katcp_dispatch *d, unsigned int stories)
-{
-  struct katcp_shared *s;
-  
-  if(d == NULL){
-    return -1;
-  }
-
-  s = d->d_shared;
-  if(s == NULL){
-    return -1;
-  }
-
-#ifdef KATCP_CONSISTENCY_CHECKS
-  if(s->s_this){
-    fprintf(stderr, "flat: initialising stack which already has a value\n");
-    abort();
-  }
-#endif
-
-  s->s_stories = 0;
-  s->s_level = (-1);
-
-  s->s_this = malloc(sizeof(struct katcp_flat *) * stories);
-  if(s->s_this == NULL){
-    return -1;
-  }
-
-  s->s_stories = stories;
-
-#ifdef KATCP_CONSISTENCY_CHECKS
-  if(s->s_fallback){
-    fprintf(stderr, "flat: fallback group already initialised\n");
-    abort();
-  }
-
-#endif
-
-  if(setup_default_group(d, "default") < 0){
-    /* TODO: should actually delete s_this, need a proper shutdown function */
-    return -1;
-  }
-
-  return 0;
-}
-
 void destroy_flats_katcp(struct katcp_dispatch *d)
 {
   struct katcp_shared *s;
@@ -477,6 +444,74 @@ void destroy_flats_katcp(struct katcp_dispatch *d)
 
   s->s_level = (-1);
   s->s_stories = 0;
+}
+
+void shutdown_duplex_katcp(struct katcp_dispatch *d)
+{
+  struct katcp_shared *s;
+
+  if(d == NULL){
+    return;
+  }
+  
+  s = d->d_shared;
+  if(s == NULL){
+    return;
+  }
+
+  destroy_flats_katcp(d);
+  destroy_groups_katcp(d);
+  release_endpoints_katcp(d);
+
+  if(s->s_region){
+    destroy_region_katcp(d, s->s_region);
+    s->s_region = NULL;
+  }
+}
+
+int startup_duplex_katcp(struct katcp_dispatch *d, unsigned int stories)
+{
+  struct katcp_shared *s;
+  
+  if(d == NULL){
+    return -1;
+  }
+
+  s = d->d_shared;
+  if(s == NULL){
+    return -1;
+  }
+
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(s->s_groups || s->s_fallback || s->s_this || s->s_endpoints || s->s_region){
+    fprintf(stderr, "duplex: major logic problem: duplex data structures not empty at initialisation\n");
+    abort();
+  }
+#endif
+
+  s->s_stories = 0;
+  s->s_level = (-1);
+
+  s->s_this = malloc(sizeof(struct katcp_flat *) * stories);
+  if(s->s_this == NULL){
+    shutdown_duplex_katcp(d);
+    return -1;
+  }
+
+  s->s_stories = stories;
+
+  if(setup_default_group(d, "default") < 0){
+    shutdown_duplex_katcp(d);
+    return -1;
+  }
+
+  s->s_region = create_region_katcp(d);
+  if(s->s_region == NULL){
+    shutdown_duplex_katcp(d);
+    return -1;
+  }
+
+  return 0;
 }
 
 /********************************************************************/
@@ -585,6 +620,13 @@ static void deallocate_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *f
   }
 
   f->f_group = NULL;
+
+  /* WARNING: might be awkward if there a callbacks which assume a valid flat ... maybe move this code higher up ... */
+
+  if(f->f_region){
+    destroy_region_katcp(d, f->f_region);
+    f->f_region = NULL;
+  }
 
   f->f_log_level = (-1);
   f->f_scope = KATCP_SCOPE_INVALID;
@@ -1384,6 +1426,8 @@ struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, int up, c
 
   f->f_group = NULL;
 
+  f->f_region = NULL;
+
   if(name){
     f->f_name = strdup(name);
     if(f->f_name == NULL){
@@ -1407,6 +1451,12 @@ struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, int up, c
 
   f->f_line = create_katcl(fd);
   if(f->f_line == NULL){
+    destroy_flat_katcp(d, f);
+    return NULL;
+  }
+
+  f->f_region = create_region_katcp(d);
+  if(f->f_region == NULL){
     destroy_flat_katcp(d, f);
     return NULL;
   }

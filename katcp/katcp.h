@@ -682,6 +682,7 @@ int hold_group_katcp(struct katcp_group *g);
 struct katcp_group *duplicate_group_katcp(struct katcp_dispatch *d, struct katcp_group *go, char *name, int depth);
 struct katcp_group *create_group_katcp(struct katcp_dispatch *d, char *name);
 int terminate_group_katcp(struct katcp_dispatch *d, struct katcp_group *gx, int hard);
+void destroy_group_katcp(struct katcp_dispatch *d, struct katcp_group *g);
 
 struct katcp_flat *find_name_flat_katcp(struct katcp_dispatch *d, char *group, char *name);
 int rename_flat_katcp(struct katcp_dispatch *d, char *group, char *was, char *should);
