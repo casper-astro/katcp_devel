@@ -61,7 +61,7 @@ struct katcp_cmd_map;
 #define KATCP_LEVEL_OFF      6
 #define KATCP_MAX_LEVELS     7
 
-#define KATCP_MASK_LEVELS   0xff
+#define KATCP_MASK_LEVELS  0xff
 /*      KATCL_LEVEL_ALL   0x000 */
 #define KATCP_LEVEL_LOCAL 0x100
 #define KATCP_LEVEL_GROUP 0x200
