@@ -430,16 +430,23 @@ struct katcp_arb{
 /* duplex structures: was supposed to be called duplex, but flat is punnier */
 /********************************************************************/
 
-#define KATCP_VRT_INVALID 0
-#define KATCP_VRT_STRING  1
+#define KATCP_VRT_GONE    (-1)
+
+#define KATCP_VRT_STRING    0
+#define KATCP_MAX_VRT       1
 
 #define KATCP_VRF_NONE     0
 #define KATCP_VRF_ENV    0x1  /* exported to environment */
 #define KATCP_VRF_VER    0x2  /* a version variable */
 #define KATCP_VRF_SEN    0x4  /* a variable visible as a sensor */
+/* other possible options */
+#define KATCP_VRF_COW         /* copy on write */
+#define KATCP_VRF_RO          /* readonly */
+#define KATCP_VRF_LOCK        /* type immutable */
+
 
 struct katcp_vrbl{
-  unsigned short v_type;
+  short v_type;
   unsigned short v_status;
   unsigned short v_flags;
 

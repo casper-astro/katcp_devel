@@ -16,25 +16,144 @@
 #include <katcl.h>
 #include <avltree.h>
 
-/* individual variable functions **************************************************/
+/* string logic *******************************************************************/
 
-struct katcp_vrbl *create_vrbl_katcp(struct katcp_dispatch *d, int (*refresh)(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx), int (*change)(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx), void (*release)(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx))
+int init_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx)
+{
+  if(vx == NULL){
+    return -1;
+  }
+
+  vx->v_type = KATCP_VRT_STRING;
+  vx->v_union.u_string = NULL;
+
+  return 0;
+}
+
+void clear_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx)
+{
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(vx == NULL){
+    fprintf(stderr, "append string: no variable given\n");
+    abort();
+  }
+  if(vx->v_type != KATCP_VRT_STRING){
+    fprintf(stderr, "append string: bad type %u\n", vx->v_type);
+    abort();
+  }
+#endif
+
+  if(vx->v_union.u_string){
+    free(vx->v_union.u_string);
+    vx->v_union.u_string = NULL;
+  }
+}
+
+int scan_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, char *text)
+{
+  char *ptr;
+  int len;
+
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(vx->v_type != KATCP_VRT_STRING){
+    fprintf(stderr, "scan string: bad type %u\n", vx->v_type);
+    abort();
+  }
+#endif
+
+  if(text == NULL){
+    if(vx->v_union.u_string){
+      free(vx->v_union.u_string);
+      vx->v_union.u_string = NULL;
+    }
+    return 0;
+  } else {
+    len = strlen(text) + 1;
+    ptr = realloc(vx->v_union.u_string, len);
+    if(ptr == NULL){
+      return -1;
+    }
+
+    memcpy(ptr, text, len);
+    vx->v_union.u_string = ptr;
+    return 0;
+  }
+}
+
+int append_string_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int flags, struct katcp_vrbl *vx)
+{
+  char *ptr;
+
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(vx == NULL){
+    fprintf(stderr, "append string: no variable given\n");
+    abort();
+  }
+  if(vx->v_type != KATCP_VRT_STRING){
+    fprintf(stderr, "append string: bad type %u\n", vx->v_type);
+    abort();
+  }
+#endif
+
+  ptr = vx->v_union.u_string;
+
+  return add_string_parse_katcl(px, flags, ptr);
+}
+
+/* variable region functions ******************************************************/
+
+struct katcp_vrbl_type_ops{
+  char *t_name;
+
+  int (*t_init)(struct katcp_dispatch *d, struct katcp_vrbl *vx);
+  void (*t_clear)(struct katcp_dispatch *d, struct katcp_vrbl *vx);
+  int (*t_scan)(struct katcp_dispatch *d, struct katcp_vrbl *vx, char *text);
+  int (*t_append)(struct katcp_dispatch *d, struct katcl_parse *px, int flags, struct katcp_vrbl *vx);
+};
+
+struct katcp_vrbl_type_ops ops_type_vrbl[] = {
+  [KATCP_VRT_STRING] = 
+  { "string",
+    &init_string_vrbl_katcp,
+    &clear_string_vrbl_katcp,
+    &scan_string_vrbl_katcp,
+    &append_string_vrbl_katcp
+  }
+};
+
+/* generic functions using type ops ***********************************************/
+
+struct katcp_vrbl *create_vrbl_katcp(struct katcp_dispatch *d, unsigned int type, unsigned int flags, int (*refresh)(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx), int (*change)(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx), void (*release)(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx))
 {
   struct katcp_vrbl *vx;
+
+  if(type >= KATCP_MAX_VRT){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "logic problem while creating a variable: unknown type %u\n", type);
+    abort();
+#else
+    return NULL;
+#endif
+  }
 
   vx = malloc(sizeof(struct katcp_vrbl));
   if(vx == NULL){
     return NULL;
   }
 
-  vx->v_type = KATCP_VRT_INVALID; /* WARNING: deals with the uninitialised case */
-
   vx->v_status = 0; /* TODO - nominal ? unknown ? */
-  vx->v_flags = 0;
+  vx->v_flags = flags;
+  vx->v_type = KATCP_VRT_GONE; /* WARNING: type functions set this, only */
 
   vx->v_refresh = refresh;
   vx->v_change = change;
   vx->v_release = release;
+
+  if((*(ops_type_vrbl[type].t_init))(d, vx) < 0){
+    /* WARNING: failure here doesn't trigger any callbacks */
+    free(vx);
+    return NULL;
+  }
 
   return vx;
 }
@@ -45,7 +164,14 @@ void destroy_vrbl_katcp(struct katcp_dispatch *d, char *name, struct katcp_vrbl 
     return;
   }
 
-  /* vx->v_status = (-1); */
+  if(vx->v_type == KATCP_VRT_GONE){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "logic failure in variable destruction: variable %p already gone\n", vx);
+    abort();
+#else
+    return;
+#endif
+  }
 
   vx->v_change = NULL;
   vx->v_refresh = NULL;
@@ -55,52 +181,62 @@ void destroy_vrbl_katcp(struct katcp_dispatch *d, char *name, struct katcp_vrbl 
     vx->v_release = NULL;
   }
 
-  vx->v_type = KATCP_VRT_INVALID;
+  if(vx->v_type < KATCP_MAX_VRT){
+    (*(ops_type_vrbl[vx->v_type].t_clear))(d, vx);
+  }
+
+  vx->v_type = KATCP_VRT_GONE;
   vx->v_status = 0;
   vx->v_flags = 0;
 
   free(vx);
 }
 
-/* string logic *******************************************************************/
-
-static void release_string_vrbl_katcp(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx)
+int scan_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, char *text)
 {
+  int result;
+
   if(vx == NULL){
-    return;
+    return -1;
   }
-
+  
+  if((vx->v_type >= KATCP_MAX_VRT) || (vx->v_type < 0)){
 #ifdef KATCP_CONSISTENCY_CHECKS
-  if(vx->v_type != KATCP_VRT_STRING){
-    fprintf(stderr, "logic problem: string release called on type %d\n", vx->v_type);
+    fprintf(stderr, "logic failure: invalid type %u while scanning variable %p\n", vx->v_type, vx);
     abort();
-  }
+#else
+    return -1;
 #endif
+  }
 
-  free(vx->v_union.u_string);
-  vx->v_union.u_string = NULL;
+  if(vx->v_type < KATCP_MAX_VRT){
+    result = (*(ops_type_vrbl[vx->v_type].t_scan))(d, vx, text);
+  }
+
+  if(vx->v_change){
+    /* WARNING: unclear if this is supposed to happen this far down the API ? */
+    (*(vx->v_change))(d, NULL, vx);
+  }
+  
+  return result;
 }
 
-struct katcp_vrbl *create_string_vrbl_katcp(struct katcp_dispatch *d, char *value)
+int append_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int flags, struct katcp_vrbl *vx)
 {
-  struct katcp_vrbl *vx;
-  char *ptr;
-
-  ptr = strdup(value);
-  if(ptr == NULL){
-    return NULL;
-  }
-
-  vx = create_vrbl_katcp(d, NULL, NULL, &release_string_vrbl_katcp);
   if(vx == NULL){
-    free(ptr);
-    return NULL;
+    return -1;
+  }
+  
+  if((vx->v_type >= KATCP_MAX_VRT) || (vx->v_type < 0)){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "logic failure: invalid type %u while outputting variable %p\n", vx->v_type, vx);
+    abort();
+#else
+    return -1;
+#endif
   }
 
-  vx->v_union.u_string = ptr;
-  vx->v_type = KATCP_VRT_STRING;
-
-  return vx;
+  return (*(ops_type_vrbl[vx->v_type].t_append))(d, px, flags, vx);
 }
 
 /* variable region functions ******************************************************/
@@ -121,23 +257,6 @@ int insert_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx, struc
   }
 
   if(store_named_node_avltree(rx->r_tree, key, vx) < 0){
-    return -1;
-  }
-
-  return 0;
-}
-
-int insert_string_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx, char *key, char *value)
-{
-  struct katcp_vrbl *vx;
-
-  vx = create_string_vrbl_katcp(d, value);
-  if(vx == NULL){
-    return -1;
-  }
-
-  if(insert_region_katcp(d, rx, vx, key) < 0){
-    destroy_vrbl_katcp(d, key, vx);
     return -1;
   }
 
@@ -388,5 +507,57 @@ struct katcp_region *create_region_katcp(struct katcp_dispatch *d)
 
   return rx;
 }
+
+/******************************************************************************/
+
+#if 0
+
+int insert_string_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx, char *key, unsigned int flags, char *value)
+{
+  struct katcp_vrbl *vx;
+
+  vx = create_string_vrbl_katcp(d, flags, value);
+  if(vx == NULL){
+    return -1;
+  }
+
+  if(insert_region_katcp(d, rx, vx, key) < 0){
+    destroy_vrbl_katcp(d, key, vx);
+    return -1;
+  }
+
+  return 0;
+}
+#endif
+
+#if 0
+struct katcp_vrbl *create_string_vrbl_katcp(struct katcp_dispatch *d, unsigned int flags, char *value)
+{
+  struct katcp_vrbl *vx;
+  char *ptr;
+
+  if(value){
+    ptr = strdup(value);
+    if(ptr == NULL){
+      return NULL;
+    }
+  } else {
+    ptr = NULL;
+  }
+
+  vx = create_vrbl_katcp(d, flags, NULL, NULL, &release_string_vrbl_katcp);
+  if(vx == NULL){
+    if(ptr){
+      free(ptr);
+    }
+    return NULL;
+  }
+
+  vx->v_union.u_string = ptr;
+  vx->v_type = KATCP_VRT_STRING;
+
+  return vx;
+}
+#endif
 
 #endif
