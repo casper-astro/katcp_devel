@@ -2413,6 +2413,28 @@ int append_buffer_flat_katcp(struct katcp_dispatch *d, int flags, void *buffer, 
   return finish_append_flat_katcp(d, flags, result);
 }
 
+int append_vrbl_flat_katcp(struct katcp_dispatch *d, int flags, struct katcp_vrbl *vx)
+{
+  struct katcl_parse *px;
+  struct katcp_flat *fx;
+  int result;
+
+  fx = require_flat_katcp(d);
+  if(fx == NULL){
+    return -1;
+  }
+
+  px = prepare_append_flat_katcp(fx, flags);
+  if(px == NULL){
+    return -1;
+  }
+
+  result = add_vrbl_katcp(d, px, flags, vx);
+
+  return finish_append_flat_katcp(d, flags, result);
+
+}
+
 int append_parameter_flat_katcp(struct katcp_dispatch *d, int flags, struct katcl_parse *p, unsigned int index)
 {
   struct katcl_parse *px;
@@ -3002,6 +3024,8 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
     add_full_cmd_map_katcp(m, "?sensor-value", "query a sensor (?sensor-value sensor)", 0, &sensor_value_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "?sensor-sampling", "configure a sensor (?sensor-sampling sensor [strategy [parameter]])", 0, &sensor_sampling_group_cmd_katcp, NULL, NULL);
 
+    add_full_cmd_map_katcp(m, "?var-declare", "declare a variable (?var-declare name type", 0, &var_declare_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "?var-list", "list variables (?var-list [variable]", 0, &var_list_group_cmd_katcp, NULL, NULL);
 
   } else {
     m = gx->g_maps[KATCP_MAP_REMOTE_REQUEST];

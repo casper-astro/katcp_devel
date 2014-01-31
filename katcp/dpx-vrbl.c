@@ -16,6 +16,8 @@
 #include <katcl.h>
 #include <avltree.h>
 
+#define MAX_DEPTH_VRBL 3
+
 /* string logic *******************************************************************/
 
 int init_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx)
@@ -85,12 +87,18 @@ int append_string_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, i
   char *ptr;
 
 #ifdef KATCP_CONSISTENCY_CHECKS
+  unsigned int valid;
   if(vx == NULL){
     fprintf(stderr, "append string: no variable given\n");
     abort();
   }
   if(vx->v_type != KATCP_VRT_STRING){
     fprintf(stderr, "append string: bad type %u\n", vx->v_type);
+    abort();
+  }
+  valid = (KATCP_FLAG_FIRST | KATCP_FLAG_LAST | KATCP_FLAG_STRING);
+  if((flags | valid) != valid){
+    fprintf(stderr, "append string: bad flags 0x%x supplied\n", flags);
     abort();
   }
 #endif
@@ -111,7 +119,7 @@ struct katcp_vrbl_type_ops{
   int (*t_append)(struct katcp_dispatch *d, struct katcl_parse *px, int flags, struct katcp_vrbl *vx);
 };
 
-struct katcp_vrbl_type_ops ops_type_vrbl[] = {
+struct katcp_vrbl_type_ops ops_type_vrbl[KATCP_MAX_VRT] = {
   [KATCP_VRT_STRING] = 
   { "string",
     &init_string_vrbl_katcp,
@@ -120,6 +128,34 @@ struct katcp_vrbl_type_ops ops_type_vrbl[] = {
     &append_string_vrbl_katcp
   }
 };
+
+/* type name related functions ****************************************************/
+
+int type_from_string_vrbl_katcp(struct katcp_dispatch *d, char *string)
+{
+  int i;
+
+  if(string == NULL){
+    return -1;
+  }
+
+  for(i = 0; i < KATCP_MAX_VRT; i++){
+    if(!strcmp(string, ops_type_vrbl[i].t_name)){
+      return i;
+    }
+  }
+
+  return -1;
+}
+
+char *type_to_string_vrbl_katcp(struct katcp_dispatch *d, unsigned int type)
+{
+  if(type >= KATCP_MAX_VRT){
+    return NULL;
+  }
+
+  return ops_type_vrbl[type].t_name;
+}
 
 /* generic functions using type ops ***********************************************/
 
@@ -221,7 +257,7 @@ int scan_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, char *text)
   return result;
 }
 
-int append_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int flags, struct katcp_vrbl *vx)
+int add_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int flags, struct katcp_vrbl *vx)
 {
   if(vx == NULL){
     return -1;
@@ -263,6 +299,66 @@ int insert_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx, struc
   return 0;
 }
 
+/* full variable layer functions **************************************************/
+
+struct katcp_vrbl *find_vrbl_katcp(struct katcp_dispatch *d, char *key)
+{
+  struct katcp_region *vra[MAX_DEPTH_VRBL];
+  struct katcp_flat *fx;
+  struct katcp_group *gx;
+  struct katcp_shared *s;
+  struct katcp_vrbl *vx;
+  unsigned int i;
+
+  fx = this_flat_katcp(d);
+  gx = this_group_katcp(d);
+  s = d->d_shared;
+
+  if((fx == NULL) || (gx == NULL) || (s == NULL)){
+    return NULL;
+  }
+
+  vra[0] = fx->f_region;
+  vra[1] = gx->g_region;
+  vra[2] = s->s_region;
+
+  for(i = 0; i < MAX_DEPTH_VRBL; i++){
+    vx = find_region_katcp(d, vra[i], key);
+    if(vx){
+      return vx;
+    }
+  }
+
+  return NULL;
+}
+
+int traverse_vrbl_katcp(struct katcp_dispatch *d, void *state, int (*callback)(struct katcp_dispatch *d, void *state, char *key, void *data))
+{
+  struct katcp_region *vra[MAX_DEPTH_VRBL];
+  struct katcp_flat *fx;
+  struct katcp_group *gx;
+  struct katcp_shared *s;
+  unsigned int i;
+
+  fx = this_flat_katcp(d);
+  gx = this_group_katcp(d);
+  s = d->d_shared;
+
+  if((fx == NULL) || (gx == NULL) || (s == NULL)){
+    return -1;
+  }
+
+  vra[0] = fx->f_region;
+  vra[1] = gx->g_region;
+  vra[2] = s->s_region;
+
+  for(i = 0; i < MAX_DEPTH_VRBL; i++){
+    complex_inorder_traverse_avltree(d, vra[i]->r_tree->t_root, NULL, callback);
+  }
+
+  return 0;
+}
+
 /* traverse the hierachy of variables regions ****************/
 
 /* 
@@ -280,14 +376,14 @@ int insert_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx, struc
  * > *varinflatthengroup          (1)
  */
 
-struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, char *name, struct katcp_vrbl *vo)
+struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, char *name, struct katcp_vrbl *vo, int clobber)
 {
 #define MAX_STAR 3
   struct katcp_shared *s;
   struct katcp_group *gx;
   struct katcp_flat *fy;
   struct katcp_vrbl *vx;
-  struct katcp_region *vxs[MAX_STAR];
+  struct katcp_region *vra[MAX_DEPTH_VRBL];
   int i, count, last;
   char *copy, *var;
   unsigned int v[MAX_STAR];
@@ -331,9 +427,9 @@ struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat
   }
 #endif
 
-  vxs[0] = NULL;
-  vxs[1] = NULL;
-  vxs[2] = NULL;
+  vra[0] = NULL;
+  vra[1] = NULL;
+  vra[2] = NULL;
 
   var = NULL;
 
@@ -344,9 +440,9 @@ struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat
         return NULL;
       }
       var = copy;
-      vxs[0] = fx->f_region;
-      vxs[1] = fx->f_group->g_region;
-      vxs[2] = s->s_region;
+      vra[0] = fx->f_region;
+      vra[1] = fx->f_group->g_region;
+      vra[2] = s->s_region;
       break;
     case 1 :
       if(v[0] == 0){ /* search in current flat, then current group */
@@ -355,11 +451,11 @@ struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat
           return NULL;
         }
         var = copy + 1;
-        vxs[0] = fx->f_region;
-        vxs[1] = fx->f_group->g_region;
+        vra[0] = fx->f_region;
+        vra[1] = fx->f_group->g_region;
       } else if(v[0] == last){ /* search in root */
         var = copy;
-        vxs[0] = s->s_region;
+        vra[0] = s->s_region;
       } else {
         free(copy);
         return NULL;
@@ -376,14 +472,14 @@ struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat
           return NULL;
         }
         var = copy + 1;
-        vxs[0] = fx->f_group->g_region;
+        vra[0] = fx->f_group->g_region;
       } else { /* search in named group */
         gx = find_group_katcp(d, copy);
         if(gx == NULL){
           free(copy);
           return NULL;
         }
-        vxs[0] = gx->g_region;
+        vra[0] = gx->g_region;
         var = copy + v[1] + 1;
       }
       break;
@@ -393,7 +489,7 @@ struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat
           free(copy);
           return NULL;
         }
-        vxs[0] = fx->f_region;
+        vra[0] = fx->f_region;
         var = copy + 2;
       } else { /* search in named flat */
 
@@ -403,7 +499,7 @@ struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat
           return NULL;
         }
 
-        vxs[0] = fy->f_region;
+        vra[0] = fy->f_region;
         var = copy + v[2] + 1;
       }
       break;
@@ -418,7 +514,7 @@ struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat
   }
 
 #ifdef KATCP_CONSISTENCY_CHECKS
-  if(vxs[0] == NULL){
+  if(vra[0] == NULL){
     fprintf(stderr, "major logic problem: attempting to update variable without any target location\n");
     abort();
   }
@@ -428,9 +524,9 @@ struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat
   i = 0;
 
   do{
-    vx = find_region_katcp(d, vxs[i], var);
+    vx = find_region_katcp(d, vra[i], var);
     i++;
-  } while((i < MAX_STAR) && (vxs[i] != NULL) && (vx == NULL));
+  } while((i < MAX_DEPTH_VRBL) && (vra[i] != NULL) && (vx == NULL));
 
   if(vx == NULL){
     if(vo == NULL){
@@ -438,7 +534,7 @@ struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat
       return NULL;
     }
 
-    if(insert_region_katcp(d, vxs[0], vo, var) < 0){
+    if(insert_region_katcp(d, vra[0], vo, var) < 0){
       free(copy);
       return NULL;
     }
@@ -447,6 +543,11 @@ struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat
     return vo;
 
   } else {
+
+    if(clobber){
+      free(copy);
+      return NULL;
+    }
 
     if(vo){
       /* TODO: replace content of variable */
@@ -559,5 +660,124 @@ struct katcp_vrbl *create_string_vrbl_katcp(struct katcp_dispatch *d, unsigned i
   return vx;
 }
 #endif
+
+/* commands operating on variables ********************************************/
+
+int var_declare_group_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  char *name, *type;
+  int code;
+  struct katcp_vrbl *vx, *vn;
+
+  if(argc < 2){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a name");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
+  }
+
+  name = arg_string_katcp(d, 1);
+  if(name == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to process a null name");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
+  }
+
+  if(argc > 2){
+    type = arg_string_katcp(d, 2);
+    if(type == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "type field may not be null");
+      return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
+    }
+
+    code = type_from_string_vrbl_katcp(d, type);
+    if(code < 0){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no type %s known to system", type);
+      return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_NOT_FOUND);
+    }
+  } else {
+    code = KATCP_VRT_STRING;
+  }
+
+  vx = create_vrbl_katcp(d, code, 0, NULL, NULL, NULL);
+  if(vx == NULL){
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_MALLOC);
+  }
+
+#if 0
+  /* TODO */
+  vn = update_vrbl_katcp(d, struct katcp_flat *fx, char *name, struct katcp_vrbl *vo, int clobber)
+#endif
+
+
+  return KATCP_RESULT_OK;
+}
+
+int var_list_callback_katcp(struct katcp_dispatch *d, void *state, char *key, struct katcp_vrbl *vx)
+{
+  prepend_inform_katcp(d);
+  append_string_katcp(d, KATCP_FLAG_STRING, key);
+  append_vrbl_katcp(d, KATCP_FLAG_LAST, vx);
+
+  return 0;
+}
+
+int var_list_void_callback_katcp(struct katcp_dispatch *d, void *state, char *key, void *data)
+{
+  struct katcp_vrbl *vx;
+
+  vx = data;
+
+  return var_list_callback_katcp(d, state, key, vx);
+}
+
+int var_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  char *key;
+  unsigned int i;
+  int result;
+  struct katcp_region *vra[MAX_DEPTH_VRBL];
+  struct katcp_flat *fx;
+  struct katcp_group *gx;
+  struct katcp_shared *s;
+  struct katcp_vrbl *vx;
+
+  fx = this_flat_katcp(d);
+  gx = this_group_katcp(d);
+  s = d->d_shared;
+
+  if((fx == NULL) || (gx == NULL) || (s == NULL)){
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_API);
+  }
+
+  vra[0] = fx->f_region;
+  vra[1] = gx->g_region;
+  vra[2] = s->s_region;
+
+  result = 0;
+
+  if(argc > 1){
+    for(i = 1 ; i < argc ; i++){
+      key = arg_string_katcp(d, i);
+      if(key == NULL){
+        return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
+      }
+      vx = find_vrbl_katcp(d, key);
+      if(vx == NULL){
+        log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "%s not found", key);
+        result = (-1);
+      } else {
+        if(var_list_callback_katcp(d, NULL, key, vx) < 0){
+          result = (-1);
+        }
+      }
+    }
+  } else {
+    result = traverse_vrbl_katcp(d, NULL, &var_list_void_callback_katcp);
+  }
+
+  if(result < 0){
+    return KATCP_RESULT_FAIL;
+  }
+
+  return KATCP_RESULT_OK;
+}
 
 #endif

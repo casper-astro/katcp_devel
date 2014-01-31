@@ -28,6 +28,7 @@ struct katcp_flat;
 struct katcp_endpoint;
 struct katcp_message;
 struct katcp_cmd_map;
+struct katcp_vrbl;
 
 #define KATCP_CODEBASE_NAME     "libkatcp" 
 
@@ -244,6 +245,7 @@ int append_unsigned_long_katcp(struct katcp_dispatch *d, int flags, unsigned lon
 int append_signed_long_katcp(struct katcp_dispatch *d, int flags, unsigned long v);
 int append_hex_long_katcp(struct katcp_dispatch *d, int flags, unsigned long v);
 int append_buffer_katcp(struct katcp_dispatch *d, int flags, void *buffer, int len);
+int append_vrbl_katcp(struct katcp_dispatch *d, int flags, struct katcp_vrbl *vx);
 int append_vargs_katcp(struct katcp_dispatch *d, int flags, char *fmt, va_list args);
 int append_args_katcp(struct katcp_dispatch *d, int flags, char *fmt, ...);
 #ifdef KATCP_USE_FLOATS
@@ -704,6 +706,7 @@ int append_hex_long_flat_katcp(struct katcp_dispatch *d, int flags, unsigned lon
 int append_double_flat_katcp(struct katcp_dispatch *d, int flags, double v);
 #endif
 int append_buffer_flat_katcp(struct katcp_dispatch *d, int flags, void *buffer, int len);
+int append_vrbl_flat_katcp(struct katcp_dispatch *d, int flags, struct katcp_vrbl *vx);
 int append_parameter_flat_katcp(struct katcp_dispatch *d, int flags, struct katcl_parse *p, unsigned int index);
 int append_trailing_flat_katcp(struct katcp_dispatch *d, int flags, struct katcl_parse *p, unsigned int start);
 int append_parse_flat_katcp(struct katcp_dispatch *d, struct katcl_parse *p);
@@ -755,6 +758,9 @@ int delete_cmd_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 int sensor_list_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 int sensor_sampling_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 int sensor_value_group_cmd_katcp(struct katcp_dispatch *d, int argc);
+
+int var_list_group_cmd_katcp(struct katcp_dispatch *d, int argc);
+int var_declare_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 /* endpoints */
 

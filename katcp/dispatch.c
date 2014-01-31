@@ -2158,6 +2158,15 @@ int append_buffer_katcp(struct katcp_dispatch *d, int flags, void *buffer, int l
   return append_buffer_katcl(d->d_line, flags, buffer, len);
 }
 
+#ifdef KATCP_EXPERIMENTAL
+int append_vrbl_katcp(struct katcp_dispatch *d, int flags, struct katcp_vrbl *vx)
+{
+  sane_katcp(d);
+
+  return append_vrbl_flat_katcp(d, flags, vx);
+}
+#endif
+
 int append_parameter_katcp(struct katcp_dispatch *d, int flags, struct katcl_parse *p, unsigned int index)
 {
   sane_katcp(d);

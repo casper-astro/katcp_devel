@@ -228,8 +228,93 @@ void *walk_data_inorder_avltree(struct avl_node *n)
   return c->n_data;
 }
 
+void complex_inorder_traverse_avltree(struct katcp_dispatch *d, struct avl_node *n, void *global, int (*callback)(struct katcp_dispatch *d, void *global, char *key, void *data))
+{
+  struct avl_node *c;
+#if 0
+  while ((c = walk_inorder_avltree(n)) != NULL){
+
+#ifdef DEBUG
+    fprintf(stderr, "avl_tree: <%s>\n", c->n_key);
+#endif
+    if (flags){
+      append_args_katcp(d, KATCP_FLAG_FIRST, "#%s", c->n_key);
+      append_args_katcp(d, KATCP_FLAG_LAST, "with data %p", c->n_data);
+    }
+
+    if (fn_print != NULL)
+      (*fn_print)(d, c->n_data);
+
+  }
+#endif
+#if 1
+  struct katcp_stack *s;
+  int run;
+
+  if (n == NULL)
+    return;
+  
+  s = create_stack_katcp();
+  if (s == NULL)
+    return;
+
+  c = n;
+
+  run = 1;
+  while (c != NULL) {
+    if (push_stack_katcp(s, c, NULL) < 0){
+#if DEBUG>2
+      fprintf(stderr, "avl_tree: stack push error <%s>\n", c->n_key);
+#endif
+      destroy_stack_katcp(s);
+      return;
+    }
+#if DEBUG>2
+    fprintf(stderr, "avl_tree: stack 1 push  <%s>\n", c->n_key);
+#endif
+    c = c->n_left;
+  }
+  
+#if DEBUG>2
+  fprintf(stderr, "avl_tree: stack state: %d\n", is_empty_stack_katcp(s));
+#endif
+
+  while (!is_empty_stack_katcp(s)){
+    c = pop_data_stack_katcp(s);
+    if (c != NULL){
+
+#if DEBUG>2
+      fprintf(stderr, "avl_tree: <%s>\n", c->n_key);
+#endif
+      if (callback != NULL)
+        (*callback)(d, global, c->n_key, c->n_data);
+
+      c = c->n_right;
+
+      while(c != NULL){
+        if (push_stack_katcp(s, c, NULL) < 0){
+#if DEBUG>2
+          fprintf(stderr, "avl_tree: stack push error <%s>\n", c->n_key);
+#endif
+          destroy_stack_katcp(s);
+          return;
+        }
+#if DEBUG>2
+        fprintf(stderr, "avl_tree: stack 2 push  <%s>\n", c->n_key);
+#endif
+        c = c->n_left;
+      }
+      
+    }
+  }
+  
+  destroy_stack_katcp(s);
+#endif
+}
+
 void print_inorder_avltree(struct katcp_dispatch *d, struct avl_node *n, void (*fn_print)(struct katcp_dispatch *d, char *key, void *data), int flags)
 {
+  /* TODO: this should just be a special case of complex_inorder_traverse_avltree */
   struct avl_node *c;
 #if 0
   while ((c = walk_inorder_avltree(n)) != NULL){

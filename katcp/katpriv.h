@@ -1096,6 +1096,8 @@ char *string_from_scope_katcp(unsigned int scope);
 
 struct katcp_region *create_region_katcp(struct katcp_dispatch *d);
 void destroy_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx);
+
+int add_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int flags, struct katcp_vrbl *vx);
  
 /******************************************/
 
