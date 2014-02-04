@@ -157,6 +157,47 @@ char *type_to_string_vrbl_katcp(struct katcp_dispatch *d, unsigned int type)
   return ops_type_vrbl[type].t_name;
 }
 
+/* WARNING: order important, needs to correspond to bit position */
+
+static char *flag_lookup_vrbl[] = { "environment",  "version", "sensor", NULL };
+
+unsigned int flag_from_string_vrbl_katcp(struct katcp_dispatch *d, char *string)
+{
+  int i;
+
+  if(string == NULL){
+    return 0;
+  }
+
+  for(i = 0; flag_lookup_vrbl[i]; i++){
+    if(!strcmp(flag_lookup_vrbl[i], string)){
+      return 1 << i;
+    }
+  }
+
+  return 0;
+}
+
+char *flag_to_string_vrbl_katcp(struct katcp_dispatch *d, unsigned int flag)
+{
+  unsigned int i, v;
+
+  if(flag <= 0){
+    return NULL;
+  }
+
+  v = flag;
+
+  for(i = 0; flag_lookup_vrbl[i]; i++){
+    if(v == 1){
+      return flag_lookup_vrbl[i];
+    }
+    v = v >> 1;
+  }
+
+  return NULL;
+}
+
 /* generic functions using type ops ***********************************************/
 
 struct katcp_vrbl *create_vrbl_katcp(struct katcp_dispatch *d, unsigned int type, unsigned int flags, int (*refresh)(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx), int (*change)(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx), void (*release)(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx))
@@ -416,7 +457,7 @@ struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat
 
 #ifdef KATCP_CONSISTENCY_CHECKS
   if(fx){
-    if(fx->f_group){
+    if(fx->f_group == NULL){
       fprintf(stderr, "major logic problem: duplex instance %p (%s) not a member of any group\n", fx, fx->f_name);
       abort();
     }
@@ -665,9 +706,11 @@ struct katcp_vrbl *create_string_vrbl_katcp(struct katcp_dispatch *d, unsigned i
 
 int var_declare_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
-  char *name, *type;
-  int code;
-  struct katcp_vrbl *vx, *vn;
+  char *name, *copy, *ptr, *current;
+  int type, result;
+  unsigned int flags, flag;
+  struct katcp_vrbl *vx;
+  struct katcp_flat *fx;
 
   if(argc < 2){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a name");
@@ -680,43 +723,136 @@ int var_declare_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
   }
 
+  flags = 0;
+  type = (-1);
+
   if(argc > 2){
-    type = arg_string_katcp(d, 2);
-    if(type == NULL){
+    copy = arg_copy_string_katcp(d, 2);
+    if(copy == NULL){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "type field may not be null");
       return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
     }
 
-    code = type_from_string_vrbl_katcp(d, type);
-    if(code < 0){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no type %s known to system", type);
-      return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_NOT_FOUND);
-    }
-  } else {
-    code = KATCP_VRT_STRING;
+    current = copy;
+
+    do{
+      ptr = strchr(current, ',');
+      if(ptr){
+        ptr[0] = '\0';
+      }
+
+      flag = flag_from_string_vrbl_katcp(d, current);
+      if(flag){
+        flags |= flag;
+      } else {
+        result = type_from_string_vrbl_katcp(d, current);
+
+        if(result < 0){
+          log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unknown variable attribute %s for %s", current, name);
+          free(copy);
+          return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
+        }
+
+        if((type >= 0) && (type != result)){
+          log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "conflicting type attribute %s for %s", current, name);
+          free(copy);
+          return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
+        }
+
+        type = result;
+      }
+
+      if(ptr){
+        current = ptr + 1;
+      }
+
+    } while(ptr != NULL);
+
+    free(copy);
   }
 
-  vx = create_vrbl_katcp(d, code, 0, NULL, NULL, NULL);
+  if(type < 0){
+    type = KATCP_VRT_STRING;
+  }
+
+  fx = this_flat_katcp(d);
+  if(fx == NULL){
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_API);
+  }
+
+  vx = create_vrbl_katcp(d, type, flags, NULL, NULL, NULL);
   if(vx == NULL){
     return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_MALLOC);
   }
 
-#if 0
-  /* TODO */
-  vn = update_vrbl_katcp(d, struct katcp_flat *fx, char *name, struct katcp_vrbl *vo, int clobber)
-#endif
+  if(update_vrbl_katcp(d, fx, name, vx, 0) == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to declare new variable %s", name);
+    destroy_vrbl_katcp(d, name, vx);
+    return KATCP_RESULT_FAIL;
+  }
 
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "created variable %s with type %d and flags 0x%x", name, type, flags);
 
   return KATCP_RESULT_OK;
 }
 
+/***/
+
 int var_list_callback_katcp(struct katcp_dispatch *d, void *state, char *key, struct katcp_vrbl *vx)
 {
+#define BUFFER 128
+  char *ptr, *tmp;
+  unsigned int i;
+  unsigned int used, have, len;
+
+  ptr = malloc(BUFFER);
+  if(ptr == NULL){
+    return -1;
+  }
+  have = BUFFER;
+
+  tmp = type_to_string_vrbl_katcp(d, vx->v_type);
+  if(tmp == NULL){
+    free(ptr);
+    return -1;
+  }
+
+  len = strlen(tmp);
+
+  memcpy(ptr, tmp, len + 1);
+  used = len;
+
+  for(i = 0; flag_lookup_vrbl[i]; i++){
+    if((1 << i) & vx->v_flags){
+#ifdef DEBUG
+      fprintf(stderr, "vrbl: flag match[%u]=%s\n", i, flag_lookup_vrbl[i]);
+#endif
+      len = strlen(flag_lookup_vrbl[i]);
+      if((used + 1 + len + 1) > have){
+        have = used + 1 + len + 1;
+        tmp = realloc(ptr, have);
+        if(tmp == NULL){
+          free(ptr);
+          return -1;
+        }
+        ptr = tmp;
+      }
+      ptr[used] = ',';
+      used++;
+      memcpy(ptr + used, flag_lookup_vrbl[i], len + 1);
+      used += len;
+    }
+  }
+
   prepend_inform_katcp(d);
   append_string_katcp(d, KATCP_FLAG_STRING, key);
+  append_string_katcp(d, KATCP_FLAG_STRING, ptr);
   append_vrbl_katcp(d, KATCP_FLAG_LAST, vx);
 
+  free(ptr);
+
   return 0;
+#undef BUFFER
 }
 
 int var_list_void_callback_katcp(struct katcp_dispatch *d, void *state, char *key, void *data)
@@ -726,6 +862,28 @@ int var_list_void_callback_katcp(struct katcp_dispatch *d, void *state, char *ke
   vx = data;
 
   return var_list_callback_katcp(d, state, key, vx);
+}
+
+int var_set_group_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  char *key, *value;
+  struct katcp_vrbl *vx;
+
+  if(argc <= 2){
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
+  }
+
+  key = arg_string_katcp(d, 1);
+  if(key == NULL){
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
+  }
+
+  vx = find_vrbl_katcp(d, key);
+  if(vx == NULL){
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_NOT_FOUND);
+  }
+
+  return KATCP_RESULT_OK;
 }
 
 int var_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
