@@ -2991,11 +2991,12 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
     add_full_cmd_map_katcp(m, "log-default", "retrieve or adjust the log level of subsequent connections (?log-default [level])", 0, &log_default_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "log-override", "retrieve or adjust the log level in various permutations (?log-override [level [client|group|default [name]]])", 0, &log_override_group_cmd_katcp, NULL, NULL);
 
+#if 0
     add_full_cmd_map_katcp(m, "?version-list", "list versions (?version-list)", 0, &version_list_cmd_katcp, NULL, NULL);
 
-#if 0
     add_full_cmd_map(m, "relay-watchdog", "ping a peer within the same process (?relay-watchdog peer)", 0, &relay_watchdog_group_cmd_katcp, NULL, NULL);
 #endif
+
     add_full_cmd_map_katcp(m, "relay", "issue a request to a peer within the same process (?relay peer cmd)", 0, &relay_generic_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "?forward-symbolic", "create a command which generates a request against another party (?forward-symbolic command remote [remote-command])", 0, &forward_symbolic_group_cmd_katcp, NULL, NULL);
 
@@ -3024,8 +3025,11 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
     add_full_cmd_map_katcp(m, "?sensor-value", "query a sensor (?sensor-value sensor)", 0, &sensor_value_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "?sensor-sampling", "configure a sensor (?sensor-sampling sensor [strategy [parameter]])", 0, &sensor_sampling_group_cmd_katcp, NULL, NULL);
 
-    add_full_cmd_map_katcp(m, "?var-declare", "declare a variable (?var-declare name type", 0, &var_declare_group_cmd_katcp, NULL, NULL);
-    add_full_cmd_map_katcp(m, "?var-list", "list variables (?var-list [variable]", 0, &var_list_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "?var-declare", "declare a variable (?var-declare name attribute[,attribute]*)", 0, &var_declare_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "?var-list", "list variables (?var-list [variable])", 0, &var_list_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "?var-set", "set a variable (?var-set variable value)", 0, &var_set_group_cmd_katcp, NULL, NULL);
+
+    add_full_cmd_map_katcp(m, "?version-list", "list version information (?version-list)", 0, &version_list_group_cmd_katcp, NULL, NULL);
 
   } else {
     m = gx->g_maps[KATCP_MAP_REMOTE_REQUEST];

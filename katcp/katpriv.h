@@ -1098,6 +1098,12 @@ struct katcp_region *create_region_katcp(struct katcp_dispatch *d);
 void destroy_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx);
 
 int add_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int flags, struct katcp_vrbl *vx);
+
+struct katcp_vrbl *find_vrbl_katcp(struct katcp_dispatch *d, char *key);
+int traverse_vrbl_katcp(struct katcp_dispatch *d, void *state, int (*callback)(struct katcp_dispatch *d, void *state, char *key, void *data));
+
+int type_from_string_vrbl_katcp(struct katcp_dispatch *d, char *string);
+char *type_to_string_vrbl_katcp(struct katcp_dispatch *d, unsigned int type);
  
 /******************************************/
 

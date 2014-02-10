@@ -394,7 +394,7 @@ int traverse_vrbl_katcp(struct katcp_dispatch *d, void *state, int (*callback)(s
   vra[2] = s->s_region;
 
   for(i = 0; i < MAX_DEPTH_VRBL; i++){
-    complex_inorder_traverse_avltree(d, vra[i]->r_tree->t_root, NULL, callback);
+    complex_inorder_traverse_avltree(d, vra[i]->r_tree->t_root, state, callback);
   }
 
   return 0;
@@ -881,6 +881,15 @@ int var_set_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   vx = find_vrbl_katcp(d, key);
   if(vx == NULL){
     return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_NOT_FOUND);
+  }
+
+  value = arg_string_katcp(d, 2);
+  if(value == NULL){
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
+  }
+
+  if(scan_vrbl_katcp(d, vx, value) < 0){
+    return KATCP_RESULT_FAIL;
   }
 
   return KATCP_RESULT_OK;

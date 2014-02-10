@@ -243,22 +243,30 @@ int log_override_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
 /* help ********************************************************************/
 
-void print_help_cmd_item(struct katcp_dispatch *d, char *key, void *v)
+
+int print_help_cmd_item(struct katcp_dispatch *d, void *global, char *key, void *v)
 {
   struct katcp_cmd_item *i;
+  unsigned int *cp;
+
+  cp = global;
 
   i = v;
 
   log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "%s is %s with %d references and %s local data", i->i_name, i->i_flags & KATCP_MAP_FLAG_HIDDEN ? "hidden" : "visible", i->i_refs, i->i_data ? "own" : "no");
 
   if(i->i_flags & KATCP_MAP_FLAG_HIDDEN){ 
-    return;
+    return -1;
   }
 
   prepend_inform_katcp(d);
 
   append_string_katcp(d, KATCP_FLAG_STRING, i->i_name);
   append_string_katcp(d, KATCP_FLAG_LAST | KATCP_FLAG_STRING, i->i_help);
+
+  *cp = (*cp) + 1;
+
+  return 0;
 }
 
 int help_group_cmd_katcp(struct katcp_dispatch *d, int argc)
@@ -267,8 +275,10 @@ int help_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   struct katcp_cmd_item *i;
   struct katcp_cmd_map *mx;
   char *name, *match;
+  unsigned int count;
 
   fx = require_flat_katcp(d);
+  count = 0;
 
   if(fx == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "help group called outside expected path");
@@ -285,7 +295,7 @@ int help_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   if(name == NULL){
     log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "should generate list of commands");
     if(mx->m_tree){
-      print_inorder_avltree(d, mx->m_tree->t_root, &print_help_cmd_item, 0);
+      complex_inorder_traverse_avltree(d, mx->m_tree->t_root, (void *)(&count), &print_help_cmd_item);
     }
   } else {
     log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "should provide help for %s", name);
@@ -307,12 +317,12 @@ int help_group_cmd_katcp(struct katcp_dispatch *d, int argc)
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no match for %s found", name);
         return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_NOT_FOUND);
       } else {
-        print_help_cmd_item(d, NULL, (void *)i);
+        print_help_cmd_item(d, (void *)&count, match, (void *)i);
       }
     }
   }
 
-  return KATCP_RESULT_OK;
+  return extra_response_katcp(d, KATCP_RESULT_OK, "%u", count);
 }
 
 /* watchdog */
@@ -527,7 +537,7 @@ int halt_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 int sensor_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   /* TODO */
-  return extra_response_katcp(d, KATCP_RESULT_OK, "%d", 0);
+  return extra_response_katcp(d, KATCP_RESULT_OK, "%u", 0);
 }
 
 int sensor_sampling_group_cmd_katcp(struct katcp_dispatch *d, int argc)
@@ -552,5 +562,89 @@ int sensor_value_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   return extra_response_katcp(d, KATCP_RESULT_INVALID, KATCP_FAIL_NOT_FOUND);
 
 }
+
+/* version related function ***************************************************/
+
+int version_list_callback_katcp(struct katcp_dispatch *d, void *state, char *key, struct katcp_vrbl *vx)
+{
+  unsigned int *cp;
+
+  cp = state;
+
+#ifdef DEBUG
+  fprintf(stderr, "version: about to consider variable %p\n", vx);
+#endif
+
+  if(vx == NULL){
+    return -1;
+  }
+
+  if((vx->v_flags & KATCP_VRF_VER) == 0){
+#ifdef DEBUG
+  fprintf(stderr, "version: %p not a version variable\n", vx);
+#endif
+    return 0;
+  }
+
+  prepend_inform_katcp(d);
+  append_string_katcp(d, KATCP_FLAG_STRING, key);
+  append_vrbl_katcp(d, KATCP_FLAG_LAST, vx);
+
+  *cp = (*cp) + 1;
+
+  return 0;
+}
+
+int version_list_void_callback_katcp(struct katcp_dispatch *d, void *state, char *key, void *data)
+{
+  struct katcp_vrbl *vx;
+
+  vx = data;
+
+  return version_list_callback_katcp(d, state, key, vx);
+}
+
+int version_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  char *key;
+  unsigned int i;
+  int result;
+  struct katcp_vrbl *vx;
+  unsigned int count;
+
+  result = 0;
+  count = 0;
+
+#ifdef DEBUG
+  fprintf(stderr, "version: invoking listing with %d parameters\n", argc);
+#endif
+
+  if(argc > 1){
+    for(i = 1 ; i < argc ; i++){
+      key = arg_string_katcp(d, i);
+      if(key == NULL){
+        return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
+      }
+      vx = find_vrbl_katcp(d, key);
+      if(vx == NULL || ((vx->v_flags & KATCP_VRF_VER) == 0)){
+        log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "%s not found", key);
+        result = (-1);
+      } else {
+        if(version_list_callback_katcp(d, (void *)&count, key, vx) < 0){
+          result = (-1);
+        }
+      }
+    }
+  } else {
+    result = traverse_vrbl_katcp(d, (void *)&count, &version_list_void_callback_katcp);
+  }
+
+  if(result < 0){
+    return KATCP_RESULT_FAIL;
+  }
+
+  return extra_response_katcp(d, KATCP_RESULT_OK, "%u", count);
+}
+
 
 #endif
