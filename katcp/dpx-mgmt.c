@@ -123,10 +123,76 @@ int client_connect_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
   fcntl(fd, F_SETFD, FD_CLOEXEC);
 
-  if(create_flat_katcp(d, fd, 0, client, gx) == NULL){
+  if(create_flat_katcp(d, fd, KATCP_FLAT_CONNECTING | KATCP_FLAT_TOSERVER, client, gx) == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate client connection");
     close(fd);
     return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_MALLOC);
+  }
+
+  return KATCP_RESULT_OK;
+}
+
+int client_config_group_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  char *option, *client;
+  unsigned int mask, set;
+  struct katcp_flat *fx, *fy;
+
+  fy = this_flat_katcp(d);
+  if(fy == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no client scope available");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_BUG);
+  }
+
+  if(argc < 2){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a destination to connect to");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
+  }
+
+  option = arg_string_katcp(d, 1);
+  if(option == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire new name");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_BUG);
+  }
+  
+  if(argc > 2){
+    client = arg_string_katcp(d, 3);
+    if(client == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire client name");
+      return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_BUG);
+    } 
+    fx = scope_name_flat_katcp(d, client, fy);
+    if(fx == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to locate client %s", client);
+      return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_NOT_FOUND);
+    }
+  } else {
+    fx = fy;
+  }
+
+  mask = ~0;
+  set  = 0;
+
+  if(!strcmp(option, "duplex")){
+    set   = KATCP_FLAT_TOSERVER | KATCP_FLAT_TOCLIENT;
+  } else if(!strcmp(option, "server")){
+    mask   = ~KATCP_FLAT_TOSERVER;
+    set    =  KATCP_FLAT_TOCLIENT;
+  } else if(!strcmp(option, "client")){
+    mask   = ~KATCP_FLAT_TOCLIENT;
+    set    =  KATCP_FLAT_TOSERVER;
+  } else if(!strcmp(option, "hidden")){
+    set    =  KATCP_FLAT_HIDDEN;
+  } else if(!strcmp(option, "visible")){
+    mask   = ~KATCP_FLAT_HIDDEN;
+  } else {
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "invalid configuration option %s", option);
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
+  }
+
+  if(reconfigure_flat_katcp(d, fx, (fx->f_flags & mask) | set) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to change flags on client %s", fx->f_name);
+    return KATCP_RESULT_FAIL;
   }
 
   return KATCP_RESULT_OK;
@@ -345,20 +411,20 @@ int group_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
       group = "<anonymous>";
     }
 
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "group %s has %d references", group, gx->g_use);
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "group %s has %u members", group, gx->g_count);
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "group %s will %s if not used", group, gx->g_autoremove ? "disappear" : "persist");
+    log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "group %s has %d references", group, gx->g_use);
+    log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "group %s has %u members", group, gx->g_count);
+    log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "group %s will %s if not used", group, gx->g_autoremove ? "disappear" : "persist");
 
     ptr = log_to_string_katcl(gx->g_log_level);
     if(ptr){
-      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "group %s sets client log level to %s", group, ptr);
+      log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "group %s sets client log level to %s", group, ptr);
     } else {
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "group %s has unreasonable log level", group);
     }
 
     ptr = string_from_scope_katcp(gx->g_scope);
     if(ptr){
-      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "group %s sets %s client scope", group, ptr);
+      log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "group %s sets %s client scope", group, ptr);
     } else {
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "group %s has invalid scope setting", group);
     }
@@ -366,7 +432,7 @@ int group_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     for(i = 0; i < KATCP_SIZE_MAP; i++){
       mx = gx->g_maps[i];
       if(mx){
-        log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "group %s command map %d has %s %s and is referenced %d times", group, i, mx->m_name ? "name" : "no", mx->m_name ? mx->m_name : "name", mx->m_refs);
+        log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "group %s command map %d has %s %s and is referenced %d times", group, i, mx->m_name ? "name" : "no", mx->m_name ? mx->m_name : "name", mx->m_refs);
       }
     }
 

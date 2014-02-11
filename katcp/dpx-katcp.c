@@ -298,7 +298,7 @@ int help_group_cmd_katcp(struct katcp_dispatch *d, int argc)
       complex_inorder_traverse_avltree(d, mx->m_tree->t_root, (void *)(&count), &print_help_cmd_item);
     }
   } else {
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "should provide help for %s", name);
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "should provide help for %s", name);
     switch(name[0]){
       case KATCP_REQUEST : 
       case KATCP_REPLY   :
@@ -329,7 +329,7 @@ int help_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
 int watchdog_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "fielding %s ping request", is_inner_flat_katcp(d) ? "internal" : "remote");
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "fielding %s ping request", is_inner_flat_katcp(d) ? "internal" : "remote");
 
   return KATCP_RESULT_OK;
 }
@@ -363,34 +363,45 @@ static int print_client_list_katcp(struct katcp_dispatch *d, struct katcp_flat *
 
   ptr = log_to_string_katcl(fx->f_log_level);
   if(ptr){
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "client %s has log level <%s>", fx->f_name, ptr);
+    log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "client %s has log level <%s>", fx->f_name, ptr);
   } else {
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "client %s has unreasonable log level", fx->f_name);
   }
 
+  if(fx->f_flags & KATCP_FLAT_HIDDEN){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "client %s will not be listed");
+  }
+
+  if(fx->f_flags & KATCP_FLAT_TOSERVER){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "client %s may issue requests as peer is a server");
+  }
+  if(fx->f_flags & KATCP_FLAT_TOCLIENT){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "client %s may field requests as peer is a client");
+  }
+
   ptr = string_from_scope_katcp(fx->f_scope);
   if(ptr){
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "client %s has %s scope", fx->f_name, ptr);
+    log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "client %s has %s scope", fx->f_name, ptr);
   } else {
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "client %s has invalid scope", fx->f_name);
+    log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "client %s has invalid scope", fx->f_name);
   }
 
   if(flushing_katcl(fx->f_line)){
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "client %s has output pending", fx->f_name);
+    log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "client %s has output pending", fx->f_name);
   }
 
   gx = fx->f_group;
   if(gx && gx->g_name){
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "client %s member of group <%s>", fx->f_name, gx->g_name);
+    log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "client %s member of group <%s>", fx->f_name, gx->g_name);
   }
 
   pending = pending_endpoint_katcp(d, fx->f_peer);
   if(pending > 0){
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "client %s has %d %s in queue", fx->f_name, pending, (pending > 1) ? "commands" : "command");
+    log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "client %s has %d %s in queue", fx->f_name, pending, (pending > 1) ? "commands" : "command");
   }
 
   if(flushing_katcl(fx->f_line)){
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "client %s has output pending", fx->f_name);
+    log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "client %s has output pending", fx->f_name);
   }
 
   return result;
@@ -414,8 +425,11 @@ int client_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
   switch(fx->f_scope){
     case KATCP_SCOPE_SINGLE :
-      if(print_client_list_katcp(d, fx) > 0){
-        total++;
+      /* WARNING: maybe a client can not be hidden from itself ? */
+      if((fy->f_flags & KATCP_FLAT_HIDDEN) == 0){
+        if(print_client_list_katcp(d, fx) > 0){
+          total++;
+        }
       }
       break;
     case KATCP_SCOPE_GROUP :
@@ -423,8 +437,10 @@ int client_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
       if(gx){
         for(i = 0; i < gx->g_count; i++){
           fy = gx->g_flats[i];
-          if(print_client_list_katcp(d, fy) > 0){
-            total++;
+          if((fy->f_flags & KATCP_FLAT_HIDDEN) == 0){
+            if(print_client_list_katcp(d, fy) > 0){
+              total++;
+            }
           }
         }
       }
@@ -435,8 +451,10 @@ int client_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
         if(gx){
           for(i = 0; i < gx->g_count; i++){
             fy = gx->g_flats[i];
-            if(print_client_list_katcp(d, fy) > 0){
-              total++;
+            if((fy->f_flags & KATCP_FLAT_HIDDEN) == 0){
+              if(print_client_list_katcp(d, fy) > 0){
+                total++;
+              }
             }
           }
         }

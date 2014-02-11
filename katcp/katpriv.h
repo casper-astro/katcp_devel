@@ -911,8 +911,14 @@ int load_flat_katcp(struct katcp_dispatch *d);
 int startup_duplex_katcp(struct katcp_dispatch *d, unsigned int stories);
 void shutdown_duplex_katcp(struct katcp_dispatch *d);
 
-struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, int up, char *name, struct katcp_group *g);
+#define KATCP_FLAT_CONNECTING   0x1
+#define KATCP_FLAT_TOSERVER     0x2
+#define KATCP_FLAT_TOCLIENT     0x4
+#define KATCP_FLAT_HIDDEN       0x8
+
+struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, unsigned int flags, char *name, struct katcp_group *g);
 struct katcp_flat *create_exec_flat_katcp(struct katcp_dispatch *d, char *name, struct katcp_group *gx, char **vector);
+int reconfigure_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, unsigned int flags);
 
 #define KATCP_ARB_TYPE_LISTENER 0xacce97
 

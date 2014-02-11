@@ -125,7 +125,7 @@ int accept_flat_katcp(struct katcp_dispatch *d, struct katcp_arb *a, unsigned in
 
     log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "accepted new connection from %s via %s", label, name_arb_katcp(d, a));
 
-    f = create_flat_katcp(d, nfd, 1, label, kl->l_group);
+    f = create_flat_katcp(d, nfd, KATCP_FLAT_TOCLIENT, label, kl->l_group);
     if(f == NULL){
       close(nfd);
     }

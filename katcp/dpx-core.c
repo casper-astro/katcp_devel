@@ -1282,7 +1282,7 @@ struct katcp_flat *create_exec_flat_katcp(struct katcp_dispatch *d, char *name, 
     close(fds[0]);
     fcntl(fds[1], F_SETFD, FD_CLOEXEC);
 
-    fx = create_flat_katcp(d, fds[1], 1, name, gx);
+    fx = create_flat_katcp(d, fds[1], KATCP_FLAT_TOSERVER, name, gx);
     if(fx == NULL){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate duplex state, terminating new child");
       kill(pid, SIGTERM);
@@ -1351,7 +1351,32 @@ struct katcp_flat *create_exec_flat_katcp(struct katcp_dispatch *d, char *name, 
   return NULL;
 }
 
-struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, int up, char *name, struct katcp_group *g)
+int reconfigure_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, unsigned int flags)
+{
+  struct katcp_group *gx;
+
+  /* update setttings, either at creation or while running */
+
+  gx = fx->f_group;
+  if(gx == NULL){
+    return -1;
+  }
+
+  if(flags & KATCP_FLAT_TOCLIENT){
+    if(fx->f_log_level == KATCP_LEVEL_OFF){
+      fx->f_log_level = gx->g_log_level;
+    }
+  } else {
+    /* WARNING: we assume servers aren't interested in our log messages */
+    fx->f_log_level = KATCP_LEVEL_OFF;
+  }
+
+  fx->f_flags = flags & (KATCP_FLAT_TOSERVER | KATCP_FLAT_TOCLIENT | KATCP_FLAT_HIDDEN);
+
+  return 0;
+}
+
+struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, unsigned int flags, char *name, struct katcp_group *g)
 {
   /* TODO: what about cloning an existing one to preserve misc settings, including log level, etc */
   struct katcp_flat *f, **tmp;
@@ -1386,11 +1411,12 @@ struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, int up, c
   f->f_flags = 0;
 
   /* for cases where connect() still has to succeed */
-  f->f_state = up ? FLAT_STATE_UP : FLAT_STATE_CONNECTING;
+  f->f_state = (flags & KATCP_FLAT_CONNECTING) ? FLAT_STATE_CONNECTING : FLAT_STATE_UP;
 
   f->f_exit_code = 0; /* WARNING: should technically be a fail, to catch cases where it isn't set at exit time */
 
   f->f_log_level = gx->g_log_level;
+
   f->f_scope = gx->g_scope;
 
   f->f_peer = NULL;
@@ -1482,6 +1508,8 @@ struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, int up, c
 #endif
 
   log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "created instance for %s", name ? name : "<anonymous");
+
+  reconfigure_flat_katcp(d, f, flags);
 
   return f;
 }
@@ -3005,6 +3033,7 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
     add_full_cmd_map_katcp(m, "?client-halt", "stop a client (?client-halt [name [group]])", 0, &client_halt_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "?client-connect", "create a client to a remote host (?client-connect host:port [group])", 0, &client_connect_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "?client-exec", "create a client to a local process (?client-exec label [group [binary [args]*])", 0, &client_exec_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "?client-config", "set a client option (?client-config option [client])", 0, &client_config_group_cmd_katcp, NULL, NULL);
 
     add_full_cmd_map_katcp(m, "?group-create", "create a new group (?group-create name [group])", 0, &group_create_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "?group-list", "list groups (?group-list)", 0, &group_list_group_cmd_katcp, NULL, NULL);
