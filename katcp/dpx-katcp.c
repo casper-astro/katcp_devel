@@ -426,7 +426,7 @@ int client_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   switch(fx->f_scope){
     case KATCP_SCOPE_SINGLE :
       /* WARNING: maybe a client can not be hidden from itself ? */
-      if((fy->f_flags & KATCP_FLAT_HIDDEN) == 0){
+      if((fx->f_flags & KATCP_FLAT_HIDDEN) == 0){
         if(print_client_list_katcp(d, fx) > 0){
           total++;
         }
