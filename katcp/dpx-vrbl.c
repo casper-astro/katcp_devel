@@ -386,6 +386,9 @@ int traverse_vrbl_katcp(struct katcp_dispatch *d, void *state, int (*callback)(s
   s = d->d_shared;
 
   if((fx == NULL) || (gx == NULL) || (s == NULL)){
+#ifdef DEBUG
+    fprintf(stderr, "traverse: insufficient context available\n");
+#endif
     return -1;
   }
 
@@ -394,6 +397,9 @@ int traverse_vrbl_katcp(struct katcp_dispatch *d, void *state, int (*callback)(s
   vra[2] = s->s_region;
 
   for(i = 0; i < MAX_DEPTH_VRBL; i++){
+#ifdef DEBUG
+    fprintf(stderr, "traverse: checking[%d]=%p\n", i, vra[i]);
+#endif
     complex_inorder_traverse_avltree(d, vra[i]->r_tree->t_root, state, callback);
   }
 

@@ -583,6 +583,8 @@ int sensor_value_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
 /* version related function ***************************************************/
 
+/* WARNING: this is somewhat similar to the version connect logic ... */
+
 int version_list_callback_katcp(struct katcp_dispatch *d, void *state, char *key, struct katcp_vrbl *vx)
 {
   unsigned int *cp;

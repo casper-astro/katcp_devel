@@ -1368,6 +1368,10 @@ int reconfigure_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, unsi
 
   /* update setttings, either at creation or while running */
 
+#ifdef DEBUG
+  fprintf(stderr, "dpx: reconfiguring %p with flags 0x%x\n", fx, flags);
+#endif
+
   gx = fx->f_group;
   if(gx == NULL){
     return -1;
@@ -1635,9 +1639,48 @@ struct katcp_flat *scope_name_flat_katcp(struct katcp_dispatch *d, char *name, s
   }
 }
 
+/*********************/
+
+int version_connect_callback_katcp(struct katcp_dispatch *d, void *state, char *key, struct katcp_vrbl *vx)
+{
+
+#ifdef DEBUG
+  fprintf(stderr, "version: about to consider variable %p\n", vx);
+#endif
+
+  if(vx == NULL){
+    return -1;
+  }
+
+  if((vx->v_flags & KATCP_VRF_VER) == 0){
+#ifdef DEBUG
+  fprintf(stderr, "version: %p not a version variable\n", vx);
+#endif
+    return 0;
+  }
+
+  append_string_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, KATCP_VERSION_CONNECT_INFORM);
+  append_string_katcp(d, KATCP_FLAG_STRING, key);
+  append_vrbl_katcp(d, KATCP_FLAG_LAST, vx);
+
+  return 0;
+}
+
+int version_connect_void_callback_katcp(struct katcp_dispatch *d, void *state, char *key, void *data)
+{
+  struct katcp_vrbl *vx;
+
+  vx = data;
+
+  return version_connect_callback_katcp(d, state, key, vx);
+}
+
 int trigger_connect_flat(struct katcp_dispatch *d, struct katcp_flat *fx)
 {
+#if 0
   struct katcp_group *gx;
+#endif
+  struct katcp_endpoint *save;
   
   if(fx == NULL){
     return -1;
@@ -1647,7 +1690,18 @@ int trigger_connect_flat(struct katcp_dispatch *d, struct katcp_flat *fx)
     return -1;
   }
 
-  /* do whatever needs to be done */
+  save = fx->f_current_endpoint;
+  fx->f_current_endpoint = fx->f_remote;
+
+#ifdef DEBUG
+  fprintf(stderr, "about to run version callback\n");
+#endif
+
+  /* TODO: this could be some group specific logic */
+
+  traverse_vrbl_katcp(d, NULL, &version_connect_void_callback_katcp);
+
+  fx->f_current_endpoint = save;
 
   return pop_flat(d, fx);
 }
