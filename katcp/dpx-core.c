@@ -55,8 +55,13 @@
 
 int setup_default_group(struct katcp_dispatch *d, char *name);
 
+static int pop_flat(struct katcp_dispatch *d, struct katcp_flat *fx);
+static int push_flat(struct katcp_dispatch *d, struct katcp_flat *fx, unsigned int set);
+
+#if 0
 static void clear_current_flat(struct katcp_dispatch *d);
 static void set_current_flat(struct katcp_dispatch *d, struct katcp_flat *fx);
+#endif
 
 #if 0
 static int actually_set_output_flat_katcp(struct katcp_flat *fx, unsigned int destination, unsigned int persistence);
@@ -1121,7 +1126,10 @@ int wake_endpoint_peer_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoin
       return KATCP_RESULT_FAIL;
   }
 
+  push_flat(d, fx, 1);
+#if 0
   set_current_flat(d, fx);
+#endif
 
   /* before calling this we set up: 
    * - current lookup map,
@@ -1159,7 +1167,10 @@ int wake_endpoint_peer_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoin
   fprintf(stderr, "dpx[%p]: result of processing %s is %d\n", fx, str, result);
 #endif
 
+  pop_flat(d, fx);
+#if 0
   clear_current_flat(d);
+#endif
 
   fx->f_current_endpoint = NULL;
   fx->f_current_map = KATCP_MAP_UNSET;
@@ -1369,6 +1380,10 @@ int reconfigure_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, unsi
   } else {
     /* WARNING: we assume servers aren't interested in our log messages */
     fx->f_log_level = KATCP_LEVEL_OFF;
+  }
+
+  if((flags & KATCP_FLAT_TOCLIENT) && ((fx->f_flags & KATCP_FLAT_TOCLIENT) == 0)){
+    trigger_connect_flat(d, fx);
   }
 
   fx->f_flags = flags & (KATCP_FLAT_TOSERVER | KATCP_FLAT_TOCLIENT | KATCP_FLAT_HIDDEN);
@@ -1620,6 +1635,23 @@ struct katcp_flat *scope_name_flat_katcp(struct katcp_dispatch *d, char *name, s
   }
 }
 
+int trigger_connect_flat(struct katcp_dispatch *d, struct katcp_flat *fx)
+{
+  struct katcp_group *gx;
+  
+  if(fx == NULL){
+    return -1;
+  }
+
+  if(push_flat(d, fx, 0)){
+    return -1;
+  }
+
+  /* do whatever needs to be done */
+
+  return pop_flat(d, fx);
+}
+
 int rename_flat_katcp(struct katcp_dispatch *d, char *group, char *was, char *should)
 {
   struct katcp_flat *fx;
@@ -1817,6 +1849,72 @@ struct katcp_flat *this_flat_katcp(struct katcp_dispatch *d)
   return f;
 }
 
+static int push_flat(struct katcp_dispatch *d, struct katcp_flat *fx, unsigned int set)
+{
+  struct katcp_shared *s;
+
+  s = d->d_shared;
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if((s == NULL) || (s->s_this == NULL)){
+    fprintf(stderr, "major logic problem: no duplex stack initialised\n");
+    abort();
+  }
+
+  if(set){
+    if(s->s_level >= 0){
+      fprintf(stderr, "logic problem: setting a current duplex [%d]=%p while one is %p\n", s->s_level, fx, s->s_this[s->s_level]);
+      abort();
+    }
+  }
+#endif
+
+  if(s->s_level >= s->s_stories){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "size problem: level=%d, stories=%u\n", s->s_level, s->s_stories);
+    abort();
+#endif
+    return -1;
+  }
+
+  s->s_level++;
+#ifdef DEBUG
+  fprintf(stderr, "push: [%d] <- %p\n", s->s_level, fx);
+#endif
+  s->s_this[s->s_level] = fx;
+
+  return 0;
+}
+
+static int pop_flat(struct katcp_dispatch *d, struct katcp_flat *fx)
+{
+  struct katcp_shared *s;
+
+  s = d->d_shared;
+  if(s->s_level < 0){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "logic problem: attempting to pop from an empty stack\n");
+    abort();
+#endif
+    if(fx){
+      return -1;
+    } else {
+      return 0;
+    }
+  }
+
+  if(fx){
+    if(s->s_this[s->s_level] != fx){
+      return -1;
+    }
+  } 
+
+  s->s_this[s->s_level] = NULL;
+  s->s_level--;
+
+  return 0;
+}
+
+#if 0
 static void set_current_flat(struct katcp_dispatch *d, struct katcp_flat *fx)
 {
   struct katcp_shared *s;
@@ -1850,6 +1948,7 @@ static void clear_current_flat(struct katcp_dispatch *d)
   s->s_this[0] = NULL;
   s->s_level = (-1);
 }
+#endif
 
 #if 0
 static int actually_set_output_flat_katcp(struct katcp_flat *fx, unsigned int destination, unsigned int persistence)

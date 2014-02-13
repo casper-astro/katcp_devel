@@ -666,7 +666,7 @@ struct katcp_shared{
 
   struct katcp_flat **s_this;
   int s_level;
-  unsigned int s_stories;
+  int s_stories;
 
   struct katcp_endpoint *s_endpoints;
 
@@ -919,6 +919,8 @@ void shutdown_duplex_katcp(struct katcp_dispatch *d);
 struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, unsigned int flags, char *name, struct katcp_group *g);
 struct katcp_flat *create_exec_flat_katcp(struct katcp_dispatch *d, char *name, struct katcp_group *gx, char **vector);
 int reconfigure_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, unsigned int flags);
+
+int trigger_connect_flat(struct katcp_dispatch *d, struct katcp_flat *fx);
 
 #define KATCP_ARB_TYPE_LISTENER 0xacce97
 
