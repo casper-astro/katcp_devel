@@ -1113,6 +1113,11 @@ int traverse_vrbl_katcp(struct katcp_dispatch *d, void *state, int (*callback)(s
 int type_from_string_vrbl_katcp(struct katcp_dispatch *d, char *string);
 char *type_to_string_vrbl_katcp(struct katcp_dispatch *d, unsigned int type);
  
+/* type specific top-level utilities */
+
+struct katcp_vrbl *create_string_vrbl_katcp(struct katcp_dispatch *d, unsigned int flags, char *value);
+int make_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_group *gx, char *key, unsigned int flags, char *value);
+
 /******************************************/
 
 int prepend_generic_flat_katcp(struct katcp_dispatch *d, int reply);

@@ -30,7 +30,7 @@ struct katcp_message;
 struct katcp_cmd_map;
 struct katcp_vrbl;
 
-#define KATCP_CODEBASE_NAME     "libkatcp" 
+#define KATCP_CODEBASE_NAME     "Ckatcp" 
 
 #define KATCP_LIBRARY_LABEL     "katcp-library"
 #define KATCP_PROTOCOL_LABEL    "katcp-protocol"

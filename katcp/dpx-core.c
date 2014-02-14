@@ -476,7 +476,9 @@ void shutdown_duplex_katcp(struct katcp_dispatch *d)
 
 int startup_duplex_katcp(struct katcp_dispatch *d, unsigned int stories)
 {
+#define BUFFER 128
   struct katcp_shared *s;
+  char buffer[BUFFER];
   
   if(d == NULL){
     return -1;
@@ -516,7 +518,18 @@ int startup_duplex_katcp(struct katcp_dispatch *d, unsigned int stories)
     return -1;
   }
 
+  snprintf(buffer, BUFFER - 1, "%d.%d-%c", KATCP_PROTOCOL_MAJOR_VERSION, KATCP_PROTOCOL_MINOR_VERSION, 'M');
+  buffer[BUFFER - 1] = '\0';
+  make_string_vrbl_katcp(d, NULL, KATCP_PROTOCOL_LABEL, KATCP_VRF_VER, buffer);
+
+#ifdef VERSION
+  snprintf(buffer, BUFFER - 1, "%s-%s", KATCP_CODEBASE_NAME, VERSION);
+  buffer[BUFFER - 1] = '\0';
+  make_string_vrbl_katcp(d, NULL, KATCP_LIBRARY_LABEL, KATCP_VRF_VER, buffer);
+#endif
+
   return 0;
+#undef BUFFER  
 }
 
 /********************************************************************/

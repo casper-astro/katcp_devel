@@ -51,35 +51,45 @@ void clear_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx)
   }
 }
 
-int scan_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, char *text)
+int set_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, char *value)
 {
   char *ptr;
   int len;
 
 #ifdef KATCP_CONSISTENCY_CHECKS
+  if(vx == NULL){
+    fprintf(stderr, "string variable: null parameter\n");
+    return -1;
+  }
   if(vx->v_type != KATCP_VRT_STRING){
-    fprintf(stderr, "scan string: bad type %u\n", vx->v_type);
+    fprintf(stderr, "string variable: bad type %u\n", vx->v_type);
     abort();
   }
 #endif
 
-  if(text == NULL){
+  if(value == NULL){
     if(vx->v_union.u_string){
       free(vx->v_union.u_string);
       vx->v_union.u_string = NULL;
     }
     return 0;
-  } else {
-    len = strlen(text) + 1;
-    ptr = realloc(vx->v_union.u_string, len);
-    if(ptr == NULL){
-      return -1;
-    }
-
-    memcpy(ptr, text, len);
-    vx->v_union.u_string = ptr;
-    return 0;
   }
+
+  len = strlen(value) + 1;
+  ptr = realloc(vx->v_union.u_string, len);
+  if(ptr == NULL){
+    return -1;
+  }
+
+  memcpy(ptr, value, len);
+  vx->v_union.u_string = ptr;
+  return 0;
+}
+
+int scan_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, char *text)
+{
+  /* special case, as scan uses a string as input too, other types not so easy */
+  return set_string_vrbl_katcp(d, vx, text);
 }
 
 int append_string_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int flags, struct katcp_vrbl *vx)
@@ -656,7 +666,61 @@ struct katcp_region *create_region_katcp(struct katcp_dispatch *d)
   return rx;
 }
 
-/******************************************************************************/
+/* top-level string API functions *********************************************/
+
+struct katcp_vrbl *create_string_vrbl_katcp(struct katcp_dispatch *d, unsigned int flags, char *value)
+{
+  struct katcp_vrbl *vx;
+
+  vx = create_vrbl_katcp(d, KATCP_VRT_STRING, flags, NULL, NULL, NULL);
+  if(vx == NULL){
+    return NULL;
+  }
+
+  if(set_string_vrbl_katcp(d, vx, value) < 0){
+    destroy_vrbl_katcp(d, NULL, vx);
+    return NULL;
+  }
+
+  return vx;
+}
+
+int make_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_group *gx, char *key, unsigned int flags, char *value)
+{
+  struct katcp_region *rx;
+  struct katcp_shared *s;
+  struct katcp_vrbl *vx;
+
+  s = d->d_shared;
+
+  if(gx){
+    rx = gx->g_region;
+  } else {
+    rx = s->s_region;
+  }
+
+  if(rx == NULL){
+    return -1;
+  }
+
+  if(find_region_katcp(d, rx, key)){
+    return -1;
+  }
+
+  vx = create_string_vrbl_katcp(d, flags, value);
+  if(vx == NULL){
+    return -1;
+  }
+
+  if(insert_region_katcp(d, rx, vx, key) < 0){
+    destroy_vrbl_katcp(d, key, vx);
+    return -1;
+  }
+
+  return 0;
+} 
+
+/****/
 
 #if 0
 
@@ -675,36 +739,6 @@ int insert_string_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx
   }
 
   return 0;
-}
-#endif
-
-#if 0
-struct katcp_vrbl *create_string_vrbl_katcp(struct katcp_dispatch *d, unsigned int flags, char *value)
-{
-  struct katcp_vrbl *vx;
-  char *ptr;
-
-  if(value){
-    ptr = strdup(value);
-    if(ptr == NULL){
-      return NULL;
-    }
-  } else {
-    ptr = NULL;
-  }
-
-  vx = create_vrbl_katcp(d, flags, NULL, NULL, &release_string_vrbl_katcp);
-  if(vx == NULL){
-    if(ptr){
-      free(ptr);
-    }
-    return NULL;
-  }
-
-  vx->v_union.u_string = ptr;
-  vx->v_type = KATCP_VRT_STRING;
-
-  return vx;
 }
 #endif
 
@@ -802,7 +836,7 @@ int var_declare_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   return KATCP_RESULT_OK;
 }
 
-/***/
+/* variable listing - callback then command ***************************/
 
 int var_list_callback_katcp(struct katcp_dispatch *d, void *state, char *key, struct katcp_vrbl *vx)
 {
