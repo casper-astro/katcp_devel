@@ -1548,15 +1548,13 @@ static int check_log_message_katcp(struct katcl_line *l, int sum, unsigned int l
 int log_message_katcp(struct katcp_dispatch *d, unsigned int priority, char *name, char *fmt, ...)
 {
   va_list args;
-  int sum;
+  int sum, count;
   unsigned int level, i;
   struct katcp_shared *s;
   struct katcp_entry *e;
   char *prefix;
 #ifdef KATCP_EXPERIMENTAL
-  struct katcp_group *gx;
-  struct katcp_flat *fx;
-  unsigned int j;
+  struct katcl_parse *px;
 #endif
 
   level = priority & KATCP_MASK_LEVELS;
@@ -1585,40 +1583,25 @@ int log_message_katcp(struct katcp_dispatch *d, unsigned int priority, char *nam
   }
 
 #ifdef KATCP_EXPERIMENTAL
-  if(priority & KATCP_LEVEL_LOCAL){ 
-    fx = this_flat_katcp(d);
-    if(fx){
-      va_start(args, fmt);
-      sum = check_log_message_katcp(fx->f_line, sum, fx->f_log_level, level, prefix, fmt, args);
-      va_end(args);
-    }
-  } else if(priority & KATCP_LEVEL_GROUP){ /* within the same group */
-    gx = this_group_katcp(d);
-    if(gx){
-      for(i = 0; i < gx->g_count; i++){
-        fx = gx->g_flats[i];
-        if(fx){
-          va_start(args, fmt);
-          sum = check_log_message_katcp(fx->f_line, sum, fx->f_log_level, level, prefix, fmt, args);
-          va_end(args);
-        }
-      }
-    }
-  } else { /* message goes everywhere */
-    if(s->s_groups){
-      for(j = 0; j < s->s_members; j++){
-        gx = s->s_groups[j];
-        for(i = 0; i < gx->g_count; i++){
-          fx = gx->g_flats[i];
-          if(fx){
-            va_start(args, fmt);
-            sum = check_log_message_katcp(fx->f_line, sum, fx->f_log_level, level, prefix, fmt, args);
-            va_end(args);
-          }
-        }
-      }
+  px = create_referenced_parse_katcl();
+  if(px == NULL){
+    return -1;
+  }
+  
+  va_start(args, fmt);
+  sum = vlog_parse_katcl(px, level, prefix, fmt, args);
+  va_start(args, fmt);
+
+  if(sum > 0){
+    count = log_parse_katcp(d, level, px);
+    if(count < 0){
+      sum = (-1);
+    } else {
+      sum *= count;
     }
   }
+
+  destroy_parse_katcl(px);
 #endif
 
   if(s->s_count > 0){ /* do we have clones ? Then send it to them */

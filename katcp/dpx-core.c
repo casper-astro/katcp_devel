@@ -304,7 +304,11 @@ struct katcp_group *this_group_katcp(struct katcp_dispatch *d)
     return NULL;
   }
 
+#if 0
+  /* used inside log, can't call again */
+  /* TODO: should have some protection logic */
   log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "duplex: stack is %u", s->s_level);
+#endif
 
   if(s->s_level < 0){
 #ifdef KATCP_CONSISTENCY_CHECKS

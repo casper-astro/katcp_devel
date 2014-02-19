@@ -273,6 +273,7 @@ int name_log_level_katcp(struct katcp_dispatch *d, char *name);
 int log_level_katcp(struct katcp_dispatch *d, unsigned int level);
 int log_message_katcp(struct katcp_dispatch *d, unsigned int priority, char *name, char *fmt, ...);
 int log_relay_katcp(struct katcp_dispatch *d, struct katcl_parse *p);
+int log_parse_katcp(struct katcp_dispatch *d, int level, struct katcl_parse *px);
 
 int extra_response_katcp(struct katcp_dispatch *d, int code, char *fmt, ...);
 int basic_inform_katcp(struct katcp_dispatch *d, char *name, char *arg);
@@ -767,6 +768,10 @@ int var_declare_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 int var_set_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 int version_list_group_cmd_katcp(struct katcp_dispatch *d, int argc);
+
+/* duplex related inform handlers */
+
+int log_group_info_katcp(struct katcp_dispatch *d, int argc);
 
 /* endpoints */
 

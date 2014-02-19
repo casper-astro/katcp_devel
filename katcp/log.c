@@ -98,6 +98,52 @@ int sync_message_katcl(struct katcl_line *cl, int level, char *name, char *fmt, 
   return 0;
 }
 
+int vlog_parse_katcl(struct katcl_parse *px, int level, char *name, char *fmt, va_list args)
+{
+  int result[5];
+  struct timeval now;
+  unsigned int milli;
+  char *subsystem, *logstring;
+
+  if((level >= KATCP_LEVEL_OFF) || (level < 0)){
+#ifdef DEBUG
+    fprintf(stderr, "log: bad form to a message of level off or worse\n");
+#endif
+    return -1;
+  }
+
+  logstring = log_to_string_katcl(level);
+  if(logstring == NULL){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "log: using unknown log level %d in log function call\n", level);
+    abort();
+#endif
+    return -1;
+  }
+
+  subsystem = name ? name : "unknown" ;
+
+  gettimeofday(&now, NULL);
+  milli = now.tv_usec / 1000;
+
+  result[0] = add_string_parse_katcl(px, KATCP_FLAG_FIRST, KATCP_LOG_INFORM);
+  result[1] = add_string_parse_katcl(px, 0, logstring);
+#if KATCP_PROTOCOL_MAJOR_VERSION >= 5   
+  result[2] = add_args_parse_katcl(px, 0, "%lu.%03d", now.tv_sec, milli);
+#else 
+  result[2] = add_args_parse_katcl(px, 0, "%lu%03d", now.tv_sec, milli);
+#endif
+  result[3] = add_string_parse_katcl(px, 0, subsystem);
+
+#if DEBUG > 1
+  fprintf(stderr, "log: my fmt string is <%s>, milli=%u\n", fmt, milli);
+#endif
+
+  result[4] = add_vargs_parse_katcl(px, KATCP_FLAG_LAST, fmt, args);
+
+  return vector_sum(result, 5);
+}
+
 int log_message_katcl(struct katcl_line *cl, int level, char *name, char *fmt, ...)
 {
   va_list args;
@@ -116,49 +162,29 @@ int log_message_katcl(struct katcl_line *cl, int level, char *name, char *fmt, .
 
 int vlog_message_katcl(struct katcl_line *cl, int level, char *name, char *fmt, va_list args)
 {
-  int result[5];
-  struct timeval now;
-  unsigned int milli;
-  char *subsystem, *logstring;
+  struct katcl_parse *px;
+  int result;
 
-#ifdef DEBUG
-  if(level >= KATCP_LEVEL_OFF){
-    fprintf(stderr, "log: bad form to a message of level off or worse\n");
-    return -1;
-  }
-#endif
-
-  logstring = log_to_string_katcl(level);
-  if(logstring == NULL){
-#ifdef KATCP_CONSISTENCY_CHECKS
-    fprintf(stderr, "log: using unknown log level %d in log function call\n", level);
-    abort();
-#endif
+  px = create_referenced_parse_katcl();
+  if(px == NULL){
     return -1;
   }
 
-  subsystem = name ? name : "unknown" ;
+  result = vlog_parse_katcl(px, level, name, fmt, args);
+  if(result < 0){
+    destroy_parse_katcl(px);
+    return -1;
+  }
 
-  gettimeofday(&now, NULL);
-  milli = now.tv_usec / 1000;
+  if(append_parse_katcl(cl, px) < 0){
+    destroy_parse_katcl(px);
+    return -1;
+  }
 
-  result[0] = append_string_katcl(cl, KATCP_FLAG_FIRST, KATCP_LOG_INFORM);
-  result[1] = append_string_katcl(cl, 0, logstring);
-#if KATCP_PROTOCOL_MAJOR_VERSION >= 5   
-    result[2] = append_args_katcl(cl, 0, "%lu.%03d", now.tv_sec, milli);
-#else 
-    result[2] = append_args_katcl(cl, 0, "%lu%03d", now.tv_sec, milli);
-#endif
-  result[3] = append_string_katcl(cl, 0, subsystem);
+  /* WARNING: we count on append_parse to hang onto it ... */
+  destroy_parse_katcl(px);
 
-#if DEBUG > 1
-  fprintf(stderr, "log: my fmt string is <%s>, milli=%u\n", fmt, milli);
-#endif
-
-  result[4] = append_vargs_katcl(cl, KATCP_FLAG_LAST, fmt, args);
-
-  /* do the right thing, collect error codes */
-  return vector_sum(result, 5);
+  return result;
 }
 
 #if 0
