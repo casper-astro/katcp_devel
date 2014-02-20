@@ -31,10 +31,14 @@ int main(int argc, char **argv)
   multi = 0;
   i = j = 1;
   level = KATCP_LEVEL_INFO;
-  system = "notifier";
   buffer = NULL;
   size = 0;
   pos = 0;
+
+  system = getenv("KATCP_LABEL");
+  if(system == NULL){
+    system = "notifier";
+  }
 
   app = argv[0];
 
