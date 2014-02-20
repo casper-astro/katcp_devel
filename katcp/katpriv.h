@@ -902,6 +902,7 @@ struct katcp_cmd_map *duplicate_cmd_map_katcp(struct katcp_cmd_map *mo, char *na
 struct katcp_cmd_item *find_cmd_map_katcp(struct katcp_cmd_map *m, char *name);
 int remove_cmd_map_katcp(struct katcp_cmd_map *m, char *name);
 void set_flag_cmd_item_katcp(struct katcp_cmd_item *ix, unsigned int flags);
+int set_help_cmd_item_katcp(struct katcp_cmd_item *ix, char *help);
 
 /* flat stuff */
 int run_flat_katcp(struct katcp_dispatch *d);

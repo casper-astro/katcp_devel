@@ -118,6 +118,33 @@ void set_flag_cmd_item_katcp(struct katcp_cmd_item *ix, unsigned int flags)
   ix->i_flags = flags;
 }
 
+int set_help_cmd_item_katcp(struct katcp_cmd_item *ix, char *help)
+{
+  char *ptr;
+
+  if(ix == NULL){
+    return -1;
+  }
+
+  if(help){
+    ptr = strdup(help);
+    if(ptr == NULL){
+      return -1;
+    }
+  } else {
+    ptr = NULL;
+  }
+
+  if(ix->i_help){
+    free(ix->i_help);
+    ix->i_help = NULL;
+  }
+
+  ix->i_help = ptr;
+
+  return 0;
+}
+
 /* full map management **********************************************/
 
 int remove_cmd_map_katcp(struct katcp_cmd_map *m, char *name)

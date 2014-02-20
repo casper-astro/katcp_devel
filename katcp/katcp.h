@@ -758,6 +758,7 @@ int halt_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 int hide_cmd_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 int uncover_cmd_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 int delete_cmd_group_cmd_katcp(struct katcp_dispatch *d, int argc);
+int help_cmd_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 int sensor_list_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 int sensor_sampling_group_cmd_katcp(struct katcp_dispatch *d, int argc);

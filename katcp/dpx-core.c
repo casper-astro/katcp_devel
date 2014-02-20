@@ -3219,6 +3219,7 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
     add_full_cmd_map_katcp(m, "cmd-hide", "hide a command (?cmd-hide command)", 0, &hide_cmd_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "cmd-uncover", "reveal a hidden command (?cmd-uncover command)", 0, &uncover_cmd_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "cmd-delete", "remove a command (?cmd-delete command)", 0, &delete_cmd_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "cmd-help", "set the help message for a command (?cmd-help command message)", 0, &help_cmd_group_cmd_katcp, NULL, NULL);
 
     add_full_cmd_map_katcp(m, "sensor-list", "lists available sensors (?sensor-list [sensor])", 0, &sensor_list_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "sensor-value", "query a sensor (?sensor-value sensor)", 0, &sensor_value_group_cmd_katcp, NULL, NULL);

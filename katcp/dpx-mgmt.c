@@ -612,13 +612,14 @@ int listener_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
 #define CMD_OP_REMOVE  0
 #define CMD_OP_FLAG    1
+#define CMD_OP_HELP    2
 
 static int configure_cmd_group_katcp(struct katcp_dispatch *d, int argc, int op, unsigned int flags)
 {
   struct katcp_cmd_map *mx;
   struct katcp_cmd_item *ix;
   struct katcp_flat *fx;
-  char *name;
+  char *name, *help;
 
   if(argc <= 1){
     return extra_response_katcp(d, KATCP_RESULT_INVALID, KATCP_FAIL_USAGE);
@@ -656,6 +657,26 @@ static int configure_cmd_group_katcp(struct katcp_dispatch *d, int argc, int op,
         return KATCP_RESULT_OK;
       }
       break;
+    case CMD_OP_HELP :
+      ix = find_cmd_map_katcp(mx, name);
+      if(ix == NULL){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no command %s found", name);
+        return KATCP_RESULT_FAIL;
+      }
+
+      help = arg_string_katcp(d, 2);
+      if(help == NULL){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a valid help string for %s", name);
+        return KATCP_RESULT_FAIL;
+      }
+
+      if(set_help_cmd_item_katcp(ix, help) < 0){
+        return KATCP_RESULT_FAIL;
+      }
+
+      log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "updated help message for %s held %d times", name, ix->i_refs);
+
+      return KATCP_RESULT_OK;
     case CMD_OP_FLAG :
       ix = find_cmd_map_katcp(mx, name);
       if(ix == NULL){
@@ -688,6 +709,12 @@ int uncover_cmd_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 int delete_cmd_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   return configure_cmd_group_katcp(d, argc, CMD_OP_REMOVE, 0);
+}
+
+int help_cmd_group_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+
+  return configure_cmd_group_katcp(d, argc, CMD_OP_HELP, 0);
 }
 
 #endif
