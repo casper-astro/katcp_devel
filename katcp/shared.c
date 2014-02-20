@@ -977,14 +977,12 @@ static int expand_modes_katcp(struct katcp_dispatch *d, unsigned int mode)
 int mode_version_katcp(struct katcp_dispatch *d, int mode, char *subsystem, int major, int minor)
 {
 #define BUFFER 20
-  struct katcp_shared *s;
 #if 0
   struct katcp_entry *e;
 #endif
   char buffer[BUFFER];
 
   sane_shared_katcp(d);
-  s = d->d_shared;
 
   if(expand_modes_katcp(d, mode) < 0){
     return -1;
