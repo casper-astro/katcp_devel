@@ -174,8 +174,8 @@ int log_group_info_katcp(struct katcp_dispatch *d, int argc)
     return -1;
   }
 
-#if 1
-  /* WARNING: this check may be too picky - maybe child connects are allowed to tell us things too ... */
+#if 0
+  /* WARNING: probably the best way to inhibit this is to provide a means to deregister this handler */
   if(fx->f_flags & KATCP_FLAT_TOCLIENT){
 #ifdef DEBUG
     fprintf(stderr, "log: ingnoring log message from client\n");
