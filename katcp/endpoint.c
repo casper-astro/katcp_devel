@@ -488,7 +488,7 @@ int vturnaround_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *
     destroy_message_katcp(d, msg);
   }
 
-  return -1;
+  return result;
 }
 
 int turnaround_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep, struct katcp_message *msg, int code, char *fmt, ...)

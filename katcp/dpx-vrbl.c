@@ -940,7 +940,6 @@ int var_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   char *key;
   unsigned int i;
   int result;
-  struct katcp_region *vra[MAX_DEPTH_VRBL];
   struct katcp_flat *fx;
   struct katcp_group *gx;
   struct katcp_shared *s;
@@ -953,10 +952,6 @@ int var_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   if((fx == NULL) || (gx == NULL) || (s == NULL)){
     return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_API);
   }
-
-  vra[0] = fx->f_region;
-  vra[1] = gx->g_region;
-  vra[2] = s->s_region;
 
   result = 0;
 

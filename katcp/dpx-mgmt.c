@@ -539,10 +539,9 @@ int listener_halt_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
 int print_listener_katcp(struct katcp_dispatch *d, struct katcp_arb *a, void *data)
 {
-  char *name, *first, *extra;
+  char *name, *extra;
   struct katcp_listener *kl;
   struct katcp_group *gx;
-  int flags;
 
   name = name_arb_katcp(d, a);
   if(name == NULL){
@@ -556,7 +555,6 @@ int print_listener_katcp(struct katcp_dispatch *d, struct katcp_arb *a, void *da
 
   prepend_inform_katcp(d);
 
-  first = name;
   extra = NULL;
 
   if(kl->l_group){
@@ -567,8 +565,6 @@ int print_listener_katcp(struct katcp_dispatch *d, struct katcp_arb *a, void *da
   }
 
   append_string_katcp(d, KATCP_FLAG_STRING, name);
-
-  flags = KATCP_FLAG_LAST;
 
   if(extra || kl->l_address){
     append_unsigned_long_katcp(d, KATCP_FLAG_ULONG, kl->l_port);

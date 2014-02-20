@@ -129,14 +129,11 @@ int complete_relay_generic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
 int relay_generic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
-  struct katcp_shared *s;
   char *name, *cmd, *ptr;
   unsigned int len, flags;
   struct katcp_flat *fx, *fy;
   struct katcl_parse *px, *py;
   struct katcp_endpoint *source, *target;
-
-  s = d->d_shared;
 
   if(argc < 2){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "insufficient parameters (%d) to relay logic", argc);
@@ -326,13 +323,10 @@ int perform_forward_symbolic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
 int forward_symbolic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
-  struct katcp_shared *s;
   char *cmd, *ptr;
   struct forward_symbolic_state *fs;
   struct katcp_cmd_map *mx;
   struct katcp_flat *fx;
-
-  s = d->d_shared;
 
   fx = this_flat_katcp(d);
   if(fx == NULL){
