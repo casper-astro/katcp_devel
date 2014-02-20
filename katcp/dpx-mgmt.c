@@ -351,10 +351,7 @@ int group_create_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 int group_halt_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   struct katcp_group *gx;
-  struct katcp_shared *s;
   char *name;
-
-  s = d->d_shared;
 
   if(argc <= 1){
     gx = this_group_katcp(d);

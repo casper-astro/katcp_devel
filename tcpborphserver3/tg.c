@@ -1510,6 +1510,12 @@ int tap_multicast_add_group_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
+  mode = arg_string_katcp(d, 2);
+  if(mode == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a valid mode");
+    return KATCP_RESULT_FAIL;
+  }
+
   a = find_arb_katcp(d, name);
   if(a == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to locate %s", name);
@@ -1580,13 +1586,6 @@ int tap_multicast_add_group_cmd(struct katcp_dispatch *d, int argc)
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "address 0x%08x does not start on a multiple of %u", start, count);
     return KATCP_RESULT_FAIL;
   }
-
-  mode = arg_string_katcp(d, 2);
-  if(mode == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a valid mode");
-    return KATCP_RESULT_FAIL;
-  }
-
 
   if (strncmp(mode,"recv", 4) == 0){
 

@@ -56,14 +56,11 @@ int set_group_log_level_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, s
 
 int generic_log_level_group_cmd_katcp(struct katcp_dispatch *d, int argc, unsigned int clue)
 {
-  struct katcp_shared *s;
   struct katcp_flat *fx;
   struct katcp_group *gx;
   int level;
   unsigned int type;
   char *name, *requested, *extent;
-
-  s = d->d_shared;
 
   level = (-1);
 
@@ -474,11 +471,8 @@ int restart_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   /* halt and restart handlers could really be merged into one function */
 
-  struct katcp_shared *s;
   struct katcp_group *gx;
   struct katcp_flat *fx;
-
-  s = d->d_shared;
 
   fx = this_flat_katcp(d);
   if(fx == NULL){
@@ -513,11 +507,8 @@ int restart_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
 int halt_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
-  struct katcp_shared *s;
   struct katcp_group *gx;
   struct katcp_flat *fx;
-
-  s = d->d_shared;
 
   fx = this_flat_katcp(d);
   if(fx == NULL){
