@@ -257,7 +257,10 @@ int main(int argc, char **argv)
   fd_set fsr, fsw;
   struct timeval tv;
 
-  label = KCPCMD_NAME;
+  label = getenv("KATCP_LABEL");
+  if(label == NULL){
+    label = KCPCMD_NAME;
+  }
   
   server = getenv("KATCP_SERVER");
   if(server == NULL){
