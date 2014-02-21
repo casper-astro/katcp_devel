@@ -1282,7 +1282,7 @@ void release_endpoint_remote_flat_katcp(struct katcp_dispatch *d, void *data)
 
 /********************************************************************/
 
-struct katcp_flat *create_exec_flat_katcp(struct katcp_dispatch *d, char *name, struct katcp_group *gx, char **vector)
+struct katcp_flat *create_exec_flat_katcp(struct katcp_dispatch *d, unsigned int flags, char *name, struct katcp_group *gx, char **vector)
 {
   struct katcp_flat *fx;
   struct katcl_line *xl;
@@ -1310,7 +1310,7 @@ struct katcp_flat *create_exec_flat_katcp(struct katcp_dispatch *d, char *name, 
     close(fds[0]);
     fcntl(fds[1], F_SETFD, FD_CLOEXEC);
 
-    fx = create_flat_katcp(d, fds[1], KATCP_FLAT_TOSERVER, name, gx);
+    fx = create_flat_katcp(d, fds[1], flags, name, gx);
     if(fx == NULL){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate duplex state, terminating new child");
       kill(pid, SIGTERM);
@@ -3230,6 +3230,8 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
     add_full_cmd_map_katcp(m, "var-set", "set a variable (?var-set variable value)", 0, &var_set_group_cmd_katcp, NULL, NULL);
 
     add_full_cmd_map_katcp(m, "version-list", "list version information (?version-list)", 0, &version_list_group_cmd_katcp, NULL, NULL);
+
+    add_full_cmd_map_katcp(m, "scope", "change scoping level (?scope scope [(group | client) name])", 0, &scope_group_cmd_katcp, NULL, NULL);
 
   } else {
     m = gx->g_maps[KATCP_MAP_REMOTE_REQUEST];

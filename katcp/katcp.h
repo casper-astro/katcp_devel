@@ -688,6 +688,7 @@ int terminate_group_katcp(struct katcp_dispatch *d, struct katcp_group *gx, int 
 void destroy_group_katcp(struct katcp_dispatch *d, struct katcp_group *g);
 
 struct katcp_flat *scope_name_flat_katcp(struct katcp_dispatch *d, char *name, struct katcp_flat *fx);
+struct katcp_flat *search_name_flat_katcp(struct katcp_dispatch *d, char *name, struct katcp_group *gx, int limit);
 
 struct katcp_flat *find_name_flat_katcp(struct katcp_dispatch *d, char *group, char *name);
 int rename_flat_katcp(struct katcp_dispatch *d, char *group, char *was, char *should);
@@ -769,6 +770,8 @@ int var_declare_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 int var_set_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 int version_list_group_cmd_katcp(struct katcp_dispatch *d, int argc);
+
+int scope_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 /* duplex related inform handlers */
 

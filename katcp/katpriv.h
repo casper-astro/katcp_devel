@@ -918,7 +918,7 @@ void shutdown_duplex_katcp(struct katcp_dispatch *d);
 #define KATCP_FLAT_HIDDEN       0x8
 
 struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, unsigned int flags, char *name, struct katcp_group *g);
-struct katcp_flat *create_exec_flat_katcp(struct katcp_dispatch *d, char *name, struct katcp_group *gx, char **vector);
+struct katcp_flat *create_exec_flat_katcp(struct katcp_dispatch *d, unsigned int flags, char *name, struct katcp_group *gx, char **vector);
 int reconfigure_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, unsigned int flags);
 
 int trigger_connect_flat(struct katcp_dispatch *d, struct katcp_flat *fx);

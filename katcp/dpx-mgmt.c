@@ -71,7 +71,7 @@ int client_exec_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     vector = NULL;
   }
 
-  fx = create_exec_flat_katcp(d, label, gx, vector);
+  fx = create_exec_flat_katcp(d, KATCP_FLAT_TOSERVER | KATCP_FLAT_TOCLIENT, label, gx, vector);
   if(vector){
     free(vector);
   }
@@ -715,6 +715,78 @@ int help_cmd_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
 
   return configure_cmd_group_katcp(d, argc, CMD_OP_HELP, 0);
+}
+
+/* scope commands ***/
+
+int scope_group_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  char *name, *ptr;
+  struct katcp_flat *fx;
+  struct katcp_group *gx;
+  int scope;
+
+  if(argc <= 1){
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
+  }
+
+  ptr = arg_string_katcp(d, 1);
+  if(ptr == NULL){
+    return extra_response_katcp(d, KATCP_RESULT_INVALID, KATCP_FAIL_BUG);
+  }
+
+  scope = code_from_scope_katcp(ptr);
+  if(scope < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unknown scope %s", ptr);
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
+  }
+
+  /* WARNING: the *_scope variables should probably be changed using accessor functions, but not used sufficiently often */
+
+  if(argc > 3){
+    ptr = arg_string_katcp(d, 2);
+    name = arg_string_katcp(d, 3);
+
+    if((ptr == NULL) || (name == NULL)){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "insufficient or null parameters");
+      return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
+    }
+
+    if(!strcmp(ptr, "client")){
+      gx = this_group_katcp(d);
+      if(gx == NULL){
+        return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_API);
+      }
+      fx = search_name_flat_katcp(d, name, gx, 0);
+      if(fx == NULL){
+        return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_NOT_FOUND);
+      }
+
+      fx->f_scope = scope;
+
+    } else if(!strcmp(ptr, "group")){
+      gx = find_group_katcp(d, name);
+      if(gx == NULL){
+        return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_NOT_FOUND);
+      }
+
+      gx->g_scope = scope;
+
+    } else {
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unknown scope extent %s", ptr);
+      return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
+    }
+
+  } else {
+    fx = this_flat_katcp(d);
+    if(fx == NULL){
+      return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_API);
+    }
+
+    fx->f_scope = scope;
+  }
+
+  return KATCP_RESULT_FAIL;
 }
 
 #endif
