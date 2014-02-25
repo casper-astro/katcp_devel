@@ -366,14 +366,14 @@ static int print_client_list_katcp(struct katcp_dispatch *d, struct katcp_flat *
   }
 
   if(fx->f_flags & KATCP_FLAT_HIDDEN){
-    log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "client %s will not be listed");
+    log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "client %s will not be listed", fx->f_name);
   }
 
   if(fx->f_flags & KATCP_FLAT_TOSERVER){
-    log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "client %s may issue requests as peer is a server");
+    log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "client %s may issue requests as peer is a server", fx->f_name);
   }
   if(fx->f_flags & KATCP_FLAT_TOCLIENT){
-    log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "client %s may field requests as peer is a client");
+    log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "client %s may field requests as peer is a client", fx->f_name);
   }
 
   ptr = string_from_scope_katcp(fx->f_scope);
