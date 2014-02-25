@@ -98,8 +98,8 @@ int log_parse_katcp(struct katcp_dispatch *d, int level, struct katcl_parse *px)
       return -1;
     }
   } else {
-    mask = (~KATCP_MASK_LEVELS) & level;
-    limit = KATCP_MASK_LEVELS & level;
+    mask = (~KATCP_MASK_LEVELS) & ((unsigned int)level);
+    limit = KATCP_MASK_LEVELS & ((unsigned int)level);
   }
 
   /* WARNING: ft and gt may be NULL if outside flat context */

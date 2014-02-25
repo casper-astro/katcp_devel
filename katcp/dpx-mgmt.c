@@ -727,11 +727,13 @@ int scope_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   int scope;
 
   if(argc <= 1){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "insufficient parameters");
     return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
   }
 
   ptr = arg_string_katcp(d, 1);
   if(ptr == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "null parameters");
     return extra_response_katcp(d, KATCP_RESULT_INVALID, KATCP_FAIL_BUG);
   }
 
@@ -755,10 +757,12 @@ int scope_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     if(!strcmp(ptr, "client")){
       gx = this_group_katcp(d);
       if(gx == NULL){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no current group available");
         return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_API);
       }
       fx = search_name_flat_katcp(d, name, gx, 0);
       if(fx == NULL){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "client %s not found", name);
         return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_NOT_FOUND);
       }
 
@@ -767,6 +771,7 @@ int scope_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     } else if(!strcmp(ptr, "group")){
       gx = find_group_katcp(d, name);
       if(gx == NULL){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "group %s not found", name);
         return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_NOT_FOUND);
       }
 
@@ -780,13 +785,14 @@ int scope_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   } else {
     fx = this_flat_katcp(d);
     if(fx == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no current client available");
       return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_API);
     }
 
     fx->f_scope = scope;
   }
 
-  return KATCP_RESULT_FAIL;
+  return KATCP_RESULT_OK;
 }
 
 #endif

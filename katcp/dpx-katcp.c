@@ -444,7 +444,7 @@ int client_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
       break;
     case KATCP_SCOPE_GLOBAL :
       for(j = 0; j < s->s_members; j++){
-        gx = s->s_groups[i];
+        gx = s->s_groups[j];
         if(gx){
           for(i = 0; i < gx->g_count; i++){
             fy = gx->g_flats[i];
