@@ -40,6 +40,9 @@ static int each_log_parse_katcp(struct katcl_line *l, int count, unsigned int li
 
 int log_parse_katcp(struct katcp_dispatch *d, int level, struct katcl_parse *px)
 {
+
+  /* WARNING: assumption if level < 0, then a relayed log message ... this probably should be a flag in its own right */
+
   int limit, count;
   unsigned int mask;
   int i, j;
@@ -103,10 +106,11 @@ int log_parse_katcp(struct katcp_dispatch *d, int level, struct katcl_parse *px)
   }
 
   /* WARNING: ft and gt may be NULL if outside flat context */
+  /* WARNING: won't echo a negative level back to its sender */
 
   if(mask & KATCP_LEVEL_LOCAL){ /* message never visible to outside same connection */
     fx = ft;
-    if(fx){
+    if(fx && (level >= 0)){
       count = each_log_parse_katcp(fx->f_line, count, fx->f_log_level, limit, px);
     }
   } else if(mask & KATCP_LEVEL_GROUP){ /* message stays within the same group, at most */
@@ -114,8 +118,16 @@ int log_parse_katcp(struct katcp_dispatch *d, int level, struct katcl_parse *px)
     if(gx){
       for(i = 0; i < gx->g_count; i++){
         fx = gx->g_flats[i];
-        if(fx && ((fx->f_scope != KATCP_SCOPE_SINGLE) || (fx == ft))){
-          count = each_log_parse_katcp(fx->f_line, count, fx->f_log_level, limit, px);
+        if(fx){
+          if(fx == ft){
+            if(level >= 0){
+              count = each_log_parse_katcp(fx->f_line, count, fx->f_log_level, limit, px);
+            }
+          } else {
+            if(fx->f_scope != KATCP_SCOPE_SINGLE){
+              count = each_log_parse_katcp(fx->f_line, count, fx->f_log_level, limit, px);
+            }
+          }
         }
       }
     }
@@ -125,7 +137,7 @@ int log_parse_katcp(struct katcp_dispatch *d, int level, struct katcl_parse *px)
         gx = s->s_groups[j];
         for(i = 0; i < gx->g_count; i++){
           fx = gx->g_flats[i];
-          if(fx){
+          if(fx && ((fx != ft) || (level >= 0))){
             switch(fx->f_scope){
               case KATCP_SCOPE_SINGLE :
                 if(fx == ft){
