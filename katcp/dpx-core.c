@@ -329,6 +329,22 @@ struct katcp_group *this_group_katcp(struct katcp_dispatch *d)
   return f->f_group;
 }
 
+#if 0
+
+/* NOPE: not quite as simple as it seems, run_flat traverses group array, changing it is likely to result in unhappiness */
+
+int change_group_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, struct katcp_group *gx)
+{
+  if((gx == NULL) || (fx == NULL)){
+    return -1;
+  }
+
+  fx->f_group = gx;
+
+  return -1;
+}
+#endif
+
 struct katcp_group *find_group_katcp(struct katcp_dispatch *d, char *name)
 {
   struct katcp_shared *s;
