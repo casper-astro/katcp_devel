@@ -440,13 +440,38 @@ struct katcp_arb{
 #define KATCP_VRF_VER    0x2  /* a version variable */
 #define KATCP_VRF_SEN    0x4  /* a variable visible as a sensor */
 /* other possible options */
+#if 0
 #define KATCP_VRF_COW         /* copy on write */
 #define KATCP_VRF_RO          /* readonly */
 #define KATCP_VRF_LOCK        /* type immutable */
+#endif
 
+struct katcp_vrbl_payload;
+
+#if 0
+struct katcp_vrbl_map{
+  char *m_key;
+  struct katcp_vrbl_payload *m_value;
+};
+
+struct katcp_vrbl_array{
+  struct katcp_vrbl_payload **a_array;
+  unsigned int a_size;
+};
+#endif
+
+struct katcp_vrbl_payload{
+  unsigned short p_type;
+  union{
+    char *u_string;
+    unsigned int u_integer;
+#if 0
+    struct katcp_vrbl_array u_array;
+#endif
+  } p_union;
+};
 
 struct katcp_vrbl{
-  short v_type;
   unsigned short v_status;
   unsigned short v_flags;
 
@@ -454,9 +479,12 @@ struct katcp_vrbl{
   int (*v_change)(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx);
   void (*v_release)(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx);
 
+  struct katcp_vrbl_payload *v_payload;
+#if 0
   union{
     char *u_string;
   } v_union;
+#endif
 };
 
 struct katcp_region{
