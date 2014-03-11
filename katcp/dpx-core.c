@@ -2646,7 +2646,6 @@ int append_vrbl_flat_katcp(struct katcp_dispatch *d, int flags, struct katcp_vrb
   result = add_vrbl_katcp(d, px, flags, vx);
 
   return finish_append_flat_katcp(d, flags, result);
-
 }
 
 int append_parameter_flat_katcp(struct katcp_dispatch *d, int flags, struct katcl_parse *p, unsigned int index)
