@@ -430,7 +430,7 @@ struct katcp_arb{
 /* duplex structures: was supposed to be called duplex, but flat is punnier */
 /********************************************************************/
 
-#define KATCP_VRT_GONE    (-1)
+#define KATCP_VRT_GONE    ((unsigned short)(-1))
 
 #define KATCP_VRT_STRING    0
 #define KATCP_VRT_TREE      1
@@ -440,11 +440,12 @@ struct katcp_arb{
 #define KATCP_VRF_ENV    0x1  /* exported to environment */
 #define KATCP_VRF_VER    0x2  /* a version variable */
 #define KATCP_VRF_SEN    0x4  /* a variable visible as a sensor */
+#define KATCP_VRF_FLX    0x8  /* type can change */
+
 /* other possible options */
 #if 0
 #define KATCP_VRF_COW         /* copy on write */
 #define KATCP_VRF_RO          /* readonly */
-#define KATCP_VRF_LOCK        /* type immutable */
 #endif
 
 struct katcp_vrbl_payload;
@@ -1141,7 +1142,7 @@ int add_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int flags, 
 struct katcp_vrbl *find_vrbl_katcp(struct katcp_dispatch *d, char *key);
 int traverse_vrbl_katcp(struct katcp_dispatch *d, void *state, int (*callback)(struct katcp_dispatch *d, void *state, char *key, void *data));
 
-int type_from_string_vrbl_katcp(struct katcp_dispatch *d, char *string);
+unsigned int type_from_string_vrbl_katcp(struct katcp_dispatch *d, char *string);
 char *type_to_string_vrbl_katcp(struct katcp_dispatch *d, unsigned int type);
  
 /* type specific top-level utilities */
