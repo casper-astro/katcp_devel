@@ -483,11 +483,6 @@ struct katcp_vrbl{
   void (*v_release)(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx);
 
   struct katcp_vrbl_payload *v_payload;
-#if 0
-  union{
-    char *u_string;
-  } v_union;
-#endif
 };
 
 struct katcp_region{
