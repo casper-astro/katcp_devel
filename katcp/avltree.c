@@ -1349,7 +1349,7 @@ struct avl_node *store_exposed_node_avltree(struct avl_tree *t, char *key, void 
 
 int store_named_node_avltree(struct avl_tree *t, char *key, void *data)
 {
-  if(store_expose_node_avltree(t, key, data) == NULL){
+  if(store_exposed_node_avltree(t, key, data) == NULL){
     return -1;
   }
   

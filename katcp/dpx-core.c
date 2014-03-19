@@ -1694,7 +1694,7 @@ int version_connect_callback_katcp(struct katcp_dispatch *d, void *state, char *
 
   append_string_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, KATCP_VERSION_CONNECT_INFORM);
   append_string_katcp(d, KATCP_FLAG_STRING, key);
-  append_vrbl_katcp(d, KATCP_FLAG_LAST, vx);
+  append_payload_vrbl_katcp(d, KATCP_FLAG_LAST, vx, NULL);
 
   return 0;
 }
@@ -2627,7 +2627,7 @@ int append_buffer_flat_katcp(struct katcp_dispatch *d, int flags, void *buffer, 
   return finish_append_flat_katcp(d, flags, result);
 }
 
-int append_vrbl_flat_katcp(struct katcp_dispatch *d, int flags, struct katcp_vrbl *vx)
+int append_payload_vrbl_flat_katcp(struct katcp_dispatch *d, int flags, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py)
 {
   struct katcl_parse *px;
   struct katcp_flat *fx;
@@ -2643,7 +2643,7 @@ int append_vrbl_flat_katcp(struct katcp_dispatch *d, int flags, struct katcp_vrb
     return -1;
   }
 
-  result = add_vrbl_katcp(d, px, flags, vx);
+  result = add_payload_vrbl_katcp(d, px, flags, vx, py);
 
   return finish_append_flat_katcp(d, flags, result);
 }

@@ -2142,11 +2142,11 @@ int append_buffer_katcp(struct katcp_dispatch *d, int flags, void *buffer, int l
 }
 
 #ifdef KATCP_EXPERIMENTAL
-int append_vrbl_katcp(struct katcp_dispatch *d, int flags, struct katcp_vrbl *vx)
+int append_payload_vrbl_katcp(struct katcp_dispatch *d, int flags, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py)
 {
   sane_katcp(d);
 
-  return append_vrbl_flat_katcp(d, flags, vx);
+  return append_payload_vrbl_flat_katcp(d, flags, vx, py);
 }
 #endif
 

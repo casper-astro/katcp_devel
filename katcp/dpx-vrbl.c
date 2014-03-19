@@ -43,19 +43,24 @@ struct katcp_vrbl_type_ops{
   /* WARNING unclear semantics: how do we build up a composite structure ... */
   int (*t_scan)(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *text, char *path, int create, unsigned int type);
 
+  struct katcp_vrbl_payload *(*t_element)(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *path);
+
   /* appends content to px, can recurse */
   int (*t_add)(struct katcp_dispatch *d, struct katcl_parse *px, int flags, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
 };
 
-
 int init_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
 void clear_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
 int scan_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *text, char *path, int create, unsigned int type);
+
+struct katcp_vrbl_payload *element_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *path);
+
 int add_string_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int flags, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
 
 int init_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
 void clear_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
 int scan_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *text, char *path, int create, unsigned int type);
+struct katcp_vrbl_payload *element_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *path);
 int add_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int flags, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
 
 struct katcp_vrbl_type_ops ops_type_vrbl[KATCP_MAX_VRT] = {
@@ -64,6 +69,7 @@ struct katcp_vrbl_type_ops ops_type_vrbl[KATCP_MAX_VRT] = {
     &init_string_vrbl_katcp,
     &clear_string_vrbl_katcp,
     &scan_string_vrbl_katcp,
+    &element_string_vrbl_katcp,
     &add_string_vrbl_katcp
   }, 
   [ KATCP_VRT_TREE] = 
@@ -71,6 +77,7 @@ struct katcp_vrbl_type_ops ops_type_vrbl[KATCP_MAX_VRT] = {
     &init_tree_vrbl_katcp,
     &clear_tree_vrbl_katcp,
     &scan_tree_vrbl_katcp,
+    &element_tree_vrbl_katcp,
     &add_tree_vrbl_katcp
   }
 };
@@ -179,6 +186,8 @@ static struct katcp_vrbl *allocate_vrbl_katcp(struct katcp_dispatch *d, unsigned
     return NULL;
   }
 
+  vx->v_name = NULL;
+
   vx->v_status = 0;
   vx->v_flags = 0;
 
@@ -191,6 +200,8 @@ static struct katcp_vrbl *allocate_vrbl_katcp(struct katcp_dispatch *d, unsigned
     free(vx);
     return NULL;
   }
+
+  vx->v_extra = NULL;
 
   return vx;
 }
@@ -306,6 +317,15 @@ int scan_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, stru
 
   /* special case, as scan uses a string as input too, other types not so easy */
   return set_string_vrbl_katcp(d, vx, py, text);
+}
+
+struct katcp_vrbl_payload *element_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *path)
+{
+  if((path == NULL) || (path[0] == '\0')){
+    return py;
+  }
+
+  return NULL;
 }
 
 int add_string_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int flags, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py)
@@ -594,6 +614,87 @@ int scan_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct
   return result;
 }
 
+struct katcp_vrbl_payload *element_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *path)
+{
+  struct avl_tree *tree;
+  int next, len;
+  unsigned int infer;
+  struct katcp_vrbl_payload *ty;
+  char *ptr, *copy, *rest;
+
+  if((vx == NULL) || (py == NULL)){
+    return NULL;
+  }
+
+  if((path == NULL) || (path[0] == '\0')){
+    return py;
+  }
+
+  /* WARNING: this has a fair bit in common with the scan logic, but splitting it out is messy ... */
+
+  if(path[0] != ':'){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "invalid compound variable access path %s at tree", path);
+    return NULL;
+  }
+
+  next = next_element_path_vrbl(path);
+  if(next < 0){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "invalid path specification %s", path);
+    return NULL;
+  }
+
+  if(next == 0){
+    ptr = path + 1;
+    copy = NULL;
+    rest = NULL;
+  } else {
+    if(next == 1){
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "compound variable access path has a null member");
+      return NULL;
+    }
+    len = next;
+    
+    copy = malloc(len + 1);
+    if(copy == NULL){
+      return NULL;
+    }
+    memcpy(copy, path + 1, len);
+    copy[len - 1] = '\0';
+
+    ptr = copy;
+    rest = path + next;
+  }
+
+  tree = py->p_union.u_tree;
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(tree == NULL){
+    fprintf(stderr, "major logic problem: variable payload is supposed to be a tree, but is null\n");
+    abort();
+  }
+#endif
+
+  ty = find_data_avltree(tree, ptr);
+
+  if(copy){
+    free(copy);
+  }
+
+  if(ty == NULL){
+    return NULL;
+  }
+
+  infer = ty->p_type;
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(infer >= KATCP_MAX_VRT){
+    fprintf(stderr, "major logic problem: looked up entity is invalid type\n");
+    abort();
+  }
+#endif
+
+  /* go deeper down the wabbit hole */
+  return (*(ops_type_vrbl[infer].t_element))(d, vx, ty, rest);
+}
+
 struct add_tree_variable_state{
   int s_result;
   struct katcl_parse *s_parse;
@@ -858,15 +959,20 @@ struct katcp_vrbl *scan_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *
   if(vt->v_change){
     /* WARNING: unclear if this is supposed to happen this far down the API ? */
     /* also unclear if this needs to trigger on an unsuccessful update */
-    (*(vt->v_change))(d, NULL, vt);
+    (*(vt->v_change))(d, vt->v_extra, NULL, vt);
   }
   
   return vt;
 }
 
-int configure_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, unsigned int flags, int (*refresh)(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx), int (*change)(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx), void (*release)(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx))
+int configure_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, unsigned int flags, void *state, int (*refresh)(struct katcp_dispatch *d, void *state, char *name, struct katcp_vrbl *vx), int (*change)(struct katcp_dispatch *d, void *state, char *name, struct katcp_vrbl *vx), void (*release)(struct katcp_dispatch *d, void *state, char *name, struct katcp_vrbl *vx))
 {
   if(vx == NULL){
+    return -1;
+  }
+
+  if(vx->v_extra && state){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "variable has already been given local state");
     return -1;
   }
 
@@ -877,10 +983,43 @@ int configure_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, unsign
   vx->v_change = change;
   vx->v_release = release;
 
+  vx->v_extra = state;
+
   return 0;
 }
 
-struct katcp_vrbl *create_vrbl_katcp(struct katcp_dispatch *d, unsigned int type, unsigned int flags, int (*refresh)(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx), int (*change)(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx), void (*release)(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx))
+struct katcp_vrbl_payload *find_payload_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, char *path)
+{
+  unsigned int type;
+  struct katcp_vrbl_payload *py;
+
+  if(vx == NULL){
+    return NULL;
+  }
+
+  py = vx->v_payload;
+  if(py == NULL){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "logic failure: variable has a null payload\n");
+    abort();
+#endif
+    return NULL;
+  }
+
+  type = py->p_type;
+
+  if(type >= KATCP_MAX_VRT){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "logic failure: variable has payload has invalid type\n");
+    abort();
+#endif
+    return NULL;
+  }
+
+  return (*(ops_type_vrbl[type].t_element))(d, vx, py, path);
+}
+
+struct katcp_vrbl *create_vrbl_katcp(struct katcp_dispatch *d, unsigned int type, unsigned int flags, void *state, int (*refresh)(struct katcp_dispatch *d, void *state, char *name, struct katcp_vrbl *vx), int (*change)(struct katcp_dispatch *d, void *state, char *name, struct katcp_vrbl *vx), void (*release)(struct katcp_dispatch *d, void *state, char *name, struct katcp_vrbl *vx))
 {
   /* WARNING: should probably be deprecated - scan_vrbl does all of this and more */
   struct katcp_vrbl *vx;
@@ -890,7 +1029,7 @@ struct katcp_vrbl *create_vrbl_katcp(struct katcp_dispatch *d, unsigned int type
     return NULL;
   }
 
-  if(configure_vrbl_katcp(d, vx, flags, refresh, change, release)){
+  if(configure_vrbl_katcp(d, vx, flags, state, refresh, change, release)){
     /* WARNING: gets called with null name, but fortunately no release callback yet installed */
     destroy_vrbl_katcp(d, NULL, vx);
     return NULL;
@@ -909,38 +1048,58 @@ void destroy_vrbl_katcp(struct katcp_dispatch *d, char *name, struct katcp_vrbl 
   vx->v_refresh = NULL;
 
   if(vx->v_release){
-    (*(vx->v_release))(d, name, vx);
+    (*(vx->v_release))(d, vx->v_extra, name, vx);
     vx->v_release = NULL;
   }
+
+  vx->v_extra = NULL;
 
   release_vrbl_katcp(d, vx, vx->v_payload);
 
   vx->v_status = 0;
   vx->v_flags = 0;
 
+  vx->v_name = NULL;
+
   free(vx);
 }
 
 /************************************************************************************/
 
-int add_payload_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int flags, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py)
+int add_payload_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int flags, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py)
 {
+  struct katcp_vrbl_payload *ty;
+
   if(vx == NULL){
     return -1;
   }
-  
-  if(py->p_type >= KATCP_MAX_VRT){
+
+  if(py == NULL){
+    ty = vx->v_payload;
+    if(ty == NULL){
 #ifdef KATCP_CONSISTENCY_CHECKS
-    fprintf(stderr, "logic failure: invalid type %u while outputting variable %p\n", py->p_type, vx);
+      fprintf(stderr, "logic failure: no variable type to output for %p\n", vx);
+      abort();
+#endif
+      return -1;
+    }
+  } else {
+    ty = py;
+  }
+  
+  if(ty->p_type >= KATCP_MAX_VRT){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "logic failure: invalid type %u of payload in variable %p\n", ty->p_type, vx);
     abort();
 #else
     return -1;
 #endif
   }
 
-  return (*(ops_type_vrbl[py->p_type].t_add))(d, px, flags, vx, py);
+  return (*(ops_type_vrbl[ty->p_type].t_add))(d, px, flags, vx, ty);
 }
 
+#if 0
 int add_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int flags, struct katcp_vrbl *vx)
 {
   if(vx == NULL){
@@ -949,6 +1108,7 @@ int add_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int flags, 
 
   return add_payload_katcp(d, px, flags, vx, vx->v_payload);
 }
+#endif
 
 /* variable region functions ******************************************************/
 
@@ -963,13 +1123,20 @@ struct katcp_vrbl *find_region_katcp(struct katcp_dispatch *d, struct katcp_regi
 
 int insert_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx, struct katcp_vrbl *vx, char *key)
 {
+  struct avl_node *node;
+
   if(rx == NULL){
     return -1;
   }
 
-  if(store_named_node_avltree(rx->r_tree, key, vx) < 0){
+  node = store_exposed_node_avltree(rx->r_tree, key, vx);
+  if(node == NULL){
     return -1;
   }
+
+  /* WARNING v_name will become invalid whenever this is removed from tree */
+  /* TODO - check that variable deletion unsets this ? */
+  vx->v_name = node->n_key;
 
   return 0;
 }
@@ -1296,7 +1463,7 @@ struct katcp_vrbl *create_string_vrbl_katcp(struct katcp_dispatch *d, unsigned i
 {
   struct katcp_vrbl *vx;
 
-  vx = create_vrbl_katcp(d, KATCP_VRT_STRING, options, NULL, NULL, NULL);
+  vx = create_vrbl_katcp(d, KATCP_VRT_STRING, options, NULL, NULL, NULL, NULL);
   if(vx == NULL){
     return NULL;
   }
@@ -1478,7 +1645,7 @@ int var_declare_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
 
   if(fresh){
-    if(configure_vrbl_katcp(d, vx, options, NULL, NULL, NULL) < 0){
+    if(configure_vrbl_katcp(d, vx, options, NULL, NULL, NULL, NULL) < 0){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to configure new variable %s", name);
       destroy_vrbl_katcp(d, name, vx);
       return KATCP_RESULT_FAIL;
@@ -1557,7 +1724,7 @@ int var_list_callback_katcp(struct katcp_dispatch *d, void *state, char *key, st
   prepend_inform_katcp(d);
   append_string_katcp(d, KATCP_FLAG_STRING, key);
   append_string_katcp(d, KATCP_FLAG_STRING, ptr);
-  append_vrbl_katcp(d, KATCP_FLAG_LAST, vx);
+  append_payload_vrbl_katcp(d, KATCP_FLAG_LAST, vx, NULL);
 
   free(ptr);
 

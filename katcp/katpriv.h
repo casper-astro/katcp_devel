@@ -475,18 +475,42 @@ struct katcp_vrbl_payload{
 };
 
 struct katcp_vrbl{
+  char *v_name; /* not always set, never owned */
+
   unsigned short v_status;
   unsigned short v_flags;
 
-  int (*v_refresh)(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx);
-  int (*v_change)(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx);
-  void (*v_release)(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx);
+#if 1
+  /* unsure where this is going to be used */
+  int (*v_refresh)(struct katcp_dispatch *d, void *state, char *name, struct katcp_vrbl *vx);
+#endif
+  int (*v_change)(struct katcp_dispatch *d, void *state, char *name, struct katcp_vrbl *vx);
+  void (*v_release)(struct katcp_dispatch *d, void *state, char *name, struct katcp_vrbl *vx);
 
   struct katcp_vrbl_payload *v_payload;
+
+  void *v_extra;
 };
 
 struct katcp_region{
   struct avl_tree *r_tree;
+};
+
+struct katcp_subscribe{
+  struct katcp_vrbl *s_variable;
+  struct katcp_endpoint *s_endpoint;
+  unsigned int s_strategy;
+
+  /* for time, last time updated, next time when ... */
+};
+
+struct katcp_wit{
+  unsigned int w_magic;
+  struct katcp_endpoint *w_endpoint;
+  struct katcp_subscribe **w_vector;
+  unsigned int w_size;
+
+  /* todo - timeval counter ... runs at rate */
 };
 
 struct katcp_listener{
@@ -974,6 +998,7 @@ int add_hex_long_parse_katcl(struct katcl_parse *p, int flags, unsigned long v);
 int add_double_parse_katcl(struct katcl_parse *p, int flags, double v);
 #endif
 int add_buffer_parse_katcl(struct katcl_parse *p, int flags, void *buffer, unsigned int len);
+int add_timestamp_parse_katcl(struct katcl_parse *p, int flags, struct timeval *tv);
 int add_parameter_parse_katcl(struct katcl_parse *pd, int flags, struct katcl_parse *ps, unsigned int index);
 int add_parameter_parse_katcl(struct katcl_parse *pd, int flags, struct katcl_parse *ps, unsigned int index);
 int add_trailing_parse_katcl(struct katcl_parse *pd, int flags, struct katcl_parse *ps, unsigned int start);
@@ -1132,10 +1157,18 @@ char *string_from_scope_katcp(unsigned int scope);
 struct katcp_region *create_region_katcp(struct katcp_dispatch *d);
 void destroy_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx);
 
-int add_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int flags, struct katcp_vrbl *vx);
-
 struct katcp_vrbl *find_vrbl_katcp(struct katcp_dispatch *d, char *key);
 int traverse_vrbl_katcp(struct katcp_dispatch *d, void *state, int (*callback)(struct katcp_dispatch *d, void *state, char *key, void *data));
+
+/* variable payload manipulation */
+
+struct katcp_vrbl *scan_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, char *text, char *path, int create, unsigned int type);
+struct katcp_vrbl_payload *find_payload_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, char *path);
+int add_payload_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int flags, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
+int configure_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, unsigned int flags, void *state, int (*refresh)(struct katcp_dispatch *d, void *state, char *name, struct katcp_vrbl *vx), int (*change)(struct katcp_dispatch *d, void *state, char *name, struct katcp_vrbl *vx), void (*release)(struct katcp_dispatch *d, void *state, char *name, struct katcp_vrbl *vx));
+void destroy_vrbl_katcp(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx);
+
+/* variable type handling */
 
 unsigned int type_from_string_vrbl_katcp(struct katcp_dispatch *d, char *string);
 char *type_to_string_vrbl_katcp(struct katcp_dispatch *d, unsigned int type);

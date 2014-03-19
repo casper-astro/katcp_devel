@@ -599,7 +599,7 @@ int version_list_callback_katcp(struct katcp_dispatch *d, void *state, char *key
 
   prepend_inform_katcp(d);
   append_string_katcp(d, KATCP_FLAG_STRING, key);
-  append_vrbl_katcp(d, KATCP_FLAG_LAST, vx);
+  append_payload_vrbl_katcp(d, KATCP_FLAG_LAST, vx, NULL);
 
   *cp = (*cp) + 1;
 
