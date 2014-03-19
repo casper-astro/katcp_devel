@@ -1330,16 +1330,26 @@ char *gen_id_avltree(char *prefix)
   return id;
 }
 
-int store_named_node_avltree(struct avl_tree *t, char *key, void *data)
+struct avl_node *store_exposed_node_avltree(struct avl_tree *t, char *key, void *data)
 {
   struct avl_node *n;
 
   n = create_node_avltree(key, data);
-  if (n == NULL)
-    return -1;
+  if(n == NULL){
+    return NULL;
+  }
 
-  if (add_node_avltree(t, n) < 0){
+  if(add_node_avltree(t, n) < 0){
     free_node_complex_avltree(n, NULL, NULL);
+    return NULL;
+  }
+
+  return n;
+}
+
+int store_named_node_avltree(struct avl_tree *t, char *key, void *data)
+{
+  if(store_expose_node_avltree(t, key, data) == NULL){
     return -1;
   }
   

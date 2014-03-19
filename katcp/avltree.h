@@ -65,6 +65,7 @@ void *get_node_data_avltree(struct avl_node *n);
 int update_node_data_avltree(struct avl_node *n, void *data);
 
 int store_named_node_avltree(struct avl_tree *t, char *key, void *data);
+struct avl_node *store_exposed_node_avltree(struct avl_tree *t, char *key, void *data);
 
 /*testing api*/
 void print_avltree(struct katcp_dispatch *d, struct avl_node *n, int depth, void (*fn_print)(struct katcp_dispatch *, char *key, void *));
