@@ -6,6 +6,10 @@
 #include <string.h>
 #include <errno.h>
 
+#include <unistd.h>
+
+#include <sys/time.h>
+
 #include "katpriv.h"
 #include "katcl.h"
 #include "katcp.h"
@@ -519,6 +523,35 @@ int add_trailing_parse_katcl(struct katcl_parse *pd, int flags, struct katcl_par
 }
 
 /*********************************************************************/
+
+int add_timestamp_parse_katcl(struct katcl_parse *p, int flags, struct timeval *tv)
+{
+#define TIMESTAMP_BUFFER 16
+  struct timeval *tvp, tva;
+  unsigned int milli;
+  char buffer[TIMESTAMP_BUFFER];
+
+  if(tv == NULL){
+    tvp = &tva;
+    if(gettimeofday(tvp, NULL) < 0){
+      return -1;
+    }
+  } else {
+    tvp = tv;
+  }
+
+  milli = tvp->tv_usec / 1000;
+
+#if KATCP_PROTOCOL_MAJOR_VERSION >= 5   
+  snprintf(buffer, TIMESTAMP_BUFFER, "%lu.%03u", tvp->tv_sec, milli);
+#else
+  snprintf(buffer, TIMESTAMP_BUFFER, "%lu%03u", tvp->tv_sec, milli);
+#endif
+  buffer[TIMESTAMP_BUFFER - 1] = '\0';
+
+  return add_unsafe_parse_katcl(p, flags | KATCP_FLAG_STRING, buffer);
+#undef TIMESTAMP_BUFFER
+}
 
 int add_plain_parse_katcl(struct katcl_parse *p, int flags, char *string)
 {

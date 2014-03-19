@@ -101,8 +101,7 @@ int sync_message_katcl(struct katcl_line *cl, int level, char *name, char *fmt, 
 int vlog_parse_katcl(struct katcl_parse *px, int level, char *name, char *fmt, va_list args)
 {
   int result[5];
-  struct timeval now;
-  unsigned int milli;
+
   char *subsystem, *logstring;
 
   if((level >= KATCP_LEVEL_OFF) || (level < 0)){
@@ -123,16 +122,10 @@ int vlog_parse_katcl(struct katcl_parse *px, int level, char *name, char *fmt, v
 
   subsystem = name ? name : "unknown" ;
 
-  gettimeofday(&now, NULL);
-  milli = now.tv_usec / 1000;
 
   result[0] = add_string_parse_katcl(px, KATCP_FLAG_FIRST, KATCP_LOG_INFORM);
   result[1] = add_string_parse_katcl(px, 0, logstring);
-#if KATCP_PROTOCOL_MAJOR_VERSION >= 5   
-  result[2] = add_args_parse_katcl(px, 0, "%lu.%03d", now.tv_sec, milli);
-#else 
-  result[2] = add_args_parse_katcl(px, 0, "%lu%03d", now.tv_sec, milli);
-#endif
+  result[2] = add_timestamp_parse_katcl(px, 0, NULL);
   result[3] = add_string_parse_katcl(px, 0, subsystem);
 
 #if DEBUG > 1
