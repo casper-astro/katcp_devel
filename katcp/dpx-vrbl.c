@@ -717,7 +717,7 @@ static int callback_add_tree_vrbl(struct katcp_dispatch *d, void *global, char *
   py = data;
   st = global;
 
-  result = add_payload_katcp(d, st->s_parse, 0, st->s_variable, py);
+  result = add_payload_vrbl_katcp(d, st->s_parse, 0, st->s_variable, py);
 
   if(result < 0){
     st->s_result = (-1);
@@ -1145,6 +1145,17 @@ int insert_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx, struc
 
 struct katcp_vrbl *find_vrbl_katcp(struct katcp_dispatch *d, char *key)
 {
+  struct katcp_flat *fx;
+
+  fx = this_flat_katcp(d);
+
+  return update_vrbl_katcp(d, fx, key, NULL, 0);
+}
+
+#if 0
+/* YAY: not needed, can use update */
+struct katcp_vrbl *find_all_vrbl_katcp(struct katcp_dispatch *d, char *key)
+{
   struct katcp_region *vra[MAX_DEPTH_VRBL];
   struct katcp_flat *fx;
   struct katcp_group *gx;
@@ -1167,12 +1178,16 @@ struct katcp_vrbl *find_vrbl_katcp(struct katcp_dispatch *d, char *key)
   for(i = 0; i < MAX_DEPTH_VRBL; i++){
     vx = find_region_katcp(d, vra[i], key);
     if(vx){
+#ifdef DEBUG
+      fprintf(stderr, "find variable: located %s (%p) at depth %u\n", key, vx, i);
+#endif
       return vx;
     }
   }
 
   return NULL;
 }
+#endif
 
 int traverse_vrbl_katcp(struct katcp_dispatch *d, void *state, int (*callback)(struct katcp_dispatch *d, void *state, char *key, void *data))
 {
@@ -1211,17 +1226,17 @@ int traverse_vrbl_katcp(struct katcp_dispatch *d, void *state, int (*callback)(s
 
 /* 
  * exact absolute
- * > var@root*                    (1)
- * > group*var@group*             (2)
- * > group*flat*var@flat*         (3)
+ * C> var@root*                    (1)
+ * E> group*var@group*             (2)
+ * G> group*flat*var@flat*         (3)
  *
  * exact relative
- * > *var@curgrouponly*           (2)
- * > **var@curflatonly*           (3)
+ * D> *var@curgrouponly*           (2)
+ * F> **var@curflatonly*           (3)
  *
  * search
- * > varinflatthengroupthenroot   (0)
- * > *varinflatthengroup          (1)
+ * A> varinflatthengroupthenroot   (0)  
+ * B> *varinflatthengroup          (1)
  */
 
 struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, char *name, struct katcp_vrbl *vo, int clobber)
@@ -1281,8 +1296,16 @@ struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat
 
   var = NULL;
 
+#ifdef DEBUG
+  fprintf(stderr, "variable update: doing a %d star search, stars at", count);
+  for(i = 0; i < count; i++){
+    fprintf(stderr, " %d", v[i]);
+  }
+  fprintf(stderr, " and last position %d\n", last);
+#endif
+
   switch(count){
-    case 0 : /* search in current flat, then current group, then root */
+    case 0 : /* A> search in current flat, then current group, then root */
       if(fx == NULL){
         free(copy);
         return NULL;
@@ -1293,7 +1316,7 @@ struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat
       vra[2] = s->s_region;
       break;
     case 1 :
-      if(v[0] == 0){ /* search in current flat, then current group */
+      if(v[0] == 0){ /* B> search in current flat, then current group */
         if(fx == NULL){
           free(copy);
           return NULL;
@@ -1301,7 +1324,7 @@ struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat
         var = copy + 1;
         vra[0] = fx->f_region;
         vra[1] = fx->f_group->g_region;
-      } else if(v[0] == last){ /* search in root */
+      } else if(v[0] == last){ /* C> search in root */
         var = copy;
         vra[0] = s->s_region;
       } else {
@@ -1314,41 +1337,44 @@ struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat
         free(copy);
         return NULL;
       }
-      if(v[0] == 0){ /* search in current group */
+      if(v[0] == 0){ /* D> search in current group only */
         if(fx == NULL){
           free(copy);
           return NULL;
         }
         var = copy + 1;
         vra[0] = fx->f_group->g_region;
-      } else { /* search in named group */
+      } else { /* E> search in named group */
         gx = find_group_katcp(d, copy);
         if(gx == NULL){
+#ifdef DEBUG
+          fprintf(stderr, "variable update: no group %s found while searching for %s\n", copy, name);
+#endif
           free(copy);
           return NULL;
         }
         vra[0] = gx->g_region;
-        var = copy + v[1] + 1;
+        var = copy + v[0] + 1;
       }
       break;
     case 3 : 
-      if(v[0] == 0){ /* search in current flat */
+      if(v[0] == 0){ /* F> search in current flat */
         if(v[1] != 1){
           free(copy);
           return NULL;
         }
         vra[0] = fx->f_region;
         var = copy + 2;
-      } else { /* search in named flat */
+      } else { /* G> search in named flat */
 
-        fy = find_name_flat_katcp(d, copy + 1, copy + v[1] + 1);
+        fy = find_name_flat_katcp(d, copy + 1, copy + v[0] + 1);
         if(fy == NULL){
           free(copy);
           return NULL;
         }
 
         vra[0] = fy->f_region;
-        var = copy + v[2] + 1;
+        var = copy + v[1] + 1;
       }
       break;
     default :
@@ -1357,6 +1383,9 @@ struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat
   }
 
   if((var == NULL) || (var[0] == '\0')){
+#ifdef DEBUG
+    fprintf(stderr, "variable update: no valid variable name decoded\n");
+#endif
     free(copy);
     return NULL;
   }
@@ -1373,6 +1402,9 @@ struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat
 
   do{
     vx = find_region_katcp(d, vra[i], var);
+#ifdef DEBUG
+    fprintf(stderr, "variable update: search of region [%d]=%p for %s yields %p\n", i, vra[i], var, vx);
+#endif
     i++;
   } while((i < MAX_DEPTH_VRBL) && (vra[i] != NULL) && (vx == NULL));
 
@@ -1392,6 +1424,10 @@ struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat
 
   } else {
 
+    if(vo == NULL){
+      return vx;
+    }
+
     if(clobber){
       free(copy);
       return NULL;
@@ -1407,6 +1443,8 @@ struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat
 
     return vx;
   }
+
+
 
 #undef MAX_STAR
 }
@@ -1680,6 +1718,10 @@ int var_list_callback_katcp(struct katcp_dispatch *d, void *state, char *key, st
   }
 #endif
 
+#ifdef DEBUG
+  fprintf(stderr, "variable: about to list %s at %p\n", key, vx);
+#endif
+
   py = vx->v_payload;
 
   ptr = malloc(BUFFER);
@@ -1746,10 +1788,12 @@ int var_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   char *key;
   unsigned int i;
   int result;
+  struct katcp_vrbl *vx;
+
+#if 0
   struct katcp_flat *fx;
   struct katcp_group *gx;
   struct katcp_shared *s;
-  struct katcp_vrbl *vx;
 
   fx = this_flat_katcp(d);
   gx = this_group_katcp(d);
@@ -1758,6 +1802,7 @@ int var_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   if((fx == NULL) || (gx == NULL) || (s == NULL)){
     return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_API);
   }
+#endif
 
   result = 0;
 
@@ -1807,6 +1852,7 @@ int var_set_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
   vx = find_vrbl_katcp(d, key);
   if(vx == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "variable %s not found", key);
     return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_NOT_FOUND);
   }
 

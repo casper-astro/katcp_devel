@@ -43,11 +43,14 @@ int wake_endpoint_wit(struct katcp_dispatch *d, struct katcp_endpoint *ep, struc
 {
   struct katcp_wit *w;
 
+  /* TODO */
+
   return -1;
 }
   
 void release_endpoint_wit(struct katcp_dispatch *d, void *data)
 {
+  /* TODO */
 }
 
 /*************************************************************************/
@@ -269,10 +272,41 @@ int broadcast_subscribe_katcp(struct katcp_dispatch *d, struct katcp_wit *w, str
 
 /*************************************************************************/
 
+int is_vrbl_sensor_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx)
+{
+  struct katcp_vrbl_payload *py;
+
+  if(vx == NULL){
+    return -1;
+  }
+
+  if((vx->v_flags & KATCP_VRF_SEN) == 0){
+    return 0;
+  }
+
+  py = find_payload_katcp(d, vx, ":value");
+  if(py == NULL){
+    return 0;
+  }
+
+  if(py->p_type >= KATCP_MAX_VRT){
+    return -1;
+  }
+
+  return 1;
+}
+
+/*************************************************************************/
+
 int change_sensor_katcp(struct katcp_dispatch *d, void *state, char *name, struct katcp_vrbl *vx)
 {
   struct katcp_wit *w;
   struct katcl_parse *px;
+  struct katcp_vrbl_payload *py;
+  char *ptr;
+  int results[6];
+  unsigned int r;
+  int i, sum;
 
   if(state == NULL){
     return -1;
@@ -287,18 +321,49 @@ int change_sensor_katcp(struct katcp_dispatch *d, void *state, char *name, struc
     return -1;
   }
 
-  add_string_parse_katcl(px, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, KATCP_SENSOR_STATUS_INFORM);
+  r = 0;
+
+  results[r++] = add_string_parse_katcl(px, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, KATCP_SENSOR_STATUS_INFORM);
 #if KATCP_PROTOCOL_MAJOR_VERSION >= 5   
-  add_timestamp_parse_katcl(px, 0, NULL);
+  results[r++] = add_timestamp_parse_katcl(px, 0, NULL);
 #endif
-  add_string_parse_katcl(px, KATCP_FLAG_STRING, "1");
+  results[r++] = add_string_parse_katcl(px, KATCP_FLAG_STRING, "1");
 
-  /* TODO: get name */
-  add_string_parse_katcl(px, KATCP_FLAG_STRING, "unknown");
+  ptr = vx->v_name;
 
+  results[r++] = add_string_parse_katcl(px, KATCP_FLAG_STRING, ptr ? ptr : "unnamed");
 
+  py = find_payload_katcp(d, vx, ":status");
+  if(py){
+    results[r++] = add_payload_vrbl_katcp(d, px, 0, vx, py);
+  } else {
+    results[r++] = add_string_parse_katcl(px, KATCP_FLAG_STRING, "unknown");
+  }
 
+  py = find_payload_katcp(d, vx, ":value");
+  if(py){
+    results[r++] = add_payload_vrbl_katcp(d, px, KATCP_FLAG_LAST, vx, py);
+  } else {
+    results[r++] = add_string_parse_katcl(px, KATCP_FLAG_STRING | KATCP_FLAG_LAST, "unset");
+  }
 
+  sum = 0;
+  for(i = 0; i < r; i++){
+    if(results[i] < 0){
+      sum = (-1);
+      i = r;
+    } else {
+      sum += results[i];
+    }
+  }
+
+  if(sum > 0){
+    broadcast_subscribe_katcp(d, w, px);
+  }
+
+  destroy_parse_katcl(px);
+
+  return (sum > 0) ? 0 : (-1);
 }
 
 void release_sensor_katcp(struct katcp_dispatch *d, void *state, char *name, struct katcp_vrbl *vx)
@@ -315,7 +380,6 @@ void release_sensor_katcp(struct katcp_dispatch *d, void *state, char *name, str
 
   destroy_wit_katcp(d, w);
 }
-
 
 struct katcp_subscribe *attach_variable_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_flat *fx)
 {
@@ -364,5 +428,6 @@ int monitor_event_variable_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx
 
   return 0;
 }
+
 
 #endif

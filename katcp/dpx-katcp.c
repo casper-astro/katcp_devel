@@ -543,10 +543,100 @@ int halt_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
 /* sensor related functions ***************************************************/
 
+int sensor_list_callback_katcp(struct katcp_dispatch *d, unsigned int *count, char *key, struct katcp_vrbl *vx)
+{
+  struct katcp_vrbl_payload *hy, *vy, *uy;
+  char *type;
+  int result;
+
+  result = is_vrbl_sensor_katcp(d, vx);
+  if(result <= 0){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    if(result < 0){
+      fprintf(stderr, "sensor: sensor %s severely malformed\n");
+      abort();
+    }
+#endif
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "subpressing listing of variable %s", key);
+    return result;
+  }
+
+  uy = find_payload_katcp(d, vx, ":units");
+  hy = find_payload_katcp(d, vx, ":help");
+
+  prepend_inform_katcp(d);
+
+  append_string_katcp(d, KATCP_FLAG_STRING, key);
+
+  if(hy && (hy->p_type == KATCP_VRT_STRING)){
+    append_payload_vrbl_katcp(d, 0, vx, hy);
+  } else {
+    append_string_katcp(d, KATCP_FLAG_STRING, "undocumented");
+  }
+
+  if(uy && (uy->p_type == KATCP_VRT_STRING)){
+    append_payload_vrbl_katcp(d, 0, vx, uy);
+  } else {
+    append_string_katcp(d, KATCP_FLAG_STRING, "none");
+  }
+
+  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, type);
+
+  if(count){
+    *count = (*count) + 1;
+  }
+
+  /* TODO: add possible range definitions */
+
+  return 0;
+}
+
+int sensor_list_void_callback_katcp(struct katcp_dispatch *d, void *state, char *key, void *data)
+{
+  struct katcp_vrbl *vx;
+  unsigned int *count;
+
+  vx = data;
+  count = state;
+
+  return sensor_list_callback_katcp(d, count, key, vx);
+}
+
 int sensor_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
-  /* TODO */
-  return extra_response_katcp(d, KATCP_RESULT_OK, "%u", 0);
+  char *key;
+  unsigned int i, count;
+  int result;
+  struct katcp_vrbl *vx;
+
+  result = 0;
+  count = 0;
+
+  if(argc > 1){
+    for(i = 1 ; i < argc ; i++){
+      key = arg_string_katcp(d, i);
+      if(key == NULL){
+        return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
+      }
+      vx = find_vrbl_katcp(d, key);
+      if(vx == NULL){
+        log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "%s not found", key);
+        result = (-1);
+      } else {
+        if(sensor_list_callback_katcp(d, &count, key, vx) < 0){
+          result = (-1);
+        }
+      }
+    }
+  } else {
+    result = traverse_vrbl_katcp(d, (void *)&count, &sensor_list_void_callback_katcp);
+  }
+
+  if(result < 0){
+    return KATCP_RESULT_FAIL;
+  }
+
+  return extra_response_katcp(d, KATCP_RESULT_OK, "%u", count);
 }
 
 int sensor_sampling_group_cmd_katcp(struct katcp_dispatch *d, int argc)
@@ -569,7 +659,6 @@ int sensor_value_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
 
   return extra_response_katcp(d, KATCP_RESULT_INVALID, KATCP_FAIL_NOT_FOUND);
-
 }
 
 /* version related function ***************************************************/
@@ -598,6 +687,7 @@ int version_list_callback_katcp(struct katcp_dispatch *d, void *state, char *key
   }
 
   prepend_inform_katcp(d);
+
   append_string_katcp(d, KATCP_FLAG_STRING, key);
   append_payload_vrbl_katcp(d, KATCP_FLAG_LAST, vx, NULL);
 

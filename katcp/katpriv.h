@@ -1158,6 +1158,10 @@ struct katcp_region *create_region_katcp(struct katcp_dispatch *d);
 void destroy_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx);
 
 struct katcp_vrbl *find_vrbl_katcp(struct katcp_dispatch *d, char *key);
+struct katcp_vrbl_payload *find_payload_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, char *path);
+
+struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, char *name, struct katcp_vrbl *vo, int clobber);
+
 int traverse_vrbl_katcp(struct katcp_dispatch *d, void *state, int (*callback)(struct katcp_dispatch *d, void *state, char *key, void *data));
 
 /* variable payload manipulation */
@@ -1177,6 +1181,11 @@ char *type_to_string_vrbl_katcp(struct katcp_dispatch *d, unsigned int type);
 
 struct katcp_vrbl *create_string_vrbl_katcp(struct katcp_dispatch *d, unsigned int flags, char *value);
 int make_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_group *gx, char *key, unsigned int flags, char *value);
+
+/* sensor specifics */
+
+int is_vrbl_sensor_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx);
+
 
 /******************************************/
 
