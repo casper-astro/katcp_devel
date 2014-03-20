@@ -1186,6 +1186,10 @@ int make_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_group *gx, cha
 
 int is_vrbl_sensor_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx);
 
+char *strategy_to_string_sensor_katcp(struct katcp_dispatch *d, unsigned int strategy);
+int strategy_from_string_sensor_katcp(struct katcp_dispatch *d, char *name);
+
+int monitor_event_variable_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_flat *fx);
 
 /******************************************/
 

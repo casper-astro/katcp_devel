@@ -247,7 +247,7 @@ int broadcast_subscribe_katcp(struct katcp_dispatch *d, struct katcp_wit *w, str
     sub = w->w_vector[i];
 
 #ifdef KATCP_CONSISTENCY_CHECKS
-    if(sub){
+    if(sub == NULL){
       fprintf(stderr, "major logic problem: null entry at %u in vector of subscribers\n", i);
       abort();
     }
@@ -294,6 +294,40 @@ int is_vrbl_sensor_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx)
   }
 
   return 1;
+}
+
+/*************************************************************************/
+
+static char *sensor_strategy_table[KATCP_STRATEGIES_COUNT] = { "none", "period", "event", "differential", "forced" };
+
+char *strategy_to_string_sensor_katcp(struct katcp_dispatch *d, unsigned int strategy)
+{
+  if(strategy >= KATCP_STRATEGIES_COUNT){
+    return NULL;
+  }
+
+  return sensor_strategy_table[strategy];
+}
+
+int strategy_from_string_sensor_katcp(struct katcp_dispatch *d, char *name)
+{
+  int i;
+
+  if(name == NULL){
+    return -1;
+  }
+
+  for(i = 0; i < KATCP_STRATEGIES_COUNT; i++){
+    if(!strcmp(name, sensor_strategy_table[i])){
+      return i;
+    }
+  }
+
+  if(!strcmp(name, "auto")){
+    return KATCP_STRATEGY_EVENT;
+  }
+
+  return -1;
 }
 
 /*************************************************************************/

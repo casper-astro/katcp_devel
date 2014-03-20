@@ -553,7 +553,7 @@ int sensor_list_callback_katcp(struct katcp_dispatch *d, unsigned int *count, ch
   if(result <= 0){
 #ifdef KATCP_CONSISTENCY_CHECKS
     if(result < 0){
-      fprintf(stderr, "sensor: sensor %s severely malformed\n");
+      fprintf(stderr, "sensor: sensor %s severely malformed\n", key);
       abort();
     }
 #endif
@@ -561,8 +561,17 @@ int sensor_list_callback_katcp(struct katcp_dispatch *d, unsigned int *count, ch
     return result;
   }
 
+  vy = find_payload_katcp(d, vx, ":value");
   uy = find_payload_katcp(d, vx, ":units");
   hy = find_payload_katcp(d, vx, ":help");
+
+  if(vy == NULL){
+    return 0;
+  }
+  type = type_to_string_vrbl_katcp(d, vy->p_type);
+  if(type == NULL){
+    return 0;
+  }
 
   prepend_inform_katcp(d);
 
@@ -641,13 +650,87 @@ int sensor_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
 int sensor_sampling_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
-  /* TODO */
+  int result;
+  char *key, *strategy;
+  struct katcp_vrbl *vx;
+  struct katcp_flat *fx;
+  int stg;
 
   if(argc <= 1){
     return extra_response_katcp(d, KATCP_RESULT_INVALID, KATCP_FAIL_USAGE);
   }
 
-  return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_NOT_FOUND);
+  key = arg_string_katcp(d, 1);
+  if(key == NULL){
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
+  }
+
+  vx = find_vrbl_katcp(d, key);
+  if(vx == NULL){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "%s not found", key);
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_NOT_FOUND);
+  }
+
+  result = is_vrbl_sensor_katcp(d, vx);
+  if(result <= 0){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    if(result < 0){
+      fprintf(stderr, "sensor: sensor %s severely malformed\n", key);
+      abort();
+    }
+#endif
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "not using variable %s", key);
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_NOT_FOUND);
+  }
+
+  fx = this_flat_katcp(d);
+  if(fx == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "sensor sampling not available outside duplex context");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_BUG);
+  }
+
+  if(argc <= 2){
+    /* TODO - work out this properly */
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "sampling strategy display still to be implemented");
+    strategy = strategy_to_string_sensor_katcp(d, KATCP_STRATEGY_OFF);
+
+    if(strategy){
+      return extra_response_katcp(d, KATCP_RESULT_OK, strategy);
+    } 
+
+    /* TODO */
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_BUG);
+
+  } else {
+
+    strategy = arg_string_katcp(d, 2);
+    if(strategy == NULL){
+      return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
+    }
+
+    stg = strategy_from_string_sensor_katcp(d, strategy);
+    switch(stg){
+      case KATCP_STRATEGY_EVENT :
+        if(monitor_event_variable_katcp(d, vx, fx) < 0){
+          log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to register event based sampling for sensor %s", key);
+          return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_BUG);
+        }
+
+        return extra_response_katcp(d, KATCP_RESULT_OK, strategy);
+
+      /* TODO */
+      case KATCP_STRATEGY_OFF :
+      case KATCP_STRATEGY_PERIOD :
+      case KATCP_STRATEGY_DIFF :
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "sampling strategy %s not implemented for sensor %s", strategy, key);
+        return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
+
+      default :
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "invalid sensor sampling strategy %s", strategy);
+        return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
+    }
+  }
+
 }
 
 int sensor_value_group_cmd_katcp(struct katcp_dispatch *d, int argc)
