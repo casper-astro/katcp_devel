@@ -243,6 +243,10 @@ int broadcast_subscribe_katcp(struct katcp_dispatch *d, struct katcp_wit *w, str
 
   sane_wit(w);
 
+#ifdef DEBUG
+  fprintf(stderr, "sensor: broadcasting sensor update to %u interested parties\n", w->w_size);
+#endif
+
   for(i = 0; i < w->w_size; i++){
     sub = w->w_vector[i];
 
@@ -341,6 +345,10 @@ int change_sensor_katcp(struct katcp_dispatch *d, void *state, char *name, struc
   int results[6];
   unsigned int r;
   int i, sum;
+
+#ifdef DEBUG
+  fprintf(stderr, "sensor: triggering sensor change logic on sensor %s\n", name);
+#endif
 
   if(state == NULL){
     return -1;

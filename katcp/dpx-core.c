@@ -1798,7 +1798,7 @@ int terminate_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx)
   }
 }
 
-struct katcp_endpoint *peer_of_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx)
+struct katcp_endpoint *handler_of_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx)
 {
   if(fx == NULL){
     return NULL;
@@ -1814,6 +1814,15 @@ struct katcp_endpoint *remote_of_flat_katcp(struct katcp_dispatch *d, struct kat
   }
 
   return fx->f_remote;
+}
+
+struct katcp_endpoint *sender_to_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx)
+{
+  if(fx == NULL){
+    return NULL;
+  }
+
+  return fx->f_current_endpoint;
 }
 
 struct katcp_cmd_map *map_of_flat_katcp(struct katcp_flat *fx)
@@ -3130,14 +3139,14 @@ int relay_watchdog_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not retrive current session detail");
     return extra_response_katcp(d, KATCP_RESULT_FAIL, "cmd not run within a session");
   }
-  source = peer_of_flat_katcp(d, fx);
+  source = handler_of_flat_katcp(d, fx);
 
   fx = find_name_flat_katcp(d, group, name);
   if(fx == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not look up name %s", name);
     return extra_response_katcp(d, KATCP_RESULT_FAIL, "resolver");
   }
-  target = peer_of_flat_katcp(d, fx);
+  target = handler_of_flat_katcp(d, fx);
 
   log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "sending ping from endpoint %p to endpoint %p", source, target);
 
@@ -3272,6 +3281,14 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
     hold_cmd_map_katcp(m);
 
     add_full_cmd_map_katcp(m, "log", "collect log messages (#log priority timestamp module text)", 0, &log_group_info_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "sensor-status", "handle sensor updates (#sensor-status timestamp 1 name status value)", 0, &sensor_status_group_info_katcp, NULL, NULL);
+  }
+
+  if(gx->g_maps[KATCP_MAP_INNER_INFORM] == NULL){
+    gx->g_maps[KATCP_MAP_INNER_INFORM] = duplicate_cmd_map_katcp(m, name);
+    if(gx->g_maps[KATCP_MAP_INNER_INFORM]){
+      hold_cmd_map_katcp(gx->g_maps[KATCP_MAP_INNER_INFORM]);
+    }
   }
 
   if(s->s_fallback == NULL){

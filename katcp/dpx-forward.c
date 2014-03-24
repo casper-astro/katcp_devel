@@ -132,7 +132,7 @@ int relay_generic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   char *name, *cmd, *ptr;
   unsigned int len, flags;
   struct katcp_flat *fx, *fy;
-  struct katcl_parse *px, *py;
+  struct katcl_parse *px, *po;
   struct katcp_endpoint *source, *target;
 
   if(argc < 2){
@@ -152,7 +152,7 @@ int relay_generic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not retrive current session detail");
     return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_API);
   }
-  source = peer_of_flat_katcp(d, fx);
+  source = handler_of_flat_katcp(d, fx);
 
   fy = find_name_flat_katcp(d, NULL, name);
   if(fy == NULL){
@@ -162,7 +162,7 @@ int relay_generic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   if(fy == fx){
     target = remote_of_flat_katcp(d, fx);
   } else {
-    target = peer_of_flat_katcp(d, fy);
+    target = handler_of_flat_katcp(d, fy);
   }
 
   log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "sending %s ... from endpoint %p to endpoint %p", cmd, source, target);
@@ -198,8 +198,8 @@ int relay_generic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
 
   if(argc > 3){
-    py = arg_parse_katcp(d);
-    add_trailing_parse_katcl(px, KATCP_FLAG_LAST, py, 3);
+    po = arg_parse_katcp(d);
+    add_trailing_parse_katcl(px, KATCP_FLAG_LAST, po, 3);
   }
 
   if(send_message_endpoint_katcp(d, source, target, px, 1) < 0){
@@ -230,8 +230,8 @@ int perform_forward_symbolic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   struct katcp_cmd_item *ix;
   struct katcp_flat *fx, *fy;
   struct forward_symbolic_state *fs;
-  struct katcp_endpoint *target, *source;
-  struct katcl_parse *px, *py;
+  struct katcp_endpoint *target, *source, *origin;
+  struct katcl_parse *px, *po;
   char *req;
 
   req = arg_string_katcp(d, 0);
@@ -266,7 +266,7 @@ int perform_forward_symbolic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not retrive current session detail");
     return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_API);
   }
-  source = peer_of_flat_katcp(d, fx);
+  source = handler_of_flat_katcp(d, fx);
 
   fy = find_name_flat_katcp(d, NULL, fs->f_peer);
   if(fy == NULL){
@@ -281,7 +281,7 @@ int perform_forward_symbolic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "currently not able to handle requests to self");
     return KATCP_RESULT_FAIL;
   } else {
-    target = peer_of_flat_katcp(d, fy);
+    target = handler_of_flat_katcp(d, fy);
   }
 
   px = create_parse_katcl();
@@ -292,17 +292,17 @@ int perform_forward_symbolic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   add_string_parse_katcl(px, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "?relay");
   add_string_parse_katcl(px, KATCP_FLAG_STRING, fy->f_name);
 
-  py = arg_parse_katcp(d);
+  po = arg_parse_katcp(d);
 
   if(fs->f_as){
     if(argc <= 1){
       add_string_parse_katcl(px, KATCP_FLAG_STRING | KATCP_FLAG_LAST, fs->f_as);
     } else {
       add_string_parse_katcl(px, KATCP_FLAG_STRING, fs->f_as);
-      add_trailing_parse_katcl(px, KATCP_FLAG_LAST, py, 1);
+      add_trailing_parse_katcl(px, KATCP_FLAG_LAST, po, 1);
     }
   } else {
-    add_trailing_parse_katcl(px, KATCP_FLAG_LAST, py, 0);
+    add_trailing_parse_katcl(px, KATCP_FLAG_LAST, po, 0);
   }
 
   if(send_message_endpoint_katcp(d, source, target, px, 1) < 0){
@@ -311,12 +311,23 @@ int perform_forward_symbolic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
+
+#if 0
   /* TODO: use wrappers to access fx members */
+  /* this code path is just added, presumed nodefective, defer testing it for some other time */
+  origin = sender_to_flat_katcp(d, fx);
+
+  if(callback_flat_katcp(d, origin, po, target, &complete_relay_generic_group_cmd_katcp, "relay", KATCP_REPLY_HANDLE_REPLIES | KATCP_REPLY_HANDLE_INFORMS)){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to register relay callback for %s", req);
+    return KATCP_RESULT_FAIL;
+  }
+#else
 
   if(callback_flat_katcp(d, fx->f_current_endpoint, fx->f_rx, target, &complete_relay_generic_group_cmd_katcp, "relay", KATCP_REPLY_HANDLE_REPLIES | KATCP_REPLY_HANDLE_INFORMS)){
     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to register relay callback for %s", req);
     return KATCP_RESULT_FAIL;
   }
+#endif
 
   return KATCP_RESULT_OWN;
 }

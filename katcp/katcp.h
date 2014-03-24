@@ -695,8 +695,9 @@ struct katcp_flat *find_name_flat_katcp(struct katcp_dispatch *d, char *group, c
 int rename_flat_katcp(struct katcp_dispatch *d, char *group, char *was, char *should);
 int terminate_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx);
 
-struct katcp_endpoint *peer_of_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx);
+struct katcp_endpoint *handler_of_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx);
 struct katcp_endpoint *remote_of_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx);
+struct katcp_endpoint *sender_to_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx);
 struct katcp_cmd_map *map_of_flat_katcp(struct katcp_flat *fx);
 
 int callback_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoint *issuer, struct katcl_parse *px, struct katcp_endpoint *recipient, int (*call)(struct katcp_dispatch *d, int argc), char *string, unsigned int flags);
@@ -777,6 +778,7 @@ int scope_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 /* duplex related inform handlers */
 
 int log_group_info_katcp(struct katcp_dispatch *d, int argc);
+int sensor_status_group_info_katcp(struct katcp_dispatch *d, int argc);
 
 /* endpoints */
 

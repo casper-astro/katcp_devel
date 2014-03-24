@@ -210,4 +210,46 @@ int log_group_info_katcp(struct katcp_dispatch *d, int argc)
 
 /* TODO: sensor logic: sensor-list, sensor-status ? */
 
+int sensor_status_group_info_katcp(struct katcp_dispatch *d, int argc)
+{
+  struct katcp_flat *fx;
+  struct katcl_parse *px;
+  struct katcp_endpoint *self, *remote, *origin;
+
+#ifdef DEBUG
+  fprintf(stderr, "log: encountered a log message\n");
+#endif
+
+  fx = this_flat_katcp(d);
+  if(fx == NULL){
+    return -1;
+  }
+
+  px = arg_parse_katcp(d);
+  if(px == NULL){
+    return -1;
+  }
+
+  origin = sender_to_flat_katcp(d, fx);
+  remote = remote_of_flat_katcp(d, fx);
+  self = handler_of_flat_katcp(d, fx);
+
+
+  if(origin == remote){ /* ... remote party is sending us a status update ... */
+
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "saw a sensor status update from remote party, should capture this");
+
+  } else { /* we must have asked a sensor to send this to us, better relay it on */
+
+    if(remote == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "internal problem, saw a sensor status but have nowhere to send it to");
+      return -1;
+    }
+
+    send_message_endpoint_katcp(d, self, remote, px, 0);
+  }
+
+  return 0;
+}
+
 #endif

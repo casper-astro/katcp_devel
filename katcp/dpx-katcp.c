@@ -326,7 +326,21 @@ int help_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
 int watchdog_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
-  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "fielding %s ping request", is_inner_flat_katcp(d) ? "internal" : "remote");
+  char *source;
+  struct katcp_flat *fx;
+
+  fx = this_flat_katcp(d);
+  if(fx == NULL){
+    source = "simplex";
+  } else {
+    if(remote_of_flat_katcp(d, fx) == sender_to_flat_katcp(d, fx)){
+      source = "remote";
+    } else {
+      source = "internal";
+    }
+  }
+
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "fielding %s ping request", source);
 
   return KATCP_RESULT_OK;
 }
