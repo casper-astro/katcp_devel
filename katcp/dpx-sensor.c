@@ -54,15 +54,17 @@ void release_endpoint_wit(struct katcp_dispatch *d, void *data)
 
 static void destroy_wit_katcp(struct katcp_dispatch *d, struct katcp_wit *w)
 {
-  struct katcp_subscribe *sub;
   unsigned int i;
 
   sane_wit(w);
 
-  for(i = 0; i < w->w_size; i++){
-    sub = w->w_vector[i];
+  /* WARNING: TODO - send out device changed messages ? */
+  /* probably to everybody in group, not just subscribers ... */
 
-    /* WARNING: TODO - send out device changed messages ? */
+  for(i = 0; i < w->w_size; i++){
+    destroy_subscribe_katcp(d, w->w_vector[i]);
+
+    w->w_vector[i] = NULL;
   }
 
   if(w->w_vector){
@@ -166,6 +168,34 @@ int find_subscribe_katcp(struct katcp_dispatch *d, struct katcp_wit *w, struct k
   return -1;
 }
 
+void destroy_subscribe_katcp(struct katcp_dispatch *d, struct katcp_subscribe *sub)
+{
+
+  if(sub == NULL){
+    return;
+  }
+
+  if(sub->s_endpoint){
+#ifdef DEBUG
+    fprintf(stderr, "subscribe: forgetting endpoint %p\n", sub->s_endpoint);
+#endif
+    forget_endpoint_katcp(d, sub->s_endpoint);
+    sub->s_endpoint = NULL;
+  }
+
+  if(sub->s_variable){
+#if 1
+    /* WARNING */
+    fprintf(stderr, "incomplete code: variable shadow needs to be deallocated\n");
+    abort();
+#endif
+  }
+
+  sub->s_strategy = KATCP_STRATEGY_OFF;
+
+  free(sub);
+}
+
 int delete_subscribe_katcp(struct katcp_dispatch *d, struct katcp_wit *w, unsigned int index)
 {
   struct katcp_subscribe *sub;
@@ -188,25 +218,7 @@ int delete_subscribe_katcp(struct katcp_dispatch *d, struct katcp_wit *w, unsign
     w->w_vector[index] = w->w_vector[w->w_size];
   }
 
-  if(sub->s_endpoint){
-#ifdef DEBUG
-    fprintf(stderr, "delete subscribe: forgetting endpoint %p\n", sub->s_endpoint);
-#endif
-    forget_endpoint_katcp(d, sub->s_endpoint);
-    sub->s_endpoint = NULL;
-  }
-
-  if(sub->s_variable){
-#if 1
-    /* WARNING */
-    fprintf(stderr, "incomplete code: variable shadow needs to be deallocated\n");
-    abort();
-#endif
-  }
-
-  sub->s_strategy = KATCP_STRATEGY_OFF;
-
-  free(sub);
+  destroy_subscribe_katcp(d, sub);
 
   return 0;
 }

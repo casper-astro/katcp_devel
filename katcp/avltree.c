@@ -249,7 +249,6 @@ void complex_inorder_traverse_avltree(struct katcp_dispatch *d, struct avl_node 
 #endif
 #if 1
   struct katcp_stack *s;
-  int run;
 
   if (n == NULL)
     return;
@@ -260,7 +259,6 @@ void complex_inorder_traverse_avltree(struct katcp_dispatch *d, struct avl_node 
 
   c = n;
 
-  run = 1;
   while (c != NULL) {
     if (push_stack_katcp(s, c, NULL) < 0){
 #if DEBUG>2
@@ -334,7 +332,6 @@ void print_inorder_avltree(struct katcp_dispatch *d, struct avl_node *n, void (*
 #endif
 #if 1
   struct katcp_stack *s;
-  int run;
 
   if (n == NULL)
     return;
@@ -345,7 +342,6 @@ void print_inorder_avltree(struct katcp_dispatch *d, struct avl_node *n, void (*
 
   c = n;
 
-  run = 1;
   while (c != NULL) {
     if (push_stack_katcp(s, c, NULL) < 0){
 #if DEBUG>2
@@ -703,7 +699,6 @@ int add_node_avltree(struct avl_tree *t, struct avl_node *n)
 {
   struct avl_node *c;
   int cmp, run, flag;
-  char rtype;
 
   if (t == NULL)
     return -1;
@@ -766,7 +761,6 @@ int add_node_avltree(struct avl_tree *t, struct avl_node *n)
   }
 
   run = 1;
-  rtype = 0;
   while (run && !flag){
     
     if (c->n_parent == NULL){
@@ -800,7 +794,6 @@ int add_node_avltree(struct avl_tree *t, struct avl_node *n)
 #if DEBUG > 3
         fprintf(stderr,"avl_tree:\tPOSTROT: %s (%p) p(%p) balance %d\n", c->n_key, c, c->n_parent, c->n_balance);
 #endif
-        rtype = 0;
         run = 0; 
       }
     }
