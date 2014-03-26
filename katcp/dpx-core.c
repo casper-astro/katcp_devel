@@ -2834,7 +2834,7 @@ int load_flat_katcp(struct katcp_dispatch *d)
 
           if(fx->f_peer){
             /* accept no further messages on input queue */
-            close_endpoint_katcp(d, fx->f_peer);
+            close_receiving_endpoint_katcp(d, fx->f_peer);
           }
 
           fx->f_state = FLAT_STATE_ENDING;

@@ -959,7 +959,7 @@ struct katcp_vrbl *scan_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *
   if(vt->v_change){
     /* WARNING: unclear if this is supposed to happen this far down the API ? */
     /* also unclear if this needs to trigger on an unsuccessful update */
-    (*(vt->v_change))(d, vt->v_extra, NULL, vt);
+    (*(vt->v_change))(d, vt->v_extra, vt->v_name, vt);
   }
   
   return vt;
@@ -1425,6 +1425,7 @@ struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat
   } else {
 
     if(vo == NULL){
+      free(copy);
       return vx;
     }
 
@@ -1441,10 +1442,9 @@ struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat
 #endif
     }
 
+    free(copy);
     return vx;
   }
-
-
 
 #undef MAX_STAR
 }

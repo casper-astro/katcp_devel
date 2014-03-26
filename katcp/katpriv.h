@@ -1135,17 +1135,24 @@ void load_endpoints_katcp(struct katcp_dispatch *d);
 void release_endpoints_katcp(struct katcp_dispatch *d);
 
 struct katcp_endpoint *create_endpoint_katcp(struct katcp_dispatch *d, int (*wake)(struct katcp_dispatch *d, struct katcp_endpoint *ep, struct katcp_message *msg, void *data), void (*release)(struct katcp_dispatch *d, void *data), void *data);
+
+/* schedule destruction of endpoint, does not call release callback, to be called in destruction logic of entity owning the endpoint */
 int release_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep);
 
 int flush_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep);
-void close_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep);
+
+void close_sending_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep);
+void close_receiving_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep);
 
 void show_endpoint_katcp(struct katcp_dispatch *d, char *prefix, int level, struct katcp_endpoint *ep);
 
 int pending_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep);
 
-void forget_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep);
+
+/* up reference count of endpoint, does not include reference to actual owner */
 void reference_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep);
+/* decrement refcount */
+void forget_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep);
 
 /* misc duplex functions ******************/
 
@@ -1190,6 +1197,8 @@ char *strategy_to_string_sensor_katcp(struct katcp_dispatch *d, unsigned int str
 int strategy_from_string_sensor_katcp(struct katcp_dispatch *d, char *name);
 
 int monitor_event_variable_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_flat *fx);
+
+struct katcl_parse *make_sensor_katcp(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx, char *prefix);
 
 /******************************************/
 

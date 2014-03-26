@@ -747,15 +747,86 @@ int sensor_sampling_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
 }
 
-int sensor_value_group_cmd_katcp(struct katcp_dispatch *d, int argc)
-{
-  /* TODO */
+/********************************************************************************/
 
-  if(argc <= 1){
-    return extra_response_katcp(d, KATCP_RESULT_OK, "%d", 0);
+int sensor_value_callback_katcp(struct katcp_dispatch *d, unsigned int *count, char *key, struct katcp_vrbl *vx)
+{
+  struct katcl_parse *px;
+
+  px = make_sensor_katcp(d, key, vx, KATCP_SENSOR_VALUE_INFORM);
+  if(px == NULL){
+    return -1;
   }
 
-  return extra_response_katcp(d, KATCP_RESULT_INVALID, KATCP_FAIL_NOT_FOUND);
+#if 1
+  /* WARNING: this is a bit ugly - we need prepend_inform for future tags, but the parse layer doesn't know about tags ... */
+
+  /* TODO: there should probably be a add_tagged_string call which can be used to build up a tagged prefix on a parse structure */
+
+  prepend_inform_katcp(d);
+
+  append_trailing_katcp(d, KATCP_FLAG_LAST, px, 1);
+#else
+  /* this won't work for tags */
+
+  append_parse_katcp(d, px);
+#endif
+
+  destroy_parse_katcl(px);
+
+  if(count){
+    *count = (*count) + 1;
+  }
+
+  return 0;
+}
+
+int sensor_value_void_callback_katcp(struct katcp_dispatch *d, void *state, char *key, void *data)
+{
+  struct katcp_vrbl *vx;
+  unsigned int *count;
+
+  vx = data;
+  count = state;
+
+  return sensor_value_callback_katcp(d, count, key, vx);
+}
+
+int sensor_value_group_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  char *key;
+  unsigned int i, count;
+  int result;
+  struct katcp_vrbl *vx;
+
+  result = 0;
+  count = 0;
+
+  if(argc > 1){
+    for(i = 1 ; i < argc ; i++){
+      key = arg_string_katcp(d, i);
+      if(key == NULL){
+        return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
+      }
+      vx = find_vrbl_katcp(d, key);
+      if(vx == NULL){
+        log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "%s not found", key);
+        result = (-1);
+      } else {
+        if(sensor_value_callback_katcp(d, &count, key, vx) < 0){
+          result = (-1);
+        }
+      }
+    }
+  } else {
+    result = traverse_vrbl_katcp(d, (void *)&count, &sensor_value_void_callback_katcp);
+  }
+
+  if(result < 0){
+    return KATCP_RESULT_FAIL;
+  }
+
+  return extra_response_katcp(d, KATCP_RESULT_OK, "%u", count);
 }
 
 /* version related function ***************************************************/

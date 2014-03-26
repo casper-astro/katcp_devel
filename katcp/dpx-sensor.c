@@ -39,18 +39,15 @@ static void sane_wit(struct katcp_wit *w)
 
 /*************************************************************************/
 
-int wake_endpoint_wit(struct katcp_dispatch *d, struct katcp_endpoint *ep, struct katcp_message *msg, void *data)
+void release_endpoint_wit(struct katcp_dispatch *d, void *data)
 {
   struct katcp_wit *w;
 
-  /* TODO */
+  w = data;
 
-  return -1;
-}
-  
-void release_endpoint_wit(struct katcp_dispatch *d, void *data)
-{
-  /* TODO */
+  sane_wit(w);
+
+  w->w_endpoint = NULL;
 }
 
 /*************************************************************************/
@@ -97,7 +94,7 @@ static struct katcp_wit *create_wit_katcp(struct katcp_dispatch *d)
   w->w_vector = NULL;
   w->w_size = 0;
 
-  w->w_endpoint = create_endpoint_katcp(d, &wake_endpoint_wit, &release_endpoint_wit, w);
+  w->w_endpoint = create_endpoint_katcp(d, NULL, &release_endpoint_wit, w);
   if(w->w_endpoint == NULL){
     destroy_wit_katcp(d, w);
     return NULL;
@@ -192,6 +189,9 @@ int delete_subscribe_katcp(struct katcp_dispatch *d, struct katcp_wit *w, unsign
   }
 
   if(sub->s_endpoint){
+#ifdef DEBUG
+    fprintf(stderr, "delete subscribe: forgetting endpoint %p\n", sub->s_endpoint);
+#endif
     forget_endpoint_katcp(d, sub->s_endpoint);
     sub->s_endpoint = NULL;
   }
@@ -336,44 +336,36 @@ int strategy_from_string_sensor_katcp(struct katcp_dispatch *d, char *name)
 
 /*************************************************************************/
 
-int change_sensor_katcp(struct katcp_dispatch *d, void *state, char *name, struct katcp_vrbl *vx)
+int add_partial_sensor_katcp(struct katcp_dispatch *d, struct katcl_parse *px, char *name, int flags, struct katcp_vrbl *vx)
 {
-  struct katcp_wit *w;
-  struct katcl_parse *px;
+  int results[5];
   struct katcp_vrbl_payload *py;
-  char *ptr;
-  int results[6];
   unsigned int r;
   int i, sum;
+  char *ptr;
 
-#ifdef DEBUG
-  fprintf(stderr, "sensor: triggering sensor change logic on sensor %s\n", name);
-#endif
-
-  if(state == NULL){
+  if((px == NULL) || (vx == NULL)){
     return -1;
   }
 
-  w = state;
-
-  sane_wit(w);
-
-  px = create_referenced_parse_katcl();
-  if(px == NULL){
-    return -1;
+  if(name){
+    ptr = name;
+  } else if(vx->v_name){
+    ptr = vx->v_name;
+  } else {
+    ptr = "unnamed";
   }
 
   r = 0;
 
-  results[r++] = add_string_parse_katcl(px, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, KATCP_SENSOR_STATUS_INFORM);
 #if KATCP_PROTOCOL_MAJOR_VERSION >= 5   
-  results[r++] = add_timestamp_parse_katcl(px, 0, NULL);
-#endif
+  results[r++] = add_timestamp_parse_katcl(px, flags & KATCP_FLAG_FIRST, NULL);
   results[r++] = add_string_parse_katcl(px, KATCP_FLAG_STRING, "1");
+#else
+  results[r++] = add_string_parse_katcl(px, (flags & KATCP_FLAG_FIRST) | KATCP_FLAG_STRING, "1");
+#endif
 
-  ptr = vx->v_name;
-
-  results[r++] = add_string_parse_katcl(px, KATCP_FLAG_STRING, ptr ? ptr : "unnamed");
+  results[r++] = add_string_parse_katcl(px, KATCP_FLAG_STRING, ptr);
 
   py = find_payload_katcp(d, vx, ":status");
   if(py){
@@ -384,9 +376,9 @@ int change_sensor_katcp(struct katcp_dispatch *d, void *state, char *name, struc
 
   py = find_payload_katcp(d, vx, ":value");
   if(py){
-    results[r++] = add_payload_vrbl_katcp(d, px, KATCP_FLAG_LAST, vx, py);
+    results[r++] = add_payload_vrbl_katcp(d, px, flags & KATCP_FLAG_LAST, vx, py);
   } else {
-    results[r++] = add_string_parse_katcl(px, KATCP_FLAG_STRING | KATCP_FLAG_LAST, "unset");
+    results[r++] = add_string_parse_katcl(px, KATCP_FLAG_STRING | (flags & KATCP_FLAG_LAST), "unset");
   }
 
   sum = 0;
@@ -399,13 +391,61 @@ int change_sensor_katcp(struct katcp_dispatch *d, void *state, char *name, struc
     }
   }
 
-  if(sum > 0){
-    broadcast_subscribe_katcp(d, w, px);
+  if(sum <= 0){
+    return (-1);
   }
+
+  return sum;
+}
+
+struct katcl_parse *make_sensor_katcp(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx, char *prefix)
+{
+  struct katcl_parse *px;
+
+#ifdef DEBUG
+  fprintf(stderr, "sensor: triggering sensor change logic on sensor %s\n", name);
+#endif
+
+  px = create_referenced_parse_katcl();
+  if(px == NULL){
+    return NULL;
+  }
+
+  if(add_string_parse_katcl(px, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, prefix) < 0){
+    destroy_parse_katcl(px);
+    return NULL;
+  }
+
+  if(add_partial_sensor_katcp(d, px, name, KATCP_FLAG_LAST, vx) < 0){
+    destroy_parse_katcl(px);
+    return NULL;
+  }
+
+  return px;
+}
+
+int change_sensor_katcp(struct katcp_dispatch *d, void *state, char *name, struct katcp_vrbl *vx)
+{
+  struct katcp_wit *w;
+  struct katcl_parse *px;
+
+  w = state;
+  sane_wit(w);
+
+#ifdef DEBUG
+  fprintf(stderr, "sensor: triggering sensor change logic on sensor %s\n", name);
+#endif
+
+  px = make_sensor_katcp(d, name, vx, KATCP_SENSOR_STATUS_INFORM);
+  if(px == NULL){
+    return -1;
+  }
+
+  broadcast_subscribe_katcp(d, w, px);
 
   destroy_parse_katcl(px);
 
-  return (sum > 0) ? 0 : (-1);
+  return 0;
 }
 
 void release_sensor_katcp(struct katcp_dispatch *d, void *state, char *name, struct katcp_vrbl *vx)
@@ -433,7 +473,8 @@ struct katcp_subscribe *attach_variable_katcp(struct katcp_dispatch *d, struct k
     return NULL;
   }
 
-  /* TODO - could be more eleborate function pointer checking */
+  /* TODO - could be more eleborate function pointer checking, in particular does it have a :value field */
+
   if(vx->v_extra == NULL){
     w = create_wit_katcp(d);
     if(w == NULL){
@@ -444,6 +485,8 @@ struct katcp_subscribe *attach_variable_katcp(struct katcp_dispatch *d, struct k
       destroy_wit_katcp(d, w);
       return NULL;
     }
+  } else {
+    w = vx->v_extra;
   }
 
   sub = create_subscribe_katcp(d, w, fx);
@@ -457,19 +500,28 @@ struct katcp_subscribe *attach_variable_katcp(struct katcp_dispatch *d, struct k
 int monitor_event_variable_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_flat *fx)
 {
   struct katcp_subscribe *sub;
+  struct katcl_parse *px;
+
+  px = make_sensor_katcp(d, NULL, vx, KATCP_SENSOR_STATUS_INFORM);
+  if(px == NULL){
+    return -1;
+  }
 
   sub = locate_subscribe_katcp(d, vx, fx);
   if(sub == NULL){
     sub = attach_variable_katcp(d, vx, fx);
     if(sub == NULL){
+      destroy_parse_katcl(px);
       return -1;
     }
   }
 
   sub->s_strategy = KATCP_STRATEGY_EVENT;
 
+  append_parse_katcp(d, px);
+  destroy_parse_katcl(px);
+
   return 0;
 }
-
 
 #endif
