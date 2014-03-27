@@ -37,6 +37,8 @@ static void sane_wit(struct katcp_wit *w)
 #define sane_wit(w)
 #endif
 
+void destroy_subscribe_katcp(struct katcp_dispatch *d, struct katcp_subscribe *sub);
+
 /*************************************************************************/
 
 void release_endpoint_wit(struct katcp_dispatch *d, void *data)

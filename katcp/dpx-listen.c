@@ -196,12 +196,14 @@ struct katcp_arb *create_listen_flat_katcp(struct katcp_dispatch *d, char *name,
   /* TODO: net_listen needs a flag to allocate something random */
   fd = net_listen(copy, port, NETC_AUTO_PORT);
   if(fd < 0){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to listen on %u at %s: %s", port, name ? name : "0.0.0.0", strerror(errno));
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to listen on %u at %s: %s", port, copy ? copy : "0.0.0.0", strerror(errno));
     if(copy){
       free(copy);
     }
     return NULL;
   }
+
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "started listener on %u at %s", port, copy ? copy : "0.0.0.0");
 
   opts = fcntl(fd, F_GETFL, NULL);
   if(opts >= 0){

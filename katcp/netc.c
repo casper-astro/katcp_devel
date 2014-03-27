@@ -172,34 +172,52 @@ int net_connect(char *name, int port, int flags)
 int net_listen(char *name, int port, int flags)
 {
   int p, len, fd, se;
-  char *ptr, *host;
+  char *ptr, *host, *copy;
   struct hostent *he;
   struct sockaddr_in sa;
   int value;
 
-  host = NULL;
   p = 0;
 
-  if(name){
-    host = strdup(name);
-    if(host == NULL){
-      if(flags & NETC_VERBOSE_ERRORS) fprintf(stderr, "listen: unable to duplicate string\n");
-      errno = ENOMEM;
-      return -1;
-    }
+  ptr = NULL;
+  copy = NULL;
+  host = NULL;
 
-    ptr = strchr(host, ':');
-    if(ptr){
-      ptr[0] = '\0';
+  if(name){
+    ptr = strchr(name, ':');
+
+    if(ptr != NULL){ /* has a colon */
+
       p = atoi(ptr + 1);
-    } else {
-      p = atoi(name);
-      free(host);
-      host = NULL;
+
+      if(ptr > name){ /* has a colon with something infront */
+
+        len = ptr - name;
+
+        copy = strdup(name);
+        if(copy == NULL){
+          if(flags & NETC_VERBOSE_ERRORS) fprintf(stderr, "listen: unable to duplicate string\n");
+          errno = ENOMEM;
+          return -1;
+        }
+
+        copy[len] = '\0';
+        host = copy;
+      }
+    } else { /* no colon */
+      p = atoi(name); 
+      if(p > 0){ /* could be a port */
+        if(strchr(name, '.')){ /* ports don't contain fractions, assume an IP */
+          host = name;
+          p = 0;
+        }
+      } else {
+        host = name;
+      }
     }
   }
 
-  if(port){
+  if(port > 0){
     p = port;
   }
 
@@ -214,15 +232,20 @@ int net_listen(char *name, int port, int flags)
       he = gethostbyname(host);
       if((he == NULL) || (he->h_addrtype != AF_INET)){
         if(flags & NETC_VERBOSE_ERRORS) fprintf(stderr, "listen: unable to map %s to ipv4 address\n", host);
-        free(host);
+        if(copy){
+          free(copy);
+        }
         errno = EINVAL;
         return -1;
       }
       sa.sin_addr = *(struct in_addr *) he->h_addr;
     }
-    free(host);
   } else {
     sa.sin_addr.s_addr = htonl(INADDR_ANY);
+  }
+
+  if(copy){
+    free(copy);
   }
 
   sa.sin_port = htons(p);
@@ -302,7 +325,7 @@ int main(int argc, char **argv)
 
   len = sizeof(struct sockaddr_in);
   if(getsockname(fd, (struct sockaddr *)&sa, &len) == 0){
-    fprintf(stderr, "%s: actuall bound port %d\n", argv[0], ntohs(sa.sin_port));
+    fprintf(stderr, "%s: actually bound port %d\n", argv[0], ntohs(sa.sin_port));
   }
 
   sleep(30);

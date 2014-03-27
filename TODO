@@ -24,4 +24,3 @@
  - expand version-list, etc to also display build state, etc
  - parse #sensor-list, #sensor-status messages
 
-
