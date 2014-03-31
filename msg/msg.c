@@ -17,7 +17,7 @@ void usage(char *app)
   printf("-h                 this help\n");
   printf("-l level           specify level (default is %s)\n", DEFAULT_LEVEL);
   printf("-m                 enable multiple messages\n");
-  printf("-s subsystem       specify the subsystem\n");
+  printf("-s subsystem       specify the subsystem (overrides KATCP_LABEL)\n");
 }
 
 int main(int argc, char **argv)
