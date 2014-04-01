@@ -373,6 +373,83 @@ struct katcp_group *find_group_katcp(struct katcp_dispatch *d, char *name)
   return NULL;
 }
 
+int switch_group_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, struct katcp_group *gx)
+{
+  /* a somewhat high risk operation - the new group might be terminating, in which case we delay its shutdown */
+
+  struct katcp_shared *s;
+  struct katcp_group *gt;
+  struct katcp_flat **tmp;
+  unsigned int i;
+
+  if((gx == NULL) || (fx == NULL)){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "null arguments in change group operation");
+    return -1;
+  }
+
+  s = d->d_shared;
+  if(s == NULL){
+    return -1;
+  }
+
+  if(s->s_lock){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "refusing to change group as currently traversing group structure");
+    return -1;
+  }
+
+  if(fx->f_group == gx){
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "group membership unchanged");
+    return -1;
+  }
+
+  gt = fx->f_group;
+  if(gt == NULL){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "duplex: major logic problem: duplex %p has no group\n", fx);
+    abort();
+#endif
+    return -1;
+  }
+
+  for(i = 0; (i < gt->g_count) && (gt->g_flats[i] != fx); i++);
+
+  if(i >= gt->g_count){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "duplex: major logic problem: duplex %p not to be found it its putative group %p of %u elements\n", fx, gt, gt->g_count);
+    abort();
+#endif
+    return -1;
+  }
+
+  tmp = realloc(gx->g_flats, sizeof(struct katcp_flat *) * (gx->g_count + 1));
+  if(tmp == NULL){
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "unable to increase size of target group containing %u elements", gx->g_count);
+    return -1;
+  }
+
+  gx->g_flats = tmp;
+
+  /* add to new group */
+  gx->g_flats[gx->g_count] = fx;
+  gx->g_count++;
+
+  /* remove from old */
+  gt->g_count--;
+  if(i < gt->g_count){
+    gt->g_flats[i] = gt->g_flats[gt->g_count];
+  }
+
+  /* update ownership */
+  fx->f_group = gx;
+
+#if 0
+  /* maybe ? */
+  reconfigure_flat_katcp(d, f, flags);
+#endif
+
+  return 0;
+}
+
 static int stop_listener_from_group_katcp(struct katcp_dispatch *d, struct katcp_arb *a, void *data)
 {
   struct katcp_listener *kl;
@@ -2790,6 +2867,14 @@ int load_flat_katcp(struct katcp_dispatch *d)
   fprintf(stderr, "dpx[*]: loading %u groups\n", s->s_members);
 #endif
 
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(s->s_lock){
+    fprintf(stderr, "dpx[*]: group structures should not be locked\n");
+    abort();
+  }
+#endif
+  s->s_lock = 1;
+
   j = 0;
   while(j < s->s_members){
     jnc = 1;
@@ -2945,6 +3030,8 @@ int load_flat_katcp(struct katcp_dispatch *d)
     j += jnc;
   }
 
+  s->s_lock = 0;
+
   return result;
 }
 
@@ -2963,11 +3050,18 @@ int run_flat_katcp(struct katcp_dispatch *d)
   fprintf(stderr, "dpx[*]: running %u groups\n", s->s_members);
 #endif
 
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(s->s_lock){
+    fprintf(stderr, "dpx[*]: group structures should not be locked\n");
+    abort();
+  }
+#endif
+  s->s_lock = 1;
+
   for(j = 0; j < s->s_members; j++){
     gx = s->s_groups[j];
     for(i = 0; i < gx->g_count; i++){
       fx = gx->g_flats[i];
-
 
       if(fx->f_line){
 
@@ -3045,6 +3139,8 @@ int run_flat_katcp(struct katcp_dispatch *d)
       }
     }
   }
+
+  s->s_lock = 0;
 
   return s->s_members;
 }
@@ -3228,6 +3324,7 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
     add_full_cmd_map_katcp(m, "client-connect", "create a client to a remote host (?client-connect host:port [group])", 0, &client_connect_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "?client-exec", "create a client to a local process (?client-exec label [group [binary [args]*])", 0, &client_exec_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "client-config", "set a client option (?client-config option [client])", 0, &client_config_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "client-switch", "set a client option (?client-switch group [client])", 0, &client_switch_group_cmd_katcp, NULL, NULL);
 
     add_full_cmd_map_katcp(m, "group-create", "create a new group (?group-create name [group])", 0, &group_create_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "group-list", "list groups (?group-list)", 0, &group_list_group_cmd_katcp, NULL, NULL);

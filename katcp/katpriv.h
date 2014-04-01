@@ -713,6 +713,7 @@ struct katcp_shared{
   struct katcp_group **s_groups;
   struct katcp_group *s_fallback;
   unsigned int s_members;
+  unsigned int s_lock; /* can't call functions which mess with group pointers */
 
   struct katcp_flat **s_this;
   int s_level;
@@ -958,9 +959,13 @@ int set_help_cmd_item_katcp(struct katcp_cmd_item *ix, char *help);
 int run_flat_katcp(struct katcp_dispatch *d);
 int load_flat_katcp(struct katcp_dispatch *d);
 
+
 /* duplex (flat+group) setup */
 int startup_duplex_katcp(struct katcp_dispatch *d, unsigned int stories);
 void shutdown_duplex_katcp(struct katcp_dispatch *d);
+
+int switch_group_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, struct katcp_group *gx);
+
 
 #define KATCP_FLAT_CONNECTING   0x1
 #define KATCP_FLAT_TOSERVER     0x2
