@@ -1600,8 +1600,8 @@ int tap_multicast_add_group_cmd(struct katcp_dispatch *d, int argc)
     if (base){
       /*assign the multicast ip to the gateware*/
       *((uint32_t *)(base + GO_MCADDR)) = (uint32_t) htonl(start);
-      /*assign the multicast mast to the gateware*/
-      *((uint32_t *)(base + GO_MCMASK)) = (uint32_t) mask - (uint32_t) count; 
+      /* Assign the multicast mast to the gateware, checked with Wes, Jason and Paul 2014-04-03 */
+      *((uint32_t *)(base + GO_MCMASK)) = (uint32_t) mask - (uint32_t) (count - 1);
     }
 
     for(i = 0; i < count; i++){
