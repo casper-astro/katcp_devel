@@ -779,7 +779,7 @@ int run_timer_tap(struct katcp_dispatch *d, void *data)
     return -1;
   }
 
-  if(tr->r_fpga != TBS_FPGA_MAPPED){
+  if(tr->r_fpga != TBS_FPGA_READY){
     log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "major problem, attempted to run %s despite fpga being down", gs->s_tap_name);
     return -1;
   }
@@ -874,7 +874,7 @@ int run_io_tap(struct katcp_dispatch *d, struct katcp_arb *a, unsigned int mode)
 
   tr = get_current_mode_katcp(d);
 
-  if(tr && (tr->r_fpga == TBS_FPGA_MAPPED)){ /* WARNING: actually we should never run if fpga not mapped */
+  if(tr && (tr->r_fpga == TBS_FPGA_READY)){ /* WARNING: actually we should never run if fpga not mapped */
 
     if(mode & KATCP_ARB_READ){
       result = receive_ip_kernel(d, gs);
@@ -1139,7 +1139,7 @@ struct getap_state *create_getap(struct katcp_dispatch *d, unsigned int instance
     return NULL;
   }
 
-  if(tr->r_fpga != TBS_FPGA_MAPPED){
+  if(tr->r_fpga != TBS_FPGA_READY){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "fpga not mapped, unable to run tap logic");
     return NULL;
   }
@@ -1532,7 +1532,7 @@ int tap_multicast_add_group_cmd(struct katcp_dispatch *d, int argc)
 
     gs->s_mcast_fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (gs->s_mcast_fd < 0){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to open multicast %s socket on %s", name);
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to open multicast %s socket on %s", mode, name);
       return KATCP_RESULT_FAIL;
     }
 

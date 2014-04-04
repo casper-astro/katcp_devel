@@ -33,8 +33,14 @@ int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir, int argc, char **argv)
 
 #include "loadbof.h"
 
+int start_fpg_tbs(struct katcp_dispatch *d);
 int start_fpga_tbs(struct katcp_dispatch *d, struct bof_state *bs);
 int stop_fpga_tbs(struct katcp_dispatch *d);
+
+int status_fpga_tbs(struct katcp_dispatch *d, int status);
+int map_raw_tbs(struct katcp_dispatch *d);
+
+
 
 #define GETAP_IP_BUFFER         16
 #define GETAP_MAC_BUFFER        18
@@ -98,7 +104,8 @@ struct getap_state{
 #define TBS_FPGA_DOWN        0
 #define TBS_FPGA_PROGRAMMED  1
 #define TBS_FPGA_MAPPED      2
-#define TBS_STATES_FPGA      3
+#define TBS_FPGA_READY       3    
+#define TBS_STATES_FPGA      4
 
 struct tbs_raw
 {
@@ -120,6 +127,15 @@ struct tbs_raw
 
   struct getap_state **r_taps;
   unsigned int r_instances;
+
+  struct avl_tree *r_meta;
+};
+
+struct meta_entry
+{
+	char **m;
+	int m_size;
+	struct meta_entry *m_next;
 };
 
 #define TBS_READABLE   1
@@ -159,6 +175,8 @@ struct tbs_port_data {
   int t_program;
   unsigned int t_expected;
   int t_fd;
+  char *t_name;
+  int t_type;//0-Default 1-BOF 2-FPG
 #if 0
   struct katcp_notice *t_notice;
   int t_rsize;
@@ -168,8 +186,13 @@ struct tbs_port_data {
 
 struct katcp_job * run_child_process_tbs(struct katcp_dispatch *d, struct katcp_url *url, int (*call)(struct katcl_line *, void *), void *data, struct katcp_notice *n); 
 
+int progremote_cmd(struct katcp_dispatch *d, int argc);
 int upload_cmd(struct katcp_dispatch *d, int argc);
+int saveremote_cmd(struct katcp_dispatch *d, int argc);
 int uploadbof_cmd(struct katcp_dispatch *d, int argc);
+int uploadbin_cmd(struct katcp_dispatch *d, int argc);
+int run_fpg_generic(struct katcp_dispatch *d, struct katcp_notice *n, void *data);
+int run_resume_generic(struct katcp_dispatch *d, struct katcp_notice *n, void *data);
 
 int start_chassis_cmd(struct katcp_dispatch *d, int argc);
 int led_chassis_cmd(struct katcp_dispatch *d, int argc);
