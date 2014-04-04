@@ -547,7 +547,7 @@ int main(int argc, char **argv)
 	do{
 		result = read_katcl(ipr->i_input);
 		if(result){
-			fprintf(stderr, "read result is %d\n", result);
+			// fprintf(stderr, "read result is %d\n", result);
 			return 1;
 		}
 
@@ -566,11 +566,11 @@ int main(int argc, char **argv)
 #endif
 
 			if(!strcmp(request, "?uploadbin")){
-				printf("?uploadbin keyword matched:DO NOTHING\n");
+				printf("* ?uploadbin keyword matched:DO NOTHING\n");
 				break;
 
 			}else if(!strcmp(request, "?quit")){
-				printf("?quit keyword matched\n");
+				printf("* ?quit keyword matched\n");
 				/* send finalise command */
 				if(finalise_upload(ipr, 15000) < 0){
 					sync_message_katcl(ipr->i_print, KATCP_LEVEL_ERROR, ipr->i_label, "finalise prepare failed\n");
