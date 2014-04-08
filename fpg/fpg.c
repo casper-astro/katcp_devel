@@ -18,6 +18,8 @@
 
 #include "katcl.h"
 #include "katcp.h"
+#include "katpriv.h"
+
 #include "netc.h"
 #include <avltree.h>
 

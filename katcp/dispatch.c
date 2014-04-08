@@ -1548,12 +1548,13 @@ static int check_log_message_katcp(struct katcl_line *l, int sum, unsigned int l
 int log_message_katcp(struct katcp_dispatch *d, unsigned int priority, char *name, char *fmt, ...)
 {
   va_list args;
-  int sum, count;
+  int sum; 
   unsigned int level, i;
   struct katcp_shared *s;
   struct katcp_entry *e;
   char *prefix;
 #ifdef KATCP_EXPERIMENTAL
+  int count;
   struct katcl_parse *px;
 #endif
 

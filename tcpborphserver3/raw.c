@@ -57,7 +57,6 @@ static int check_bus_error(struct katcp_dispatch *d)
 int finalise_cmd(struct katcp_dispatch *d, int argc)
 {
   struct tbs_raw *tr;
-  char *fpga_states[TBS_STATES_FPGA] = { "down", "loaded", "mapped", "ready" };
 
   tr = get_current_mode_katcp(d);
   if(tr == NULL){
@@ -66,11 +65,17 @@ int finalise_cmd(struct katcp_dispatch *d, int argc)
   }
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Finalise ENTRY STATE: %d", tr->r_fpga);
-  tr->r_fpga = TBS_FPGA_READY;
-  broadcast_inform_katcp(d, TBS_FPGA_STATUS, fpga_states[3l]);
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Finalise EXIT STATE: %d", tr->r_fpga);
 
-  return KATCP_RESULT_OK;
+  switch(tr->r_fpga){
+    case TBS_FPGA_MAPPED:
+      status_fpga_tbs(d, TBS_FPGA_READY);
+      /* fall */
+    case TBS_FPGA_READY : 
+      return KATCP_RESULT_OK;
+    default :
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to finish programming, as fpga not mapped");
+      return KATCP_RESULT_FAIL;
+  }
 }
 
 /*********************************************************************/
@@ -92,19 +97,16 @@ void free_meta_entry(void *data)
     for(i = 0; i < tmp->m_size; i++){
       free(x[i]);
       x[i] = NULL;
-
     }
+
     tmp->m_size = 0;
     free(x);
     x = NULL;
 
     free(tmp);
-
   }
 
   tmp = NULL;
-
-
   me = NULL;
 }
 
@@ -174,6 +176,7 @@ void print_entry_detail(struct katcp_dispatch *d, char *key, void *data)
 
   te = data;
   if (te) {
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "register %s at 0x%x:%d size %d:%d mode %d", key, te->e_pos_base, te->e_pos_offset, te->e_len_base, te->e_len_offset, te->e_mode);
     prepend_inform_katcp(d);
     append_string_katcp(d, KATCP_FLAG_STRING, key);
     append_args_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, "0x%x:%d", te->e_pos_base, te->e_pos_offset);
@@ -314,9 +317,13 @@ int listdev_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
-  if(tr->r_fpga != TBS_FPGA_READY){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "fpga not programmed");
-    return KATCP_RESULT_FAIL;
+  switch(tr->r_fpga){
+    case TBS_FPGA_MAPPED :
+    case TBS_FPGA_READY :
+      break;
+    default :
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "fpga not programmed");
+      return KATCP_RESULT_FAIL;
   }
 
   call = &print_entry;
@@ -617,7 +624,7 @@ int write_cmd(struct katcp_dispatch *d, int argc)
   }
 
 
-  /*length check*/
+  /* length check */
 #ifdef DEBUG
   fprintf(stderr, "bit checks: total register=%d start_bits=%d copy_bits=%d\n", register_bits, start_bits, copy_bits);
 #endif
@@ -1474,6 +1481,94 @@ int fpgastatus_cmd(struct katcp_dispatch *d, int argc)
 
 #define TEST_RUN_CONFIG "test-run-config"
 
+#if 0
+int run_fpg_generic(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
+{
+  struct tbs_raw *tr;
+  struct tbs_port_data *pd;
+  struct katcl_parse *p;
+  char *inform, *status;
+
+  tr = get_mode_katcp(d, TBS_MODE_RAW);
+  if(tr == NULL){
+	  return KATCP_RESULT_FAIL;
+  }
+
+  pd = data;
+
+  p = get_parse_notice_katcp(d, n);
+  if(p == NULL){
+    destroy_port_data_tbs(d, pd);
+    return 0;
+  }
+
+  inform = get_string_parse_katcl(p, 0);
+  if(inform == NULL){
+    destroy_port_data_tbs(d, pd);
+    return 0;
+  }
+
+#ifdef DEBUG
+  fprintf(stderr, "%s: got inform %s\n", __func__, inform);
+#endif
+  
+  if(strcmp(inform, KATCP_RETURN_JOB) != 0){
+    destroy_port_data_tbs(d, pd);
+    return 0;
+  }
+
+  status = get_string_parse_katcl(p, 1);
+  if(status == NULL){
+    destroy_port_data_tbs(d, pd);
+    return 0;
+  }
+#if 0
+  if(strcmp(status, KATCP_OK) != 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "%s:encountered %s on upload", __func__, status);
+    destroy_port_data_tbs(d, pd);
+    return 0;
+  }
+#endif
+
+  destroy_port_data_tbs(d, pd);
+  
+  return 0;
+}
+#endif
+
+int progdev_resume(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
+{
+  struct katcl_parse *p;
+  char *ptr;
+
+  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "got something from job via notice %p", n);
+
+  p = get_parse_notice_katcp(d, n);
+  if(p){
+    ptr = get_string_parse_katcl(p, 0);
+    if(ptr){
+      if(!strcmp(ptr, KATCP_RETURN_JOB)){
+        ptr = get_string_parse_katcl(p, 1);
+      } else {
+        log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "expected to see a return inform, got %s instead", ptr);
+        ptr = NULL;
+      }
+    } else {
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "empty wakeup message");
+    }
+  } else {
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "no message available on wakeup");
+    ptr = NULL;
+  }
+
+  prepend_reply_katcp(d);
+  append_string_katcp(d, KATCP_FLAG_LAST, ptr ? ptr : KATCP_FAIL);
+
+  resume_katcp(d);
+
+  return 0;
+}
+
 int progdev_cmd(struct katcp_dispatch *d, int argc)
 {
   char *file;
@@ -1484,7 +1579,7 @@ int progdev_cmd(struct katcp_dispatch *d, int argc)
   struct katcp_dispatch *dl;
   struct katcp_job *j;
   struct katcp_notice *nx;
-  char *argv[2];
+  char *argv[3];
 
   tr = get_mode_katcp(d, TBS_MODE_RAW);
   if(tr == NULL){
@@ -1522,7 +1617,8 @@ int progdev_cmd(struct katcp_dispatch *d, int argc)
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "attempting to program %s", file);
 
   if(!strcmp(".bof", (buffer + len - 5))){
-    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "CHECK:Bof extension %s", file);
+
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "assuming bof format for %s", file);
     bs = open_bof(d, buffer);
     free(buffer);
     buffer = NULL;
@@ -1530,8 +1626,8 @@ int progdev_cmd(struct katcp_dispatch *d, int argc)
       return KATCP_RESULT_FAIL;
     }
 
-    if(start_fpga_tbs(d, bs) < 0){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to program bit stream from %s", file, TBS_FPGA_CONFIG);
+    if(start_bof_tbs(d, bs) < 0){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to program bit stream from %s", file);
       close_bof(d, bs);
       return KATCP_RESULT_FAIL;
     }
@@ -1540,14 +1636,9 @@ int progdev_cmd(struct katcp_dispatch *d, int argc)
     tr->r_image = strdup(file);
 
     close_bof(d, bs);
-  }else if(!strcmp(".fpg", (buffer + len - 5))){
-    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "CHECK:New supported extension %s", file);
-#if 0
-    if(start_fpg_tbs(d) < 0){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to program bit stream from %s", TBS_FPGA_CONFIG);
-      return KATCP_RESULT_FAIL;
-    }
-#endif
+  } else if(!strcmp(".fpg", (buffer + len - 5))){
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "assuming new fpg format for %s", file);
+
     dl = template_shared_katcp(d);
     if(dl == NULL){
       return KATCP_RESULT_FAIL;
@@ -1565,22 +1656,23 @@ int progdev_cmd(struct katcp_dispatch *d, int argc)
       return KATCP_RESULT_FAIL;
     }
 
+#if 0
     /* added in the global space dl, so that it completes even if client goes away */
     if(add_notice_katcp(dl, nx, &run_fpg_generic, NULL) < 0){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to register callback for upload completion");
       return KATCP_RESULT_FAIL;
     }
+#endif
 
     /* add to local connection d, to resume it */
-    if(add_notice_katcp(d, nx, &run_resume_generic, NULL) < 0){
+    if(add_notice_katcp(d, nx, &progdev_resume, NULL) < 0){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to register callback to resume command");
       return KATCP_RESULT_FAIL;
     }
 
-
-    argv[0] = buffer;
-    argv[1] = NULL;
-
+    argv[0] = TBS_KCPFPG_PATH;
+    argv[1] = buffer;
+    argv[2] = NULL;
 
     j = process_name_create_job_katcp(dl, buffer, argv, nx, NULL);
     if (j == NULL){
@@ -1589,10 +1681,9 @@ int progdev_cmd(struct katcp_dispatch *d, int argc)
     }
 
     free(buffer);
+
     return KATCP_RESULT_PAUSE;
-
-
-  }else{
+  } else {
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unsupported extension %s", file);
     return KATCP_RESULT_FAIL;
   }
@@ -1600,7 +1691,7 @@ int progdev_cmd(struct katcp_dispatch *d, int argc)
   return KATCP_RESULT_OK;
 }
 
-void add_to_list(struct katcp_dispatch *d, struct meta_entry *node, void *data)
+void add_to_list(struct katcp_dispatch *d, struct meta_entry *node, struct meta_entry *data)
 {
   struct meta_entry *temp, *var;
 
@@ -1611,7 +1702,7 @@ void add_to_list(struct katcp_dispatch *d, struct meta_entry *node, void *data)
     var->m_next = NULL;
     node->m_next = var;
     log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "New node insert to avl node");
-  }else{
+  } else {
 
     while(temp->m_next != NULL){
       temp = temp->m_next;
@@ -1633,16 +1724,12 @@ int meta_cmd(struct katcp_dispatch *d, int argc)
   struct tbs_raw *tr;
   void *call;
   int i;
+
   tr = get_mode_katcp(d, TBS_MODE_RAW);
   if(tr == NULL){
     return KATCP_RESULT_FAIL;
   }
-#if 0
-  if(tr->r_fpga != TBS_FPGA_READY || tr->r_fpga != TBS_FPGA_MAPPED ){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "fpga not programmed");
-    return KATCP_RESULT_FAIL;
-  }
-#endif
+
   switch(tr->r_fpga){
     case TBS_FPGA_MAPPED:
     case TBS_FPGA_READY:
@@ -1660,16 +1747,22 @@ int meta_cmd(struct katcp_dispatch *d, int argc)
     if(me == NULL){
       return KATCP_RESULT_FAIL;
     }
+
+    me->m_size = 0;
+    me->m_next = NULL;
+
     tmp = malloc(noofitems * (sizeof(char *)));	
     if(tmp == NULL){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate memory for the number of items ");
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate memory for meta entry");
+      free_meta_entry(me);
       return KATCP_RESULT_FAIL;
     }
     me->m = tmp;
 
     key = arg_string_katcp(d, 1);
     if(key == NULL){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "Null capture in argument");
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "invalid parameter to meta request");
+      free_meta_entry(me);
       return KATCP_RESULT_FAIL;
     }
 
@@ -1677,33 +1770,32 @@ int meta_cmd(struct katcp_dispatch *d, int argc)
       me->m[i] = arg_copy_string_katcp(d, i + 2);  
       if(me->m[i] == NULL){
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "Null capture in arguments");
+        free_meta_entry(me);
         return KATCP_RESULT_FAIL;
       }
+      me->m_size = i;
     }
-    me->m_size = noofitems;
-    me->m_next = NULL;
 
     avl_node = find_data_avltree(tr->r_meta, key);
 
     if(avl_node != NULL){
       log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "key called %s exists", key);
       add_to_list(d, avl_node, me);
-    }else{
-
+    } else {
       if(store_named_node_avltree(tr->r_meta, key, me) < 0){
         log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to store definition of key %s", key);
-        free(me);
+        free_meta_entry(me);
         return KATCP_RESULT_FAIL;
       }
     }
 
-  }else if(argc == 2){
-    key 		= arg_string_katcp(d, 1);
+  } else if(argc == 2){
+    key = arg_string_katcp(d, 1);
     if((key == NULL)){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "key is NULL");
       return KATCP_RESULT_FAIL;
     }
-    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "Key %s matching Display", key);
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "looking up key %s", key);
     an = find_name_node_avltree(tr->r_meta, key);
     if (an != NULL){
       avl_data = get_node_data_avltree(an);
@@ -1712,27 +1804,22 @@ int meta_cmd(struct katcp_dispatch *d, int argc)
         avl_data = NULL;
         an = NULL;
         return KATCP_RESULT_OK;
-      }else{
-
-        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "Node fetch failed");
+      } else{
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "empty data for key %s", key);
         return KATCP_RESULT_FAIL;
-
       }
-    }else{
-      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Key entry %s not matching", key);
+    } else {
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "key entry %s not matching", key);
       return KATCP_RESULT_FAIL;
-
     }
-
-  }else {
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Full Meta Display");
-    if (tr->r_meta != NULL){
+  } else {
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "displaying metadata in full");
+    if(tr->r_meta != NULL){
       print_inorder_avltree(d, tr->r_meta->t_root, call, 0);
-    }else{
-      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "No meta info to display");
+    } else {
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "no meta info to display");
     }
   }
-
 
   return KATCP_RESULT_OK;
 }
@@ -1748,13 +1835,6 @@ int register_cmd(struct katcp_dispatch *d, int argc)
   if(tr == NULL){
     return KATCP_RESULT_FAIL;
   }
-
-#if 0
-  if(tr->r_fpga != TBS_FPGA_MAPPED){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "fpga not programmed");
-    return KATCP_RESULT_FAIL;
-  }
-#endif
 
   switch(tr->r_fpga){
     case TBS_FPGA_MAPPED:
@@ -1903,9 +1983,13 @@ int unmap_raw_tbs(struct katcp_dispatch *d)
     return -1;
   }
 
-  if(tr->r_fpga != TBS_FPGA_READY){
-    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "nothing mapped");
-    return 0;
+  switch(tr->r_fpga){
+    case TBS_FPGA_MAPPED:
+    case TBS_FPGA_READY : 
+      break;
+    default :
+      log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "nothing mapped");
+      return 0;
   }
 
   munmap(tr->r_map, tr->r_map_size);
@@ -1943,8 +2027,9 @@ int map_raw_tbs(struct katcp_dispatch *d)
   }
 
   tr->r_map_size = power;
-  if(tr->r_map_size > 0x08000000){ 
-    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "requesting to map a rather large area of 0x%x", tr->r_map_size);
+
+  if(tr->r_map_size > TBS_ROACH_MAXMAP){ /* 0x08000000 (128M) */
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "requesting to map area of 0x%x larger than bank size", tr->r_map_size);
   }
 
   fd = open(TBS_FPGA_MEM, O_RDWR);
@@ -1984,9 +2069,12 @@ int stop_fpga_tbs(struct katcp_dispatch *d)
 
   stop_all_getap(d, 0);
 
-  if(tr->r_fpga == TBS_FPGA_READY){
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "unmapping fpga");
-    unmap_raw_tbs(d);
+  switch(tr->r_fpga){
+    case TBS_FPGA_READY :
+    case TBS_FPGA_MAPPED :
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "unmapping fpga");
+      unmap_raw_tbs(d);
+      break;
   }
 
   if(tr->r_fpga == TBS_FPGA_PROGRAMMED){
@@ -1995,7 +2083,7 @@ int stop_fpga_tbs(struct katcp_dispatch *d)
 #ifdef __PPC__
     dfd = open(TBS_FPGA_CONFIG, O_WRONLY);
 #else
-    /* for debugging, simply write out the bitstream */
+    /* for debugging */
     dfd = open(TBS_FPGA_CONFIG, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
 #endif
     if(dfd < 0){
@@ -2008,20 +2096,19 @@ int stop_fpga_tbs(struct katcp_dispatch *d)
   }
 
   if(tr->r_image){
-    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "should deprogram fpga");
     free(tr->r_image);
     tr->r_image = NULL;
   }
 
   if(tr->r_registers){
     destroy_avltree(tr->r_registers, &free_entry);
-    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "registers:free_entry executed");
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "deallocated register definitions");
     tr->r_registers = NULL;
   }
 
   if(tr->r_meta){
     destroy_avltree(tr->r_meta, &free_meta_entry);
-    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "free_meta_entry executed");
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "deallocated meta entries");
     tr->r_meta = NULL;
   }
 
@@ -2059,17 +2146,20 @@ int start_fpg_tbs(struct katcp_dispatch *d)
   }
 
   /* 128M FPGA size */
-  tr->r_top_register = 0x2000000;
+  tr->r_top_register = TBS_ROACH_MAXMAP;
 
   if(map_raw_tbs(d) < 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "Unable to map /dev/roach/mem");
     return -1;
   }
 
-  tr->r_fpga = TBS_FPGA_MAPPED;
+  status_fpga_tbs(d, TBS_FPGA_MAPPED);
 
+#if 0
+  tr->r_fpga = TBS_FPGA_MAPPED;
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "EXIT STATE: %d", tr->r_fpga);
   log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "%s:check point", __func__);
+#endif
   /* CHANGE REQUIRED */
   /* A program bin function that passes /dev/roach/config to be opened and writeen */
 #if 0
@@ -2093,7 +2183,7 @@ int start_fpg_tbs(struct katcp_dispatch *d)
   return 0;
 }
 
-int start_fpga_tbs(struct katcp_dispatch *d, struct bof_state *bs)
+int start_bof_tbs(struct katcp_dispatch *d, struct bof_state *bs)
 {
   struct tbs_raw *tr;
 
@@ -2130,7 +2220,7 @@ int start_fpga_tbs(struct katcp_dispatch *d, struct bof_state *bs)
     return -1;
   }
 
-  finalise_cmd(d, 0);
+  status_fpga_tbs(d, TBS_FPGA_READY);
 
   return 0;
 }
@@ -2147,11 +2237,11 @@ void destroy_raw_tbs(struct katcp_dispatch *d, struct tbs_raw *tr)
 
   stop_all_getap(d, 1);
 
-  if(tr->r_fpga == TBS_FPGA_READY){
-    /* TODO */
-
-    tr->r_fpga = TBS_FPGA_PROGRAMMED;
-    /* status_fpga_tbs(d, TBS_FPGA_PROGRAMMED); would be noisy */
+  switch(tr->r_fpga){
+    case TBS_FPGA_READY :
+    case TBS_FPGA_MAPPED :
+      unmap_raw_tbs(d);
+      break;
   }
 
   if(tr->r_registers){
@@ -2163,6 +2253,7 @@ void destroy_raw_tbs(struct katcp_dispatch *d, struct tbs_raw *tr)
     destroy_avltree(tr->r_meta, &free_meta_entry);
     tr->r_meta = NULL;
   }
+
   if(tr->r_image){
     free(tr->r_image);
     tr->r_image = NULL;
@@ -2323,17 +2414,17 @@ int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir, int argc, char **argv)
 
   result = 0;
 
-  result += register_flag_mode_katcp(d, "?finalise",       "finalise", &finalise_cmd, 0, TBS_MODE_RAW);
+  result += register_flag_mode_katcp(d, "?finalise",     "finalise", &finalise_cmd, 0, TBS_MODE_RAW);
 
   result += register_flag_mode_katcp(d, "?uploadbof",    "upload a (possibly compressed) bof/fpg file to flash (?uploadbof port filename [length [timeout]])", &uploadbof_cmd, 0, TBS_MODE_RAW);
-  result += register_flag_mode_katcp(d, "?saveremote",    "upload a (possibly compressed) bof/fpg file to flash (?uploadbof port filename [length [timeout]])", &uploadbof_cmd, 0, TBS_MODE_RAW);
-  result += register_flag_mode_katcp(d, "?progremote",       "upload and program a (possibly compressed) bof/fpg file (?progremote [port [length [timeout]]])", &progremote_cmd, 0, TBS_MODE_RAW);
+  result += register_flag_mode_katcp(d, "?saveremote",   "upload a (possibly compressed) bof/fpg file to flash (?uploadbof port filename [length [timeout]])", &uploadbof_cmd, 0, TBS_MODE_RAW);
+  result += register_flag_mode_katcp(d, "?progremote",   "upload and program a (possibly compressed) bof/fpg file (?progremote [port [length [timeout]]])", &progremote_cmd, 0, TBS_MODE_RAW);
   result += register_flag_mode_katcp(d, "?upload",       "upload and program a (possibly compressed) bof/fpg file (?progremote [port [length [timeout]]])", &upload_cmd, 0, TBS_MODE_RAW);
-  result += register_flag_mode_katcp(d, "?uploadbin",       "upload and program a (possibly compressed) bof/fpg file (?progremote [port [length [timeout]]])", &uploadbin_cmd, 0, TBS_MODE_RAW);
+  result += register_flag_mode_katcp(d, "?uploadbin",    "upload and program a (possibly compressed) bof/fpg file (?progremote [port [length [timeout]]])", &uploadbin_cmd, 0, TBS_MODE_RAW);
 
   result += register_flag_mode_katcp(d, "?register",     "name a memory location (?register name position bit-offset length)", &register_cmd, 0, TBS_MODE_RAW);
 
-  result += register_flag_mode_katcp(d, "?meta",     "more info abt design(key parent field value)", &meta_cmd, 0, TBS_MODE_RAW);
+  result += register_flag_mode_katcp(d, "?meta",         "more info abt design(key parent field value)", &meta_cmd, 0, TBS_MODE_RAW);
   result += register_flag_mode_katcp(d, "?write",        "write binary data to a named register (?write name byte-offset:bit-offset value byte-length:bit-length)", &write_cmd, 0, TBS_MODE_RAW);
   result += register_flag_mode_katcp(d, "?read",         "read binary data from a named register (?read name byte-offset:bit-offset byte-length:bit-length)", &read_cmd, 0, TBS_MODE_RAW);
 

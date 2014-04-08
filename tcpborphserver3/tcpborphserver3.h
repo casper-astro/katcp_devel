@@ -27,20 +27,23 @@
 
 #define TBS_FPGA_STATUS    "#fpga"
 
+#define TBS_KCPFPG_PATH       "/bin/kcpfpg"
+
 #define TBS_ROACH_CHASSIS  "roach2chassis"
+
+/* largest bank EPB can see is 128M */
+#define TBS_ROACH_MAXMAP   (128*1024*1024)
 
 int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir, int argc, char **argv);
 
 #include "loadbof.h"
 
 int start_fpg_tbs(struct katcp_dispatch *d);
-int start_fpga_tbs(struct katcp_dispatch *d, struct bof_state *bs);
+int start_bof_tbs(struct katcp_dispatch *d, struct bof_state *bs);
 int stop_fpga_tbs(struct katcp_dispatch *d);
 
 int status_fpga_tbs(struct katcp_dispatch *d, int status);
 int map_raw_tbs(struct katcp_dispatch *d);
-
-
 
 #define GETAP_IP_BUFFER         16
 #define GETAP_MAC_BUFFER        18
@@ -133,9 +136,9 @@ struct tbs_raw
 
 struct meta_entry
 {
-	char **m;
-	int m_size;
-	struct meta_entry *m_next;
+  char **m;
+  int m_size;
+  struct meta_entry *m_next;
 };
 
 #define TBS_READABLE   1
@@ -191,8 +194,13 @@ int upload_cmd(struct katcp_dispatch *d, int argc);
 int saveremote_cmd(struct katcp_dispatch *d, int argc);
 int uploadbof_cmd(struct katcp_dispatch *d, int argc);
 int uploadbin_cmd(struct katcp_dispatch *d, int argc);
+
+void destroy_port_data_tbs(struct katcp_dispatch *d, struct tbs_port_data *pd);
+
+#if 0
 int run_fpg_generic(struct katcp_dispatch *d, struct katcp_notice *n, void *data);
 int run_resume_generic(struct katcp_dispatch *d, struct katcp_notice *n, void *data);
+#endif
 
 int start_chassis_cmd(struct katcp_dispatch *d, int argc);
 int led_chassis_cmd(struct katcp_dispatch *d, int argc);

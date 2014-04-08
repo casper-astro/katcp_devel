@@ -36,7 +36,6 @@
 #define FPG_HEADER 589377378
 #define BOF_HEADER 423776070
 
-
 void destroy_port_data_tbs(struct katcp_dispatch *d, struct tbs_port_data *pd)
 {
   if (pd == NULL){
@@ -87,14 +86,14 @@ struct tbs_port_data *create_port_data_tbs(struct katcp_dispatch *d, char *file,
   pd->t_name = NULL;
 
   if(file == NULL){
-	  sprintf(name,"/dev/shm/ubf-%d",getpid());
-	  ptr = name;
-	  pd->t_name = strdup(name);
-	  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "temporary file: %s", pd->t_name);
-	  pd->t_program = 1;
-  }else {
-	  ptr = file;
-	  pd->t_program = 0;
+    sprintf(name, "/dev/shm/ubf-%d", getpid());
+    ptr = name;
+    pd->t_name = strdup(name);
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "temporary file: %s", pd->t_name);
+    pd->t_program = 1;
+  } else {
+    ptr = file;
+    pd->t_program = 0;
   }
 
   pd->t_fd = open(ptr, O_CREAT | O_TRUNC | O_RDWR, S_IRUSR | S_IWUSR | S_IXUSR);
@@ -220,7 +219,7 @@ int upload_resume_tbs(struct katcp_dispatch *d, struct katcp_notice *n, void *da
   struct katcl_parse *p;
   char *ptr;
 
-	struct tbs_raw *tr;
+  struct tbs_raw *tr;
 
   tr = get_mode_katcp(d, TBS_MODE_RAW);
   if(tr == NULL){
@@ -258,6 +257,7 @@ int upload_resume_tbs(struct katcp_dispatch *d, struct katcp_notice *n, void *da
       return KATCP_RESULT_FAIL;
     }
   }
+
   prepend_reply_katcp(d);
   append_string_katcp(d, KATCP_FLAG_LAST, ptr ? ptr : KATCP_FAIL);
 
@@ -279,8 +279,9 @@ int upload_complete_tbs(struct katcp_dispatch *d, struct katcp_notice *n, void *
 #endif
 
   pd = data;
-  if (pd == NULL)
+  if (pd == NULL){
     return -1;
+  }
 
   p = get_parse_notice_katcp(d, n);
   if(p == NULL){
@@ -344,7 +345,7 @@ int upload_complete_tbs(struct katcp_dispatch *d, struct katcp_notice *n, void *
       return 0;
     }
 
-    if(start_fpga_tbs(d, bs) < 0){
+    if(start_bof_tbs(d, bs) < 0){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to program uploaded bof file");
       close_bof(d, bs);
       destroy_port_data_tbs(d, pd);
@@ -358,7 +359,6 @@ int upload_complete_tbs(struct katcp_dispatch *d, struct katcp_notice *n, void *
   
   return 0;
 }
-
 
 int uploadbof_cmd(struct katcp_dispatch *d, int argc)
 {
@@ -415,7 +415,6 @@ int uploadbof_cmd(struct katcp_dispatch *d, int argc)
       log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "user requested a timeout of %us", timeout);
     }
   }
-
 
   if(strchr(name, '/') || (name[0] == '.')){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "refusing to upload file containing path information");
@@ -598,15 +597,14 @@ int upload_cmd(struct katcp_dispatch *d, int argc)
   status_fpga_tbs(d, TBS_FPGA_PROGRAMMED);
 
   /* 128M FPGA size */
-  tr->r_top_register = 0x2000000;
+  tr->r_top_register = TBS_ROACH_MAXMAP;
 
   if(map_raw_tbs(d) < 0){
-	  log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "Unable to map /dev/roach/mem");
-	  return -1;
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "Unable to map /dev/roach/mem");
+    return -1;
   }
 
   tr->r_fpga = TBS_FPGA_MAPPED;
-
 
   return KATCP_RESULT_OK;
 }
@@ -675,7 +673,6 @@ int uploadbin_cmd(struct katcp_dispatch *d, int argc)
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "%s: couldn't create port data", __func__);
     return KATCP_RESULT_FAIL;
   }
-
 
   /* added in the global space dl, so that it completes even if client goes away */
   if(add_notice_katcp(dl, nx, &upload_complete_tbs, pd) < 0){
@@ -837,7 +834,7 @@ int progremote_complete_tbs(struct katcp_dispatch *d, struct katcp_notice *n, vo
 			return 0;
 		}
 
-		if(start_fpga_tbs(d, bs) < 0){
+		if(start_bof_tbs(d, bs) < 0){
 			log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to program uploaded bof file");
 			close_bof(d, bs);
 			destroy_port_data_tbs(d, pd);
@@ -986,13 +983,13 @@ int progremote_tbs(struct katcl_line *l, void *data)
 
 	if(pd->t_type == 2){
 		/*Run execve on the /dev/shm file */
-		argv[0] = "/bin/kcpfpg";
+		argv[0] = TBS_KCPFPG_PATH;
 		argv[1] = pd->t_name;
 		argv[2] = NULL;
 		sync_message_katcl(l, KATCP_LEVEL_DEBUG, UPLOAD_LABEL, "About to execve with arguments %s", argv[0]);
 
 		/*execve only returns on error*/
-		execve("/bin/kcpfpg", argv, NULL);
+		execve(TBS_KCPFPG_PATH, argv, NULL);
 
 		sync_message_katcl(l, KATCP_LEVEL_ERROR, UPLOAD_LABEL, "unable to run execve %s (%s)", "/bin/kcpfpg", strerror(errno));
 
@@ -1104,90 +1101,4 @@ int progremote_cmd(struct katcp_dispatch *d, int argc)
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "awaiting transfer on port %d", pd->t_port);
 
   return KATCP_RESULT_OK;
-}
-
-int run_fpg_generic(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
-{
-  struct tbs_raw *tr;
-  struct tbs_port_data *pd;
-  struct katcl_parse *p;
-  char *inform, *status;
-
-  tr = get_mode_katcp(d, TBS_MODE_RAW);
-  if(tr == NULL){
-	  return KATCP_RESULT_FAIL;
-  }
-
-  pd = data;
-
-  p = get_parse_notice_katcp(d, n);
-  if(p == NULL){
-    destroy_port_data_tbs(d, pd);
-    return 0;
-  }
-
-  inform = get_string_parse_katcl(p, 0);
-  if(inform == NULL){
-    destroy_port_data_tbs(d, pd);
-    return 0;
-  }
-
-#ifdef DEBUG
-  fprintf(stderr, "%s: got inform %s\n", __func__, inform);
-#endif
-  
-  if(strcmp(inform, KATCP_RETURN_JOB) != 0){
-    destroy_port_data_tbs(d, pd);
-    return 0;
-  }
-
-  status = get_string_parse_katcl(p, 1);
-  if(status == NULL){
-    destroy_port_data_tbs(d, pd);
-    return 0;
-  }
-#if 0
-  if(strcmp(status, KATCP_OK) != 0){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "%s:encountered %s on upload", __func__, status);
-    destroy_port_data_tbs(d, pd);
-    return 0;
-  }
-#endif
-
-  destroy_port_data_tbs(d, pd);
-  
-  return 0;
-}
-
-int run_resume_generic(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
-{
-  struct katcl_parse *p;
-  char *ptr;
-
-  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "got something from job via notice %p", n);
-
-  p = get_parse_notice_katcp(d, n);
-  if(p){
-    ptr = get_string_parse_katcl(p, 0);
-    if(ptr){
-      if(!strcmp(ptr, KATCP_RETURN_JOB)){
-        ptr = get_string_parse_katcl(p, 1);
-      } else {
-        log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "expected to see a return inform, got %s instead", ptr);
-        ptr = NULL;
-      }
-    } else {
-      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "empty wakeup message");
-    }
-  } else {
-    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "no message available on wakeup");
-    ptr = NULL;
-  }
-
-  prepend_reply_katcp(d);
-  append_string_katcp(d, KATCP_FLAG_LAST, ptr ? ptr : KATCP_FAIL);
-
-  resume_katcp(d);
-
-  return 0;
 }
