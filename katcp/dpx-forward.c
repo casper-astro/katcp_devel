@@ -155,8 +155,8 @@ struct katcl_parse *generate_relay_forward(struct katcp_dispatch *d, struct forw
   struct katcp_vrbl *vx;
   struct katcp_flat *fx;
   struct katcp_group *gx;
-  unsigned int size, limit;
-  int flags, run, result, i;
+  unsigned int size;
+  int flags, run, result, i, limit;
 
   px = create_parse_katcl();
   if(px == NULL){
@@ -207,7 +207,7 @@ struct katcl_parse *generate_relay_forward(struct katcp_dispatch *d, struct forw
         break;
     }
 
-    if(limit == 0){
+    if(limit < 0){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "malformed relay where nothing can be forwarded");
       destroy_parse_katcl(px);
       return NULL;
