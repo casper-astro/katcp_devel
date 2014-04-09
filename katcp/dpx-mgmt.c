@@ -372,7 +372,7 @@ int group_create_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   } else {
     go = find_group_katcp(d, group);
     if(go == NULL){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "template group %s not found", name);
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "template group %s not found", group);
       return KATCP_RESULT_FAIL;
     }
   }
