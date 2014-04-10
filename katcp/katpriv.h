@@ -448,6 +448,10 @@ struct katcp_arb{
 #define KATCP_VRF_RO          /* readonly */
 #endif
 
+#define KATCP_VRC_VERSION_VERSION ":version"
+#define KATCP_VRC_VERSION_BUILD   ":build"
+
+
 struct katcp_vrbl_payload;
 
 struct katcp_vrbl_map_item{
@@ -1172,6 +1176,9 @@ void destroy_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx);
 struct katcp_vrbl *find_vrbl_katcp(struct katcp_dispatch *d, char *key);
 struct katcp_vrbl_payload *find_payload_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, char *path);
 
+int type_payload_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
+int find_type_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, char *path);
+
 struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, char *name, struct katcp_vrbl *vo, int clobber);
 
 int traverse_vrbl_katcp(struct katcp_dispatch *d, void *state, int (*callback)(struct katcp_dispatch *d, void *state, char *key, void *data));
@@ -1204,6 +1211,11 @@ int strategy_from_string_sensor_katcp(struct katcp_dispatch *d, char *name);
 int monitor_event_variable_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_flat *fx);
 
 struct katcl_parse *make_sensor_katcp(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx, char *prefix);
+
+/* version callback */
+
+int version_generic_callback_katcp(struct katcp_dispatch *d, void *state, char *key, struct katcp_vrbl *vx);
+
 
 /******************************************/
 

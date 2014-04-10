@@ -831,11 +831,12 @@ int sensor_value_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
 /* version related function ***************************************************/
 
-/* WARNING: this is somewhat similar to the version connect logic ... */
-
+#if 0
 int version_list_callback_katcp(struct katcp_dispatch *d, void *state, char *key, struct katcp_vrbl *vx)
 {
+  struct katcp_payload *pversion, *pbuild:
   unsigned int *cp;
+  int type;
 
   cp = state;
 
@@ -849,20 +850,60 @@ int version_list_callback_katcp(struct katcp_dispatch *d, void *state, char *key
 
   if((vx->v_flags & KATCP_VRF_VER) == 0){
 #ifdef DEBUG
-  fprintf(stderr, "version: %p not a version variable\n", vx);
+    fprintf(stderr, "version: %p not a version variable\n", vx);
 #endif
     return 0;
   }
 
-  prepend_inform_katcp(d);
+  /* WARNING: this duplicates too much from version_connect, but needs the prepend_inform */
 
-  append_string_katcp(d, KATCP_FLAG_STRING, key);
-  append_payload_vrbl_katcp(d, KATCP_FLAG_LAST, vx, NULL);
+  type = find_type_vrbl_katcp(d, vx, NULL);
+  switch(type){
+    case KATCP_VRT_STRING :
+      prepend_inform_katcp(d);
+      append_string_katcp(d, KATCP_FLAG_STRING, key);
+      append_payload_vrbl_katcp(d, KATCP_FLAG_LAST, vx, NULL);
+      *cp = (*cp) + 1;
+      return 0;
+    case KATCP_VRT_TREE :
 
-  *cp = (*cp) + 1;
+      pversion = find_payload_katcp(d, vx, KATCP_VRC_VERSION_VERSION);
+      pbuild = find_payload_katcp(d, vx, KATCP_VRC_VERSION_BUILD);
 
-  return 0;
+      if(pversion){
+        if(type_payload_vrbl_katcp(d, vx, pversion) != KATCP_VRT_STRING){
+          pversion = NULL;
+        }
+      }
+      if(pbuild){
+        if(type_payload_vrbl_katcp(d, vx, pbuild) != KATCP_VRT_STRING){
+          pbuild = NULL;
+        }
+      }
+
+      if(pversion || pbuild){
+        prepend_inform_katcp(d);
+        append_string_katcp(d, KATCP_FLAG_STRING, key);
+        if(pbuild){
+          if(pversion){
+            append_payload_vrbl_katcp(d, 0, vx, pversion);
+          } else {
+            append_string_katcp(d, KATCP_FLAG_STRING, "unknown");
+          }
+          append_payload_vrbl_katcp(d, KATCP_FLAG_LAST, vx, pbuild);
+        } else {
+          append_payload_vrbl_katcp(d, KATCP_FLAG_LAST, vx, pversion);
+        }
+        *cp = (*cp) + 1;
+      }
+
+      return 0;
+
+    default :
+      return 0;
+  }
 }
+#endif
 
 int version_list_void_callback_katcp(struct katcp_dispatch *d, void *state, char *key, void *data)
 {
@@ -870,7 +911,7 @@ int version_list_void_callback_katcp(struct katcp_dispatch *d, void *state, char
 
   vx = data;
 
-  return version_list_callback_katcp(d, state, key, vx);
+  return version_generic_callback_katcp(d, state, key, vx);
 }
 
 int version_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
@@ -899,7 +940,7 @@ int version_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
         log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "%s not found", key);
         result = (-1);
       } else {
-        if(version_list_callback_katcp(d, (void *)&count, key, vx) < 0){
+        if(version_generic_callback_katcp(d, (void *)&count, key, vx) < 0){
           result = (-1);
         }
       }

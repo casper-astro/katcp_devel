@@ -1019,6 +1019,39 @@ struct katcp_vrbl_payload *find_payload_katcp(struct katcp_dispatch *d, struct k
   return (*(ops_type_vrbl[type].t_element))(d, vx, py, path);
 }
 
+int type_payload_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py)
+{
+  struct katcp_vrbl_payload *ty;
+  
+  if(py == NULL){
+    if(vx == NULL){
+      return -1;
+    }
+    ty = vx->v_payload;
+  } else {
+    ty = py;
+  }
+
+  if(ty->p_type >= KATCP_MAX_VRT){
+    return -1;
+  }
+
+  return ty->p_type;
+}
+
+int find_type_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, char *path)
+{
+  struct katcp_vrbl_payload *py;
+
+  py = find_payload_katcp(d, vx, path);
+
+  if(py == NULL){
+    return -1;
+  }
+
+  return type_payload_vrbl_katcp(d, vx, py);
+}
+
 struct katcp_vrbl *create_vrbl_katcp(struct katcp_dispatch *d, unsigned int type, unsigned int flags, void *state, int (*refresh)(struct katcp_dispatch *d, void *state, char *name, struct katcp_vrbl *vx), int (*change)(struct katcp_dispatch *d, void *state, char *name, struct katcp_vrbl *vx), void (*release)(struct katcp_dispatch *d, void *state, char *name, struct katcp_vrbl *vx))
 {
   /* WARNING: should probably be deprecated - scan_vrbl does all of this and more */
