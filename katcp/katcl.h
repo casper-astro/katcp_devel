@@ -23,6 +23,7 @@ struct katcl_line *create_katcl(int fd);
 void destroy_katcl(struct katcl_line *l, int end);
 int error_katcl(struct katcl_line *l);
 
+int load_katcl(struct katcl_line *l, char *buffer, unsigned int size);
 int read_katcl(struct katcl_line *l);
 int have_katcl(struct katcl_line *l);
 void clear_katcl(struct katcl_line *l);
