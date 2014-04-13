@@ -39,8 +39,6 @@
 
 #define CONNECT_ATTEMPTS   6
 
-#define DEBUG
-
 struct ipr_state{
   int i_verbose;
   int i_fd;
@@ -300,7 +298,7 @@ struct ipr_state *create_ipr(char *server, char *file, int verbose, char *label)
 
   i->i_line = create_name_rpc_katcl(server);
   if(i->i_line == NULL){
-    sync_message_katcl(i->i_print, KATCP_LEVEL_ERROR, i->i_label, "unable to create client connection to server %s:%s", server, strerror(errno));
+    sync_message_katcl(i->i_print, KATCP_LEVEL_ERROR, i->i_label, "unable to create client connection to server %s: %s", server, strerror(errno));
     destroy_ipr(i);
     return NULL;
   }
@@ -771,7 +769,7 @@ int main(int argc, char **argv)
   /* Initialise the intepreter state */
   ipr = create_ipr(server, file, verbose, label); 
   if(ipr == NULL){
-    fprintf(stderr, "%s: Unable to allocate intepreter state", argv[0]);
+    fprintf(stderr, "%s: unable to allocate intepreter state\n", argv[0]);
     return 2;
   }
 
