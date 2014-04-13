@@ -13,3 +13,14 @@
   - maybe report disconnects too
   - improve center frequency selection 
   - searchable arb structures so that we can clear tgtaps on progdev
+
+
+
+*** NEW DPX todos ***
+
+ - device changed messages, particularly regarding sensors
+ - device connected/disconnected messages
+ - some default device-status handling
+ - expand version-list, etc to also display build state, etc
+ - parse #sensor-list, #sensor-status messages
+

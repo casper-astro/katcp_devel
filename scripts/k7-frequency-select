@@ -5,59 +5,13 @@ source functions.sh
 
 kcs_arg_check $# 1
 
-#kcpcmd -i -k nb-set-cf $1 | sed -e 's/^!nb-set-cf/#return/' | cut -f1-3 -d\  
-
-case "${KATCP_MODE}" in
-  c16n25M4k|c16n13M4k|c16n2M4k|c16n3M8k|c16n7M4k|c8n7M4k_top)
-    kcpcmd -i -k nb-set-cf $1 | ( while read cmd stat first rest ; do if [ "$cmd" = "!nb-set-cf" ] ; then if [ "${stat}" = "ok" ] ; then echo "#sensor-list .centerfrequency current\_selected\_center\_frequency Hz integer 0 1000000000" ; echo "#sensor-status $(date +%s)000 1 .centerfrequency nominal ${first}" ; fi ; echo "#return" ${stat} ${first} ; else echo ${cmd} ${stat} ${first} ${rest} ; fi ; done)
-    ;;
-  *)
-    echo "#return fail unavailable"
-    kcs_error "frequency selection not available in ${KATCP_MODE} mode"
-    ;;
-esac 
+if kcs_is_narrowband ${KATCP_MODE} ; then
+  if kcs_set_frequency $* ; then
+    exit 0
+  fi
+else
+  echo "#return fail unavailable"
+  kcs_error "frequency selection not available in ${KATCP_MODE} mode"
+fi  
 
 exit 1
-
-# freq=$1
-# #mix_count=2
-# 
-# kcs_config_numeric coarse_chans
-# kcs_config_numeric adc_clk
-# 
-# bw=$[adc_clk/2]
-# 
-# if [ "${freq}" -ge "${bw}" ] ; then
-#   kcs_warn "clamping requested center frequency to ${bw}"
-#   freq=${bw}
-# fi
-# 
-# full=$(echo "0.499999+(${coarse_chans}*${freq}/${bw})" | bc -l | sed -e 's/^\./0./' )
-# 
-# channel=$(echo ${full} | cut -f1 -d.)
-# if [ -z ${channel} ] ; then
-#   channel=0
-# fi
-# 
-# # fraction=$(echo ${full} | cut -f2 -d. | sed -e 's/^/0./' )
-# # mixer=$(echo ${fraction}*${mix_count} | bc -l | sed -e 's/^\./0./' | cut -f1 -d. )
-# # if [ -z ${mixer} ] ; then
-# #   mixer=0
-# # fi
-# 
-# if [ ${channel} -gt ${coarse_chans} ] ; then
-#   kcs_error "logic problem, coarse channel ${channel} out of range"
-# fi
-# 
-# kcs_debug "chansel with ${channel} ${mixer}"
-# 
-# if corr_nb_chansel.py -c ${channel} ${CORR_CONFIG}/${KATCP_MODE} >& /dev/null ; then 
-#   actual=$[channel*bw/coarse_chans]
-#   echo "#sensor-list .nbc.centerfrequency current\_selected\_center\_frequency Hz integer 0 1000000000"
-#   echo "#sensor-status $(date +%s)000 1 .nbc.centerfrequency nominal ${actual}"
-#   echo "#return ok ${actual}"
-#   exit 0
-# fi
-# 
-# kcs_error "failed to run nb_chansel"
-# exit 1

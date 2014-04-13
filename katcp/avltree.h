@@ -3,6 +3,10 @@
 
 #include "katcp.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define AVL_LEFT        0x2 
 #define AVL_RIGHT       0x1
 #define AVL_MASK        0xF
@@ -47,6 +51,10 @@ int del_name_node_avltree(struct avl_tree *t, char *key, void (*d_free)(void *))
 void free_node_avltree(struct avl_node *n, void (*d_free)(void *));
 void destroy_avltree(struct avl_tree *t, void (*d_free)(void *));
 
+int del_name_node_complex_avltree(struct avl_tree *t, char *key, void *global, void (*complex_free)(void *global, char *key, void *payload));
+int del_node_complex_avltree(struct avl_tree *t, struct avl_node *n, void *global, void (*complex_free)(void *global, char *key, void *payload));
+void destroy_complex_avltree(struct avl_tree *t, void *global, void (*complex_free)(void *global, char *key, void *payload));
+
 struct avl_node *walk_inorder_avltree(struct avl_node *n);
 void *walk_data_inorder_avltree(struct avl_node *n);
 
@@ -57,15 +65,23 @@ void *get_node_data_avltree(struct avl_node *n);
 int update_node_data_avltree(struct avl_node *n, void *data);
 
 int store_named_node_avltree(struct avl_tree *t, char *key, void *data);
+struct avl_node *store_exposed_node_avltree(struct avl_tree *t, char *key, void *data);
 
 /*testing api*/
 void print_avltree(struct katcp_dispatch *d, struct avl_node *n, int depth, void (*fn_print)(struct katcp_dispatch *, char *key, void *));
 void print_inorder_avltree(struct katcp_dispatch *d, struct avl_node *n, void (*fn_print)(struct katcp_dispatch *, char *key, void *), int flags);
+
+void complex_inorder_traverse_avltree(struct katcp_dispatch *d, struct avl_node *n, void *global, int (*callback)(struct katcp_dispatch *d, void *global, char *key, void *data));
+
 
 int check_balances_avltree(struct avl_node *n, int depth);
 
 /*extra*/
 
 char *gen_id_avltree(char *prefix);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

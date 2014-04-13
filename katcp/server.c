@@ -546,7 +546,7 @@ int prepare_core_loop_katcp(struct katcp_dispatch *dl)
   register_flag_mode_katcp(dl, "?system-info",  "report server information (?system-info)", &system_info_cmd_katcp, 0, 0);
 
 #ifdef KATCP_EXPERIMENTAL
-  register_flag_mode_katcp(dl, "?listen-duplex", "accept new duplex connections on given interface (?listen-duplex [interface:]port)", &listen_duplex_cmd_katcp, 0, 0);
+  register_flag_mode_katcp(dl, "?listener-create", "accept new duplex connections on given interface (?listen-duplex [interface:]port)", &listener_create_group_cmd_katcp, 0, 0);
   register_flag_mode_katcp(dl, "?list-duplex",  "report duplex information (?list-duplex)", &list_duplex_cmd_katcp, 0, 0);
 #endif
 
@@ -618,6 +618,7 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
     if(load_flat_katcp(dl) < 0){
       run = (-1);
     }
+    load_endpoints_katcp(dl);
 #endif
 
 
@@ -642,7 +643,7 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
       FD_ZERO(&(s->s_read));
     }
     
-    if(s->s_woken > 0){
+    if(s->s_busy > 0){
       suspend = 0;
       delta.tv_sec = 0;
       delta.tv_nsec = KATCP_BRIEF_WAIT;
@@ -661,6 +662,8 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
 #ifdef DEBUG
     fprintf(stderr, "multi: select=%d, used=%d\n", result, s->s_used);
 #endif
+
+    s->s_busy = 0;
 
     if(result < 0){
 
@@ -692,8 +695,9 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
     }
 
 #ifdef KATCP_EXPERIMENTAL
-    /* WARNING: new logic */
     run_flat_katcp(dl);
+    /* order between flat and endpoint now important */
+    run_endpoints_katcp(dl);
 #endif
 
     run_shared_katcp(dl);

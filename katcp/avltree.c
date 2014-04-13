@@ -228,7 +228,7 @@ void *walk_data_inorder_avltree(struct avl_node *n)
   return c->n_data;
 }
 
-void print_inorder_avltree(struct katcp_dispatch *d, struct avl_node *n, void (*fn_print)(struct katcp_dispatch *d, char *key, void *data), int flags)
+void complex_inorder_traverse_avltree(struct katcp_dispatch *d, struct avl_node *n, void *global, int (*callback)(struct katcp_dispatch *d, void *global, char *key, void *data))
 {
   struct avl_node *c;
 #if 0
@@ -249,7 +249,6 @@ void print_inorder_avltree(struct katcp_dispatch *d, struct avl_node *n, void (*
 #endif
 #if 1
   struct katcp_stack *s;
-  int run;
 
   if (n == NULL)
     return;
@@ -260,7 +259,89 @@ void print_inorder_avltree(struct katcp_dispatch *d, struct avl_node *n, void (*
 
   c = n;
 
-  run = 1;
+  while (c != NULL) {
+    if (push_stack_katcp(s, c, NULL) < 0){
+#if DEBUG>2
+      fprintf(stderr, "avl_tree: stack push error <%s>\n", c->n_key);
+#endif
+      destroy_stack_katcp(s);
+      return;
+    }
+#if DEBUG>2
+    fprintf(stderr, "avl_tree: stack 1 push  <%s>\n", c->n_key);
+#endif
+    c = c->n_left;
+  }
+  
+#if DEBUG>2
+  fprintf(stderr, "avl_tree: stack state: %d\n", is_empty_stack_katcp(s));
+#endif
+
+  while (!is_empty_stack_katcp(s)){
+    c = pop_data_stack_katcp(s);
+    if (c != NULL){
+
+#if DEBUG>2
+      fprintf(stderr, "avl_tree: <%s>\n", c->n_key);
+#endif
+      if (callback != NULL)
+        (*callback)(d, global, c->n_key, c->n_data);
+
+      c = c->n_right;
+
+      while(c != NULL){
+        if (push_stack_katcp(s, c, NULL) < 0){
+#if DEBUG>2
+          fprintf(stderr, "avl_tree: stack push error <%s>\n", c->n_key);
+#endif
+          destroy_stack_katcp(s);
+          return;
+        }
+#if DEBUG>2
+        fprintf(stderr, "avl_tree: stack 2 push  <%s>\n", c->n_key);
+#endif
+        c = c->n_left;
+      }
+      
+    }
+  }
+  
+  destroy_stack_katcp(s);
+#endif
+}
+
+void print_inorder_avltree(struct katcp_dispatch *d, struct avl_node *n, void (*fn_print)(struct katcp_dispatch *d, char *key, void *data), int flags)
+{
+  /* TODO: this should just be a special case of complex_inorder_traverse_avltree */
+  struct avl_node *c;
+#if 0
+  while ((c = walk_inorder_avltree(n)) != NULL){
+
+#ifdef DEBUG
+    fprintf(stderr, "avl_tree: <%s>\n", c->n_key);
+#endif
+    if (flags){
+      append_args_katcp(d, KATCP_FLAG_FIRST, "#%s", c->n_key);
+      append_args_katcp(d, KATCP_FLAG_LAST, "with data %p", c->n_data);
+    }
+
+    if (fn_print != NULL)
+      (*fn_print)(d, c->n_data);
+
+  }
+#endif
+#if 1
+  struct katcp_stack *s;
+
+  if (n == NULL)
+    return;
+  
+  s = create_stack_katcp();
+  if (s == NULL)
+    return;
+
+  c = n;
+
   while (c != NULL) {
     if (push_stack_katcp(s, c, NULL) < 0){
 #if DEBUG>2
@@ -618,7 +699,6 @@ int add_node_avltree(struct avl_tree *t, struct avl_node *n)
 {
   struct avl_node *c;
   int cmp, run, flag;
-  char rtype;
 
   if (t == NULL)
     return -1;
@@ -681,7 +761,6 @@ int add_node_avltree(struct avl_tree *t, struct avl_node *n)
   }
 
   run = 1;
-  rtype = 0;
   while (run && !flag){
     
     if (c->n_parent == NULL){
@@ -715,7 +794,6 @@ int add_node_avltree(struct avl_tree *t, struct avl_node *n)
 #if DEBUG > 3
         fprintf(stderr,"avl_tree:\tPOSTROT: %s (%p) p(%p) balance %d\n", c->n_key, c, c->n_parent, c->n_balance);
 #endif
-        rtype = 0;
         run = 0; 
       }
     }
@@ -743,26 +821,77 @@ int add_node_avltree(struct avl_tree *t, struct avl_node *n)
   check_balances_avltree(t->t_root, 0);
 #endif
   return 0;
+
+}
+
+/* WARNING: using a datastructure to hold a function pointer might be a bit excessive - *global could have been the function pointer too ... */
+
+struct free_reducer{
+  void (*reduced_free)(void *payload);
+};
+  
+static void complex_to_reduced_free_avltree(void *global, char *key, void *datum)
+{
+  struct free_reducer *rs;
+
+  if(global == NULL){
+    abort();
+  }
+  
+  rs = global;
+
+  (*(rs->reduced_free))(datum);
+}
+
+void free_node_complex_avltree(struct avl_node *n, void *global, void (*complex_free)(void *global, char *key, void *payload))
+{
+  if(n == NULL){
+    return;
+  }
+
+  if (n->n_parent != NULL){ 
+    n->n_parent = NULL; 
+  }
+
+  if (n->n_left != NULL){ 
+    n->n_left = NULL; 
+  }
+
+  if (n->n_right != NULL){ 
+    n->n_right = NULL; 
+  }
+
+  n->n_balance = 0;
+
+  if((n->n_data != NULL) && (complex_free != NULL)) { 
+    (*complex_free)(global, n->n_key, n->n_data);
+    n->n_data = NULL; 
+  }
+
+  if(n->n_key != NULL){ 
+    free(n->n_key); 
+    n->n_key = NULL; 
+  }
+
+  free(n);
 }
 
 void free_node_avltree(struct avl_node *n, void (*d_free)(void *))
 {
-  if (n->n_parent != NULL) { n->n_parent = NULL; }
-  if (n->n_left != NULL) { n->n_left = NULL; }
-  if (n->n_right != NULL) { n->n_right = NULL; }
-  n->n_balance = 0;
-  if (n->n_key != NULL) { free(n->n_key); n->n_key = NULL; }
-#if 1 
-  if (n->n_data != NULL && d_free != NULL) { 
-    //free(n->n_data); 
-    (*d_free)(n->n_data);
-    n->n_data = NULL; 
+  struct free_reducer reducer, *rs;
+
+  if(d_free == NULL){
+    free_node_complex_avltree(n, NULL, NULL);
+    return;
   }
-#endif
-  if (n != NULL) { free(n); n = NULL; }
+
+  rs = &reducer;
+  rs->reduced_free = d_free;
+
+  free_node_complex_avltree(n, rs, &complex_to_reduced_free_avltree);
 }
-  
-int del_node_avltree(struct avl_tree *t, struct avl_node *n, void (*d_free)(void*))
+
+int del_node_complex_avltree(struct avl_tree *t, struct avl_node *n, void *global, void (*complex_free)(void *global, char *key, void *payload))
 {
   struct avl_node *c, *s;
   int run, flag;
@@ -813,7 +942,7 @@ int del_node_avltree(struct avl_tree *t, struct avl_node *n, void (*d_free)(void
         run = 0;
     }
 
-    free_node_avltree(n, d_free);
+    free_node_complex_avltree(n, global, complex_free);
   
   } else {
     
@@ -845,7 +974,7 @@ int del_node_avltree(struct avl_tree *t, struct avl_node *n, void (*d_free)(void
       }
       c->n_balance = n->n_balance;
       
-      free_node_avltree(n, d_free);
+      free_node_complex_avltree(n, global, complex_free);
       
       c->n_balance--;
 #if DEBUG > 1
@@ -889,7 +1018,7 @@ int del_node_avltree(struct avl_tree *t, struct avl_node *n, void (*d_free)(void
         }
       }
 
-      free_node_avltree(n, d_free);
+      free_node_complex_avltree(n, global, complex_free);
       
       if (c->n_balance == 0){
 #if DEBUG > 1
@@ -975,6 +1104,20 @@ int del_node_avltree(struct avl_tree *t, struct avl_node *n, void (*d_free)(void
   return 0;
 }
 
+int del_node_avltree(struct avl_tree *t, struct avl_node *n, void (*d_free)(void *payload))
+{
+  struct free_reducer reducer, *rs;
+
+  if(d_free == NULL){
+    return del_node_complex_avltree(t, n, NULL, NULL);
+  }
+
+  rs = &reducer;
+  rs->reduced_free = d_free;
+
+  return del_node_complex_avltree(t, n, rs, &complex_to_reduced_free_avltree);
+}
+
 struct avl_node *find_name_node_avltree(struct avl_tree *t, char *key)
 {
   struct avl_node *c;
@@ -1027,22 +1170,38 @@ void *find_data_avltree(struct avl_tree *t, char *key)
   return get_node_data_avltree(n);
 }
 
-int del_name_node_avltree(struct avl_tree *t, char *key, void (*d_free)(void *))
+int del_name_node_complex_avltree(struct avl_tree *t, char *key, void *global, void (*complex_free)(void *global, char *key, void *payload))
 {
   struct avl_node *dn;
   
-  if (t == NULL)
+  if (t == NULL){
     return -1;
+  }
 
   dn = find_name_node_avltree(t, key);
 
-  if (dn == NULL)
+  if (dn == NULL){
     return -1;
+  }
 
-  return del_node_avltree(t, dn, d_free);
+  return del_node_complex_avltree(t, dn, global, complex_free);
 }
 
-void destroy_avltree(struct avl_tree *t, void (*d_free)(void *))
+int del_name_node_avltree(struct avl_tree *t, char *key, void (*d_free)(void *))
+{
+  struct free_reducer reducer, *rs;
+
+  if(d_free == NULL){
+    return del_name_node_complex_avltree(t, key, NULL, NULL);
+  }
+
+  rs = &reducer;
+  rs->reduced_free = d_free;
+
+  return del_name_node_complex_avltree(t, key, rs, &complex_to_reduced_free_avltree);
+}
+
+void destroy_complex_avltree(struct avl_tree *t, void *global, void (*complex_free)(void *global, char *key, void *payload))
 {
   struct avl_node *c, *dn;
   int run;
@@ -1087,14 +1246,16 @@ void destroy_avltree(struct avl_tree *t, void (*d_free)(void *))
             c->n_right = NULL;
         } 
 
-        if (dn->n_key) { free(dn->n_key); dn->n_key = NULL; }
-#if 1
-        if (dn->n_data && d_free) { 
-          //free(dn->n_data); 
-          (*d_free)(dn->n_data);
+        if (dn->n_data && complex_free) { 
+          (*complex_free)(global, dn->n_key, dn->n_data);
           dn->n_data = NULL; 
         }
-#endif
+
+        if (dn->n_key) { 
+          free(dn->n_key); 
+          dn->n_key = NULL; 
+        }
+
         dn->n_parent = NULL;
 
         free(dn);
@@ -1110,6 +1271,23 @@ void destroy_avltree(struct avl_tree *t, void (*d_free)(void *))
   if (t != NULL)
     free(t);
 }
+
+void destroy_avltree(struct avl_tree *t, void (*d_free)(void *))
+{
+  struct free_reducer reducer, *rs;
+
+  if(d_free == NULL){
+    destroy_complex_avltree(t, NULL, NULL);
+    return;
+  }
+
+  rs = &reducer;
+  rs->reduced_free = d_free;
+
+  destroy_complex_avltree(t, rs, &complex_to_reduced_free_avltree);
+}
+
+/*********************************************************************************************************/
 
 char *gen_id_avltree(char *prefix)
 {
@@ -1145,16 +1323,26 @@ char *gen_id_avltree(char *prefix)
   return id;
 }
 
-int store_named_node_avltree(struct avl_tree *t, char *key, void *data)
+struct avl_node *store_exposed_node_avltree(struct avl_tree *t, char *key, void *data)
 {
   struct avl_node *n;
 
   n = create_node_avltree(key, data);
-  if (n == NULL)
-    return -1;
+  if(n == NULL){
+    return NULL;
+  }
 
-  if (add_node_avltree(t, n) < 0){
-    free_node_avltree(n, NULL);
+  if(add_node_avltree(t, n) < 0){
+    free_node_complex_avltree(n, NULL, NULL);
+    return NULL;
+  }
+
+  return n;
+}
+
+int store_named_node_avltree(struct avl_tree *t, char *key, void *data)
+{
+  if(store_exposed_node_avltree(t, key, data) == NULL){
     return -1;
   }
   

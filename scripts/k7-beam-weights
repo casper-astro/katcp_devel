@@ -1,0 +1,26 @@
+#!/bin/bash
+
+set -e 
+source functions.sh
+
+kcs_arg_check $# 2
+
+if kcs_is_beamformer ${KATCP_MODE} ; then
+  if [ "$#" -eq 2 ]  ; then
+    kcpcmd -i -k weights-get $1 $2 | tr -d '()' | sed -e 's/^!weights-get/#return/'
+  else 
+    status=1
+
+    kcs_debug "setting $*"
+
+    if kcpcmd -k -t 300 -m weights-set $* ; then
+      status=0
+    fi
+
+    kcs_corr_log
+    exit $status
+  fi
+else
+  echo "#return fail unavailable"
+  kcs_error "beam selection not available in mode ${KATCP_MODE}"
+fi  

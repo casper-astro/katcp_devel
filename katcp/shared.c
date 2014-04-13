@@ -190,12 +190,18 @@ int startup_shared_katcp(struct katcp_dispatch *d)
 
   s->s_notices = NULL;
   s->s_pending = 0;
-  s->s_woken = 0;
+
+  s->s_busy = 0;
 
   s->s_groups = NULL;
   s->s_fallback = NULL;
   s->s_this = NULL;
   s->s_members = 0;
+  s->s_lock = 0;
+
+  s->s_endpoints = NULL;
+
+  s->s_region = NULL;
 
   s->s_build_state = NULL;
   s->s_build_items = 0;
@@ -255,8 +261,12 @@ int startup_shared_katcp(struct katcp_dispatch *d)
   d->d_shared = s;
 
 #ifdef KATCP_EXPERIMENTAL
-  if(init_flats_katcp(d, KATCP_FLAT_STACK) < 0){
-    shutdown_shared_katcp(d);
+  if(startup_duplex_katcp(d, KATCP_FLAT_STACK) < 0){
+
+    /* TODO: provide proper destruction function to undo setup_shared ... */
+    free(s->s_vector);
+    free(s);
+    d->d_shared = NULL;
     return -1;
   }
 #endif
@@ -281,8 +291,6 @@ void shutdown_shared_katcp(struct katcp_dispatch *d)
 #endif
     return;
   }
-
-  /* TODO: what about duplex logic ? */
 
   /* clear modes only once, when we clear the template */
   /* modes want callbacks, so we invoke them before operating on internals */
@@ -337,7 +345,6 @@ void shutdown_shared_katcp(struct katcp_dispatch *d)
 
   /* TODO: what about destroying jobs, need to happen before sensors ? */
 
-
   destroy_notices_katcp(d);
 
   /* WARNING: s_mode_sensor used to leak, hopefully fixed now */
@@ -347,6 +354,9 @@ void shutdown_shared_katcp(struct katcp_dispatch *d)
   destroy_versions_katcp(d);
   
   destroy_type_list_katcp(d);
+
+  /* WARNING: invokes callbacks, assumes client API still available */
+  destroy_arbs_katcp(d);
 
   while(s->s_count > 0){
 #ifdef DEBUG
@@ -360,8 +370,14 @@ void shutdown_shared_katcp(struct katcp_dispatch *d)
   /* at this point it is unsafe to call API functions on the shared structure */
 
 #ifdef KATCP_EXPERIMENTAL
+  shutdown_duplex_katcp(d);
+#if 0 /* was previously */
   destroy_flats_katcp(d);
+  destroy_groups_katcp(d);
+  release_endpoints_katcp(d);
 #endif
+#endif
+
 
   free(s->s_clients);
   s->s_clients = NULL;
@@ -962,14 +978,12 @@ static int expand_modes_katcp(struct katcp_dispatch *d, unsigned int mode)
 int mode_version_katcp(struct katcp_dispatch *d, int mode, char *subsystem, int major, int minor)
 {
 #define BUFFER 20
-  struct katcp_shared *s;
 #if 0
   struct katcp_entry *e;
 #endif
   char buffer[BUFFER];
 
   sane_shared_katcp(d);
-  s = d->d_shared;
 
   if(expand_modes_katcp(d, mode) < 0){
     return -1;

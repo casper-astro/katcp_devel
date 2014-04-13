@@ -17,7 +17,7 @@ void usage(char *app)
   printf("-h                 this help\n");
   printf("-l level           specify level (default is %s)\n", DEFAULT_LEVEL);
   printf("-m                 enable multiple messages\n");
-  printf("-s subsystem       specify the subsystem\n");
+  printf("-s subsystem       specify the subsystem (overrides KATCP_LABEL)\n");
 }
 
 int main(int argc, char **argv)
@@ -31,10 +31,14 @@ int main(int argc, char **argv)
   multi = 0;
   i = j = 1;
   level = KATCP_LEVEL_INFO;
-  system = "notifier";
   buffer = NULL;
   size = 0;
   pos = 0;
+
+  system = getenv("KATCP_LABEL");
+  if(system == NULL){
+    system = "notifier";
+  }
 
   app = argv[0];
 

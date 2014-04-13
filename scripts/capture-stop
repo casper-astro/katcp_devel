@@ -8,31 +8,32 @@ stream=$1
 
 kcs_debug "about to run tx-stop"
 
+if kcs_is_beamformer ${KATCP_MODE} ; then
+  option=${stream}
+fi
+
 case "${stream}" in
   k7)
-    status=1
-    if [ $# -gt 1 ] ; then
-      if kcpcmd -k -m tx-stop $2 ; then
-        status=0
-      fi
-    else 
-      if kcpcmd -k -m tx-stop ; then
-        status=0
-      fi 
+    kcs_info "stopping correlator stream ${stream}"
+    ;;
+  bf0|bf1)
+    if kcs_is_beamformer ${KATCP_MODE} ; then
+      kcs_info "stopping beam stream ${stream}"
+    else
+      kcs_error "datastream ${stream} not available in this mode"
     fi
-
-    kcs_corr_log
-    exit $status
-
     ;;
-  bf*)
-    kcs_warn "beamformer streams ${stream} currently tied to stream k7"
-    exit 0
-    ;;
-
   *)
-    kcs_error "unsupported data stream ${stream}"
-    exit 1
+    kcs_error "unknown data stream ${stream}"
     ;;
 esac
 
+if kcpcmd -k -m tx-stop ${option}; then
+  status=0
+else 
+  kcs_warn "${stream} stop failed"
+  status=1
+fi
+
+kcs_corr_log
+exit $status
