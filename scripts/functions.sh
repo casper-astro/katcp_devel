@@ -18,7 +18,7 @@ kcs_set_frequency () {
 }
 
 kcs_set_passband () {
-  kcpcmd -i -k beam-passband $1 $2 $3 | ( while read cmd stat bw cf rest ; do if [ "$cmd" = "!beam-passband" ] ; then if [ "${stat}" = "ok" ] ; then echo "#sensor-status $(date +%s)000 1 .${1}.bandwidth nomain ${bw}" ; echo "#sensor-status $(date +%s)000 1 .${1}.centerfrequency nominal ${cf}" ; else kcpmsg -l error -s passband "passband update $stat $bw" ; exit 1 ; fi ; else echo ${cmd} ${stat} ${bw} ${cf} ${rest} ; fi ; done)
+  kcpcmd -i -k beam-passband $1 $2 $3 | ( while read cmd stat bw cf rest ; do if [ "$cmd" = "!beam-passband" ] ; then if [ "${stat}" = "ok" ] ; then echo "#sensor-status $(date +%s)000 1 .${1}.bandwidth nominal ${bw}" ; echo "#sensor-status $(date +%s)000 1 .${1}.centerfrequency nominal ${cf}" ; else kcpmsg -l error -s passband "passband update $stat $bw" ; exit 1 ; fi ; else echo ${cmd} ${stat} ${bw} ${cf} ${rest} ; fi ; done)
 }
 
 kcs_input_to_index () {
