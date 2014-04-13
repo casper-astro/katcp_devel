@@ -15,7 +15,10 @@
 #include "katcp.h"
 #include "katpriv.h"
 
-#define FORGIVING
+#if 0
+#define FORGIVE_LATE
+#endif
+#define FORGIVE_LARGE
 
 /* cribbed from math.h, it wants __GNU to be defined and who knows what else that does */
 #define OVERPI  0.3183098861837906715377675267450287L
@@ -84,8 +87,8 @@ int main(int argc, char **argv)
 
   value = strtold(argv[5], &end); /* fringe */
   tmp = value * 180.0 * OVERPI;
-#ifdef FORGIVING
-  tmp = fmodl(tmp, 180.0);
+#ifdef FORGIVE_LARGE
+  tmp = fmodl(tmp, 360.0);
 #endif
 
   append_args_katcl(l, KATCP_FLAG_STRING , "%.16Lf", tmp);
@@ -125,7 +128,7 @@ int main(int argc, char **argv)
     sync_message_katcl(k, KATCP_LEVEL_ERROR, NAME, "requested time %lu.%06lus is %lu.%06lus in the past", request.tv_sec, request.tv_usec, delta.tv_sec, delta.tv_usec);
     code = 1;
 
-#ifdef FORGIVING
+#ifdef FORGIVE_LATE
   }
 #else
   } else {
@@ -160,7 +163,7 @@ int main(int argc, char **argv)
         code = 2;
       }
     }
-#ifndef FORGIVING
+#ifndef FORGIVE_LATE
   }
 #endif
 

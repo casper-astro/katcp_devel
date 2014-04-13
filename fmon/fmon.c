@@ -14,6 +14,7 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <math.h>
+#include <signal.h>
 
 #include <arpa/inet.h>
 
@@ -107,6 +108,8 @@
 #define FMON_KATADC_ERR_HIGH       0.0
 #define FMON_KATADC_ERR_LOW      -32.0
 
+#define FMON_KATADC_FUDGE_LOW    -12.0
+
 #define FMON_KATADC_WARN_HIGH    -15.0
 #define FMON_KATADC_WARN_LOW     -28.0
 
@@ -167,8 +170,13 @@ struct fmon_sensor_template input_template[FMON_INPUT_SENSORS] = {
   { "%s.fft.overrange",  "fft overrange indicator",     KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0, 0 },
   { "%s.sram.available", "sram calibrated and ready",   KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0, 0 },
   { "%s.xaui.link",      "data link up",                KATCP_SENSOR_BOOLEAN, 0, 1, 0.0, 0.0, 1 },
+#if 0
   { "%s.adc.raw",        "untranslated average of squared inputs",  KATCP_SENSOR_FLOAT,   0, 0, 0.0, 65000.0, 0},
   { "%s.adc.power",      "approximate input signal strength",  KATCP_SENSOR_FLOAT,   0, 0, -81.0, 16.0, 0}
+#else
+  { "%s.adc.raw",        "untranslated average of squared inputs",  KATCP_SENSOR_FLOAT,   0, 0, 0.0, 65000.0, 0},
+  { "%s.adc.power",      "approximate input signal strength",  KATCP_SENSOR_FLOAT,   0, 0, FMON_KATADC_ERR_LOW + FMON_KATADC_FUDGE_LOW, FMON_KATADC_ERR_HIGH, 0}
+#endif
 };
 
 struct fmon_sensor{
@@ -269,6 +277,7 @@ static void handle_signal(int s)
     case SIGHUP :
       run = (-1);
       break;
+    case SIGINT :
     case SIGTERM :
       run = 0;
       break;
@@ -307,12 +316,12 @@ void destroy_fmon(struct fmon_state *f)
 
       s->s_type = (-1);
 
-      if(s->s_name == NULL){
+      if(s->s_name){
         free(s->s_name);
         s->s_name = NULL;
       }
 
-      if(s->s_description == NULL){
+      if(s->s_description){
         free(s->s_description);
         s->s_description = NULL;
       }
@@ -333,12 +342,12 @@ void destroy_fmon(struct fmon_state *f)
 
     s->s_type = (-1);
 
-    if(s->s_name == NULL){
+    if(s->s_name){
       free(s->s_name);
       s->s_name = NULL;
     }
 
-    if(s->s_description == NULL){
+    if(s->s_description){
       free(s->s_description);
       s->s_description = NULL;
     }
@@ -464,6 +473,7 @@ struct fmon_state *create_fmon(char *server, int verbose, unsigned int timeout, 
     s = &(f->f_sensors[i]);
     s->s_type = (-1);
     s->s_name = NULL;
+    s->s_description = NULL;
     s->s_value = 0;
     s->s_fvalue = 0.0;
     s->s_status = KATCP_STATUS_UNKNOWN;
@@ -478,6 +488,7 @@ struct fmon_state *create_fmon(char *server, int verbose, unsigned int timeout, 
 
       s->s_type = (-1);
       s->s_name = NULL;
+      s->s_description = NULL;
       s->s_value = 0;
       s->s_fvalue = 0.0;
       s->s_status = KATCP_STATUS_UNKNOWN;
@@ -1872,6 +1883,7 @@ int check_inputs_fengine_fmon(struct fmon_state *f)
   fprintf(stderr, "checking all\n");
 #endif
 
+  result = 0;
   for(i = 0; i < f->f_fs; i++){
     result += check_status_fengine_fmon(f, &(f->f_inputs[i]), i);
     result += check_power_fengine_fmon(f, &(f->f_inputs[i]), i);
@@ -2217,6 +2229,7 @@ int main(int argc, char **argv)
   sigemptyset(&(sag.sa_mask));
   sag.sa_flags = SA_RESTART;
 
+  sigaction(SIGINT, &sag, NULL);
   sigaction(SIGHUP, &sag, NULL);
   sigaction(SIGTERM, &sag, NULL);
 
@@ -2278,6 +2291,7 @@ int main(int argc, char **argv)
 
   if(f){
     destroy_fmon(f);
+    f = NULL;
   }
 
   return 0;

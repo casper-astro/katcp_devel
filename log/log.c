@@ -293,7 +293,11 @@ int main(int argc, char **argv)
         p = create_parse_katcl();
         if(p){
 
+#ifdef KATCP_STRICT_CONFORMANCE
+          add_string_parse_katcl(p, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, "?log-limit");
+#else 
           add_string_parse_katcl(p, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, "?log-level");
+#endif
           add_string_parse_katcl(p, KATCP_FLAG_STRING | KATCP_FLAG_LAST, level);
 
           append_parse_katcl(lo, p);

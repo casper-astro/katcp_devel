@@ -42,7 +42,16 @@ detect_reg_set () {
   reg=$1
   shift
 
-  kcppar -s $* -x wordread $reg 0 
+  if kcppar -q -i -s $* -x wordread $reg 0  ; then 
+    return 0
+  fi
+
+  return 1
+}
+
+disable_bf_count () {
+  kcpmsg -l info "beamformer logic disabled"
+  kcs_export KCS_BF_COUNT 0
 }
 
 detect_bf_count () {
@@ -53,7 +62,7 @@ detect_bf_count () {
 
   i=0
 
-  while detect_reg_set bf${i}_gbe_out_port0 $*; do
+  while detect_reg_set bf${i}_dest $*; do
     if [ $i -gt 8 ] ; then
       kcpmsg -l error "unreasonably large number of beamformers $i"
       kcs_export KCS_BF_COUNT 0
@@ -63,10 +72,7 @@ detect_bf_count () {
     i=$[i+1]
   done
 
-  if [ $? -ne 1 ] ; then
-    kcs_export KCS_BF_COUNT 0
-    return 1
-  fi
+  kcpmsg -l info "system appears to have ${i} beams"
 
   kcs_export KCS_BF_COUNT $i
 }
@@ -94,7 +100,7 @@ set_bf_rx () {
 
   shift 3
 
-  if kcppar -s $* -x wordwrite bf${beam}_gbe_out_port0 0 0x${hexport} -x wordwrite bf${beam}_gbe_out_ip0 0 0x${hexip} ; then
+  if kcppar -i -s $* -x wordwrite bf${beam}_dest 1 0x${hexport} -x wordwrite bf${beam}_dest 0 0x${hexip} ; then
     kcs_export KCS_BF${beam}_RX ${ip}:${port}
   fi
 }

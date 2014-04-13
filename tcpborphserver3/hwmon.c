@@ -226,6 +226,7 @@ int flush_hwsensor_tbs(struct katcp_dispatch *d, struct katcp_sensor *sn)
     path = NULL;
   } else {
     log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "unsupported sensor limit setting %s", limit);
+    path = NULL;
   }
 
   if(path){

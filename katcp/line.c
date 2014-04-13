@@ -68,7 +68,7 @@ struct katcl_line *create_katcl(int fd)
 {
   struct katcl_line *l;
 
-  l = malloc(sizeof(struct katcl_line));
+  l = (struct katcl_line *)malloc(sizeof(struct katcl_line));
   if(l == NULL){
     return NULL;
   }
@@ -88,7 +88,7 @@ struct katcl_line *create_katcl(int fd)
   l->l_error = 0;
   l->l_sendable = 1;
 
-  l->l_next = create_referenced_parse_katcl(l); /* we require that next is always valid */
+  l->l_next = create_referenced_parse_katcl(); /* we require that next is always valid */
   if(l->l_next == NULL){
     destroy_katcl(l, 0);
     return NULL;
@@ -228,7 +228,7 @@ int read_katcl(struct katcl_line *l)
   p = l->l_next;
 
   if(p->p_size <= p->p_have){
-    ptr = realloc(p->p_buffer, p->p_size + KATCL_BUFFER_INC);
+    ptr = (char  *)realloc(p->p_buffer, p->p_size + KATCL_BUFFER_INC);
     if(ptr == NULL){
 #ifdef DEBUG 
       fprintf(stderr, "read: realloc to %d failed\n", p->p_size + KATCL_BUFFER_INC);
@@ -322,6 +322,7 @@ int arg_tag_katcl(struct katcl_line *l)
   return get_tag_parse_katcl(l->l_ready);
 }
 
+#if 0
 static int arg_type_katcl(struct katcl_line *l, char type)
 {
   if(l->l_ready == NULL){
@@ -330,20 +331,33 @@ static int arg_type_katcl(struct katcl_line *l, char type)
 
   return is_type_parse_katcl(l->l_ready, type);
 }
+#endif
 
 int arg_request_katcl(struct katcl_line *l)
 {
-  return arg_type_katcl(l, KATCP_REQUEST);
+  if(l->l_ready == NULL){
+    return -1;
+  }
+
+  return is_request_parse_katcl(l->l_ready);
 }
 
 int arg_reply_katcl(struct katcl_line *l)
 {
-  return arg_type_katcl(l, KATCP_REPLY);
+  if(l->l_ready == NULL){
+    return -1;
+  }
+
+  return is_reply_parse_katcl(l->l_ready);
 }
 
 int arg_inform_katcl(struct katcl_line *l)
 {
-  return arg_type_katcl(l, KATCP_INFORM);
+  if(l->l_ready == NULL){
+    return -1;
+  }
+
+  return is_inform_parse_katcl(l->l_ready);
 }
 
 int arg_null_katcl(struct katcl_line *l, unsigned int index)
@@ -623,6 +637,24 @@ int append_parameter_katcl(struct katcl_line *l, int flags, struct katcl_parse *
   }
 
   result = add_parameter_parse_katcl(p, flags, px, index);
+
+  return after_append_katcl(l, flags, result);
+}
+
+int append_trailing_katcl(struct katcl_line *l, int flags, struct katcl_parse *px, unsigned int start)
+{
+  struct katcl_parse *p;
+  int result;
+
+  p = before_append_katcl(l, flags);
+  if(p == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "append: before_append failed\n");
+#endif
+    return -1;
+  }
+
+  result = add_trailing_parse_katcl(p, flags, px, start);
 
   return after_append_katcl(l, flags, result);
 }
@@ -948,7 +980,11 @@ int write_katcl(struct katcl_line *l)
         }
 
         if(l->l_sendable){
+#ifdef MSG_NOSIGNAL
           wr = send(l->l_fd, l->l_buffer, l->l_pending, MSG_DONTWAIT | MSG_NOSIGNAL);
+#else
+          wr = send(l->l_fd, l->l_buffer, l->l_pending, MSG_DONTWAIT);
+#endif
         } else {
           wr = write(l->l_fd, l->l_buffer, l->l_pending);
         }

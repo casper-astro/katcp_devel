@@ -5,6 +5,10 @@ source functions.sh
 
 kcs_arg_check $# 1
 
+if [ "${1%%.*}" -lt "10" ] ; then
+  kcs_warn "accumulation length ${1} set outside requirement"
+fi
+
 kcs_corr_log
 kcpcmd -t 17 -i -k acc-time $(echo ${1}/1000 | bc -l | sed -e 's/^\./0./' ) | (read cmd code value ; if [ ${code} != "ok" ] ; then echo "#return ${code} ${value}" ; else echo "#return ok $(echo ${value}*1000 | bc -l |  sed -e 's/^\./0./' )"  ; fi)  
 

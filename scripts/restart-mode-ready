@@ -3,8 +3,10 @@
 set -e
 source functions.sh
 source sensors.sh
+source beamformer.sh
 
 await_mode_sensors
+disable_bf_count
 
 change_mode_sensors ${KATCP_MODE} ready
 

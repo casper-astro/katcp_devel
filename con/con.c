@@ -371,7 +371,7 @@ int main(int argc, char **argv)
       switch (c) {
 
         case 'h' :
-          usage(KCPCON_NAME);
+          usage(argv[0]);
           return 0;
 
         case 'v' : 

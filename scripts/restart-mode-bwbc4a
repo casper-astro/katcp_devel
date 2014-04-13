@@ -3,6 +3,7 @@
 set -e
 source functions.sh
 source sensors.sh
+source beamformer.sh
 
 now=$(date +%s)
 timeout=150
@@ -12,6 +13,7 @@ limit=$[now+timeout]
 kcs_debug "changing mode to wideband"
 
 await_mode_sensors
+disable_bf_count
 
 kcs_change_corr bwbc4a
 

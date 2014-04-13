@@ -6,6 +6,10 @@
 #include <string.h>
 #include <errno.h>
 
+#include <unistd.h>
+
+#include <sys/time.h>
+
 #include "katpriv.h"
 #include "katcl.h"
 #include "katcp.h"
@@ -463,7 +467,91 @@ int add_parameter_parse_katcl(struct katcl_parse *pd, int flags, struct katcl_pa
   return after_add_parse_katcl(pd, len, 1);
 }
 
+int add_trailing_parse_katcl(struct katcl_parse *pd, int flags, struct katcl_parse *ps, unsigned int start)
+{
+  unsigned int i, penulti, f;
+  int result, r;
+
+  sane_parse_katcl(pd);
+  sane_parse_katcl(ps);
+
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(ps->p_state != KATCL_PARSE_DONE){
+    fprintf(stderr, "warning: copy argument %u from incomplete parse (state=%u)\n", start, ps->p_state);
+  }
+#endif
+
+  if(ps->p_got <= 0){
+    return -1;
+  }
+
+  if(start >= ps->p_got){
+    return -1;
+  }
+
+  penulti = ps->p_got - 1;
+
+  f = flags;
+  result = 0;
+
+  for(i = start; i < penulti; i++){
+#ifdef DEBUG
+    fprintf(stderr, "parse trailing: adding position %u (0x%x:%s)\n", i, f & KATCP_FLAG_FIRST, (f & KATCP_FLAG_FIRST) ? "first" : "middle");
+#endif
+    r = add_parameter_parse_katcl(pd, f & KATCP_FLAG_FIRST, ps, i); 
+
+    if(r < 0){
+      return -1;
+    }
+
+    result += r;
+    f = 0;
+  }
+
+#ifdef DEBUG
+    fprintf(stderr, "parse trailing: adding position %u (0x%x:%s)\n", i, f | (flags & KATCP_FLAG_LAST), (flags & KATCP_FLAG_LAST) ? "last" : "middle");
+#endif
+
+  r = add_parameter_parse_katcl(pd, f | (flags & KATCP_FLAG_LAST), ps, i); 
+  if(r < 0){
+    return -1;
+  }
+
+  result += r;
+
+  return result;
+}
+
 /*********************************************************************/
+
+int add_timestamp_parse_katcl(struct katcl_parse *p, int flags, struct timeval *tv)
+{
+#define TIMESTAMP_BUFFER 16
+  struct timeval *tvp, tva;
+  unsigned int milli;
+  char buffer[TIMESTAMP_BUFFER];
+
+  if(tv == NULL){
+    tvp = &tva;
+    if(gettimeofday(tvp, NULL) < 0){
+      return -1;
+    }
+  } else {
+    tvp = tv;
+  }
+
+  milli = tvp->tv_usec / 1000;
+
+#if KATCP_PROTOCOL_MAJOR_VERSION >= 5   
+  snprintf(buffer, TIMESTAMP_BUFFER, "%lu.%03u", tvp->tv_sec, milli);
+#else
+  snprintf(buffer, TIMESTAMP_BUFFER, "%lu%03u", tvp->tv_sec, milli);
+#endif
+  buffer[TIMESTAMP_BUFFER - 1] = '\0';
+
+  return add_unsafe_parse_katcl(p, flags | KATCP_FLAG_STRING, buffer);
+#undef TIMESTAMP_BUFFER
+}
 
 int add_plain_parse_katcl(struct katcl_parse *p, int flags, char *string)
 {
@@ -655,6 +743,9 @@ struct katcl_parse *vturnaround_extra_parse_katcl(struct katcl_parse *p, int cod
 {
   char *string;
   struct katcl_parse *px;
+#ifdef KATCP_ENABLE_TAGS
+  int tag;
+#endif
 
 #ifdef KATCP_CONSISTENCY_CHECKS
   if(p->p_state != KATCL_PARSE_DONE){
@@ -675,6 +766,10 @@ struct katcl_parse *vturnaround_extra_parse_katcl(struct katcl_parse *p, int cod
   }
 #endif
 
+#ifdef KATCP_ENABLE_TAGS
+  tag = get_tag_parse_katcl(p);
+#endif
+
   px = reuse_parse_katcl(p);
   if(px == NULL){
     destroy_parse_katcl(p);
@@ -682,7 +777,16 @@ struct katcl_parse *vturnaround_extra_parse_katcl(struct katcl_parse *p, int cod
   }
 
   string[0] = KATCP_REPLY;
-  add_string_parse_katcl(px, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, string);
+#ifdef KATCP_ENABLE_TAGS
+  if(tag >= 0){
+    add_args_parse_katcl(px, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "%s[%d]", string, tag);
+  } else {
+#endif   
+    add_string_parse_katcl(px, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, string);
+#ifdef KATCP_ENABLE_TAGS
+  }
+#endif   
+
   free(string);
 
   string = code_to_name_katcm(code);
@@ -734,11 +838,15 @@ unsigned int get_count_parse_katcl(struct katcl_parse *p)
 
 int get_tag_parse_katcl(struct katcl_parse *p)
 {
+  sane_parse_katcl(p);
+
   return p->p_tag;
 }
 
 int is_type_parse_katcl(struct katcl_parse *p, char type)
 {
+  sane_parse_katcl(p);
+
   if(p->p_got <= 0){
     return 0;
   }
@@ -763,6 +871,32 @@ int is_reply_parse_katcl(struct katcl_parse *p)
 int is_inform_parse_katcl(struct katcl_parse *p)
 {
   return is_type_parse_katcl(p, KATCP_INFORM);
+}
+
+int is_reply_ok_parse_katcl(struct katcl_parse *p)
+{
+  char *str;
+
+  /* WARNING: this function presents an interface not symmetrical with the 
+   * various KATCP_RESULT_* codes used by a sending side. However, usage is 
+   * different too - this function is a convenience wrapper to quickly tell
+   * us if a request worked out. Fancy decoding should be done by hand ? 
+   * Furthermore the sending side API has virtual codes (eg KATCP_RESULT_OWN)
+   * which can't show up here at all ... 
+   */
+
+  if(is_type_parse_katcl(p, KATCP_REPLY)){
+    str = get_string_parse_katcl(p, 1);
+    if(str){
+      if(!strcmp(str, KATCP_OK)){
+        return 1;
+      } else {
+        return 0;
+      }
+    }
+  }
+
+  return -1;
 }
 
 int is_null_parse_katcl(struct katcl_parse *p, unsigned int index)
