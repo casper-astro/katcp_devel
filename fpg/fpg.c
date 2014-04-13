@@ -16,6 +16,8 @@
 #include <netdb.h>
 #include <fcntl.h>
 
+#include <sysexits.h>
+
 #include "katcl.h"
 #include "katcp.h"
 #include "katpriv.h"
@@ -300,19 +302,19 @@ struct ipr_state *create_ipr(char *server, char *file, int verbose)
 
 	i->i_print = create_katcl(STDOUT_FILENO);
 
-	sync_message_katcl(i->i_print, KATCP_LEVEL_DEBUG, i->i_label, "Initialising intepreter state variables\n");
+	sync_message_katcl(i->i_print, KATCP_LEVEL_DEBUG, i->i_label, "initialising intepreter state variables");
 
 
 	i->i_line = create_name_rpc_katcl(server);
 	if(i->i_line == NULL){
-		sync_message_katcl(i->i_print, KATCP_LEVEL_ERROR, i->i_label, "Unable to create client connection to server %s:%s\n", server, strerror(errno));
+		sync_message_katcl(i->i_print, KATCP_LEVEL_ERROR, i->i_label, "unable to create client connection to server %s:%s", server, strerror(errno));
 		destroy_ipr(i);
 		return NULL;
 	}
 
 	i->i_fd = open(file, O_RDONLY);
 	if(i->i_fd < 0){
-		sync_message_katcl(i->i_print, KATCP_LEVEL_ERROR, i->i_label, "Error in opening file %s\n", file);
+		sync_message_katcl(i->i_print, KATCP_LEVEL_ERROR, i->i_label, "Error in opening file %s", file);
 		destroy_ipr(i);
 		return NULL;
 	}
@@ -325,12 +327,12 @@ struct ipr_state *create_ipr(char *server, char *file, int verbose)
 
 	/* Memory mapping the file contents and parsing to the start of bin file */
 	fstat(i->i_fd, &(i->sb));
-	sync_message_katcl(i->i_print, KATCP_LEVEL_DEBUG, i->i_label, "Total size of file is: %lu\n", i->sb.st_size);
+	sync_message_katcl(i->i_print, KATCP_LEVEL_DEBUG, i->i_label, "Total size of file is: %lu", i->sb.st_size);
 
 	/* offset must be a multiple of page size */
 	i->i_pos = mmap(NULL, i->sb.st_size, PROT_READ, MAP_PRIVATE, i->i_fd, 0);
 	if(i->i_pos == MAP_FAILED){
-		sync_message_katcl(i->i_print, KATCP_LEVEL_ERROR, i->i_label, "Error in memory mapping file %s\n", file);
+		sync_message_katcl(i->i_print, KATCP_LEVEL_ERROR, i->i_label, "Error in memory mapping file %s", file);
 		i->i_pos = NULL;
 		destroy_ipr(i);
 		return NULL;
@@ -345,14 +347,14 @@ int finalise_upload(struct ipr_state *ipr, unsigned int timeout)
 
 	/* populate a request */
 	if(append_string_katcl(ipr->i_line, KATCP_FLAG_FIRST | KATCP_FLAG_LAST, "?finalise")   < 0) {
-		sync_message_katcl(ipr->i_print, KATCP_LEVEL_ERROR, ipr->i_label, "%s:Unable to populate finalise request\n", __func__);
+		sync_message_katcl(ipr->i_print, KATCP_LEVEL_ERROR, ipr->i_label, "%s:Unable to populate finalise request", __func__);
 		return -1;
 	}
 
 
 	/* use above function to send upload request */
 	if(dispatch_client(ipr, ipr->i_line, "!finalise", 1, timeout)             < 0) {
-		sync_message_katcl(ipr->i_print, KATCP_LEVEL_ERROR, ipr->i_label, "%s: Unable to send finalise request\n", __func__);
+		sync_message_katcl(ipr->i_print, KATCP_LEVEL_ERROR, ipr->i_label, "%s: Unable to send finalise request", __func__);
 
 		return -1;
 	}
@@ -368,14 +370,14 @@ int prepare_upload(struct ipr_state *ipr, unsigned int timeout)
 
 	/* populate a request */
 	if(append_string_katcl(ipr->i_line, KATCP_FLAG_FIRST | KATCP_FLAG_LAST, "?uploadbin")   < 0) {
-		sync_message_katcl(ipr->i_print, KATCP_LEVEL_ERROR, ipr->i_label, "%s:Unable to populate upload request\n", __func__);
+		sync_message_katcl(ipr->i_print, KATCP_LEVEL_ERROR, ipr->i_label, "%s:Unable to populate upload request", __func__);
 		return -1;
 	}
 
 
 	/* use above function to send upload request */
 	if(dispatch_client(ipr, ipr->i_line, "!uploadbin", 1, timeout)             < 0) {
-		sync_message_katcl(ipr->i_print, KATCP_LEVEL_ERROR, ipr->i_label, "%s: Unable to send upload request\n", __func__);
+		sync_message_katcl(ipr->i_print, KATCP_LEVEL_ERROR, ipr->i_label, "%s: Unable to send upload request", __func__);
 
 		return -1;
 	}
@@ -409,14 +411,14 @@ int program_bin(struct ipr_state *ipr, char *server, char *data, int port, int b
 					case EINTR  :
 						break;
 					default :
-		        sync_message_katcl(ipr->i_print, KATCP_LEVEL_ERROR, ipr->i_label, "upload to port failed:%s\n");
+		        sync_message_katcl(ipr->i_print, KATCP_LEVEL_ERROR, ipr->i_label, "upload to port failed:%s");
 						close(ipr->i_ufd);
 						return -1;
 				}
 				break;
 			case 0 :
 				//fprintf(stderr, "write to fpga failed: %s", strerror(errno));
-		    sync_message_katcl(ipr->i_print, KATCP_LEVEL_ERROR, ipr->i_label, "write to upload port failed:%s\n");
+		    sync_message_katcl(ipr->i_print, KATCP_LEVEL_ERROR, ipr->i_label, "write to upload port failed:%s");
 				close(ipr->i_ufd);
 				return -1;
 			default :
@@ -436,7 +438,7 @@ int program_bin(struct ipr_state *ipr, char *server, char *data, int port, int b
 	}
 
 	if(await_client(ipr, 0, 15000)             < 0) {
-		sync_message_katcl(ipr->i_print, KATCP_LEVEL_ERROR, ipr->i_label, "%s: await reply failed\n", __func__);
+		sync_message_katcl(ipr->i_print, KATCP_LEVEL_ERROR, ipr->i_label, "%s: await reply failed", __func__);
 
 		return -1;
 	}
@@ -475,8 +477,24 @@ int main(int argc, char **argv)
 	test_ptr = NULL;
         run = 1;
 
-	file = argv[1];
 
+  if(argc < 2){
+    fprintf(stderr, "usage: %s file.fpg\n", argv[0]);
+    return EX_USAGE;
+  }
+
+  file = argv[1];
+
+  if(argc > 2){
+    server = argv[2];
+  } else {
+    server = getenv("KATCP_SERVER");
+    if(server == NULL){
+      server = "localhost";
+    }
+  }
+
+#if 0
 	server = getenv("KATCP_SERVER");
 	if(server == NULL){
 		if(argv[2] != NULL){
@@ -485,6 +503,7 @@ int main(int argc, char **argv)
 			server = "localhost";
 		}
 	}
+#endif
 
 	/* Initialise the intepreter state */
 	ipr = create_ipr(server, file, verbose); 
@@ -500,7 +519,7 @@ int main(int argc, char **argv)
 		sync_message_katcl(ipr->i_print, KATCP_LEVEL_ERROR, ipr->i_label, "No ?quit substring found\n");
 		destroy_ipr(ipr);
 		return 2;
-	}else{
+	} else {
 		sync_message_katcl(ipr->i_print, KATCP_LEVEL_DEBUG, ipr->i_label, "The ?quit substring loc %p\n", ret);
 		ptr = (ret + 6);
 	}
