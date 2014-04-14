@@ -32,7 +32,11 @@
 #define TBS_ROACH_CHASSIS  "roach2chassis"
 
 /* largest bank EPB can see is 128M */
+#if 0
 #define TBS_ROACH_MAXMAP   (128*1024*1024)
+#else
+#define TBS_ROACH_MAXMAP   (32*1024*1024)
+#endif
 
 int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir, int argc, char **argv);
 
