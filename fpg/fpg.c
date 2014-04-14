@@ -51,7 +51,9 @@ struct ipr_state{
   struct katcl_line *i_input;
   struct katcl_line *i_print;
 
+#if 0
   struct stat sb;
+#endif
 
   char *i_label;
 
@@ -717,7 +719,7 @@ int main(int argc, char **argv)
   }
 
   if(ipr->i_verbose){
-    sync_message_katcl(ipr->i_print, KATCP_LEVEL_TRACE, ipr->i_label, "using %ums and %ums for short and long timeouts", ipr->i_timeout, ipr->i_timeout * LONG_TIMEOUT_FACTOR);
+    sync_message_katcl(ipr->i_print, KATCP_LEVEL_TRACE, ipr->i_label, "using %ums and %ums for short and long timeouts respectively", ipr->i_timeout, ipr->i_timeout * LONG_TIMEOUT_FACTOR);
   }
   
   /* send UPLOAD command */
