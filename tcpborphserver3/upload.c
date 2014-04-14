@@ -50,11 +50,11 @@ void destroy_port_data_tbs(struct katcp_dispatch *d, struct tbs_port_data *pd)
   pd->t_port = 0;
 
   if(pd->t_name){
-	  if (unlink(pd->t_name) < 0){
-		  log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to remove temporary file: %s", strerror(errno));
-	  }
-	  free(pd->t_name);
-	  pd->t_name = NULL;
+    if (unlink(pd->t_name) < 0){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to remove temporary file: %s", strerror(errno));
+    }
+    free(pd->t_name);
+    pd->t_name = NULL;
   }
 
   free(pd);
@@ -604,7 +604,10 @@ int upload_cmd(struct katcp_dispatch *d, int argc)
     return -1;
   }
 
+#if 0
+  /* map raw does this */
   tr->r_fpga = TBS_FPGA_MAPPED;
+#endif
 
   return KATCP_RESULT_OK;
 }
