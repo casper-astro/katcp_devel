@@ -32,6 +32,9 @@
 #define LAST_CMD          "?quit"
 #define UPLOAD_CMD        "?uploadbin"
 
+#define SHORT_TIMEOUT       5000
+#define LONG_TIMEOUT_FACTOR 3 
+
 #define BINFILE_FUDGE      4
 
 #define BUFFER             8192
@@ -55,99 +58,22 @@ struct ipr_state{
   char i_buffer[BUFFER];
   unsigned int i_used;
   unsigned int i_seen;
+
+  unsigned int i_timeout;
 };
 
-
-#if 0
-static int await_client(struct ipr_state *ipr, int verbose, unsigned int timeout)
-{
-	fd_set fsr, fsw;
-	struct timeval tv;
-	int result;
-	char *ptr;
-	int fd;
-	int count;
-	int i;
-
-	fd = fileno_katcl(ipr->i_line);
-
-	for(;;){
-
-		FD_ZERO(&fsr);
-		FD_ZERO(&fsw);
-
-		FD_SET(fd, &fsr);
-
-		tv.tv_sec  = timeout / 1000;
-		tv.tv_usec = (timeout % 1000) * 1000;
-
-		result = select(fd + 1, &fsr, &fsw, NULL, &tv);
-		switch(result){
-			case -1 :
-				switch(errno){
-					case EAGAIN :
-					case EINTR  :
-						continue; /* WARNING */
-					default  :
-						return -1;
-				}
-				break;
-			case  0 :
-				if(verbose){
-					fprintf(stderr, "dispatch: no io activity within %u ms\n", timeout);
-				}
-				return -1;
-		}
-
-		
-    result = read_katcl(ipr->i_line);
-    if(result){
-	    //fprintf(stderr, "dispatch: read failed: %s\n", (result < 0) ? strerror(error_katcl(l)) : "connection terminated");
-	    sync_message_katcl(ipr->i_print, KATCP_LEVEL_DEBUG, ipr->i_label, "read result is %d", result);
-	    return -1;
-    }
-
-    while(have_katcl(ipr->i_line) > 0){
-	    count = arg_count_katcl(ipr->i_line);
-
-	    if(verbose){
-		    sync_message_katcl(ipr->i_print, KATCP_LEVEL_DEBUG, ipr->i_label, "parsed a line with %d words", count);
-	    }
-
-	    for(i = 0; i < count; i++){
-		    /* for binary data use the arg_buffer_katcl, string will stop at the first occurrence of a \0 */
-		    ptr = arg_string_katcl(ipr->i_line, i);
-		    if(verbose){
-			    sync_message_katcl(ipr->i_print, KATCP_LEVEL_DEBUG, ipr->i_label, "inform[%d] is <%s>", i, ptr);
-		    }
-		    if(ptr && !strcmp(ptr, "#fpga")){                                                                                         
-			    ptr = arg_string_katcl(ipr->i_line, i+1);
-			    if(ptr && !strcmp(ptr, "ready")){                                                                                         
-				    sync_message_katcl(ipr->i_print, KATCP_LEVEL_DEBUG, ipr->i_label, "SUCCESS FPGA PROGRAMMED YES");
-			    }
-			    return 0;                                                                                                                
-		    }
-
-	    }
-    }
-
-	}
-	if(verbose){
-
-		sync_message_katcl(ipr->i_print, KATCP_LEVEL_DEBUG, ipr->i_label, "#fpga loaded not matched");
-	}
-	return -2;
-}
-#endif
 
 static int dispatch_client(struct ipr_state *ipr, char *name, unsigned int timeout)
 {
   fd_set fsr, fsw;
   struct timeval tv;
+  struct katcl_parse *px;
   int result;
   char *ptr;
   int fd;
+#if 0
   int count;
+#endif
 
   fd = fileno_katcl(ipr->i_line);
 
@@ -202,12 +128,19 @@ static int dispatch_client(struct ipr_state *ipr, char *name, unsigned int timeo
     }
 
     while(have_katcl(ipr->i_line) > 0){
+#if 0
       count = arg_count_katcl(ipr->i_line);
+#endif
       ptr = arg_string_katcl(ipr->i_line, 0);
 
       if(ptr){ 
         if(ipr->i_verbose){
-          log_message_katcl(ipr->i_print, KATCP_LEVEL_TRACE, ipr->i_label, "saw %s message", ptr);
+          if(ptr[0] == KATCP_INFORM){
+            px = ready_katcl(ipr->i_line);
+            if(px){
+              append_parse_katcl(ipr->i_print, px);
+            }
+          }
         }
         if(name && (!strcmp(name, ptr))){
           return 0;
@@ -263,7 +196,7 @@ void destroy_ipr(struct ipr_state *i)
   free(i);
 }
 
-struct ipr_state *create_ipr(char *server, char *file, int verbose, char *label)
+struct ipr_state *create_ipr(char *server, char *file, int verbose, char *label, unsigned int timeout)
 {
   struct ipr_state *i;
 
@@ -286,6 +219,8 @@ struct ipr_state *create_ipr(char *server, char *file, int verbose, char *label)
   /* i_buffer */
   i->i_used = 0;
   i->i_seen = 0;
+
+  i->i_timeout = timeout;
 
   i->i_print = create_katcl(STDOUT_FILENO);
   if(i->i_print == NULL){
@@ -480,9 +415,11 @@ int check_bitstream(struct ipr_state *ipr)
   return 0;
 }
 
-int prepare_upload(struct ipr_state *ipr, unsigned int timeout)
+int prepare_upload(struct ipr_state *ipr)
 {
+#if 0
   char *status;
+#endif
 
   /* populate a request */
   if(append_string_katcl(ipr->i_line, KATCP_FLAG_FIRST | KATCP_FLAG_LAST, "?uploadbin")   < 0) {
@@ -491,7 +428,7 @@ int prepare_upload(struct ipr_state *ipr, unsigned int timeout)
   }
 
   /* use above function to send upload request */
-  if(dispatch_client(ipr, NULL, timeout) < 0) {
+  if(dispatch_client(ipr, NULL, ipr->i_timeout * LONG_TIMEOUT_FACTOR) < 0) {
     log_message_katcl(ipr->i_print, KATCP_LEVEL_ERROR, ipr->i_label, "unable to send upload request");
     return -1;
   }
@@ -510,12 +447,12 @@ int prepare_upload(struct ipr_state *ipr, unsigned int timeout)
   return 0;
 }
 
-int waitfor_fpga(struct ipr_state *ipr, unsigned int timeout)
+int waitfor_fpga(struct ipr_state *ipr)
 {
   char *status;
 
   /* use above function to send upload request */
-  if(dispatch_client(ipr, "!uploadbin", timeout) < 0) {
+  if(dispatch_client(ipr, "!uploadbin", ipr->i_timeout * LONG_TIMEOUT_FACTOR) < 0) {
     log_message_katcl(ipr->i_print, KATCP_LEVEL_ERROR, ipr->i_label, "did not see uploadbin reply");
 
     return -1;
@@ -616,7 +553,7 @@ int program_bin(struct ipr_state *ipr, char *server, int port)
 
   log_message_katcl(ipr->i_print, KATCP_LEVEL_DEBUG, ipr->i_label, "send %u bytes of bitstream", ipr->i_seen);
 
-  if(waitfor_fpga(ipr, 15000) < 0) {
+  if(waitfor_fpga(ipr) < 0) {
     log_message_katcl(ipr->i_print, KATCP_LEVEL_ERROR, ipr->i_label, "await reply failed", __func__);
     return -1;
   }
@@ -624,18 +561,18 @@ int program_bin(struct ipr_state *ipr, char *server, int port)
   return 0;
 }
 
-int finalise_upload(struct ipr_state *ipr, unsigned int timeout)
+int finalise_upload(struct ipr_state *ipr)
 {
   char *status;
 
   /* populate a request */
-  if(append_string_katcl(ipr->i_line, KATCP_FLAG_FIRST | KATCP_FLAG_LAST, "?finalise")   < 0) {
+  if(append_string_katcl(ipr->i_line, KATCP_FLAG_FIRST | KATCP_FLAG_LAST, "?finalise") < 0) {
     log_message_katcl(ipr->i_print, KATCP_LEVEL_ERROR, ipr->i_label, "unable to populate finalise request");
     return -1;
   }
 
   /* use above function to send upload request */
-  if(dispatch_client(ipr, "!finalise", timeout)             < 0) {
+  if(dispatch_client(ipr, "!finalise", ipr->i_timeout * LONG_TIMEOUT_FACTOR) < 0) {
     log_message_katcl(ipr->i_print, KATCP_LEVEL_ERROR, ipr->i_label, "unable to send finalise request");
 
     return -1;
@@ -667,7 +604,7 @@ int main(int argc, char **argv)
   int verbose, fail;
   int i, j, c;
 
-  int timeout = 0;
+  int timeout = SHORT_TIMEOUT;
   int port = 7146;
 
   struct ipr_state *ipr;
@@ -767,7 +704,7 @@ int main(int argc, char **argv)
   }
 
   /* Initialise the intepreter state */
-  ipr = create_ipr(server, file, verbose, label); 
+  ipr = create_ipr(server, file, verbose, label, timeout); 
   if(ipr == NULL){
     fprintf(stderr, "%s: unable to allocate intepreter state\n", argv[0]);
     return 2;
@@ -778,9 +715,13 @@ int main(int argc, char **argv)
     destroy_ipr(ipr);
     return 2;
   }
+
+  if(ipr->i_verbose){
+    sync_message_katcl(ipr->i_print, KATCP_LEVEL_TRACE, ipr->i_label, "using %ums and %ums for short and long timeouts", ipr->i_timeout, ipr->i_timeout * LONG_TIMEOUT_FACTOR);
+  }
   
   /* send UPLOAD command */
-  if(prepare_upload(ipr, 15000) < 0){
+  if(prepare_upload(ipr) < 0){
     sync_message_katcl(ipr->i_print, KATCP_LEVEL_ERROR, ipr->i_label, "upload prepare failed");
     destroy_ipr(ipr);
     return 4;
@@ -815,7 +756,7 @@ int main(int argc, char **argv)
         if(px){
           append_parse_katcl(ipr->i_line, px);
 
-          if(await_reply_rpc_katcl(ipr->i_line, 5000) < 0){
+          if(await_reply_rpc_katcl(ipr->i_line, ipr->i_timeout) < 0){
             log_message_katcl(ipr->i_print, KATCP_LEVEL_ERROR, ipr->i_label, "timed out while sending %s request", request);
           } else{
             status = arg_string_katcl(ipr->i_line, 1);
@@ -854,7 +795,7 @@ int main(int argc, char **argv)
   }
 #endif
 
-  if(finalise_upload(ipr, 15000) < 0){
+  if(finalise_upload(ipr) < 0){
     sync_message_katcl(ipr->i_print, KATCP_LEVEL_ERROR, ipr->i_label, "unable to send finalise");
     destroy_ipr(ipr);
     return 4;
