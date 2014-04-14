@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -x
+
 function read_check()
 {
   value=$(kcpcmd -p 2 -i read sys_scratchpad "$1" "$2")
