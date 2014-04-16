@@ -25,9 +25,11 @@
 #define TBS_FPGA_MEM       "dev-roach-mem"
 #endif
 
-#define TBS_FPGA_STATUS    "#fpga"
+#define TBS_KCPFPG_PATH    "/bin/kcpfpg"
+#define TBS_RAMFILE_PATH   "/dev/shm/gateware"
 
-#define TBS_KCPFPG_PATH       "/bin/kcpfpg"
+#define TBS_FPGA_STATUS    "#fpga"
+#define TBS_KCPFPG_EXE     "kcpfpg"
 
 #define TBS_ROACH_CHASSIS  "roach2chassis"
 
@@ -176,14 +178,29 @@ struct tbs_hwsensor
 int setup_hwmon_tbs(struct katcp_dispatch *d);
 void destroy_hwsensor_tbs(void *data);
 
+#define TBS_FORMAT_BAD (-1)
+#define TBS_FORMAT_ANY   0
+#define TBS_FORMAT_BOF   1
+#define TBS_FORMAT_FPG   2
+#define TBS_FORMAT_BIN   3
+
+#define TBS_DEL_NEVER  0
+#define TBS_DEL_ERROR  1
+#define TBS_DEL_ALWAYS 2
+
 struct tbs_port_data {
   int t_port;
   unsigned int t_timeout;
-  int t_program;
+
   unsigned int t_expected;
+
   int t_fd;
   char *t_name;
-  int t_type;//0-Default 1-BOF 2-FPG
+  int t_type;
+  int t_del;
+
+  int t_program;
+
 #if 0
   struct katcp_notice *t_notice;
   int t_rsize;
@@ -191,15 +208,15 @@ struct tbs_port_data {
 #endif
 };
 
-struct katcp_job * run_child_process_tbs(struct katcp_dispatch *d, struct katcp_url *url, int (*call)(struct katcl_line *, void *), void *data, struct katcp_notice *n); 
+int upload_generic_resume_tbs(struct katcp_dispatch *d, struct katcp_notice *n, void *data);
+int detect_file_tbs(struct katcp_dispatch *d, char *name, int fd);
 
-int progremote_cmd(struct katcp_dispatch *d, int argc);
-int upload_cmd(struct katcp_dispatch *d, int argc);
-int saveremote_cmd(struct katcp_dispatch *d, int argc);
-int uploadbof_cmd(struct katcp_dispatch *d, int argc);
-int uploadbin_cmd(struct katcp_dispatch *d, int argc);
+struct katcp_job *run_child_process_tbs(struct katcp_dispatch *d, struct katcp_url *url, int (*call)(struct katcl_line *, void *), void *data, struct katcp_notice *n); 
 
-void destroy_port_data_tbs(struct katcp_dispatch *d, struct tbs_port_data *pd);
+int upload_program_cmd(struct katcp_dispatch *d, int argc);
+int upload_filesystem_cmd(struct katcp_dispatch *d, int argc);
+int upload_bin_cmd(struct katcp_dispatch *d, int argc);
+
 
 #if 0
 int run_fpg_generic(struct katcp_dispatch *d, struct katcp_notice *n, void *data);

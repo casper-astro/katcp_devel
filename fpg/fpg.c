@@ -487,7 +487,7 @@ int program_bin(struct ipr_state *ipr, char *server, int port)
   for(attempts = 0; attempts < CONNECT_ATTEMPTS; attempts++){
     ipr->i_ufd = net_connect(server, port, ipr->i_verbose ? (NETC_VERBOSE_ERRORS | NETC_VERBOSE_STATS) : 0);
     if(ipr->i_ufd < 0){
-      log_message_katcl(ipr->i_print, KATCP_LEVEL_ERROR, ipr->i_label, "retrying connect to port %d", port);
+      log_message_katcl(ipr->i_print, KATCP_LEVEL_INFO, ipr->i_label, "retrying connect to port %d", port);
       usleep(40000*(attempts+1)*(attempts+2));
     } else {
       attempts = CONNECT_ATTEMPTS;
