@@ -2056,12 +2056,14 @@ struct katcp_cmd_map *map_of_flat_katcp(struct katcp_flat *fx)
     fprintf(stderr, "logic failure: searching for command without having a mode set\n");
     abort();
 #endif
+    return NULL;
   }
   if(fx->f_current_map >= KATCP_SIZE_MAP){
 #ifdef KATCP_CONSISTENCY_CHECKS
     fprintf(stderr, "major logic failure: current map index %d is corrupt\n", fx->f_current_map);
     abort();
 #endif
+    return NULL;
   }
 
   mx = fx->f_maps[fx->f_current_map];
@@ -2432,7 +2434,10 @@ int callback_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoint *issuer,
     rh = &(fx->f_replies[i]);
     if(rh->r_reply == NULL){
       slot = i;
-#ifdef KATCP_CONSISTENCY_CHECKS
+#ifndef KATCP_CONSISTENCY_CHECKS
+      i = KATCP_SIZE_REPLY;
+      /* break out of loop */
+#else 
     } else {
       /* is somebody is sending something to this party ? */
       if(rh->r_recipient && (rh->r_recipient == recipient)){
@@ -2442,8 +2447,6 @@ int callback_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoint *issuer,
           abort();
         }
       }
-#else 
-      i = KATCP_SIZE_REPLY;
 #endif
     }
   }
@@ -2453,6 +2456,7 @@ int callback_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoint *issuer,
 #ifdef KATCP_CONSISTENCY_CHECKS
     fprintf(stderr, "problem: no free callback slots\n");
 #endif
+    return -1;
   }
 
   rh = &(fx->f_replies[slot]);
