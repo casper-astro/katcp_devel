@@ -145,7 +145,7 @@ int client_config_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
 
   if(argc < 2){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a destination to connect to");
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need an option");
     return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
   }
 
