@@ -75,6 +75,8 @@ struct getap_state{
   unsigned short s_port;
 
   unsigned int s_self;
+  unsigned int s_index;
+  unsigned int s_announce;
 
   uint8_t s_mac_binary[GETAP_MAC_SIZE];
   uint32_t s_address_binary;

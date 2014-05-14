@@ -2377,12 +2377,14 @@ int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir, int argc, char **argv)
   result += register_flag_mode_katcp(d, "?listbof",      "display available bof files (?listbof)", &listbof_cmd, 0, TBS_MODE_RAW);
   result += register_flag_mode_katcp(d, "?delbof",       "deletes a gateware image (?delbof image-file)", &delbof_cmd, 0, TBS_MODE_RAW);
 
-  result += register_flag_mode_katcp(d, "?tap-start",    "start a tap instance (?tap-start (?tap-start tap-device register-name ip-address [port [mac]])", &tap_start_cmd, 0, TBS_MODE_RAW);
+  result += register_flag_mode_katcp(d, "?tap-start",    "start a tap instance (?tap-start (?tap-start tap-device register-name ip-address [port [mac [gateway]]])", &tap_start_cmd, 0, TBS_MODE_RAW);
   result += register_flag_mode_katcp(d, "?tap-stop",     "deletes a tap instance (?tap-stop register-name)", &tap_stop_cmd, 0, TBS_MODE_RAW);
   result += register_flag_mode_katcp(d, "?tap-info",     "displays diagnostics for a tap instance (?tap-info register-name)", &tap_info_cmd, 0, TBS_MODE_RAW);
 
   result += register_flag_mode_katcp(d, "?tap-multicast-add", "join a multicast group (?tap-multicast-add tap-name [recv|send] multicast-address+hosts", &tap_multicast_add_group_cmd, 0, TBS_MODE_RAW);
   result += register_flag_mode_katcp(d, "?tap-multicast-remove", "remove a multicast group (?tap-multicast-remove tap-name multicast-address", &tap_multicast_remove_group_cmd, 0, TBS_MODE_RAW);
+
+  result += register_flag_mode_katcp(d, "?tap-route-add", "add a route (?tap-route tap-name gateway network mask", &tap_route_add_cmd, 0, TBS_MODE_RAW);
 
   result += register_flag_mode_katcp(d, "?chassis-start",  "initialise chassis interface", &start_chassis_cmd, 0, TBS_MODE_RAW);
   result += register_flag_mode_katcp(d, "?chassis-led",    "set a chassis led (?chassis-led led state)", &led_chassis_cmd, 0, TBS_MODE_RAW);
