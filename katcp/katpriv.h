@@ -625,7 +625,9 @@ struct katcp_flat{
 
   int f_scope;           /* how much we see */
 
-  struct katcp_endpoint *f_peer; /* queue for all messages, can be from different senders */
+  struct katcl_gueue *f_defer;     /* deferred requests */
+
+  struct katcp_endpoint *f_peer;   /* queue for all messages, can be from different senders */
   struct katcp_endpoint *f_remote; /* queue for remote messages, used to make remote messages "fit" into peer queue */
 
   struct katcl_line *f_line;

@@ -1057,7 +1057,10 @@ void destroy_getap(struct katcp_dispatch *d, struct getap_state *gs)
   /* empty out the rest of the data structure */
 
   if(gs->s_tap_fd >= 0){
+#if 0
+    /* unlink arb does this for us */
     tap_close(gs->s_tap_fd);
+#endif
     gs->s_tap_fd = (-1);
   }
 
@@ -1276,6 +1279,7 @@ struct getap_state *create_getap(struct katcp_dispatch *d, unsigned int instance
   gs->s_tap_io = create_arb_katcp(d, gs->s_tap_name, gs->s_tap_fd, KATCP_ARB_READ, &run_io_tap, gs);
   if(gs->s_tap_io == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to create io handler for tap device %s", gs->s_tap_name);
+    tap_close(gs->s_tap_fd);
     destroy_getap(d, gs);
     return NULL;
   }

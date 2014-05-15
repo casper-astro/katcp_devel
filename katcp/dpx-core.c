@@ -640,10 +640,11 @@ static void deallocate_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *f
 
   /* TODO: make destruction an event ? */
 
-
 #ifdef DEBUG
   fprintf(stderr, "dpx[%p]: deallocating with endpoints: peer=%p, remote=%p\n", f, f->f_peer, f->f_remote);
 #endif
+
+  /* TODO: f_defer */
 
   if(f->f_peer){
     /* WARNING: make sure we don't recurse on cleanup, invoking release callback */
@@ -1547,6 +1548,8 @@ struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, unsigned 
   f->f_log_level = gx->g_log_level;
 
   f->f_scope = gx->g_scope;
+
+  f->f_defer = NULL;
 
   f->f_peer = NULL;
   f->f_remote = NULL;
