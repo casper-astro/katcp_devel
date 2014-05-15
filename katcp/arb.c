@@ -9,6 +9,7 @@
 #define ARB_REAP_LIVE   0
 #define ARB_REAP_FADE   1
 #define ARB_REAP_GONE   2
+#define ARB_REAP_FREE   3
 
 static void destroy_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a);
 
@@ -78,14 +79,21 @@ void destroy_arbs_katcp(struct katcp_dispatch *d)
   for(i = 0; i < s->s_total; i++){
     a = s->s_extras[i];
 
-    if((a->a_mode & KATCP_ARB_STOP) && a->a_run){
-      switch(a->a_reap){
-        case ARB_REAP_LIVE :
-        case ARB_REAP_FADE :
+    switch(a->a_reap){
+      case ARB_REAP_LIVE :
+      case ARB_REAP_FADE :
+        if((a->a_mode & KATCP_ARB_STOP) && a->a_run){
           (*(a->a_run))(d, a, KATCP_ARB_STOP);
+        }
+        a->a_reap = ARB_REAP_GONE;
         break;
-      }
-      a->a_reap = ARB_REAP_GONE;
+      case ARB_REAP_GONE :
+        break;
+      default :
+#ifdef KATCP_CONSISTENCY_CHECKS
+        fprintf(stderr, "logic problem: invalid arb state %d for %p while deleting %u of all\n", a->a_reap, a, i);
+#endif
+        break;
     }
 
     s->s_extras[i] = NULL;
@@ -105,7 +113,14 @@ static void destroy_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a)
 {
   if(a == NULL){
     return;
+  } 
+
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(a->a_reap != ARB_REAP_GONE){
+    fprintf(stderr, "logic problem: arb destroy expects gone state, not %d in %p\n", a->a_reap, a);
+    abort();
   }
+#endif
 
 #ifdef DEBUG
   fprintf(stderr, "arb[%p]: destroy with mode=%u, reap=%u, fd=%d, name=%s\n", a, a->a_mode, a->a_reap, a->a_fd, a->a_name);
@@ -123,7 +138,7 @@ static void destroy_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a)
 
   a->a_type = 0;
   a->a_mode = 0;
-  a->a_reap = ARB_REAP_GONE;
+  a->a_reap = ARB_REAP_FREE;
   a->a_run = NULL;
   a->a_data = NULL;
 
@@ -132,12 +147,24 @@ static void destroy_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a)
 
 int unlink_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a)
 {
-  if(a->a_reap == ARB_REAP_LIVE){
-    if(a->a_mode & KATCP_ARB_STOP){
-      a->a_reap = ARB_REAP_FADE;
-    } else {
-      a->a_reap = ARB_REAP_GONE;
-    }
+  switch(a->a_reap){
+    case ARB_REAP_LIVE :
+      if(a->a_mode & KATCP_ARB_STOP){
+        a->a_reap = ARB_REAP_FADE;
+      } else {
+        a->a_reap = ARB_REAP_GONE;
+      }
+      break;
+    case ARB_REAP_FADE :
+    case ARB_REAP_GONE  :
+      /* all sorted */
+      break;
+    default :
+#ifdef KATCP_CONSISTENCY_CHECKS
+      fprintf(stderr, "logic problem: bad arb state %d for %p while unlinking\n", a->a_reap, a);
+      abort();
+#endif
+      break;
   }
 
   return 0;
@@ -297,7 +324,7 @@ void load_arb_katcp(struct katcp_dispatch *d)
         break;
       default :
 #ifdef KATCP_CONSISTENCY_CHECKS
-        fprintf(stderr, "logic problem: bad arb state %d for %p\n", a->a_reap, a);
+        fprintf(stderr, "logic problem: bad arb state %d for %p while loading\n", a->a_reap, a);
         abort();
 #endif
         i++;
@@ -360,9 +387,13 @@ int run_arb_katcp(struct katcp_dispatch *d)
         }
         a->a_reap = ARB_REAP_GONE;
         break;
+
+      case ARB_REAP_GONE :
+        break;
+
       default :
 #ifdef KATCP_CONSISTENCY_CHECKS
-        fprintf(stderr, "logic problem: did not expect arb state %d while running for %p\n", a->a_reap, a);
+        fprintf(stderr, "logic problem: bad arb state %d for %p while running\n", a->a_reap, a);
         abort();
 #endif
 
