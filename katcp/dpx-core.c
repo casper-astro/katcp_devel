@@ -114,6 +114,8 @@ static int deallocate_group_katcp(struct katcp_dispatch *d, struct katcp_group *
 
   g->g_autoremove = 0;
 
+  g->g_flushdefer = 0;
+
   if(g->g_flats){
     free(g->g_flats);
     g->g_flats = NULL;
@@ -207,6 +209,7 @@ struct katcp_group *create_group_katcp(struct katcp_dispatch *d, char *name)
 
   g->g_use = 0;
   g->g_autoremove = 0;
+  g->g_flushdefer = 1;
 
   g->g_region = NULL;
 
@@ -261,11 +264,11 @@ struct katcp_group *duplicate_group_katcp(struct katcp_dispatch *d, struct katcp
   }
 
   gx->g_log_level = go->g_log_level;
-  gx->g_scope = gx->g_scope;
+  gx->g_scope = go->g_scope;
+  gx->g_flushdefer = go->g_flushdefer;
 
   for(i = 0; i < KATCP_SIZE_MAP; i++){
     if(go->g_maps[i]){
-
       if(depth > 0){
         /* unclear what the name of the copied map should be ... */
         gx->g_maps[i] = duplicate_cmd_map_katcp(go->g_maps[i], name);
@@ -644,7 +647,16 @@ static void deallocate_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *f
   fprintf(stderr, "dpx[%p]: deallocating with endpoints: peer=%p, remote=%p\n", f, f->f_peer, f->f_remote);
 #endif
 
-  /* TODO: f_defer */
+  if(f->f_name){
+    free(f->f_name);
+    f->f_name = NULL;
+  }
+
+  f->f_deferring = (-1);
+  if(f->f_defer){
+    destroy_gueue_katcl(f->f_defer);
+    f->f_defer = NULL;
+  }
 
   if(f->f_peer){
     /* WARNING: make sure we don't recurse on cleanup, invoking release callback */
@@ -656,11 +668,6 @@ static void deallocate_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *f
     /* WARNING: make sure we don't recurse on cleanup, invoking release callback */
     release_endpoint_katcp(d, f->f_remote);
     f->f_remote = NULL;
-  }
-
-  if(f->f_name){
-    free(f->f_name);
-    f->f_name = NULL;
   }
 
   if(f->f_line){
@@ -1299,8 +1306,9 @@ int wake_endpoint_remote_flat_katcp(struct katcp_dispatch *d, struct katcp_endpo
   /* TODO: Set timeout when generating an outgoing request */
 
   struct katcp_flat *fx;
-  struct katcl_parse *px;
-  int result, request;
+  struct katcl_parse *px, *pt;
+  int result, request, reply;
+  unsigned int size;
 
   fx = data;
   sane_flat_katcp(fx);
@@ -1330,7 +1338,47 @@ int wake_endpoint_remote_flat_katcp(struct katcp_dispatch *d, struct katcp_endpo
     return KATCP_RESULT_OWN;
   }
 
+  /* API ugly, could do with improvements */
   request = is_request_parse_katcl(px);
+  reply   = is_reply_parse_katcl(px);
+
+  if(request > 0){
+    if(fx->f_deferring & KATCP_DEFER_OWN_REQUEST){
+      log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "behaving antisocially and piplelining a request to %s", fx->f_name);
+    }
+    fx->f_deferering &= KATCP_DEFER_OWN_REQUEST;
+  }
+
+  if(reply > 0){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    if((fx->f_deferring & KATCP_DEFER_OUTSIDE_REQUEST) == 0) {
+      fprintf(stderr, "dpx[%p]: major logic problem - send a reply to %s where no request outstanding\n", fx, fx->f_name);
+      abort();
+    }
+#endif
+
+    size = size_gueue_katcl(fx->f_defer);
+
+    /* TODO: if(size > SOMETHING) ... flush all */
+    if(size > 0){
+      pt = remove_head_gueue_katcl(fx->f_defer);
+      if(pt){
+        if(send_message_endpoint_katcp(d, fx->f_remote, fx->f_peer, pt, 1) < 0){
+          log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to enqueue remote message");
+
+          fx->f_state = FLAT_STATE_CRASHING;
+        }
+        destroy_parse_katcl(pt);
+      } else {
+#ifdef KATCP_CONSISTENCY_CHECKS
+         fprintf(stderr, "dpx[%p]: major logic problem - deferred queue of %s contained a NULL element\n", fx, fx->f_name);
+         abort();
+#endif
+      }
+    } else {
+      fx->f_deferring &= (~KATCP_DEFER_OUTSIDE_REQUEST);
+    }
+  }
 
   result = append_parse_katcl(fx->f_line, px);
   /* WARNING: do something with the return code */
@@ -1549,6 +1597,7 @@ struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, unsigned 
 
   f->f_scope = gx->g_scope;
 
+  f->f_deferring = 0;
   f->f_defer = NULL;
 
   f->f_peer = NULL;
@@ -1592,6 +1641,12 @@ struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, unsigned 
       destroy_flat_katcp(d, f);
       return NULL;
     }
+  }
+
+  f->f_defer = create_parse_gueue_katcl();
+  if(f->f_defer == NULL){
+    destroy_flat_katcp(d, f);
+    return NULL;
   }
 
   f->f_peer = create_endpoint_katcp(d, &wake_endpoint_peer_flat_katcp, &release_endpoint_peer_flat_katcp, f);
@@ -3151,8 +3206,6 @@ int load_flat_katcp(struct katcp_dispatch *d)
 
           /* WARNING: fall, but only in drain state and if no more output pending */
 
-
-
       }
 
       i += inc;
@@ -3186,10 +3239,10 @@ int run_flat_katcp(struct katcp_dispatch *d)
 {
   struct katcp_flat *fx;
   struct katcp_shared *s;
-  struct katcl_parse *px;
+  struct katcl_parse *px, *pt;
   struct katcp_group *gx;
   unsigned int i, j, len;
-  int fd, result, code, acknowledge;
+  int fd, result, code, reply, request;
 
   s = d->d_shared;
 
@@ -3258,26 +3311,51 @@ int run_flat_katcp(struct katcp_dispatch *d)
               abort();
             }
 #endif
-            if(is_request_parse_katcl(px)){
-              acknowledge = 1;
-            } else {
-              acknowledge = 0;
+
+            request = is_request_parse_katcl(px);
+            reply   = is_reply_parse_katcl(px);
+
+            if(reply > 0){
+#ifdef KATCP_CONSISTENCY_CHECKS
+              if((fx->f_deferring & KATCP_DEFER_OWN_REQUEST) == 0){
+                log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "saw a reply from %s where no request was outstanding", fx->f_name);
+              }
+#endif
+              /* presume to have serviced out our own request - might not be the case if it is a nonmatching reply ... */
+              fx->f_deferring &= (~KATCP_DEFER_OWN_REQUEST);
             }
 
-            log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "sending network message to endpoint %p", fx->f_peer);
+            pt = NULL;
+            if(request > 0){
+              if(fx->f_deferring & KATCP_DEFER_OUTSIDE_REQUEST){
+                pt = copy_parse_katcl(px);
+                if(pt == NULL){
+                  fx->f_state = FLAT_STATE_CRASHING;
+                  pt = px; /* horrible abuse, there to suppress sending of message to peer queue */
+                } else {
+                  if(add_tail_gueue_katcl(fx->f_defer, pt) < 0){
+                    destroy_parse_katcl(pt);
+                    fx->f_state = FLAT_STATE_CRASHING;
+                  }
+                }
+              }
+              fx->f_deferering &= KATCP_DEFER_OUTSIDE_REQUEST;
+            }
 
-            if(send_message_endpoint_katcp(d, fx->f_remote, fx->f_peer, px, acknowledge) < 0){
-              log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to enqueue remote message");
+            if(pt == NULL){
+              log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "sending network message to endpoint %p", fx->f_peer);
 
-              fx->f_state = FLAT_STATE_CRASHING;
+              if(send_message_endpoint_katcp(d, fx->f_remote, fx->f_peer, px, (request > 0) ? 1 : 0) < 0){
+                log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to enqueue remote message");
 
-              /* WARNING: drops out of parsing loop */
-              break;
+                fx->f_state = FLAT_STATE_CRASHING;
+
+                /* WARNING: drops out of parsing loop */
+                break;
+              }
             }
 
             show_endpoint_katcp(d, "peer", KATCP_LEVEL_TRACE, fx->f_peer);
-
-            /* TODO: check the size of the queue, give up if it has grown to unreasonable */
 
             clear_katcl(fx->f_line);
           }

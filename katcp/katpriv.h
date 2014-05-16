@@ -579,6 +579,8 @@ struct katcp_group{
   int g_use;             /* are we ref'ed by the listener */
   int g_autoremove;      /* do we disappear if use and count are zero ? */
 
+  int g_flushdefer;      /* number of queued items after we cancel the lot */
+
   struct katcp_region *g_region;
 };
 
@@ -610,6 +612,9 @@ struct katcp_response_handler{
 
 #define KATCP_DPX_SEND_RESET      0x100  /* clear lock flag */
 
+#define KATCP_DEFER_OUTSIDE_REQUEST  0x1  /* stop handling outside requests, already have one */
+#define KATCP_DEFER_OWN_REQUEST      0x2  /* don't send further requests, other side already busy */
+
 struct katcp_flat{
   /* a client instance, intended to replace what was job and dispatch previously */
   unsigned int f_magic;
@@ -618,13 +623,13 @@ struct katcp_flat{
   int f_flags;           /* which directions can we do */
 
   int f_state;           /* up, shutting down, etc */
-  int f_blocked;         /* TODO: shim, should be handled properly, maybe in line */
   int f_exit_code;       /* reported exit status */
 
   int f_log_level;       /* log level currently set */
 
   int f_scope;           /* how much we see */
 
+  int f_defering;                  /* stall further requests */
   struct katcl_gueue *f_defer;     /* deferred requests */
 
   struct katcp_endpoint *f_peer;   /* queue for all messages, can be from different senders */
@@ -646,10 +651,6 @@ struct katcp_flat{
   struct katcp_response_handler f_replies[KATCP_SIZE_REPLY]; /* this should probably be a dynamic number */
  
   struct katcp_endpoint *f_current_endpoint;
-
-#if 0
-  struct katcl_queue *f_backlog; /* backed up requests from the remote end, shouldn't happen */
-#endif
 
   struct katcp_cmd_map *f_maps[KATCP_SIZE_MAP];
   int f_current_map; 

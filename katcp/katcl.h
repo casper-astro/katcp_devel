@@ -140,6 +140,10 @@ void *remove_head_gueue_katcl(struct katcl_gueue *g);
 void *remove_from_head_gueue_katcl(struct katcl_gueue *g, unsigned int position);
 void *remove_datum_gueue_katcl(struct katcl_gueue *g, void *datum);
 
+/* specific queue implemenetations ... should replace all of queue.c */
+
+struct katcl_gueue *create_parse_gueue_katcl();
+
 #ifdef __cplusplus
 }
 #endif
