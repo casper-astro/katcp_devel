@@ -48,7 +48,6 @@
 #define FLAT_STOP_RUSH           2
 #endif
 
-
 /*******************************************************************************/
 
 /********************************************************************/
@@ -1346,13 +1345,13 @@ int wake_endpoint_remote_flat_katcp(struct katcp_dispatch *d, struct katcp_endpo
     if(fx->f_deferring & KATCP_DEFER_OWN_REQUEST){
       log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "behaving antisocially and piplelining a request to %s", fx->f_name);
     }
-    fx->f_deferering &= KATCP_DEFER_OWN_REQUEST;
+    fx->f_deferring |= KATCP_DEFER_OWN_REQUEST;
   }
 
   if(reply > 0){
 #ifdef KATCP_CONSISTENCY_CHECKS
     if((fx->f_deferring & KATCP_DEFER_OUTSIDE_REQUEST) == 0) {
-      fprintf(stderr, "dpx[%p]: major logic problem - send a reply to %s where no request outstanding\n", fx, fx->f_name);
+      fprintf(stderr, "dpx[%p]: major logic problem - send a reply to %s where no request outstanding (defer flags 0x%x)\n", fx, fx->f_name, fx->f_deferring);
       abort();
     }
 #endif
@@ -1376,6 +1375,9 @@ int wake_endpoint_remote_flat_katcp(struct katcp_dispatch *d, struct katcp_endpo
 #endif
       }
     } else {
+#ifdef DEBUG
+      fprintf(stderr, "dpx[%p]: clearing request flag from 0x%x\n", fx, fx->f_deferring);
+#endif
       fx->f_deferring &= (~KATCP_DEFER_OUTSIDE_REQUEST);
     }
   }
@@ -3065,7 +3067,7 @@ int load_flat_katcp(struct katcp_dispatch *d)
 
   result = 0;
 
-#if DEBUG 
+#ifdef DEBUG 
   fprintf(stderr, "dpx[*]: loading %u groups\n", s->s_members);
 #endif
 
@@ -3089,7 +3091,7 @@ int load_flat_katcp(struct katcp_dispatch *d)
       fx = gx->g_flats[i];
       fd = fileno_katcl(fx->f_line);
 
-#if DEBUG
+#ifdef DEBUG
   fprintf(stderr, "dpx[%p]: loading: peer=%p, remote=%p, name=%s, fd=%d, state=%u, log=%d, scope=%d\n", fx, fx->f_peer, fx->f_remote, fx->f_name, fd, fx->f_state, fx->f_log_level, fx->f_scope);
 #endif
 
@@ -3213,7 +3215,7 @@ int load_flat_katcp(struct katcp_dispatch *d)
 
     if((gx->g_autoremove > 0) && (gx->g_count == 0) && (gx->g_use == 0)){
       log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "about to remove group %s", gx->g_name);
-#if DEBUG 
+#ifdef DEBUG 
       fprintf(stderr, "group[%p]: %s about to be removed\n", gx, gx->g_name);
 #endif
 
@@ -3222,7 +3224,7 @@ int load_flat_katcp(struct katcp_dispatch *d)
 
       s->s_members--;
 
-#if DEBUG 
+#ifdef DEBUG 
       fprintf(stderr, "dpx[*]: reduced to %u groups\n", s->s_members);
 #endif
     }
@@ -3336,10 +3338,16 @@ int run_flat_katcp(struct katcp_dispatch *d)
                   if(add_tail_gueue_katcl(fx->f_defer, pt) < 0){
                     destroy_parse_katcl(pt);
                     fx->f_state = FLAT_STATE_CRASHING;
+                  } else {
+                    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "received a pipelined request, now holding %u requests", size_gueue_katcl(fx->f_defer));
                   }
                 }
               }
-              fx->f_deferering &= KATCP_DEFER_OUTSIDE_REQUEST;
+#ifdef DEBUG
+              fprintf(stderr, "dpx[%p]: saw external request: setting 0x%x on 0x%x\n", fx, KATCP_DEFER_OUTSIDE_REQUEST, fx->f_deferring);
+#endif
+
+              fx->f_deferring |= KATCP_DEFER_OUTSIDE_REQUEST;
             }
 
             if(pt == NULL){

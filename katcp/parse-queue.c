@@ -1,7 +1,6 @@
 #ifdef KATCP_EXPERIMENTAL
 
-#include <katcp.h>
-#include <katpriv.h>
+#include <katcl.h>
 
 void void_destroy_parse_katcl(void *v)
 {

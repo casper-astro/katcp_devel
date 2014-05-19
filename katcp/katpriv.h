@@ -629,7 +629,7 @@ struct katcp_flat{
 
   int f_scope;           /* how much we see */
 
-  int f_defering;                  /* stall further requests */
+  int f_deferring;                  /* stall further requests */
   struct katcl_gueue *f_defer;     /* deferred requests */
 
   struct katcp_endpoint *f_peer;   /* queue for all messages, can be from different senders */
@@ -1045,6 +1045,8 @@ struct katcl_parse *ready_katcl(struct katcl_line *l);
 
 int add_vargs_parse_katcl(struct katcl_parse *p, int flags, char *fmt, va_list args);
 int add_args_parse_katcl(struct katcl_parse *p, int flags, char *fmt, ...);
+
+#include <stdio.h>
 
 int dump_parse_katcl(struct katcl_parse *p, char *prefix, FILE *fp);
 

@@ -108,6 +108,8 @@ struct katcl_line *create_extended_rpc_katcl(char *name, int flags);
 void destroy_rpc_katcl(struct katcl_line *l);
 int await_reply_rpc_katcl(struct katcl_line *l, unsigned int timeout);
 
+#include <sys/time.h>
+
 int complete_rpc_katcl(struct katcl_line *l, unsigned int flags, struct timeval *until);
 int send_rpc_katcl(struct katcl_line *l, unsigned int timeout, ...);
 
