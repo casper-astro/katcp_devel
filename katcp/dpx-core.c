@@ -208,7 +208,7 @@ struct katcp_group *create_group_katcp(struct katcp_dispatch *d, char *name)
 
   g->g_use = 0;
   g->g_autoremove = 0;
-  g->g_flushdefer = 1;
+  g->g_flushdefer = KATCP_FLUSH_DEFER;
 
   g->g_region = NULL;
 
@@ -651,7 +651,8 @@ static void deallocate_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *f
     f->f_name = NULL;
   }
 
-  f->f_deferring = (-1);
+  f->f_max_defer = 0;
+  f->f_deferring = (KATCP_DEFER_OUTSIDE_REQUEST | KATCP_DEFER_OWN_REQUEST);
   if(f->f_defer){
     destroy_gueue_katcl(f->f_defer);
     f->f_defer = NULL;
@@ -1305,9 +1306,9 @@ int wake_endpoint_remote_flat_katcp(struct katcp_dispatch *d, struct katcp_endpo
   /* TODO: Set timeout when generating an outgoing request */
 
   struct katcp_flat *fx;
-  struct katcl_parse *px, *pt;
+  struct katcl_parse *px, *pt, *pq;
   int result, request, reply;
-  unsigned int size;
+  unsigned int size, limit;
 
   fx = data;
   sane_flat_katcp(fx);
@@ -1358,21 +1359,38 @@ int wake_endpoint_remote_flat_katcp(struct katcp_dispatch *d, struct katcp_endpo
 
     size = size_gueue_katcl(fx->f_defer);
 
-    /* TODO: if(size > SOMETHING) ... flush all */
     if(size > 0){
-      pt = remove_head_gueue_katcl(fx->f_defer);
-      if(pt){
-        if(send_message_endpoint_katcp(d, fx->f_remote, fx->f_peer, pt, 1) < 0){
-          log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to enqueue remote message");
 
-          fx->f_state = FLAT_STATE_CRASHING;
+      limit = fx->f_group ? fx->f_group->g_flushdefer : KATCP_FLUSH_DEFER;
+
+      if(size > limit){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "cancelling %u outstanding requests as pipeline limit is %u", size, limit);
+        while((pt = remove_head_gueue_katcl(fx->f_defer))){
+          pq = turnaround_extra_parse_katcl(pt, KATCP_RESULT_FAIL, "cancelled");
+          if(pq){
+            /* TODO - failure to append is also a problem */
+            append_parse_katcl(fx->f_line, pq);
+            destroy_parse_katcl(pq);
+          } else {
+            fx->f_state = FLAT_STATE_CRASHING;
+          }
+          destroy_parse_katcl(pt);
         }
-        destroy_parse_katcl(pt);
       } else {
+        pt = remove_head_gueue_katcl(fx->f_defer);
+        if(pt){
+          if(send_message_endpoint_katcp(d, fx->f_remote, fx->f_peer, pt, 1) < 0){
+            log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to enqueue remote message");
+
+            fx->f_state = FLAT_STATE_CRASHING;
+          }
+          destroy_parse_katcl(pt);
+        } else {
 #ifdef KATCP_CONSISTENCY_CHECKS
-         fprintf(stderr, "dpx[%p]: major logic problem - deferred queue of %s contained a NULL element\n", fx, fx->f_name);
-         abort();
+          fprintf(stderr, "dpx[%p]: major logic problem - deferred queue of %s contained a NULL element\n", fx, fx->f_name);
+          abort();
 #endif
+        }
       }
     } else {
 #ifdef DEBUG
@@ -3243,7 +3261,7 @@ int run_flat_katcp(struct katcp_dispatch *d)
   struct katcp_shared *s;
   struct katcl_parse *px, *pt;
   struct katcp_group *gx;
-  unsigned int i, j, len;
+  unsigned int i, j, len, size, limit;
   int fd, result, code, reply, request;
 
   s = d->d_shared;
@@ -3339,7 +3357,16 @@ int run_flat_katcp(struct katcp_dispatch *d)
                     destroy_parse_katcl(pt);
                     fx->f_state = FLAT_STATE_CRASHING;
                   } else {
-                    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "received a pipelined request, now holding %u requests", size_gueue_katcl(fx->f_defer));
+                    size = size_gueue_katcl(fx->f_defer);
+                    if(size > fx->f_max_defer){
+                      limit = fx->f_group ? fx->f_group->g_flushdefer : KATCP_FLUSH_DEFER;
+                      if(size > limit){
+                        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "client %s has exceeded pipeline limit %u with a new maximum of %u requests which will result in failed requests", fx->f_name, limit, size);
+                      } else {
+                        log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "iffy client behaviour from %s which is pipelining a new maximum of %u requests", fx->f_name, size);
+                      }
+                      fx->f_max_defer = size;
+                    }
                   }
                 }
               }

@@ -565,6 +565,9 @@ struct katcp_cmd_map{
 #define KATCP_DIRECTION_INNER     0
 #define KATCP_DIRECTION_REMOTE    1
 
+/* discard entire pending set after this many queued elements */
+#define KATCP_FLUSH_DEFER         8
+
 struct katcp_group{
   /* a set of flats which belong together, probably spawned off the same listener, probably same set of commands, probably same "mode" */
   char *g_name;
@@ -629,8 +632,9 @@ struct katcp_flat{
 
   int f_scope;           /* how much we see */
 
-  int f_deferring;                  /* stall further requests */
-  struct katcl_gueue *f_defer;     /* deferred requests */
+  unsigned int f_deferring;      /* status flags for requests outstanding */
+  struct katcl_gueue *f_defer;   /* deferred requests */
+  int f_max_defer;               /* worst case queue size */
 
   struct katcp_endpoint *f_peer;   /* queue for all messages, can be from different senders */
   struct katcp_endpoint *f_remote; /* queue for remote messages, used to make remote messages "fit" into peer queue */
