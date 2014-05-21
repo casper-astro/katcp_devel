@@ -1342,7 +1342,13 @@ int wake_endpoint_remote_flat_katcp(struct katcp_dispatch *d, struct katcp_endpo
   request = is_request_parse_katcl(px);
   reply   = is_reply_parse_katcl(px);
 
+  result = append_parse_katcl(fx->f_line, px);
+  /* WARNING: do something with the return code */
+  
   if(request > 0){
+
+    /* TODO: set timeout here ... */
+
     if(fx->f_deferring & KATCP_DEFER_OWN_REQUEST){
       log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "behaving antisocially and piplelining a request to %s", fx->f_name);
     }
@@ -1374,7 +1380,10 @@ int wake_endpoint_remote_flat_katcp(struct katcp_dispatch *d, struct katcp_endpo
           } else {
             fx->f_state = FLAT_STATE_CRASHING;
           }
+#if 0
+          /* WARNING: no destroy needed, turnaround invalidates its arg, as it may be reused in pq */
           destroy_parse_katcl(pt);
+#endif
         }
       } else {
         pt = remove_head_gueue_katcl(fx->f_defer);
@@ -1400,17 +1409,6 @@ int wake_endpoint_remote_flat_katcp(struct katcp_dispatch *d, struct katcp_endpo
     }
   }
 
-  result = append_parse_katcl(fx->f_line, px);
-  /* WARNING: do something with the return code */
-  
-  if(request){
-
-    /* TODO: set timeout here ... */
-
-#if 0
-    return KATCP_RESULT_PAUSE;
-#endif
-  } 
 
   /* WARNING: unclear what the return code should be, we wouldn't want to generate acknowledgements to replies and informs */
 #ifdef DEBUG
@@ -3361,9 +3359,9 @@ int run_flat_katcp(struct katcp_dispatch *d)
                     if(size > fx->f_max_defer){
                       limit = fx->f_group ? fx->f_group->g_flushdefer : KATCP_FLUSH_DEFER;
                       if(size > limit){
-                        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "client %s has exceeded pipeline limit %u with a new maximum of %u requests which will result in failed requests", fx->f_name, limit, size);
+                        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "client %s has exceeded pipeline limit %u with a new record of %u requests without waiting for a reply", fx->f_name, limit, size);
                       } else {
-                        log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "iffy client behaviour from %s which is pipelining a new maximum of %u requests", fx->f_name, size);
+                        log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "iffy client behaviour from %s which is issuing a new record of %u requests without waiting for a reply", fx->f_name, size);
                       }
                       fx->f_max_defer = size;
                     }
