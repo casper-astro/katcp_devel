@@ -1349,6 +1349,18 @@ int wake_endpoint_remote_flat_katcp(struct katcp_dispatch *d, struct katcp_endpo
     fx->f_deferring |= KATCP_DEFER_OWN_REQUEST;
   }
 
+  result = append_parse_katcl(fx->f_line, px);
+  /* WARNING: do something with the return code */
+  
+  if(request){
+
+    /* TODO: set timeout here ... */
+
+#if 0
+    return KATCP_RESULT_PAUSE;
+#endif
+  } 
+
   if(reply > 0){
 #ifdef KATCP_CONSISTENCY_CHECKS
     if((fx->f_deferring & KATCP_DEFER_OUTSIDE_REQUEST) == 0) {
@@ -1365,7 +1377,13 @@ int wake_endpoint_remote_flat_katcp(struct katcp_dispatch *d, struct katcp_endpo
 
       if(size > limit){
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "cancelling %u outstanding requests as pipeline limit is %u", size, limit);
-        while((pt = remove_head_gueue_katcl(fx->f_defer))){
+        while((pt = remove_head_gueue_katcl(fx->f_defer)) != NULL){
+#ifdef KATCP_CONSISTENCY_CHECKS
+          if(pt->p_magic != KATCL_PARSE_MAGIC){
+            fprintf(stderr, "dpx[%p]: removed something not a parse structure (at %p with magic 0x%x\n", fx, pt, pt->p_magic);
+            abort();
+          }
+#endif
           pq = turnaround_extra_parse_katcl(pt, KATCP_RESULT_FAIL, "cancelled");
           if(pq){
             /* TODO - failure to append is also a problem */
@@ -1374,17 +1392,28 @@ int wake_endpoint_remote_flat_katcp(struct katcp_dispatch *d, struct katcp_endpo
           } else {
             fx->f_state = FLAT_STATE_CRASHING;
           }
+#if 0 /* WARNING: turnaround can recycle its parameter, after calling it arg is no longer valid */
           destroy_parse_katcl(pt);
+#endif
+          fx->f_deferring &= (~KATCP_DEFER_OUTSIDE_REQUEST);
         }
       } else {
         pt = remove_head_gueue_katcl(fx->f_defer);
         if(pt){
+#ifdef KATCP_CONSISTENCY_CHECKS
+          if(pt->p_magic != KATCL_PARSE_MAGIC){
+            fprintf(stderr, "dpx[%p]: removed something not a parse structure (at %p with magic 0x%x\n", fx, pt, pt->p_magic);
+            abort();
+          }
+#endif
           if(send_message_endpoint_katcp(d, fx->f_remote, fx->f_peer, pt, 1) < 0){
             log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to enqueue remote message");
 
             fx->f_state = FLAT_STATE_CRASHING;
           }
+#if 0 /* WARNING: turnaround can recycle its parameter, after calling it arg is no longer valid */
           destroy_parse_katcl(pt);
+#endif
         } else {
 #ifdef KATCP_CONSISTENCY_CHECKS
           fprintf(stderr, "dpx[%p]: major logic problem - deferred queue of %s contained a NULL element\n", fx, fx->f_name);
@@ -1400,19 +1429,8 @@ int wake_endpoint_remote_flat_katcp(struct katcp_dispatch *d, struct katcp_endpo
     }
   }
 
-  result = append_parse_katcl(fx->f_line, px);
-  /* WARNING: do something with the return code */
-  
-  if(request){
-
-    /* TODO: set timeout here ... */
-
-#if 0
-    return KATCP_RESULT_PAUSE;
-#endif
-  } 
-
   /* WARNING: unclear what the return code should be, we wouldn't want to generate acknowledgements to replies and informs */
+
 #ifdef DEBUG
   fprintf(stderr, "dpx[%p]: io result is %d\n", fx, KATCP_RESULT_OWN);
 #endif
@@ -3028,6 +3046,10 @@ int append_parse_flat_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
   }
 #endif
 
+#if DEBUG > 2
+  fprintf(stderr, "append: added parse %p\n", p);
+#endif
+
   fx->f_tx = copy_parse_katcl(p);
   if(fx->f_tx == NULL){
     return -1;
@@ -3353,6 +3375,12 @@ int run_flat_katcp(struct katcp_dispatch *d)
                   fx->f_state = FLAT_STATE_CRASHING;
                   pt = px; /* horrible abuse, there to suppress sending of message to peer queue */
                 } else {
+#ifdef KATCP_CONSISTENCY_CHECKS
+                  if(pt->p_magic != KATCL_PARSE_MAGIC){
+                    fprintf(stderr, "dpx[%p]: enqueing something not a parse structure (at %p with magic 0x%x\n", fx, pt, pt->p_magic);
+                    abort();
+                  }
+#endif
                   if(add_tail_gueue_katcl(fx->f_defer, pt) < 0){
                     destroy_parse_katcl(pt);
                     fx->f_state = FLAT_STATE_CRASHING;
@@ -3361,9 +3389,9 @@ int run_flat_katcp(struct katcp_dispatch *d)
                     if(size > fx->f_max_defer){
                       limit = fx->f_group ? fx->f_group->g_flushdefer : KATCP_FLUSH_DEFER;
                       if(size > limit){
-                        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "client %s has exceeded pipeline limit %u with a new maximum of %u requests which will result in failed requests", fx->f_name, limit, size);
+                        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "client %s has exceeded pipeline limit %u with a new record of %u requests without waiting for a reply", fx->f_name, limit, size);
                       } else {
-                        log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "iffy client behaviour from %s which is pipelining a new maximum of %u requests", fx->f_name, size);
+                        log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "iffy client behaviour from %s which is pipelining a new record of %u requests", fx->f_name, size);
                       }
                       fx->f_max_defer = size;
                     }

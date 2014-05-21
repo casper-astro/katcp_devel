@@ -896,7 +896,7 @@ int write_katcl(struct katcl_line *l)
 
 #ifdef KATCP_CONSISTENCY_CHECKS
         if(p->p_magic != KATCL_PARSE_MAGIC){
-          fprintf(stderr, "write: bad magic returned from get_head (%x, expected %x)\n", p->p_magic, KATCL_PARSE_MAGIC);
+          fprintf(stderr, "write: bad parse magic returned from get_head at %p (%x, expected %x)\n", p, p->p_magic, KATCL_PARSE_MAGIC);
           abort();
         }
 #endif
