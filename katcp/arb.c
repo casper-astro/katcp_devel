@@ -149,6 +149,12 @@ int unlink_arb_katcp(struct katcp_dispatch *d, struct katcp_arb *a)
 {
   switch(a->a_reap){
     case ARB_REAP_LIVE :
+      
+      if(a->a_fd >= 0){ /* release fd sooner */
+        close(a->a_fd);
+        a->a_fd = (-1);
+      }
+
       if(a->a_mode & KATCP_ARB_STOP){
         a->a_reap = ARB_REAP_FADE;
       } else {
