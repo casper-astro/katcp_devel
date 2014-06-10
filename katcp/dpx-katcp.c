@@ -607,7 +607,7 @@ int sensor_list_callback_katcp(struct katcp_dispatch *d, unsigned int *count, ch
 
   if(ty && (ty->p_type == KATCP_VRT_STRING)){
     /* allows us to override the native type to something in sensor world */
-    append_payload_vrbl_katcp(d, 0, vx, ty);
+    append_payload_vrbl_katcp(d, KATCP_FLAG_LAST, vx, ty);
   } else {
     append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, type);
   }
