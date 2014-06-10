@@ -559,7 +559,7 @@ int halt_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
 int sensor_list_callback_katcp(struct katcp_dispatch *d, unsigned int *count, char *key, struct katcp_vrbl *vx)
 {
-  struct katcp_vrbl_payload *hy, *vy, *uy;
+  struct katcp_vrbl_payload *hy, *vy, *uy, *ty;
   char *type;
   int result;
 
@@ -578,10 +578,12 @@ int sensor_list_callback_katcp(struct katcp_dispatch *d, unsigned int *count, ch
   vy = find_payload_katcp(d, vx, ":value");
   uy = find_payload_katcp(d, vx, ":units");
   hy = find_payload_katcp(d, vx, ":help");
+  ty = find_payload_katcp(d, vx, ":type");
 
   if(vy == NULL){
     return 0;
   }
+
   type = type_to_string_vrbl_katcp(d, vy->p_type);
   if(type == NULL){
     return 0;
@@ -603,7 +605,12 @@ int sensor_list_callback_katcp(struct katcp_dispatch *d, unsigned int *count, ch
     append_string_katcp(d, KATCP_FLAG_STRING, "none");
   }
 
-  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, type);
+  if(ty && (ty->p_type == KATCP_VRT_STRING)){
+    /* allows us to override the native type to something in sensor world */
+    append_payload_vrbl_katcp(d, 0, vx, ty);
+  } else {
+    append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, type);
+  }
 
   if(count){
     *count = (*count) + 1;
