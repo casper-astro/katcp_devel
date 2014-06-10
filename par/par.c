@@ -925,6 +925,10 @@ int main(int argc, char **argv)
       }
       if(fails > 0){
         log_message_katcl(k, KATCP_LEVEL_WARN, label, "%d operations failed by %s", fails, (ss->s_count == 1) ? "client" : "clients");
+#if 0
+        /* unclear - if we are supposed to ignore failures, shouldn't we also pretent the return code is fine too ? */
+        status = 1;
+#endif
       }
     }
   }
