@@ -234,7 +234,6 @@ int sensor_status_group_info_katcp(struct katcp_dispatch *d, int argc)
   remote = remote_of_flat_katcp(d, fx);
   self = handler_of_flat_katcp(d, fx);
 
-
   if(origin == remote){ /* ... remote party is sending us a status update ... */
 
     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "saw a sensor status update from remote party, should capture this");

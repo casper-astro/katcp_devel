@@ -42,6 +42,9 @@ CFLAGS += -DKATCP_SUBPROCESS
 # enable newer, broken or nonfunctional code
 CFLAGS += -DKATCP_EXPERIMENTAL
 
+# keep older code 
+CFLAGS += -DKATCP_DEPRECATED
+
 # pick a protocol reversion from the list. Making up
 # your own major values doesn't work unless you also implement what 
 # the protocol requires

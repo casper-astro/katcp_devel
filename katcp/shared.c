@@ -244,8 +244,10 @@ int startup_shared_katcp(struct katcp_dispatch *d)
 
   s->s_size = 1;
 
+#if 1
   s->s_type = NULL;
   s->s_type_count = 0;
+#endif
 
 #ifdef DEBUG
   if(d->d_shared){
@@ -353,7 +355,9 @@ void shutdown_shared_katcp(struct katcp_dispatch *d)
 
   destroy_versions_katcp(d);
   
+#ifdef KATCP_DEPRECATED
   destroy_type_list_katcp(d);
+#endif
 
   /* WARNING: invokes callbacks, assumes client API still available */
   destroy_arbs_katcp(d);
