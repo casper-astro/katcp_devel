@@ -394,8 +394,10 @@ static int print_client_list_katcp(struct katcp_dispatch *d, struct katcp_flat *
   if(ptr){
     log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "client %s has %s scope", fx->f_name, ptr);
   } else {
-    log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "client %s has invalid scope", fx->f_name);
+    log_message_katcp(d, KATCP_LEVEL_WARN | KATCP_LEVEL_LOCAL, NULL, "client %s has invalid scope", fx->f_name);
   }
+
+  log_message_katcp(d, ((fx->f_max_defer > 1) ? KATCP_LEVEL_WARN : KATCP_LEVEL_INFO) | KATCP_LEVEL_LOCAL, NULL, "client %s has had a maximum of %d requests outstanding", fx->f_max_defer);
 
   if(flushing_katcl(fx->f_line)){
     log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "client %s has output pending", fx->f_name);
