@@ -756,7 +756,6 @@ static void deallocate_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *f
 
   f->f_magic = 0;
 
-
   free(f);
 }
 
@@ -1615,6 +1614,7 @@ struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, unsigned 
 
   f->f_scope = gx->g_scope;
 
+  f->f_max_defer = 0;
   f->f_deferring = 0;
   f->f_defer = NULL;
 
