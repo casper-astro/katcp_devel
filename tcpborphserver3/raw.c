@@ -56,8 +56,7 @@ static int check_bus_error(struct katcp_dispatch *d)
 
 void free_meta_entry(void *data)
 {
-  struct meta_entry *me, *next
-  char **x;
+  struct meta_entry *me, *next;
   int i;
 
   me = (struct meta_entry *)data;
@@ -100,7 +99,7 @@ void print_meta_entry(struct katcp_dispatch *d, char *key, void *data)
       append_string_katcp(d, KATCP_FLAG_STRING, key);
       middle = me->m_size - 1;
       for(i = 0; i < middle; i++){
-        if(me->m_[i]){
+        if(me->m[i]){
           append_string_katcp(d, KATCP_FLAG_STRING, me->m[i]);
         } 
       }
