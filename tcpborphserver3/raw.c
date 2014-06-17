@@ -56,7 +56,7 @@ static int check_bus_error(struct katcp_dispatch *d)
 
 void free_meta_entry(void *data)
 {
-  struct meta_entry *me, *tmp;
+  struct meta_entry *me, *next
   char **x;
   int i;
 
@@ -64,49 +64,54 @@ void free_meta_entry(void *data)
 
   /* Freeing the linked list created */
   while(me != NULL){
-    tmp = me;
-    x = (char **)tmp->m;
-    me = me->m_next;
+    next = me->m_next;
 
-    for(i = 0; i < tmp->m_size; i++){
-      free(x[i]);
-      x[i] = NULL;
+    for(i = 0; i < me->m_size; i++){
+      if(me->m[i]){
+        free(me->m[i]);
+        me->m[i] = NULL;
+      }
     }
+    free(me->m);
 
-    tmp->m_size = 0;
-    free(x);
-    x = NULL;
+    me->m = NULL;
+    me->m_size = 0;
+    me->m_next = NULL;
 
-    free(tmp);
+    free(me);
+
+    me = next;
   }
-
-  tmp = NULL;
-  me = NULL;
 }
 
 void print_meta_entry(struct katcp_dispatch *d, char *key, void *data)
 {
   struct meta_entry *me;
-  int i = 0;
+  int i, middle;
 
-  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "attempting to print_meta_entry %s", key);
+  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "attempting to print meta entry %s", key);
 
   me = (struct meta_entry *)data;
+
   while(me != NULL){
 
     prepend_inform_katcp(d);
-    append_string_katcp(d, KATCP_FLAG_STRING , key);
-    for(i = 1; i < me->m_size; i++){
-      if(!me->m[i]){
-        break;
+    if(me->m_size > 0){
+      append_string_katcp(d, KATCP_FLAG_STRING, key);
+      middle = me->m_size - 1;
+      for(i = 0; i < middle; i++){
+        if(me->m_[i]){
+          append_string_katcp(d, KATCP_FLAG_STRING, me->m[i]);
+        } 
       }
-      append_string_katcp(d, KATCP_FLAG_STRING , me->m[i-1]);
-
+      append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, me->m[i]);
+    } else {
+      append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, key);
     }
-    append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST , me->m[i-1]);
+
     me = me->m_next;
   }
-  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "End to print_meta_entry %s", key);
+
 }
 
 void free_entry(void *data)
