@@ -1653,9 +1653,8 @@ void add_to_list(struct katcp_dispatch *d, struct meta_entry *node, struct meta_
 
 int meta_cmd(struct katcp_dispatch *d, int argc)
 {
-  int noofitems = 0;
+  int count;
   char *key;
-  char **tmp;
 
   struct meta_entry *me, *avl_node, *avl_data;
   struct avl_node *an;
@@ -1680,7 +1679,7 @@ int meta_cmd(struct katcp_dispatch *d, int argc)
   call = &print_meta_entry;
 
   if(argc > 2){
-    noofitems = (argc - 2);
+    count = argc - 2;
     me = malloc(sizeof(struct meta_entry));
     if(me == NULL){
       return KATCP_RESULT_FAIL;
@@ -1688,14 +1687,15 @@ int meta_cmd(struct katcp_dispatch *d, int argc)
 
     me->m_size = 0;
     me->m_next = NULL;
+    me->m = NULL;
 
-    tmp = malloc(noofitems * (sizeof(char *)));	
-    if(tmp == NULL){
+    me->m = malloc(count * (sizeof(char *)));	
+
+    if(me->m == NULL){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate memory for meta entry");
       free_meta_entry(me);
       return KATCP_RESULT_FAIL;
     }
-    me->m = tmp;
 
     key = arg_string_katcp(d, 1);
     if(key == NULL){
@@ -1704,14 +1704,16 @@ int meta_cmd(struct katcp_dispatch *d, int argc)
       return KATCP_RESULT_FAIL;
     }
 
-    for(i = 0; i < noofitems; i++){
-      me->m[i] = arg_copy_string_katcp(d, i + 2);  
-      if(me->m[i] == NULL){
-        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "Null capture in arguments");
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "about to fill %d fields for key %s", count, key);
+
+    for(i = 2; i < argc; i++){
+      me->m[me->m_size] = arg_copy_string_katcp(d, i);  
+      if(me->m[me->m_size] == NULL){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "encountered an unsupported null meta argument");
         free_meta_entry(me);
         return KATCP_RESULT_FAIL;
       }
-      me->m_size = i;
+      me->m_size = me->m_size + 1;
     }
 
     avl_node = find_data_avltree(tr->r_meta, key);
