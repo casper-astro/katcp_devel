@@ -3068,6 +3068,27 @@ int append_args_flat_katcp(struct katcp_dispatch *d, int flags, char *fmt, ...)
   return result;
 }
 
+int append_end_flat_katcp(struct katcp_dispatch *d)
+{
+  struct katcl_parse *px;
+  struct katcp_flat *fx;
+  int result;
+
+  fx = require_flat_katcp(d);
+  if(fx == NULL){
+    return -1;
+  }
+
+  px = prepare_append_flat_katcp(fx, KATCP_FLAG_LAST);
+  if(px == NULL){
+    return -1;
+  }
+
+  result = add_end_parse_katcl(px);
+
+  return finish_append_flat_katcp(d, KATCP_FLAG_LAST, result);
+}
+
 /**************************************************************************/
 /* mainloop related logic *************************************************/
 

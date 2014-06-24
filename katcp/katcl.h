@@ -59,6 +59,7 @@ int append_buffer_katcl(struct katcl_line *l, int flags, void *buffer, int len);
 int append_parameter_katcl(struct katcl_line *l, int flags, struct katcl_parse *px, unsigned int index); /* single field */
 int append_trailing_katcl(struct katcl_line *l, int flags, struct katcl_parse *px, unsigned int start); /* all further fields */
 int append_parse_katcl(struct katcl_line *l, struct katcl_parse *p); /* the whole line */
+int append_end_katcl(struct katcl_line *l);
 
 int vsend_katcl(struct katcl_line *l, va_list ap);
 int send_katcl(struct katcl_line *l, ...);

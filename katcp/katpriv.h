@@ -1018,6 +1018,7 @@ int add_timestamp_parse_katcl(struct katcl_parse *p, int flags, struct timeval *
 int add_parameter_parse_katcl(struct katcl_parse *pd, int flags, struct katcl_parse *ps, unsigned int index);
 int add_parameter_parse_katcl(struct katcl_parse *pd, int flags, struct katcl_parse *ps, unsigned int index);
 int add_trailing_parse_katcl(struct katcl_parse *pd, int flags, struct katcl_parse *ps, unsigned int start);
+int add_end_parse_katcl(struct katcl_parse *p);
 
 int buffer_from_parse_katcl(struct katcl_parse *p, char *buffer, unsigned int len);
 
@@ -1053,8 +1054,6 @@ int add_args_parse_katcl(struct katcl_parse *p, int flags, char *fmt, ...);
 #include <stdio.h>
 
 int dump_parse_katcl(struct katcl_parse *p, char *prefix, FILE *fp);
-
-int finalize_parse_katcl(struct katcl_parse *p);
 
 /* */
 int inform_client_connections_katcp(struct katcp_dispatch *d, char *type);

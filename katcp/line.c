@@ -727,6 +727,24 @@ int append_parse_katcl(struct katcl_line *l, struct katcl_parse *p)
   return result;
 }
 
+int append_end_katcl(struct katcl_line *l)
+{
+  struct katcl_parse *p;
+  int result;
+
+  p = before_append_katcl(l, KATCP_FLAG_LAST);
+  if(p == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "append: before_append failed at end\n");
+#endif
+    return -1;
+  }
+
+  result = add_end_parse_katcl(p);
+
+  return after_append_katcl(l, KATCP_FLAG_LAST, result);
+}
+
 /**************************************************************/
 
 int vsend_katcl(struct katcl_line *l, va_list args)

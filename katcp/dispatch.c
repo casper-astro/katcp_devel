@@ -2238,6 +2238,20 @@ int append_args_katcp(struct katcp_dispatch *d, int flags, char *fmt, ...)
   return result;
 }
 
+int append_end_katcp(struct katcp_dispatch *d)
+{
+  sane_katcp(d);
+
+#ifdef KATCP_EXPERIMENTAL
+  if(this_flat_katcp(d)){
+    return append_end_flat_katcp(d);
+  }
+#endif
+
+  return append_end_katcl(d->d_line);
+}
+
+
 /**************************************************************/
 
 /* This function is *NOT* a printf style function, instead of

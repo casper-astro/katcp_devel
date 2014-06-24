@@ -255,6 +255,7 @@ int append_double_katcp(struct katcp_dispatch *d, int flags, double v);
 int append_parameter_katcp(struct katcp_dispatch *d, int flags, struct katcl_parse *p, unsigned int index);
 int append_trailing_katcp(struct katcp_dispatch *d, int flags, struct katcl_parse *p, unsigned int start);
 int append_parse_katcp(struct katcp_dispatch *d, struct katcl_parse *p);
+int append_end_flat_katcp(struct katcp_dispatch *d);
 
 /* sensor writes */
 #if 0
