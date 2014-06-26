@@ -434,7 +434,8 @@ struct katcp_arb{
 
 #define KATCP_VRT_STRING    0
 #define KATCP_VRT_TREE      1
-#define KATCP_MAX_VRT       2
+#define KATCP_VRT_ARRAY     2
+#define KATCP_MAX_VRT       3
 
 #define KATCP_VRF_NONE     0
 #define KATCP_VRF_ENV    0x1  /* exported to environment */
@@ -459,12 +460,10 @@ struct katcp_vrbl_map_item{
   struct katcp_vrbl_payload *m_value;
 };
 
-#if 0
 struct katcp_vrbl_array{
-  struct katcp_vrbl_payload **a_array;
+  struct katcp_vrbl_payload **a_elements;
   unsigned int a_size;
 };
-#endif
 
 struct katcp_vrbl_payload{
   unsigned short p_type;
@@ -472,9 +471,7 @@ struct katcp_vrbl_payload{
     char *u_string;
     unsigned int u_integer;
     struct avl_tree *u_tree;
-#if 0
     struct katcp_vrbl_array u_array;
-#endif
   } p_union;
 };
 

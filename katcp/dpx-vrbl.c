@@ -1,12 +1,22 @@
 #ifdef KATCP_EXPERIMENTAL
 
-/* this is inconsistent - printing a full compound variable can be done,
- * setup allows only element at a time. Setup guesses type of individual
- * elements. Printing ommits keys, etc of compound variables */
+/* The user interface to operate on variables is (still) inconsistent:
+ *
+ * Printing a full compound variable can be done, but
+ * setup allows only element at a time
+ *
+ * Printing ommits keys, etc of compound variables, setup requires them ... 
+ *
+ * Setup guesses type of individual interior
+ * elements, from path specifier 
+ *
+ */ 
 
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+
+#include <ctype.h>
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -34,15 +44,16 @@ int add_payload_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int flag
 struct katcp_vrbl_type_ops{
   char *t_name;
 
-  /* set up union, assumes garbled input - produces usable union/structure with type set */
+  /* set up union, assumes garbled input - produces usable union/structure with type set, with some resources allocated possibly */
   int (*t_init)(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
+
   /* releases all resources held in union */
   void (*t_clear)(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
 
-
-  /* WARNING unclear semantics: how do we build up a composite structure ... */
+  /* WARNING unclear semantics: how do we build up a composite structure ..., add and scan should be complementary ?  */
   int (*t_scan)(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *text, char *path, int create, unsigned int type);
 
+  /* retrieve a particular element ... */
   struct katcp_vrbl_payload *(*t_element)(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *path);
 
   /* appends content to px, can recurse */
@@ -52,9 +63,7 @@ struct katcp_vrbl_type_ops{
 int init_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
 void clear_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
 int scan_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *text, char *path, int create, unsigned int type);
-
 struct katcp_vrbl_payload *element_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *path);
-
 int add_string_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int flags, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
 
 int init_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
@@ -62,6 +71,12 @@ void clear_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, stru
 int scan_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *text, char *path, int create, unsigned int type);
 struct katcp_vrbl_payload *element_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *path);
 int add_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int flags, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
+
+int init_array_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
+void clear_array_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
+int scan_array_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *text, char *path, int create, unsigned int type);
+struct katcp_vrbl_payload *element_array_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *path);
+int add_array_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int flags, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
 
 struct katcp_vrbl_type_ops ops_type_vrbl[KATCP_MAX_VRT] = {
   [KATCP_VRT_STRING] = 
@@ -79,6 +94,14 @@ struct katcp_vrbl_type_ops ops_type_vrbl[KATCP_MAX_VRT] = {
     &scan_tree_vrbl_katcp,
     &element_tree_vrbl_katcp,
     &add_tree_vrbl_katcp
+  },
+  [ KATCP_VRT_ARRAY] = 
+  { "array",
+    &init_array_vrbl_katcp,
+    &clear_array_vrbl_katcp,
+    &scan_array_vrbl_katcp,
+    &element_array_vrbl_katcp,
+    &add_array_vrbl_katcp
   }
 };
 
@@ -113,6 +136,8 @@ static int next_element_path_vrbl(char *path)
     return -1;
   }
 
+  /* no more ? */
+
   return 0;
 }
 
@@ -125,13 +150,12 @@ static unsigned int infer_type_path_vrbl(char *path)
   switch(path[0]){
     case ':' : 
       return KATCP_VRT_TREE;
-#if 0
     case '#' :
-      return TODO;
+      return KATCP_VRT_ARRAY;
+#if 0
     case '.' : 
       return TODO;
 #endif
-
       /* case '\0' : */
     default : 
       return KATCP_VRT_GONE;
@@ -156,6 +180,8 @@ int fixup_type_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struc
 
   if(vx->v_flags & KATCP_VRF_FLX){
     old = py->p_type;
+  } else {
+    return -1;
   }
 
   if(old < KATCP_MAX_VRT){
@@ -699,7 +725,63 @@ struct add_tree_variable_state{
   int s_result;
   struct katcl_parse *s_parse;
   struct katcp_vrbl *s_variable;
+  struct katcp_vrbl_payload *s_payload;
+  int s_flags;
+  int s_first;
 };
+
+#if 0
+static int print_add_tree_vrbl(struct katcp_dispatch *d, struct add_tree_variable_stat *st, char *key, struct katcp_vrbl_payload *payload)
+{
+
+  /* so this is a problem: we use FLAG_LAST to delimit and end of parse, however a vrbl might be entirely emtpy but discovering this will only be certain once we look at this, which is too late, as we would have had to invoke the previos print with a LAST */
+  int flags, result;
+
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(payload == NULL){
+    fprintf(stderr, "tree print: major logic problem: given a node with an empty payload\n");
+    abort();
+  }
+#endif
+
+  /* WARNING: what if tree entirely empty ? */
+
+  flags = 0;
+
+  if(last){
+    if(st->s_flags & KATCP_FLAG_LAST){
+      flags |= KATCP_FLAG_LAST;
+    }
+  }
+
+  if(st->s_payload == NULL){
+    st->s_first = 1;
+    st->s_payload = payload;
+    /* WARNING: skip */
+    return 0;
+  } 
+  
+  if(st->st_first){
+    if(st->s_flags & KATCP_FLAG_FIRST){
+      flags |= KATCP_FLAG_FIRST;
+    }
+  }
+
+  /* WARNING: and what if this is a tree which is entirely empty ? */
+  result = add_payload_vrbl_katcp(d, st->s_parse, 0, st->s_variable, st->s_payload);
+
+  st->s_first = 0;
+  st->s_payload = payload;
+
+  if(result < 0){
+    st->s_result = (-1);
+  } else {
+    st->s_result += result;
+  }
+
+  return result;
+}
+#endif
 
 static int callback_add_tree_vrbl(struct katcp_dispatch *d, void *global, char *key, void *data)
 {
@@ -777,6 +859,393 @@ int add_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int fl
   if(result < 0){
     return -1;
   }
+  sum += result;
+
+  return sum;
+}
+
+/* array logic *******************************************************************/
+
+int init_array_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py)
+{
+  struct katcp_vrbl_array *va;
+
+  if(py == NULL){
+    return -1;
+  }
+
+  if(py->p_type != KATCP_VRT_GONE){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "variable: attempting to initialise a variable of type %u which is already set up to be %u\n", KATCP_VRT_ARRAY, py->p_type);
+    abort();
+#else
+    return -1;
+#endif
+  }
+
+  py->p_type = KATCP_VRT_ARRAY;
+
+  va = &(py->p_union.u_array);
+
+  va->a_size = 0;
+  va->a_elements = NULL;
+
+  return 0;
+}
+
+void clear_array_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py)
+{
+  struct katcp_vrbl_array *va;
+  unsigned int i;
+
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(py == NULL){
+    fprintf(stderr, "clear array: no variable given\n");
+    abort();
+  }
+  if(py->p_type != KATCP_VRT_ARRAY){
+    fprintf(stderr, "clear array: bad type %u\n", py->p_type);
+    abort();
+  }
+#endif
+
+  va = &(py->p_union.u_array);
+
+  if(va->a_elements){
+    for(i = 0; i < va->a_size; i++){
+      release_vrbl_katcp(d, vx, va->a_elements[i]);
+      va->a_elements[i] = NULL;
+    }
+    free(va->a_elements);
+    va->a_elements = NULL;
+  }
+
+  va->a_size = 0;
+
+  py->p_type = KATCP_VRT_GONE;
+}
+
+#if 0
+int set_array_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *value)
+{
+  char *ptr;
+  int len;
+  struct katcp_vrbl_payload *ty;
+
+  if(vx == NULL){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    abort();
+#else
+    return -1;
+#endif
+  }
+
+  if(py == NULL){
+    /* WARNING: null assumes the default ... could be tricky if a complicated structure */
+    ty = vx->v_payload;
+    if(ty == NULL){
+#ifdef KATCP_CONSISTENCY_CHECKS
+      fprintf(stderr, "string variable: no payload available for variable value %s\n", value);
+      abort();
+#endif
+      return -1;
+    }
+  } else {
+    ty = py;
+  }
+
+  if(fixup_type_vrbl_katcp(d, vx, ty, KATCP_VRT_STRING) < 0){
+    return -1;
+  }
+
+  if(value == NULL){
+    if(ty->p_union.u_string){
+      free(ty->p_union.u_string);
+      ty->p_union.u_string = NULL;
+    }
+    return 0;
+  }
+
+  len = strlen(value) + 1;
+  ptr = realloc(ty->p_union.u_string, len);
+  if(ptr == NULL){
+    return -1;
+  }
+
+  memcpy(ptr, value, len);
+  ty->p_union.u_string = ptr;
+  return 0;
+}
+#endif
+
+int scan_array_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *text, char *path, int create, unsigned int type)
+{
+  struct katcp_vrbl_array *va;
+  unsigned int index, i;
+  int next, result;
+  unsigned int infer;
+  char *rest, *end;
+  struct katcp_vrbl_payload *ty;
+  struct katcp_vrbl_payload **tmp;
+
+  if(path){
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "about to scan map with key %s", path);
+  } else {
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "about to scan empty map");
+  }
+
+  if(fixup_type_vrbl_katcp(d, vx, py, KATCP_VRT_ARRAY) < 0){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "variable fails type consistency rule");
+    return -1;
+  }
+
+  va = &(py->p_union.u_array);
+
+  if(path == NULL){
+    if(text == NULL){
+      log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "scan of empty array");
+      return 0;
+    } else {
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "array requires a path for value insertion");
+      return -1;
+    }
+  }
+
+  if(path[0] != '#'){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "tree insert: unexpected path specification %s\n", path);
+#endif
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "invalid compound variable access path %s", path);
+    return -1;
+  }
+
+  next = next_element_path_vrbl(path);
+  if(next < 0){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "invalid path specification %s", path);
+    return -1;
+  }
+
+  index = strtoul(path + 1, &end, 10);
+  if(end == (path + 1)){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "no index available in path specification %s", path);
+    return -1;
+  }
+
+  if(isalpha(end[0])){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "incorrect suffix %s while scaning path specification %s", end, path);
+    return -1;
+  }
+
+  if(next == 1){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "compound variable access path has a null member");
+    return -1;
+  }
+
+  if(next == 0){
+    rest = NULL;
+  } else {
+    rest = path + next;
+  }
+
+  if(va->a_size <= index){
+    if((create == 0) || (type >= KATCP_MAX_VRT)){
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "variable element %s would have to be created, but creation not requested", path);
+      return -1;
+    }
+
+    tmp = realloc(va->a_elements, sizeof(struct katcp_vrbl_payload *) * (index + 1));
+    if(tmp == NULL){
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to resize array to %u elements", index);
+      return -1;
+    }
+
+    va->a_elements = tmp;
+
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "resized vector from %u to %u", va->a_size, index + 1);
+
+    for(i = va->a_size; i <= index; i++){
+      va->a_elements[i] = NULL;
+    }
+
+    va->a_size = (index + 1);
+  }
+
+  ty = va->a_elements[index];
+
+  if(ty == NULL){
+
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "tried to locate element %s but not found", path);
+
+    if((create == 0) || (type >= KATCP_MAX_VRT)){
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "variable element %s would have to be created, but creation not requested", path);
+      return -1;
+    }
+
+    infer = infer_type_path_vrbl(rest);
+
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "inferred type %u with leaf %u", infer, type);
+
+    if(infer >= KATCP_MAX_VRT){
+      infer = type;
+    }
+
+    ty = setup_vrbl_katcp(d, vx, infer);
+    if(ty == NULL){
+      return -1;
+    }
+
+    va->a_elements[index] = ty;
+
+  } else {
+    infer = ty->p_type;
+#ifdef KATCP_CONSISTENCY_CHECKS
+    if(infer >= KATCP_MAX_VRT){
+      fprintf(stderr, "tree insert: operating on bad type %u\n", infer);
+    }
+#endif
+  }
+
+  /* go deeper down the wabbit hole */
+  result = (*(ops_type_vrbl[infer].t_scan))(d, vx, ty, text, rest, create, type);
+  
+  if(result < 0){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "child addition to map failed");
+  }
+
+#if 0
+  if(vx->v_change){
+    /* WARNING: change API update happens at top level, assuming type_specific scans are only called at proper entry points */
+  }
+#endif
+
+  return result;
+}
+
+struct katcp_vrbl_payload *element_array_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *path)
+{
+  struct katcp_vrbl_array *va;
+  struct katcp_vrbl_payload *ty;
+  unsigned int infer, index;
+  int next;
+  char *rest, *end;
+
+  if((vx == NULL) || (py == NULL)){
+    return NULL;
+  }
+
+  if((path == NULL) || (path[0] == '\0')){
+    return py;
+  }
+
+  /* WARNING: this has a fair bit in common with the scan logic, but splitting it out is messy ... */
+
+  if(path[0] != '#'){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "invalid compound variable access path %s at array", path);
+    return NULL;
+  }
+
+  next = next_element_path_vrbl(path);
+  if(next < 0){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "invalid path specification %s", path);
+    return NULL;
+  }
+
+  index = strtoul(path + 1, &end, 10);
+  if(end == (path + 1)){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "no index available in path specification %s", path);
+    return NULL;
+  }
+
+  if(isalpha(end[0])){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "incorrect suffix %s while scaning path specification %s", end, path);
+    return NULL;
+  }
+
+  switch(next){
+    case 0 :
+      rest = NULL;
+      break;
+    case 1 : 
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "compound variable access path has a null member");
+      return NULL;
+    default : 
+      rest = path + next;
+      break;
+  }
+
+  va = &(py->p_union.u_array);
+
+  if(va->a_size <= index){
+    return NULL;
+  } 
+
+
+  ty = va->a_elements[index];
+  if(ty == NULL){
+    return NULL;
+  }
+
+  infer = ty->p_type;
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(infer >= KATCP_MAX_VRT){
+    fprintf(stderr, "major logic problem: looked up entity is invalid type\n");
+    abort();
+  }
+#endif
+
+  /* go deeper down the wabbit hole */
+  return (*(ops_type_vrbl[infer].t_element))(d, vx, ty, rest);
+}
+
+int add_array_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int flags, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py)
+{
+  struct katcp_vrbl_array *va;
+  unsigned int i;
+  int result, sum;
+#ifdef KATCP_CONSISTENCY_CHECKS
+  unsigned int valid;
+
+  if(py == NULL){
+    fprintf(stderr, "add variable array: no variable given\n");
+    abort();
+  }
+  if(py->p_type != KATCP_VRT_ARRAY){
+    fprintf(stderr, "add variable array: bad type %u\n", py->p_type);
+    abort();
+  }
+  valid = (KATCP_FLAG_FIRST | KATCP_FLAG_LAST);
+  if((flags | valid) != valid){
+    fprintf(stderr, "add variable array: bad flags 0x%x supplied\n", flags);
+    abort();
+  }
+#endif
+
+  sum = 0;
+
+  result = add_string_parse_katcl(px, (flags & KATCP_FLAG_FIRST) | KATCP_FLAG_STRING, "[");
+  if(result < 0){
+    return -1;
+  }
+
+  sum += result;
+
+  va = &(py->p_union.u_array);
+
+  for(i = 0; i < va->a_size; i++){
+    if(va->a_elements[i]){
+      result = add_payload_vrbl_katcp(d, px, 0, vx, va->a_elements[i]);
+      if(result < 0){
+        return -1;
+      }
+      sum += result;
+    }
+  }
+
+  result = add_string_parse_katcl(px, (flags & KATCP_FLAG_LAST) | KATCP_FLAG_STRING, "]");
+  if(result < 0){
+    return -1;
+  }
+
   sum += result;
 
   return sum;
