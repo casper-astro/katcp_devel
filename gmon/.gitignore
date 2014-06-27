@@ -1,0 +1,3 @@
+# files to be ignore by git
+kcpgmon
+example.c
