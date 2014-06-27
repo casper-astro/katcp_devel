@@ -1,5 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
+#include <signal.h>
 
 #include "netc.h"
 #include "katcp.h"
@@ -7,11 +9,34 @@
 
 #include "gmon.h"
 
+static volatile sig_atomic_t monitor = 1;
+
+static void signalhandler(int signum)
+{
+    switch (signum) {
+        case SIGTERM:
+        case SIGINT:
+            monitor = 0;    
+            break;
+
+        default:
+            return;
+    }
+}
+
 int main(int argc, char *argv[])
 {
+    struct sigaction sa;
     char *server;
     struct katcl_line *l;
     int fd;
+
+    /* initialize the signal handler */
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = &signalhandler;
+    sa.sa_flags = SA_RESTART;
+    sigaction(SIGTERM, &sa, NULL);
+    sigaction(SIGINT, &sa, NULL);
 
     if (argc <= 0) {
         server = getenv("KATCP_SERVER");
@@ -38,9 +63,11 @@ int main(int argc, char *argv[])
     }
 
     /* main working loop */
-    //while (1) {
+    while (monitor) {
         gmon_task(l);
-    //}
+    }
+
+    printf("shuting down...\n");
 
     destroy_katcl(l, 1);
 
