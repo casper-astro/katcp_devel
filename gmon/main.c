@@ -38,9 +38,9 @@ int main(int argc, char *argv[])
     }
 
     /* main working loop */
-    while (1) {
+    //while (1) {
         gmon_task(l);
-    }
+    //}
 
     destroy_katcl(l, 1);
 
