@@ -84,7 +84,7 @@ struct getap_state{
   uint32_t s_network_binary;
 
   unsigned int s_instance;
-  uint16_t s_iteration;
+  uint32_t s_iteration;
   unsigned int s_burst;
   unsigned int s_deferrals;
 
@@ -109,7 +109,7 @@ struct getap_state{
   unsigned char s_arp_buffer[GETAP_ARP_FRAME];
 
   uint8_t s_arp_table[GETAP_ARP_CACHE][GETAP_MAC_SIZE];
-  uint16_t s_arp_fresh[GETAP_ARP_CACHE];
+  uint32_t s_arp_fresh[GETAP_ARP_CACHE];
 };
 
 #define TBS_FPGA_DOWN        0

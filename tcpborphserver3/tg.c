@@ -26,19 +26,14 @@
 
 #define POLL_INTERVAL     10  /* polling interval, in msecs, how often we look at register */
 
-#define FRESH_FOUND    28000 /* length of time to cache a valid reply - units are poll interval, approx */
+#define FRESH_FOUND          30000 /* length of time to cache a valid reply - units are poll interval, approx */
+#define FRESH_ANNOUNCE_FINAL  4000 /* interval when we announce ourselves - good idea to be shorter than others */
+#define FRESH_ANNOUNCE_INITIAL  13 /* initial spamming interval, can not be smaller than 2 */
+#define FRESH_ANNOUNCE_LINEAR   70 /* value before which we are linear - not quadratic */
+#define ANNOUNCE_RATIO           4 /* own announcements happen more frequently than queries */
 
-#if 0
-#define FRESH_REQUEST   8000 /* length of time for next request - units as above */
-#endif
-
-#define FRESH_ANNOUNCE_FINAL  3000 /* interval when we announce ourselves - good idea to be shorter than others */
-#define FRESH_ANNOUNCE_INITIAL  20 /* initial spamming interval */
-#define ANNOUNCE_RATIO           3 /* own announcements happen more frequently than queries */
-
-#define SPAM_SMEAR        53 /* initial arp spamming offset as multiple of instance number, units poll interval */
-#define SPAM_BLOCKS       16 /* drift apart in spam block quantities */
-#define ARP_MULT           2 /* multiplier to space out arp messages */
+#define COPRIME_A         5 /* initial arp spamming offset as multiple of instance number, units poll interval */
+#define COPRIME_B        17 /* some other offset ... */
 
 #define RECEIVE_BURST      8 /* read at most N frames per polling interval */
 
@@ -47,9 +42,9 @@
 #define GO_MAC          0x00
 #define GO_GATEWAY      0x0c
 #define GO_ADDRESS      0x10
-#define GO_MCADDR       0x30 /*mcast ip*/
-#define GO_MCMASK       0x34 /*mcast count ff.ff.ff.f7 to encode ip base +8 addresses
-                               or          ff.ff.ff.fb to encode ip base +4 addresses*/
+#define GO_MCADDR       0x30 /* mcast ip */
+#define GO_MCMASK       0x34 /* mcast count ff.ff.ff.f7 to encode ip base +8 addresses
+                                or          ff.ff.ff.fb to encode ip base +4 addresses*/
 #define GO_BUFFER_SIZES 0x18
 #define GO_EN_RST_PORT  0x20
 
@@ -266,15 +261,22 @@ void announce_arp(struct getap_state *gs)
   }
 
   if(gs->s_announce < FRESH_ANNOUNCE_FINAL){
-    gs->s_announce++;
+    if(gs->s_announce < FRESH_ANNOUNCE_LINEAR){
+      gs->s_announce = gs->s_announce + 1;
+    } else {
+      gs->s_announce = gs->s_announce * 2;
+    }
+  } else {
+    gs->s_announce = FRESH_ANNOUNCE_FINAL;
   }
-  gs->s_arp_fresh[gs->s_self] = gs->s_iteration + gs->s_announce;
 
+  gs->s_arp_fresh[gs->s_self] = gs->s_iteration + gs->s_announce;
 }
 
 static void request_arp(struct getap_state *gs, int index)
 {
   uint32_t host;
+  unsigned int extra;
   int result;
 
   if(gs->s_self == index){
@@ -305,7 +307,8 @@ static void request_arp(struct getap_state *gs, int index)
 #endif
 
   /* WARNING: arb calculation, attempt to have things diverge gradually */
-  gs->s_arp_fresh[index] = gs->s_iteration + (gs->s_announce * ANNOUNCE_RATIO);
+  extra = (gs->s_arp_fresh[index] % COPRIME_A) ? 0 : COPRIME_B;
+  gs->s_arp_fresh[index] = gs->s_iteration + (gs->s_announce * ANNOUNCE_RATIO) + extra;
   gs->s_arp_len = 42;
 
   result = write_frame_fpga(gs, gs->s_arp_buffer, gs->s_arp_len);
@@ -389,6 +392,7 @@ void spam_arp(struct getap_state *gs)
   unsigned int i;
   uint32_t update;
 #endif
+  unsigned int consider;
 
   /* unfortunate, but the gateware needs to know other systems and can't wait, so we have to work things out in advance */
 
@@ -397,8 +401,13 @@ void spam_arp(struct getap_state *gs)
     return;
   }
 
-  while(gs->s_index < 254){
-    if(gs->s_arp_fresh[gs->s_index] <= gs->s_iteration){
+  while(gs->s_index < (GETAP_ARP_CACHE - 1)){
+
+    consider = gs->s_arp_fresh[gs->s_index];
+
+/* if integers never wrapped, then we could have done consider <= gs->s_iteration, but ... */
+
+    if(((gs->s_iteration >= consider) ? (gs->s_iteration - consider) : (UINT32_MAX - (consider - gs->s_iteration))) < (2 * GETAP_ARP_CACHE)){
       if(gs->s_index == gs->s_self){
         announce_arp(gs);
       } else {
@@ -1005,10 +1014,10 @@ int configure_fpga(struct getap_state *gs)
 
   for(i = 0; i < GETAP_ARP_CACHE; i++){
     /* heuristic to make things less bursty ... unclear if it is worth anything */
-    set_entry_arp(gs, i, broadcast_const, gs->s_iteration + (i * SPAM_SMEAR));
+    set_entry_arp(gs, i, broadcast_const, (GETAP_ARP_CACHE - gs->s_self) + (i * COPRIME_A));
   }
 
-  set_entry_arp(gs, gs->s_self, gs->s_mac_binary, gs->s_iteration + 1);
+  set_entry_arp(gs, gs->s_self, gs->s_mac_binary, 1);
 
   return 0;
 }
@@ -1444,11 +1453,12 @@ void tap_print_info(struct katcp_dispatch *d, struct getap_state *gs)
 {
   unsigned int i;
 
-  for(i = 1; i < 254; i++){
-    if(memcmp(gs->s_arp_table[i], broadcast_const, 6)){
-      log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "peer %02x:%02x:%02x:%02x:%02x:%02x at %u", gs->s_arp_table[i][0], gs->s_arp_table[i][1], gs->s_arp_table[i][2], gs->s_arp_table[i][3], gs->s_arp_table[i][4], gs->s_arp_table[i][5], gs->s_arp_fresh[i]);
-    }
+  for(i = 1; i < (GETAP_ARP_CACHE - 1); i++){
+    log_message_katcp(gs->s_dispatch, memcmp(gs->s_arp_table[i], broadcast_const, 6) ? KATCP_LEVEL_INFO : KATCP_LEVEL_TRACE, NULL, "peer %02x:%02x:%02x:%02x:%02x:%02x at index %u valid for %u", gs->s_arp_table[i][0], gs->s_arp_table[i][1], gs->s_arp_table[i][2], gs->s_arp_table[i][3], gs->s_arp_table[i][4], gs->s_arp_table[i][5], i, gs->s_arp_fresh[i] - gs->s_iteration);
   }
+  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "current index %u", gs->s_index);
+  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "own index %u", gs->s_self);
+  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "current iteration %u", gs->s_iteration);
 
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "polling interval %ums", gs->s_timer);
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "max reads per interval %u", gs->s_burst);
@@ -1459,9 +1469,9 @@ void tap_print_info(struct katcp_dispatch *d, struct getap_state *gs)
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "gateware port is %u", gs->s_port);
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "tap device name %s on fd %d", gs->s_tap_name, gs->s_tap_fd);
 
-  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "current iteration %u", gs->s_iteration);
-  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "current index %u", gs->s_index);
-  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "current interval %u", gs->s_announce);
+  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "announcement initially every %u now %u and finally %u", FRESH_ANNOUNCE_INITIAL, gs->s_announce, FRESH_ANNOUNCE_FINAL);
+  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "ratio of announce to query is 1:%u", ANNOUNCE_RATIO);
+
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "current arp spam deferrals %u", gs->s_deferrals);
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "current buffers arp=%u/rx=%u/tx=%u", gs->s_arp_len, gs->s_rx_len, gs->s_tx_len);
 
