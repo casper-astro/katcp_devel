@@ -150,6 +150,9 @@ struct katcp_acquire{
   struct timeval a_current; /* current rate */
   struct timeval a_limit;   /* fastest update rate */
   struct timeval a_last;    /* last time value was acquired */
+#ifdef KATCP_EXPERIMENTAL
+  struct timeval a_real;    /* time which sensor was actually read */
+#endif
 
   void *a_local;
   void (*a_release)(struct katcp_dispatch *d, struct katcp_acquire *a);
