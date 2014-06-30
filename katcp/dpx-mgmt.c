@@ -440,19 +440,36 @@ int group_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   struct katcp_shared *s;
   struct katcp_cmd_map *mx;
   int j, count, i;
-  char *ptr, *group;
+  char *ptr, *group, *name;
 
   s = d->d_shared;
 
   count = 0;
+
+  if(argc >= 2){
+    name = arg_string_katcp(d, 1);
+    if(name == NULL){
+      return extra_response_katcp(d, KATCP_RESULT_INVALID, KATCP_FAIL_BUG);
+    }
+  } else {
+    name = NULL;
+  }
 
   for(j = 0; j < s->s_members; j++){
     gx = s->s_groups[j];
 
     if(gx->g_name){
       group = gx->g_name;
+      if(name && strcmp(group, name)){
+        /* WARNING */
+        continue;
+      }
     } else {
       group = "<anonymous>";
+      if(name){
+        /* WARNING */
+        continue;
+      }
     }
 
     log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "group %s has %d references", group, gx->g_use);
@@ -485,6 +502,10 @@ int group_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
       append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, gx->g_name);
       count++;
     }
+  }
+
+  if((count == 0) && (name != NULL)){
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_NOT_FOUND);
   }
 
   return extra_response_katcp(d, KATCP_RESULT_OK, "%d", count);
@@ -629,6 +650,8 @@ int listener_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   int count;
   struct katcp_arb *a;
 
+  name = NULL;
+
   if(argc > 1){
     name = arg_string_katcp(d, 1);
     if(name == NULL){
@@ -639,7 +662,7 @@ int listener_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     a = find_type_arb_katcp(d, name, KATCP_ARB_TYPE_LISTENER);
     if(a == NULL){
       log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "no listener %s found", name);
-      return KATCP_RESULT_FAIL;
+      return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_NOT_FOUND);
     }
 
     count = print_listener_katcp(d, a, NULL);
@@ -649,7 +672,6 @@ int listener_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
   if(count < 0){
     return KATCP_RESULT_FAIL;
-
   }
 
   return extra_response_katcp(d, KATCP_RESULT_OK, "%d", count);

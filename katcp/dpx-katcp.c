@@ -347,11 +347,23 @@ int watchdog_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
 /* client list */
 
-static int print_client_list_katcp(struct katcp_dispatch *d, struct katcp_flat *fx)
+static int print_client_list_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, char *name)
 {
   int result, r, pending;
   char *ptr;
   struct katcp_group *gx;
+
+  if(fx->f_name == NULL){
+    return 0;
+  }
+
+  if(name && strcmp(name, fx->f_name)){
+    return 0;
+  }
+
+  if((fx->f_flags & KATCP_FLAT_HIDDEN) && (name == NULL)){
+    return 0;
+  }
 
   r = prepend_inform_katcp(d);
   if(r < 0){
@@ -426,6 +438,7 @@ int client_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   struct katcp_group *gx;
   struct katcp_flat *fx, *fy;
   unsigned int i, j, total;
+  char *name;
 
   s = d->d_shared;
   total = 0;
@@ -436,13 +449,17 @@ int client_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
+  if(argc > 1){
+    name = arg_string_katcp(d, 1);
+  } else {
+    name = NULL;
+  }
+
   switch(fx->f_scope){
     case KATCP_SCOPE_SINGLE :
       /* WARNING: maybe a client can not be hidden from itself ? */
-      if((fx->f_flags & KATCP_FLAT_HIDDEN) == 0){
-        if(print_client_list_katcp(d, fx) > 0){
-          total++;
-        }
+      if(print_client_list_katcp(d, fx, name) > 0){
+        total++;
       }
       break;
     case KATCP_SCOPE_GROUP :
@@ -450,10 +467,8 @@ int client_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
       if(gx){
         for(i = 0; i < gx->g_count; i++){
           fy = gx->g_flats[i];
-          if((fy->f_flags & KATCP_FLAT_HIDDEN) == 0){
-            if(print_client_list_katcp(d, fy) > 0){
-              total++;
-            }
+          if(print_client_list_katcp(d, fy, name) > 0){
+            total++;
           }
         }
       }
@@ -464,10 +479,8 @@ int client_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
         if(gx){
           for(i = 0; i < gx->g_count; i++){
             fy = gx->g_flats[i];
-            if((fy->f_flags & KATCP_FLAT_HIDDEN) == 0){
-              if(print_client_list_katcp(d, fy) > 0){
-                total++;
-              }
+            if(print_client_list_katcp(d, fy, name) > 0){
+              total++;
             }
           }
         }
@@ -476,6 +489,10 @@ int client_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     default :
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "invalid client scope %d for %s\n", fx->f_scope, fx->f_name);
       return KATCP_RESULT_FAIL;
+  }
+
+  if((total == 0) && (name != NULL)){
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_NOT_FOUND);
   }
 
   return extra_response_katcp(d, KATCP_RESULT_OK, "%u", total);
@@ -645,6 +662,7 @@ int sensor_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   count = 0;
 
   if(argc > 1){
+    /* One of the few commands which accepts lots of parameters */
     for(i = 1 ; i < argc ; i++){
       key = arg_string_katcp(d, i);
       if(key == NULL){
@@ -812,6 +830,7 @@ int sensor_value_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   count = 0;
 
   if(argc > 1){
+    /* One of the few commands which accepts lots of parameters */
     for(i = 1 ; i < argc ; i++){
       key = arg_string_katcp(d, i);
       if(key == NULL){
