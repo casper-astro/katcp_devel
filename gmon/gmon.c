@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "gmon.h"
+#include "parser.h"
 
 #define BUFF_LEN    (1024)
 #define TIMEOUT_S   (5UL)
@@ -26,10 +27,10 @@ static int checkfpga(struct katcl_line *l)
 }
 
 
-int gmon_init(struct katcl_line *l)
+int gmon_init(void)
 {
-
-    return 1;
+    parser_init();
+    return 0;
 }
 
 int gmon_task(struct katcl_line *l)
@@ -69,6 +70,7 @@ int gmon_task(struct katcl_line *l)
         if (len) {
             buff[len] = '\0';
             printf("read: %s\n", buff);
+            parser(buff);
         }
     } else {
         printf("timeout after %ld seconds.\n", TIMEOUT_S);

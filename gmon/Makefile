@@ -6,7 +6,7 @@ INC = -I$(KATCP)
 LIB = -L$(KATCP) -lkatcp -lm
 
 EXE = kcpgmon
-SRC = main.c gmon.c
+SRC = main.c gmon.c parser.c
 
 OBJ = $(patsubst %.c,%.o,$(SRC))
 

@@ -62,12 +62,14 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
+    gmon_init();
+
     /* main working loop */
     while (monitor) {
         gmon_task(l);
     }
 
-    printf("shuting down...\n");
+    printf("shutting down...\n");
 
     destroy_katcl(l, 1);
 

@@ -14,7 +14,7 @@
 extern "C" {
 #endif
 
-int gmon_init(struct katcl_line *l);
+int gmon_init(void);
 int gmon_task(struct katcl_line *l);
 
 #ifdef __cplusplus
