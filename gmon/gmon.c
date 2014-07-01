@@ -72,9 +72,8 @@ int gmon_task(struct katcl_line *l)
         }
     } else {
         printf("timeout after %ld seconds.\n", TIMEOUT_S);
+        retval = checkfpga(l);
     }
-
-    retval = checkfpga(l);
 
     return retval;
 }
