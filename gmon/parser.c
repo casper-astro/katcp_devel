@@ -25,6 +25,7 @@ int parser(char *str)
     /* parse the newline characters to form substrings */
     substring = strtok(str, "\n");
     while (substring != NULL) {
+        i = 0;
         printf("substring: %s\n", substring);
         /* itterate through the message lookup list to find commandstrings */ 
         while (messageLookup[i].commandString != NULL) {
