@@ -29,7 +29,6 @@ static int checkfpga(struct katcl_line *l)
 
 int gmon_init(void)
 {
-    parser_init();
     return 0;
 }
 

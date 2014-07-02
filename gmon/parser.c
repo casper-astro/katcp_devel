@@ -7,46 +7,32 @@ struct message {
     void (*action)(void);
 };
 
-struct message messageLookup[10];
-
-/*
-struct message *parser_register(char *cmdStr, void (*action)(void))
-{
-      struct message *msg = malloc
-}
-*/
-
-void parse_test(void)
+static void parse_test(void)
 {
     printf("parse_test() called!\n");
 }
 
-int parser_init(void)
-{
-    memset(messageLookup, 0, sizeof(messageLookup));
-    
-    messageLookup[0].commandString = "!fpgastatus";
-    messageLookup[0].action = parse_test;
-  
-    return 0;  
-}
+static struct message messageLookup[] = {
+    {"!fpgastatus", parse_test},
+    {NULL, NULL}
+};
 
 int parser(char *str)
 {
     char *substring;
     int i = 0;
 
+    /* parse the newline characters to form substrings */
     substring = strtok(str, "\n");
     while (substring != NULL) {
-        printf("substring: %s\n", substring); 
-        for (i = 0; i < 10; i++) {
-            if (messageLookup[i].commandString != NULL) {
-                if (strstr(substring, messageLookup[i].commandString)) {
-                    messageLookup[i].action();
-                } 
-            } else {
-                break;
-            }    
+        printf("substring: %s\n", substring);
+        /* itterate through the message lookup list to find commandstrings */ 
+        while (messageLookup[i].commandString != NULL) {
+            /* find the needle in the haystack */
+            if (strstr(substring, messageLookup[i].commandString)) {
+                messageLookup[i].action();
+            }
+            i++; 
         }
         substring = strtok(NULL, "\n");
     }
