@@ -33,19 +33,23 @@ int parser_init(void)
 
 int parser(char *str)
 {
+    char *substring;
     int i = 0;
 
-    for (i = 0; i < 10; i++) {
-        if (messageLookup[i].commandString != NULL) {
-            if (strstr(str, messageLookup[i].commandString)) {
-                messageLookup[i].action();
-            } 
-        } else {
-            break;
-        } 
+    substring = strtok(str, "\n");
+    while (substring != NULL) {
+        printf("substring: %s\n", substring); 
+        for (i = 0; i < 10; i++) {
+            if (messageLookup[i].commandString != NULL) {
+                if (strstr(substring, messageLookup[i].commandString)) {
+                    messageLookup[i].action();
+                } 
+            } else {
+                break;
+            }    
+        }
+        substring = strtok(NULL, "\n");
     }
     
-
-
     return 0;
 }
