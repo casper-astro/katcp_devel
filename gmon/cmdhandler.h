@@ -4,8 +4,8 @@
  *
  */
 
-#ifndef _KATCP_PARSER_H_
-#define _KATCP_PARSER_H_
+#ifndef _KATCP_CMDHANDLER_H_
+#define _KATCP_CMDHANDLER_H_
 
 #include <string.h>
 
@@ -13,11 +13,10 @@
 extern "C" {
 #endif
 
-int parser_init(void);
-int parser(char *str);
+int cmdhandler(char *cmd, char *arg);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* _KATCP_PARSER_H_ */
+#endif /* _KATCP_CMDHANDLER_H_ */

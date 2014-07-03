@@ -9,15 +9,16 @@
 
 #include "katcp.h"
 #include "katcl.h"
+#include "katpriv.h"
 
-#define GMON_PROG    ("gmon")
+#define GMON_PROG    ("kcpgmon")
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 int gmon_init(void);
-int gmon_task(struct katcl_line *l);
+int gmon_task(struct katcl_line *l, struct katcl_line *k);
 
 #ifdef __cplusplus
 }

@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <signal.h>
+#include <unistd.h>
 
 #include "netc.h"
 #include "katcp.h"
@@ -28,7 +29,8 @@ int main(int argc, char *argv[])
 {
     struct sigaction sa;
     char *server;
-    struct katcl_line *l;
+    struct katcl_line *l = NULL;
+    struct katcl_line *k = NULL;
     int fd;
 
     /* initialize the signal handler */
@@ -49,6 +51,12 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
+    k = create_katcl(STDOUT_FILENO);
+    if (k == NULL) {
+        fprintf(stderr, "could not create katcl\n");
+        return EXIT_FAILURE;
+    }
+
     fd = net_connect(server, 0, NETC_VERBOSE_ERRORS | NETC_VERBOSE_STATS);
     if (fd < 0) {
         fprintf(stderr, "unable to connect to %s\n", server);
@@ -62,18 +70,24 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    log_message_katcl(l, KATCP_LEVEL_INFO, GMON_PROG, "starting %s...", GMON_PROG);
+    sync_message_katcl(k, KATCP_LEVEL_INFO, GMON_PROG, 
+                        "starting %s...", GMON_PROG);
 
     /* main working loop */
     while (monitor) {
-        gmon_task(l);
+        gmon_task(l, k);
     }
 
-    printf("shutting down...\n");
-    
-    log_message_katcl(l, KATCP_LEVEL_INFO, GMON_PROG, "shutting down %s...", GMON_PROG);
+    sync_message_katcl(k, KATCP_LEVEL_INFO, GMON_PROG, 
+                        "shutting down %s...", GMON_PROG);
 
-    destroy_katcl(l, 1);
+    if (l) {
+        destroy_katcl(l, 1);
+    }
+
+    if (k) {
+        destroy_katcl(k, 1);
+    }
 
     return EXIT_SUCCESS;
 }

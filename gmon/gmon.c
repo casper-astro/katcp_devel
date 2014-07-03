@@ -1,12 +1,13 @@
 #include <stdio.h>
+#include <string.h>
 #include <sys/select.h>
 #include <sys/time.h>
 #include <unistd.h>
 
 #include "gmon.h"
-#include "parser.h"
+#include "cmdhandler.h"
 
-#define BUFF_LEN    (1024)
+//#define BUFF_LEN    (1024)
 #define TIMEOUT_S   (5UL)
 
 static int checkfpga(struct katcl_line *l)
@@ -33,12 +34,14 @@ int gmon_init(void)
     return 0;
 }
 
-int gmon_task(struct katcl_line *l)
+int gmon_task(struct katcl_line *l, struct katcl_line *k)
 {
     int fd;
     fd_set readfds;
     struct timeval timeout;
     int retval;
+    char *cmd, *arg;
+    struct katcl_parse *p = NULL;
 
     if (l == NULL) {
         return -1;
@@ -59,19 +62,27 @@ int gmon_task(struct katcl_line *l)
     } else if (retval) {
         printf("data available now.\n");
         /* FD_ISSET(fd, &readfds) will be true */
-	    char buff[BUFF_LEN + 1];
-        int len = read(fd, buff, BUFF_LEN);
-        
-       	if (len == -1) {
-            perror("read()");
-            return 1;
+        retval = read_katcl(l);
+
+        if (retval) {
+            fprintf(stderr, "%s: read failed.", GMON_PROG);
         }
 
-        if (len) {
-            buff[len] = '\0';
-            printf("read: %s\n", buff);
-            parser(buff);
+        while (have_katcl(l) > 0) {
+            cmd = arg_string_katcl(l, 0);
+            /* route log messages to STDOUT, else pass them to
+               the command handler */
+            if (!strcmp(cmd, KATCP_LOG_INFORM)) {
+                p = ready_katcl(l);
+                append_parse_katcl(k, p);
+                /* write the log data out */
+                while ((retval = write_katcl(k)) == 0); 
+            } else {
+                arg = arg_string_katcl(l, 1);
+                cmdhandler(cmd, arg);
+            }
         }
+
     } else {
         printf("timeout after %ld seconds.\n", TIMEOUT_S);
         retval = checkfpga(l);
