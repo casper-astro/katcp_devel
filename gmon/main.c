@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
     }
 
     if (server == NULL) {
-        fprintf(stderr, "need a server as first argument or in the KATCP_SERVER variable\n");
+        fprintf(stderr, "need a server as first argument or KATCP_SERVER variable\n");
         return EXIT_FAILURE;
     }
 
@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    gmon_init();
+    log_message_katcl(l, KATCP_LEVEL_INFO, GMON_PROG, "starting %s...", GMON_PROG);
 
     /* main working loop */
     while (monitor) {
@@ -70,6 +70,8 @@ int main(int argc, char *argv[])
     }
 
     printf("shutting down...\n");
+    
+    log_message_katcl(l, KATCP_LEVEL_INFO, GMON_PROG, "shutting down %s...", GMON_PROG);
 
     destroy_katcl(l, 1);
 

@@ -10,6 +10,8 @@
 #include "katcp.h"
 #include "katcl.h"
 
+#define GMON_PROG    ("gmon")
+
 #ifdef __cplusplus
 extern "C" {
 #endif

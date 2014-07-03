@@ -17,8 +17,8 @@ static int checkfpga(struct katcl_line *l)
         return -1;
     }
 
-    retval += append_string_katcl(l, KATCP_FLAG_FIRST | KATCP_FLAG_STRING | KATCP_FLAG_LAST,
-            "?fpgastatus");
+    retval += append_string_katcl(l, KATCP_FLAG_FIRST | KATCP_FLAG_STRING 
+                    | KATCP_FLAG_LAST, "?fpgastatus");
 
     /* write katcl command out */
     while ((retval = write_katcl(l)) == 0);
@@ -29,6 +29,7 @@ static int checkfpga(struct katcl_line *l)
 
 int gmon_init(void)
 {
+    /* not currently used */
     return 0;
 }
 
