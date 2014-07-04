@@ -7,7 +7,6 @@
 #include "gmon.h"
 #include "cmdhandler.h"
 
-//#define BUFF_LEN    (1024)
 #define TIMEOUT_S   (5UL)
 
 static int checkfpga(struct katcl_line *l)
@@ -20,9 +19,6 @@ static int checkfpga(struct katcl_line *l)
 
     retval += append_string_katcl(l, KATCP_FLAG_FIRST | KATCP_FLAG_STRING 
                     | KATCP_FLAG_LAST, "?fpgastatus");
-
-    /* write katcl command out */
-    while ((retval = write_katcl(l)) == 0);
 
     return retval;
 }
@@ -37,7 +33,7 @@ int gmon_init(void)
 int gmon_task(struct katcl_line *l, struct katcl_line *k)
 {
     int fd;
-    fd_set readfds;
+    fd_set readfds, writefds;
     struct timeval timeout;
     int retval;
     char *cmd, *arg;
@@ -52,35 +48,59 @@ int gmon_task(struct katcl_line *l, struct katcl_line *k)
     timeout.tv_usec = 0;
 
     FD_ZERO(&readfds);
+    FD_ZERO(&writefds);
+    
     FD_SET(fd, &readfds);
 
-    retval = select(fd + 1, &readfds, NULL, NULL, &timeout);
+    /* check if there is socket data to write out */
+    if (flushing_katcl(l)) {
+        FD_SET(fd, &writefds);
+    }
+
+    /* check if there is log data to write out */
+    if (flushing_katcl(k)) {
+        FD_SET(fileno_katcl(k), &writefds);
+    }
+
+    /* we know (fd + 1) will be the highest since fileno_katcl(k) 
+       return STDOUT_FILENO */
+    retval = select(fd + 1, &readfds, &writefds, NULL, &timeout);
 
     if (retval == -1) {
         perror("select()");
         return 1;
     } else if (retval) {
-        printf("data available now.\n");
-        /* FD_ISSET(fd, &readfds) will be true */
-        retval = read_katcl(l);
 
-        if (retval) {
-            fprintf(stderr, "%s: read failed.", GMON_PROG);
+        if (FD_ISSET(fd, &readfds)) {
+            /* FD_ISSET(fd, &readfds) will be true */
+            retval = read_katcl(l);
+
+            if (retval) {
+                fprintf(stderr, "%s: read failed.", GMON_PROG);
+            }
+
+            while (have_katcl(l) > 0) {
+                cmd = arg_string_katcl(l, 0);
+                /* route log messages to STDOUT, else pass them to
+                   the command handler */
+                if (!strcmp(cmd, KATCP_LOG_INFORM)) {
+                    p = ready_katcl(l);
+                    append_parse_katcl(k, p);
+                    /* write the log data out */
+                    //while ((retval = write_katcl(k)) == 0); 
+                } else {
+                    arg = arg_string_katcl(l, 1);
+                    cmdhandler(cmd, arg);
+                }
+            }
         }
 
-        while (have_katcl(l) > 0) {
-            cmd = arg_string_katcl(l, 0);
-            /* route log messages to STDOUT, else pass them to
-               the command handler */
-            if (!strcmp(cmd, KATCP_LOG_INFORM)) {
-                p = ready_katcl(l);
-                append_parse_katcl(k, p);
-                /* write the log data out */
-                while ((retval = write_katcl(k)) == 0); 
-            } else {
-                arg = arg_string_katcl(l, 1);
-                cmdhandler(cmd, arg);
-            }
+        if (FD_ISSET(fd, &writefds)) {
+            retval = write_katcl(l);       
+        }
+
+        if (FD_ISSET(fileno_katcl(k), &writefds)) {
+            retval = write_katcl(k);
         }
 
     } else {
