@@ -36,8 +36,6 @@ int gmon_task(struct katcl_line *l, struct katcl_line *k)
     fd_set readfds, writefds;
     struct timeval timeout;
     int retval;
-    char *cmd, *arg;
-    struct katcl_parse *p = NULL;
 
     if (l == NULL) {
         return -1;
@@ -70,9 +68,8 @@ int gmon_task(struct katcl_line *l, struct katcl_line *k)
         perror("select()");
         return 1;
     } else if (retval) {
-
+        /* data to process */
         if (FD_ISSET(fd, &readfds)) {
-            /* FD_ISSET(fd, &readfds) will be true */
             retval = read_katcl(l);
 
             if (retval) {
@@ -80,18 +77,7 @@ int gmon_task(struct katcl_line *l, struct katcl_line *k)
             }
 
             while (have_katcl(l) > 0) {
-                cmd = arg_string_katcl(l, 0);
-                /* route log messages to STDOUT, else pass them to
-                   the command handler */
-                if (!strcmp(cmd, KATCP_LOG_INFORM)) {
-                    p = ready_katcl(l);
-                    append_parse_katcl(k, p);
-                    /* write the log data out */
-                    //while ((retval = write_katcl(k)) == 0); 
-                } else {
-                    arg = arg_string_katcl(l, 1);
-                    cmdhandler(cmd, arg);
-                }
+                cmdhandler(l, k);
             }
         }
 
