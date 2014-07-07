@@ -6,42 +6,22 @@
 
 #include "gmon.h"
 #include "cmdhandler.h"
+#include "fpga.h"
 
 #define TIMEOUT_S   (5UL)
 
-static int checkfpga(struct katcl_line *l)
-{
-    int retval = 0;
-
-    if (l == NULL) {
-        return -1;
-    }
-
-    retval += append_string_katcl(l, KATCP_FLAG_FIRST | KATCP_FLAG_STRING 
-                    | KATCP_FLAG_LAST, "?fpgastatus");
-
-    return retval;
-}
-
-
-int gmon_init(void)
-{
-    /* not currently used */
-    return 0;
-}
-
-int gmon_task(struct katcl_line *l, struct katcl_line *k)
+int gmon_task(struct gmon_lib *g)
 {
     int fd;
     fd_set readfds, writefds;
     struct timeval timeout;
     int retval;
 
-    if (l == NULL) {
+    if (g->server == NULL) {
         return -1;
     }
 
-    fd = fileno_katcl(l);
+    fd = fileno_katcl(g->server);
     timeout.tv_sec = TIMEOUT_S;
     timeout.tv_usec = 0;
 
@@ -51,13 +31,13 @@ int gmon_task(struct katcl_line *l, struct katcl_line *k)
     FD_SET(fd, &readfds);
 
     /* check if there is socket data to write out */
-    if (flushing_katcl(l)) {
+    if (flushing_katcl(g->server)) {
         FD_SET(fd, &writefds);
     }
 
     /* check if there is log data to write out */
-    if (flushing_katcl(k)) {
-        FD_SET(fileno_katcl(k), &writefds);
+    if (flushing_katcl(g->log)) {
+        FD_SET(fileno_katcl(g->log), &writefds);
     }
 
     /* we know (fd + 1) will be the highest since fileno_katcl(k) 
@@ -70,28 +50,28 @@ int gmon_task(struct katcl_line *l, struct katcl_line *k)
     } else if (retval) {
         /* data to process */
         if (FD_ISSET(fd, &readfds)) {
-            retval = read_katcl(l);
+            retval = read_katcl(g->server);
 
             if (retval) {
                 fprintf(stderr, "%s: read failed.", GMON_PROG);
             }
 
-            while (have_katcl(l) > 0) {
-                cmdhandler(l, k);
+            while (have_katcl(g->server) > 0) {
+                cmdhandler(g);
             }
         }
 
         if (FD_ISSET(fd, &writefds)) {
-            retval = write_katcl(l);       
+            retval = write_katcl(g->server);       
         }
 
-        if (FD_ISSET(fileno_katcl(k), &writefds)) {
-            retval = write_katcl(k);
+        if (FD_ISSET(fileno_katcl(g->log), &writefds)) {
+            retval = write_katcl(g->log);
         }
 
     } else {
         printf("timeout after %ld seconds.\n", TIMEOUT_S);
-        retval = checkfpga(l);
+        retval = fpga_requeststatus(g->server);
     }
 
     return retval;

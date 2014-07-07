@@ -7,32 +7,34 @@
 
 struct message {
     char *cmd;
-    void (*action)(struct katcl_line *l, struct katcl_line *k);
+    void (*action)(struct gmon_lib *g);
 };
 
-static void cmd_test(struct katcl_line *l, struct katcl_line *k)
+static void cmd_test(struct gmon_lib *g)
 {
     char *arg = NULL;
 
-    arg = arg_string_katcl(l, 1);
+    arg = arg_string_katcl(g->server, 1);
     
     if (arg) {
         if (!strcmp("down", arg)) {
             printf("FPGA not programmed!\n");
+            g->f_status = FPGA_DOWN;
         } else if (!strcmp("ready", arg)) {
             printf("FPGA ready!\n");
+            g->f_status = FPGA_READY;
         }
     }
 }
 
-static void cmd_log(struct katcl_line *l, struct katcl_line *k)
+static void cmd_log(struct gmon_lib *g)
 {
     struct katcl_parse *p = NULL;
 
     /* route output to STDOUT */
-    p = ready_katcl(l);
+    p = ready_katcl(g->server);
     if (p) {
-        append_parse_katcl(k, p);
+        append_parse_katcl(g->log, p);
     }
 }
 
@@ -42,18 +44,18 @@ static struct message messageLookup[] = {
     {NULL, NULL}
 };
 
-int cmdhandler(struct katcl_line *l, struct katcl_line *k)
+int cmdhandler(struct gmon_lib *g)
 {
     char *cmd;
     int i = 0;
 
     /* get the command */
-    cmd = arg_string_katcl(l, 0);
+    cmd = arg_string_katcl(g->server, 0);
     if (cmd) {
         /* itterate through the message lookup list */ 
         while (messageLookup[i].cmd != NULL) {
             if (!strcmp(messageLookup[i].cmd, cmd)) {
-                messageLookup[i].action(l, k);
+                messageLookup[i].action(g);
             }
             i++; 
         }

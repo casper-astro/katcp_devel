@@ -7,13 +7,13 @@
 #ifndef _KATCP_CMDHANDLER_H_
 #define _KATCP_CMDHANDLER_H_
 
-#include "katcp.h"
+#include "gmon.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-int cmdhandler(struct katcl_line *l, struct katcl_line *k);
+int cmdhandler(struct gmon_lib *g);
 
 #ifdef __cplusplus
 }

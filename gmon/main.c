@@ -34,8 +34,7 @@ int main(int argc, char *argv[])
     int opt = 0;
     struct sigaction sa;
     char *server;
-    struct katcl_line *l = NULL;
-    struct katcl_line *k = NULL;
+    struct gmon_lib gmon = {NULL, NULL, FPGA_UNKNOWN};
     int fd;
 
     /* initialize the signal handler */
@@ -68,9 +67,9 @@ int main(int argc, char *argv[])
         }
     }
 
-    k = create_katcl(STDOUT_FILENO);
-    if (k == NULL) {
-        fprintf(stderr, "could not create katcl\n");
+    gmon.log = create_katcl(STDOUT_FILENO);
+    if (gmon.log == NULL) {
+        fprintf(stderr, "could not create katcl logger\n");
         return EXIT_FAILURE;
     }
 
@@ -80,30 +79,30 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    l = create_katcl(fd);
-    if (l == NULL) {
-        fprintf(stderr, "unable to allocate state\n");
+    gmon.server = create_katcl(fd);
+    if (gmon.server == NULL) {
+        fprintf(stderr, "unable to allocate server state\n");
         /// \todo should we disconnect from server?
         return EXIT_FAILURE;
     }
 
-    sync_message_katcl(k, KATCP_LEVEL_INFO, GMON_PROG, 
+    sync_message_katcl(gmon.log, KATCP_LEVEL_INFO, GMON_PROG, 
                         "starting %s...", GMON_PROG);
 
     /* main working loop */
     while (monitor) {
-        gmon_task(l, k);
+        gmon_task(&gmon);
     }
 
-    sync_message_katcl(k, KATCP_LEVEL_INFO, GMON_PROG, 
+    sync_message_katcl(gmon.log, KATCP_LEVEL_INFO, GMON_PROG, 
                         "shutting down %s...", GMON_PROG);
 
-    if (l) {
-        destroy_katcl(l, 1);
+    if (gmon.server) {
+        destroy_katcl(gmon.server, 1);
     }
 
-    if (k) {
-        destroy_katcl(k, 1);
+    if (gmon.log) {
+        destroy_katcl(gmon.log, 1);
     }
 
     return EXIT_SUCCESS;

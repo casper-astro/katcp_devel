@@ -7,6 +7,8 @@
 #ifndef _KATCP_GMON_H_
 #define _KATCP_GMON_H_
 
+#include "fpga.h"
+
 #include "katcp.h"
 #include "katcl.h"
 #include "katpriv.h"
@@ -21,8 +23,13 @@
 extern "C" {
 #endif
 
-int gmon_init(void);
-int gmon_task(struct katcl_line *l, struct katcl_line *k);
+struct gmon_lib {
+    struct katcl_line *server;  ///< server
+    struct katcl_line *log;     ///< logging
+    enum fpga_status f_status;  ///< FPGA status
+};
+
+int gmon_task(struct gmon_lib *g);
 
 #ifdef __cplusplus
 }
