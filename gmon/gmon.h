@@ -29,6 +29,8 @@ struct gmon_lib {
     enum fpga_status f_status;  ///< FPGA status
 };
 
+int gmon_init(struct gmon_lib *g);
+
 int gmon_task(struct gmon_lib *g);
 
 #ifdef __cplusplus

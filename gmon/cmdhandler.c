@@ -24,7 +24,7 @@ static void cmd_fpga(struct gmon_lib *g)
             g->f_status = FPGA_READY; 
         }
         log_message_katcl(g->log, KATCP_LEVEL_INFO, GMON_PROG,
-                "fpga status is %s\n", fpga_status_string(g->f_status)); 
+                "fpga status is %s", fpga_status_string(g->f_status)); 
     }
 }
 

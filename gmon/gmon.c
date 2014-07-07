@@ -5,10 +5,24 @@
 #include <unistd.h>
 
 #include "gmon.h"
-#include "cmdhandler.h"
 #include "fpga.h"
+#include "cmdhandler.h"
 
 #define TIMEOUT_S   (5UL)
+
+int gmon_init(struct gmon_lib *g)
+{
+    int retval = 0;
+
+    /* issue a fpga status request */
+    if (g->server) {
+        fpga_requeststatus(g->server);
+    } else {
+        retval = 1;
+    }
+
+    return retval;
+}
 
 int gmon_task(struct gmon_lib *g)
 {
@@ -40,7 +54,13 @@ int gmon_task(struct gmon_lib *g)
 
     /* we know (fileno_katcl(g->server) + 1) will be the highest since fileno_katcl(k) 
        return STDOUT_FILENO */
-    retval = select(fileno_katcl(g->server) + 1, &readfds, &writefds, NULL, &timeout);
+    if (g->f_status == FPGA_READY) {
+        retval = select(fileno_katcl(g->server) + 1, &readfds, &writefds, NULL, &timeout);
+    } else {
+        /* sleep indefinitely if the FPGA is not ready */
+        retval = select(fileno_katcl(g->server) + 1, &readfds, &writefds, NULL, NULL);
+    }
+        
 
     if (retval == -1) {
         perror("select()");
@@ -68,8 +88,8 @@ int gmon_task(struct gmon_lib *g)
         }
 
     } else {
-        printf("timeout after %ld seconds.\n", TIMEOUT_S);
-        retval = fpga_requeststatus(g->server);
+        log_message_katcl(g->log, KATCP_LEVEL_INFO, GMON_PROG, 
+                            "timeout after %ld seconds", TIMEOUT_S);
     }
 
     return retval;

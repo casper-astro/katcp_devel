@@ -89,6 +89,9 @@ int main(int argc, char *argv[])
     sync_message_katcl(gmon.log, KATCP_LEVEL_INFO, GMON_PROG, 
                         "starting %s...", GMON_PROG);
 
+    /* initialise gmon */
+    gmon_init(&gmon);
+
     /* main working loop */
     while (monitor) {
         gmon_task(&gmon);
