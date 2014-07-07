@@ -11,7 +11,11 @@
 #include "katcl.h"
 #include "katpriv.h"
 
-#define GMON_PROG    ("kcpgmon")
+#define GMON_PROG       ("kcpgmon")
+
+#define GMON_VER_MAJOR  (0)
+#define GMON_VER_MINOR  (0)
+#define GMON_VER_BUGFIX (0)
 
 #ifdef __cplusplus
 extern "C" {

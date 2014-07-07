@@ -3,12 +3,16 @@
 #include <string.h>
 #include <signal.h>
 #include <unistd.h>
+#include <getopt.h>
 
 #include "netc.h"
 #include "katcp.h"
 #include "katcl.h"
 
 #include "gmon.h"
+
+static void usage(void);
+static void print_version(void);
 
 static volatile sig_atomic_t monitor = 1;
 
@@ -27,6 +31,7 @@ static void signalhandler(int signum)
 
 int main(int argc, char *argv[])
 {
+    int opt = 0;
     struct sigaction sa;
     char *server;
     struct katcl_line *l = NULL;
@@ -40,15 +45,27 @@ int main(int argc, char *argv[])
     sigaction(SIGTERM, &sa, NULL);
     sigaction(SIGINT, &sa, NULL);
 
-    if (argc <= 0) {
-        server = getenv("KATCP_SERVER");
-    } else {
-        server = argv[1];
+    server = getenv("KATCP_SERVER");
+    if (server == NULL) {
+        server = "localhost";
     }
 
-    if (server == NULL) {
-        fprintf(stderr, "need a server as first argument or KATCP_SERVER variable\n");
-        return EXIT_FAILURE;
+    /* process command line arguments */
+    while ((opt = getopt(argc, argv, "hs:v")) != -1) {
+        switch (opt) {
+            case 's':
+                server = optarg;
+                break;
+            case 'v':
+                print_version();
+                exit(EXIT_SUCCESS);
+            case 'h':
+            case '?':
+            default:
+                usage();
+                exit(EXIT_FAILURE);
+                break;
+        }
     }
 
     k = create_katcl(STDOUT_FILENO);
@@ -90,5 +107,22 @@ int main(int argc, char *argv[])
     }
 
     return EXIT_SUCCESS;
+}
+
+static void usage(void)
+{
+    printf("usage: %s [options]\n", GMON_PROG);
+    printf("-h\t\t\tthis help\n");
+    printf("-s server:port\t\tspecify server:port\n");
+
+    printf("\nenvironment variable(s):\n");
+    printf("\tKATCP_SERVER\tdefault server (overriden by -s option)\n");
+}
+
+static void print_version(void)
+{
+    printf("%s version %d.%d.%d\n", GMON_PROG, GMON_VER_MAJOR, GMON_VER_MINOR,
+                GMON_VER_BUGFIX);
+    printf("build %s %s\n", __DATE__, __TIME__);
 }
 
