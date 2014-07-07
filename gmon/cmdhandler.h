@@ -7,13 +7,13 @@
 #ifndef _KATCP_CMDHANDLER_H_
 #define _KATCP_CMDHANDLER_H_
 
-#include <string.h>
+#include "katcp.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-int cmdhandler(char *cmd, char *arg);
+int cmdhandler(struct katcl_line *l, struct katcl_line *k);
 
 #ifdef __cplusplus
 }
