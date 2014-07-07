@@ -455,6 +455,12 @@ struct katcp_arb{
 #define KATCP_VRC_VERSION_VERSION ":version"
 #define KATCP_VRC_VERSION_BUILD   ":build"
 
+#define KATCP_VRC_SENSOR_VALUE    ":value"
+#define KATCP_VRC_SENSOR_STATUS   ":status"
+#define KATCP_VRC_SENSOR_HELP     ":help"
+#define KATCP_VRC_SENSOR_UNITS    ":units"
+#define KATCP_VRC_SENSOR_TYPE     ":type"
+#define KATCP_VRC_SENSOR_RANGE    ":range"
 
 struct katcp_vrbl_payload;
 

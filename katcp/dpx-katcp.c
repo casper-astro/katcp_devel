@@ -578,8 +578,8 @@ int halt_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
 int sensor_list_callback_katcp(struct katcp_dispatch *d, unsigned int *count, char *key, struct katcp_vrbl *vx)
 {
-  struct katcp_vrbl_payload *hy, *vy, *uy, *ty;
-  char *type;
+  struct katcp_vrbl_payload *value, *help, *units, *type, *range; 
+  char *fallback;
   int result;
 
   result = is_vrbl_sensor_katcp(d, vx);
@@ -594,48 +594,56 @@ int sensor_list_callback_katcp(struct katcp_dispatch *d, unsigned int *count, ch
     return result;
   }
 
-  vy = find_payload_katcp(d, vx, ":value");
-  uy = find_payload_katcp(d, vx, ":units");
-  hy = find_payload_katcp(d, vx, ":help");
-  ty = find_payload_katcp(d, vx, ":type");
+#if 0
+  vy = find_payload_katcp(d, vx, KATCP_VRC_SENSOR_VALUE);
+  uy = find_payload_katcp(d, vx, KATCP_VRC_SENSOR_UNITS);
+  hy = find_payload_katcp(d, vx, KATCP_VRC_SENSOR_HELP);
+  ty = find_payload_katcp(d, vx, KATCP_VRC_SENSOR_TYPE);
+#endif
 
-  if(vy == NULL){
+  value = find_payload_katcp(d, vx, KATCP_VRC_SENSOR_VALUE);
+  if(value == NULL){
     return 0;
   }
-
-  type = type_to_string_vrbl_katcp(d, vy->p_type);
-  if(type == NULL){
+  fallback = type_to_string_vrbl_katcp(d, value->p_type);
+  if(fallback == NULL){
     return 0;
   }
 
   prepend_inform_katcp(d);
-
   append_string_katcp(d, KATCP_FLAG_STRING, key);
 
-  if(hy && (hy->p_type == KATCP_VRT_STRING)){
-    append_payload_vrbl_katcp(d, 0, vx, hy);
+  help = find_payload_katcp(d, vx, KATCP_VRC_SENSOR_HELP);
+  if(help && (help->p_type == KATCP_VRT_STRING)){
+    append_payload_vrbl_katcp(d, 0, vx, help);
   } else {
     append_string_katcp(d, KATCP_FLAG_STRING, "undocumented");
   }
 
-  if(uy && (uy->p_type == KATCP_VRT_STRING)){
-    append_payload_vrbl_katcp(d, 0, vx, uy);
+  units = find_payload_katcp(d, vx, KATCP_VRC_SENSOR_UNITS);
+  if(units && (units->p_type == KATCP_VRT_STRING)){
+    append_payload_vrbl_katcp(d, 0, vx, units);
   } else {
     append_string_katcp(d, KATCP_FLAG_STRING, "none");
   }
 
-  if(ty && (ty->p_type == KATCP_VRT_STRING)){
+  range = find_payload_katcp(d, vx, KATCP_VRC_SENSOR_RANGE);
+
+  type = find_payload_katcp(d, vx, KATCP_VRC_SENSOR_TYPE);
+  if(type && (type->p_type == KATCP_VRT_STRING)){
     /* allows us to override the native type to something in sensor world */
-    append_payload_vrbl_katcp(d, KATCP_FLAG_LAST, vx, ty);
+    append_payload_vrbl_katcp(d, (range ? 0 : KATCP_FLAG_LAST), vx, type);
   } else {
-    append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, type);
+    append_string_katcp(d, KATCP_FLAG_STRING | (range ? 0 : KATCP_FLAG_LAST), fallback);
+  }
+
+  if(range){
+    append_payload_vrbl_katcp(d, KATCP_FLAG_LAST, vx, range);
   }
 
   if(count){
     *count = (*count) + 1;
   }
-
-  /* TODO: add possible range definitions */
 
   return 0;
 }

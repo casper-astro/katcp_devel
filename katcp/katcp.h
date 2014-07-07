@@ -73,6 +73,7 @@ struct katcp_vrbl_payload;
 #if 0
 #define KATCP_FLAG_MORE   0x04
 #endif
+#define KATCP_FLAG_PRETTY 0x08 /* not ideal ... */
 
 #define KATCP_FLAG_STRING 0x10
 #define KATCP_FLAG_ULONG  0x20

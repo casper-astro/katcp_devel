@@ -46,9 +46,9 @@ struct katcp_vrbl_type_ops{
 
   /* set up union, assumes garbled input - produces usable union/structure with type set, with some resources allocated possibly */
   int (*t_init)(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
-
   /* releases all resources held in union */
   void (*t_clear)(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
+
 
   /* WARNING unclear semantics: how do we build up a composite structure ..., add and scan should be complementary ?  */
   int (*t_scan)(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *text, char *path, int create, unsigned int type);
@@ -58,6 +58,10 @@ struct katcp_vrbl_type_ops{
 
   /* appends content to px, can recurse */
   int (*t_add)(struct katcp_dispatch *d, struct katcl_parse *px, int flags, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
+
+#if 0
+  int (*t_traverse)(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, int flags, int (*call)(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *path));
+#endif
 };
 
 int init_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
@@ -199,10 +203,10 @@ int fixup_type_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struc
 
 static struct katcp_vrbl *allocate_vrbl_katcp(struct katcp_dispatch *d, unsigned int type)
 {
-  /* WARNING - this can not be called bare */
   struct katcp_vrbl *vx;
 
   if(type >= KATCP_MAX_VRT){
+    /* WARNING - this can not be called bare */
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unwilling to create an untyped variable");
     return NULL;
   }
@@ -357,9 +361,9 @@ struct katcp_vrbl_payload *element_string_vrbl_katcp(struct katcp_dispatch *d, s
 int add_string_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int flags, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py)
 {
   char *ptr;
+  unsigned int mask;
 
 #ifdef KATCP_CONSISTENCY_CHECKS
-  unsigned int valid;
   if(py == NULL){
     fprintf(stderr, "add variable string: no variable given\n");
     abort();
@@ -368,16 +372,12 @@ int add_string_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int 
     fprintf(stderr, "add variable string: bad type %u\n", py->p_type);
     abort();
   }
-  valid = (KATCP_FLAG_FIRST | KATCP_FLAG_LAST);
-  if((flags | valid) != valid){
-    fprintf(stderr, "add variable string: bad flags 0x%x supplied\n", flags);
-    abort();
-  }
 #endif
 
+  mask = (KATCP_FLAG_FIRST | KATCP_FLAG_LAST) & flags;
   ptr = py->p_union.u_string;
 
-  return add_string_parse_katcl(px, flags | KATCP_FLAG_STRING, ptr);
+  return add_string_parse_katcl(px, mask | KATCP_FLAG_STRING, ptr);
 }
 
 /* tree logic *******************************************************************/
@@ -722,75 +722,17 @@ struct katcp_vrbl_payload *element_tree_vrbl_katcp(struct katcp_dispatch *d, str
 }
 
 struct add_tree_variable_state{
-  int s_result;
   struct katcl_parse *s_parse;
   struct katcp_vrbl *s_variable;
-  struct katcp_vrbl_payload *s_payload;
   int s_flags;
-  int s_first;
+  int s_result;
 };
-
-#if 0
-static int print_add_tree_vrbl(struct katcp_dispatch *d, struct add_tree_variable_stat *st, char *key, struct katcp_vrbl_payload *payload)
-{
-
-  /* so this is a problem: we use FLAG_LAST to delimit and end of parse, however a vrbl might be entirely emtpy but discovering this will only be certain once we look at this, which is too late, as we would have had to invoke the previos print with a LAST */
-  int flags, result;
-
-#ifdef KATCP_CONSISTENCY_CHECKS
-  if(payload == NULL){
-    fprintf(stderr, "tree print: major logic problem: given a node with an empty payload\n");
-    abort();
-  }
-#endif
-
-  /* WARNING: what if tree entirely empty ? */
-
-  flags = 0;
-
-  if(last){
-    if(st->s_flags & KATCP_FLAG_LAST){
-      flags |= KATCP_FLAG_LAST;
-    }
-  }
-
-  if(st->s_payload == NULL){
-    st->s_first = 1;
-    st->s_payload = payload;
-    /* WARNING: skip */
-    return 0;
-  } 
-  
-  if(st->st_first){
-    if(st->s_flags & KATCP_FLAG_FIRST){
-      flags |= KATCP_FLAG_FIRST;
-    }
-  }
-
-  /* WARNING: and what if this is a tree which is entirely empty ? */
-  result = add_payload_vrbl_katcp(d, st->s_parse, 0, st->s_variable, st->s_payload);
-
-  st->s_first = 0;
-  st->s_payload = payload;
-
-  if(result < 0){
-    st->s_result = (-1);
-  } else {
-    st->s_result += result;
-  }
-
-  return result;
-}
-#endif
 
 static int callback_add_tree_vrbl(struct katcp_dispatch *d, void *global, char *key, void *data)
 {
   int result;
   struct katcp_vrbl_payload *py;
   struct add_tree_variable_state *st;
-
-  /* WARNING: this function disregards _FIRST and _LAST flags, as it is bracketed by { and } */
-  /* if that ever changes state could include the flags, however it is unclear how the end of the tree would be detected ... */
 
   if((key == NULL) || (data == NULL)){
     return -1;
@@ -799,19 +741,22 @@ static int callback_add_tree_vrbl(struct katcp_dispatch *d, void *global, char *
   py = data;
   st = global;
 
-  result = add_payload_vrbl_katcp(d, st->s_parse, 0, st->s_variable, py);
+  result = add_payload_vrbl_katcp(d, st->s_parse, st->s_flags, st->s_variable, py);
 
-  if(result < 0){
-    st->s_result = (-1);
-  } else {
+  if((result >= 0) && (st->s_result >= 0)){
     st->s_result += result;
+  } else {
+    st->s_result = (-1);
   }
+
+  st->s_flags = st->s_flags & ~(KATCP_FLAG_FIRST);
 
   return 0;
 }
 
 int add_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int flags, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py)
 {
+  /* WARNING: trees can be empty, this will force output of a \@ if this is the case and no adornments have been specified */
   struct avl_tree *tree;
   struct add_tree_variable_state state, *st;
   int sum, result;
@@ -827,7 +772,7 @@ int add_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int fl
     fprintf(stderr, "add tree: bad type %u\n", py->p_type);
     abort();
   }
-  valid = (KATCP_FLAG_FIRST | KATCP_FLAG_LAST);
+  valid = (KATCP_FLAG_FIRST | KATCP_FLAG_LAST | KATCP_FLAG_PRETTY);
   if((flags | valid) != valid){
     fprintf(stderr, "add tree: bad flags 0x%x supplied\n", flags);
     abort();
@@ -836,18 +781,24 @@ int add_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int fl
 
   st = &state;
 
-  tree = py->p_union.u_tree;
   sum = 0;
-
-  result = add_string_parse_katcl(px, (flags & KATCP_FLAG_FIRST) | KATCP_FLAG_STRING, "{");
-  if(result < 0){
-    return -1;
-  }
-  sum += result;
 
   st->s_result = 0;
   st->s_parse = px;
   st->s_variable = vx;
+  st->s_flags = flags & KATCP_FLAG_PRETTY;
+
+  if(flags & KATCP_FLAG_PRETTY){
+    result = add_string_parse_katcl(px, (flags & KATCP_FLAG_FIRST) | KATCP_FLAG_STRING, "{");
+    if(result < 0){
+      return -1;
+    }
+    sum += result;
+  } else {
+    st->s_flags |= (flags & KATCP_FLAG_FIRST);
+  }
+
+  tree = py->p_union.u_tree;
 
   complex_inorder_traverse_avltree(d, tree->t_root, st, &callback_add_tree_vrbl);
   if(st->s_result < 0){
@@ -855,11 +806,25 @@ int add_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int fl
   }
   sum += st->s_result;
 
-  result = add_string_parse_katcl(px, (flags & KATCP_FLAG_LAST) | KATCP_FLAG_STRING, "}");
-  if(result < 0){
-    return -1;
+  if(flags & KATCP_FLAG_PRETTY){
+    result = add_string_parse_katcl(px, (flags & KATCP_FLAG_LAST) | KATCP_FLAG_STRING, "}");
+    if(result < 0){
+      return -1;
+    }
+    sum += result;
+  } else {
+    if((flags & KATCP_FLAG_FIRST) && (st->s_flags & KATCP_FLAG_FIRST)){
+      result = add_string_parse_katcl(px, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, NULL);
+      if(result < 0){
+        return -1;
+      }
+      sum += result;
+    }
+    if(flags & KATCP_FLAG_LAST){
+      /* WARNING: finish manually, instead of using last flag */
+      add_end_parse_katcl(px);
+    }
   }
-  sum += result;
 
   return sum;
 }
@@ -1199,9 +1164,11 @@ struct katcp_vrbl_payload *element_array_vrbl_katcp(struct katcp_dispatch *d, st
 
 int add_array_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int flags, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py)
 {
+  /* WARNING: arrays can also be empty, this will force output of a \@ if this is the case and no adornments have been specified */
   struct katcp_vrbl_array *va;
-  unsigned int i;
-  int result, sum;
+  unsigned int i, elements;
+  int result, sum, f;
+
 #ifdef KATCP_CONSISTENCY_CHECKS
   unsigned int valid;
 
@@ -1213,7 +1180,7 @@ int add_array_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int f
     fprintf(stderr, "add variable array: bad type %u\n", py->p_type);
     abort();
   }
-  valid = (KATCP_FLAG_FIRST | KATCP_FLAG_LAST);
+  valid = (KATCP_FLAG_FIRST | KATCP_FLAG_LAST | KATCP_FLAG_PRETTY);
   if((flags | valid) != valid){
     fprintf(stderr, "add variable array: bad flags 0x%x supplied\n", flags);
     abort();
@@ -1221,32 +1188,52 @@ int add_array_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int f
 #endif
 
   sum = 0;
+  elements = 0;
+  f = flags & KATCP_FLAG_PRETTY;
 
-  result = add_string_parse_katcl(px, (flags & KATCP_FLAG_FIRST) | KATCP_FLAG_STRING, "[");
-  if(result < 0){
-    return -1;
+  if(flags & KATCP_FLAG_PRETTY){
+    result = add_string_parse_katcl(px, (flags & KATCP_FLAG_FIRST) | KATCP_FLAG_STRING, "[");
+    if(result < 0){
+      return -1;
+    }
+    sum += result;
+  } else {
+    f |= (flags & KATCP_FLAG_FIRST);
   }
-
-  sum += result;
 
   va = &(py->p_union.u_array);
 
   for(i = 0; i < va->a_size; i++){
     if(va->a_elements[i]){
-      result = add_payload_vrbl_katcp(d, px, 0, vx, va->a_elements[i]);
+      result = add_payload_vrbl_katcp(d, px, f, vx, va->a_elements[i]);
+      if(result < 0){
+        return -1;
+      }
+      elements++;
+      sum += result;
+      f &= ~KATCP_FLAG_FIRST;
+    }
+  }
+
+  if(flags & KATCP_FLAG_PRETTY){
+    result = add_string_parse_katcl(px, (flags & KATCP_FLAG_LAST) | KATCP_FLAG_STRING, "]");
+    if(result < 0){
+      return -1;
+    }
+    sum += result;
+  } else {
+    if((flags & KATCP_FLAG_FIRST) && (elements <= 0)){
+      result = add_string_parse_katcl(px, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, NULL);
       if(result < 0){
         return -1;
       }
       sum += result;
     }
+    if(flags & KATCP_FLAG_LAST){
+      /* WARNING: finish manually, instead of using last flag */
+      add_end_parse_katcl(px);
+    }
   }
-
-  result = add_string_parse_katcl(px, (flags & KATCP_FLAG_LAST) | KATCP_FLAG_STRING, "]");
-  if(result < 0){
-    return -1;
-  }
-
-  sum += result;
 
   return sum;
 }
@@ -2268,7 +2255,7 @@ int var_list_callback_katcp(struct katcp_dispatch *d, void *state, char *key, st
   prepend_inform_katcp(d);
   append_string_katcp(d, KATCP_FLAG_STRING, key);
   append_string_katcp(d, KATCP_FLAG_STRING, ptr);
-  append_payload_vrbl_katcp(d, KATCP_FLAG_LAST, vx, NULL);
+  append_payload_vrbl_katcp(d, KATCP_FLAG_PRETTY | KATCP_FLAG_LAST, vx, NULL);
 
   free(ptr);
 

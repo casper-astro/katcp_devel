@@ -1854,18 +1854,6 @@ int version_generic_callback_katcp(struct katcp_dispatch *d, void *state, char *
 
   type = find_type_vrbl_katcp(d, vx, NULL);
   switch(type){
-    case KATCP_VRT_STRING :
-      if(state){ /* WARNING: abuse of this variable */
-        prepend_inform_katcp(d);
-      } else {
-        append_string_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, KATCP_VERSION_CONNECT_INFORM);
-      }
-      append_string_katcp(d, KATCP_FLAG_STRING, key);
-      append_payload_vrbl_katcp(d, KATCP_FLAG_LAST, vx, NULL);
-      if(state){
-        *cp = (*cp) + 1;
-      }
-      return 0;
     case KATCP_VRT_TREE :
 
       pversion = find_payload_katcp(d, vx, KATCP_VRC_VERSION_VERSION);
@@ -1906,6 +1894,22 @@ int version_generic_callback_katcp(struct katcp_dispatch *d, void *state, char *
         }
       }
 
+      return 0;
+
+    case KATCP_VRT_ARRAY : 
+      /* dumps the entire array - we assume there are only two elements in there */
+
+    case KATCP_VRT_STRING :
+      if(state){ /* WARNING: abuse of this variable */
+        prepend_inform_katcp(d);
+      } else {
+        append_string_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, KATCP_VERSION_CONNECT_INFORM);
+      }
+      append_string_katcp(d, KATCP_FLAG_STRING, key);
+      append_payload_vrbl_katcp(d, KATCP_FLAG_LAST, vx, NULL);
+      if(state){
+        *cp = (*cp) + 1;
+      }
       return 0;
 
     default :
