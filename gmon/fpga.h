@@ -21,6 +21,8 @@ enum fpga_status {
 
 int fpga_requeststatus(struct katcl_line *l);
 
+char *fpga_status_string(enum fpga_status status);
+
 #ifdef __cplusplus
 }
 #endif

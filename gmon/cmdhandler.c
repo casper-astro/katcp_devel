@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "gmon.h"
 #include "cmdhandler.h"
 #include "katpriv.h"
 #include "katcl.h"
@@ -18,12 +19,12 @@ static void cmd_fpga(struct gmon_lib *g)
     
     if (arg) {
         if (!strcmp("down", arg)) {
-            printf("FPGA not programmed!\n");
             g->f_status = FPGA_DOWN;
         } else if (!strcmp("ready", arg)) {
-            printf("FPGA ready!\n");
-            g->f_status = FPGA_READY;
+            g->f_status = FPGA_READY; 
         }
+        log_message_katcl(g->log, KATCP_LEVEL_INFO, GMON_PROG,
+                "fpga status is %s\n", fpga_status_string(g->f_status)); 
     }
 }
 
