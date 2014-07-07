@@ -12,7 +12,6 @@
 
 int gmon_task(struct gmon_lib *g)
 {
-    int fd;
     fd_set readfds, writefds;
     struct timeval timeout;
     int retval;
@@ -21,18 +20,17 @@ int gmon_task(struct gmon_lib *g)
         return -1;
     }
 
-    fd = fileno_katcl(g->server);
+    FD_ZERO(&readfds);
+    FD_ZERO(&writefds);
     timeout.tv_sec = TIMEOUT_S;
     timeout.tv_usec = 0;
 
-    FD_ZERO(&readfds);
-    FD_ZERO(&writefds);
-    
-    FD_SET(fd, &readfds);
+    /* check if there is server data to process */    
+    FD_SET(fileno_katcl(g->server), &readfds);
 
-    /* check if there is socket data to write out */
+    /* check if there is server data to write out */
     if (flushing_katcl(g->server)) {
-        FD_SET(fd, &writefds);
+        FD_SET(fileno_katcl(g->server), &writefds);
     }
 
     /* check if there is log data to write out */
@@ -40,16 +38,16 @@ int gmon_task(struct gmon_lib *g)
         FD_SET(fileno_katcl(g->log), &writefds);
     }
 
-    /* we know (fd + 1) will be the highest since fileno_katcl(k) 
+    /* we know (fileno_katcl(g->server) + 1) will be the highest since fileno_katcl(k) 
        return STDOUT_FILENO */
-    retval = select(fd + 1, &readfds, &writefds, NULL, &timeout);
+    retval = select(fileno_katcl(g->server) + 1, &readfds, &writefds, NULL, &timeout);
 
     if (retval == -1) {
         perror("select()");
         return 1;
     } else if (retval) {
-        /* data to process */
-        if (FD_ISSET(fd, &readfds)) {
+        /* server data to process */
+        if (FD_ISSET(fileno_katcl(g->server), &readfds)) {
             retval = read_katcl(g->server);
 
             if (retval) {
@@ -61,7 +59,7 @@ int gmon_task(struct gmon_lib *g)
             }
         }
 
-        if (FD_ISSET(fd, &writefds)) {
+        if (FD_ISSET(fileno_katcl(g->server), &writefds)) {
             retval = write_katcl(g->server);       
         }
 

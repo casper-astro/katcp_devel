@@ -10,7 +10,7 @@ struct message {
     void (*action)(struct gmon_lib *g);
 };
 
-static void cmd_test(struct gmon_lib *g)
+static void cmd_fpga(struct gmon_lib *g)
 {
     char *arg = NULL;
 
@@ -39,7 +39,7 @@ static void cmd_log(struct gmon_lib *g)
 }
 
 static struct message messageLookup[] = {
-    {"#fpga", cmd_test},
+    {"#fpga", cmd_fpga},
     {KATCP_LOG_INFORM, cmd_log},
     {NULL, NULL}
 };
