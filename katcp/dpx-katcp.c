@@ -739,16 +739,14 @@ int sensor_sampling_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
 
   if(argc <= 2){
-    /* TODO - work out this properly */
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "sampling strategy display still to be implemented");
-    strategy = strategy_to_string_sensor_katcp(d, KATCP_STRATEGY_OFF);
+    stg = current_strategy_sensor_katcp(d, vx, fx);
+    /* WARNING: will have to get more information for period sensors ... */
 
-    if(strategy){
-      return extra_response_katcp(d, KATCP_RESULT_OK, strategy);
+    strategy = strategy_to_string_sensor_katcp(d, stg);
+
+    if(strategy == NULL){
+      return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_BUG);
     } 
-
-    /* TODO */
-    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_BUG);
 
   } else {
 
@@ -764,11 +762,16 @@ int sensor_sampling_group_cmd_katcp(struct katcp_dispatch *d, int argc)
           log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to register event based sampling for sensor %s", key);
           return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_BUG);
         }
+        break;
 
-        return extra_response_katcp(d, KATCP_RESULT_OK, strategy);
+      case KATCP_STRATEGY_OFF :
+        if(forget_event_variable_katcp(d, vx, fx) < 0){
+          log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to release event based sampling for sensor %s", key);
+          return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_BUG);
+        }
+        break;
 
       /* TODO */
-      case KATCP_STRATEGY_OFF :
       case KATCP_STRATEGY_PERIOD :
       case KATCP_STRATEGY_DIFF :
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "sampling strategy %s not implemented for sensor %s", strategy, key);
@@ -780,6 +783,22 @@ int sensor_sampling_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     }
   }
 
+  /* WARNING: all ERROR paths should have exited above ... can safely report now */
+
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if((key == NULL) || (strategy == NULL)){
+    fprintf(stderr, "dpx: sensor-sampling: logic problem: essential display field left out\n");
+    abort();
+  }
+#endif
+
+  prepend_reply_katcp(d);
+
+  append_string_katcp(d, KATCP_FLAG_STRING, KATCP_OK);
+  append_string_katcp(d, KATCP_FLAG_STRING, key);
+  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, strategy);
+
+  return KATCP_RESULT_OWN;
 }
 
 /********************************************************************************/

@@ -24,3 +24,4 @@
  - expand version-list, etc to also display build state, etc
  - parse #sensor-list, #sensor-status messages
 
+ - either array type, or a way to print avl tree while honouring _LAST and first, maybe even both

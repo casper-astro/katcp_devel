@@ -348,6 +348,18 @@ int strategy_from_string_sensor_katcp(struct katcp_dispatch *d, char *name)
   return -1;
 }
 
+unsigned int current_strategy_sensor_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_flat *fx)
+{
+  struct katcp_subscribe *sub;
+
+  sub = locate_subscribe_katcp(d, vx, fx);
+  if(sub == NULL){
+    return KATCP_STRATEGY_OFF;
+  }
+
+  return sub->s_strategy;
+}
+
 /*************************************************************************/
 
 int add_partial_sensor_katcp(struct katcp_dispatch *d, struct katcl_parse *px, char *name, int flags, struct katcp_vrbl *vx)
@@ -536,6 +548,27 @@ int monitor_event_variable_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx
   destroy_parse_katcl(px);
 
   return 0;
+}
+
+int forget_event_variable_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_flat *fx)
+{
+  int index;
+  struct katcp_wit *w;
+
+  if(vx->v_extra == NULL){
+    return 1;
+  }
+ 
+  w = vx->v_extra;
+
+  sane_wit(w);
+
+  index = find_subscribe_katcp(d, w, fx);
+  if(index < 0){
+    return 1;
+  }
+
+  return delete_subscribe_katcp(d, w, index);
 }
 
 #endif
