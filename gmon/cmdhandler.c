@@ -19,12 +19,16 @@ static void cmd_fpga(struct gmon_lib *g)
     
     if (arg) {
         if (!strcmp("down", arg)) {
-            g->f_status = FPGA_DOWN;
+            g->g_status = GMON_FPGA_DOWN;
+            log_message_katcl(g->log, KATCP_LEVEL_INFO, GMON_PROG,
+                                "fpga down", NULL);
         } else if (!strcmp("ready", arg)) {
-            g->f_status = FPGA_READY; 
+            g->g_status = GMON_FPGA_READY; 
+            log_message_katcl(g->log, KATCP_LEVEL_INFO, GMON_PROG,
+                                "fpga ready", NULL);
         }
-        log_message_katcl(g->log, KATCP_LEVEL_INFO, GMON_PROG,
-                "fpga status is %s", fpga_status_string(g->f_status)); 
+        //log_message_katcl(g->log, KATCP_LEVEL_INFO, GMON_PROG,
+        //        "fpga status is %s", fpga_status_string(g->f_status)); 
     }
 }
 
@@ -39,9 +43,24 @@ static void cmd_log(struct gmon_lib *g)
     }
 }
 
+static void cmd_meta(struct gmon_lib *g)
+{
+    unsigned int argcount = 0;
+    unsigned int i = 0;
+    char *arg = NULL;
+
+    argcount = arg_count_katcl(g->server);
+
+    for (i = 1; i <= argcount; i++) {
+        arg = arg_string_katcl(g->server, i);
+        printf("arg %d : %s\n", i, arg);
+    }
+}
+
 static struct message messageLookup[] = {
-    {"#fpga", cmd_fpga},
     {KATCP_LOG_INFORM, cmd_log},
+    {"#fpga", cmd_fpga},
+    {"#meta", cmd_meta},
     {NULL, NULL}
 };
 

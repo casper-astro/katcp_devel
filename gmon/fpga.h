@@ -13,15 +13,17 @@
 extern "C" {
 #endif
 
-enum fpga_status {
+/*enum fpga_status {
     FPGA_UNKNOWN,
     FPGA_DOWN,
     FPGA_READY
-};
+};*/
 
 int fpga_requeststatus(struct katcl_line *l);
 
-char *fpga_status_string(enum fpga_status status);
+int fpga_requestmeta(struct katcl_line *l);
+
+//char *fpga_status_string(enum fpga_status status);
 
 #ifdef __cplusplus
 }

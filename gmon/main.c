@@ -34,7 +34,7 @@ int main(int argc, char *argv[])
     int opt = 0;
     struct sigaction sa;
     char *server;
-    struct gmon_lib gmon = {NULL, NULL, FPGA_UNKNOWN};
+    struct gmon_lib gmon = {NULL, NULL, GMON_UNKNOWN};
     int fd;
 
     /* initialize the signal handler */
@@ -88,9 +88,6 @@ int main(int argc, char *argv[])
 
     sync_message_katcl(gmon.log, KATCP_LEVEL_INFO, GMON_PROG, 
                         "starting %s...", GMON_PROG);
-
-    /* initialise gmon */
-    gmon_init(&gmon);
 
     /* main working loop */
     while (monitor) {

@@ -23,13 +23,19 @@
 extern "C" {
 #endif
 
+enum gmon_status {
+    GMON_UNKNOWN,
+    GMON_FPGA_DOWN,
+    GMON_FPGA_READY,
+    GMON_REQ_META,
+    GMON_POLL
+};
+
 struct gmon_lib {
     struct katcl_line *server;  ///< server
     struct katcl_line *log;     ///< logging
-    enum fpga_status f_status;  ///< FPGA status
+    enum gmon_status g_status;  ///< gateware monitor status
 };
-
-int gmon_init(struct gmon_lib *g);
 
 int gmon_task(struct gmon_lib *g);
 
