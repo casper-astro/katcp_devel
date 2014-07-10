@@ -3632,6 +3632,7 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
     add_full_cmd_map_katcp(m, "var-declare", "declare a variable (?var-declare name attribute[,attribute]* [path])", 0, &var_declare_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "var-list", "list variables (?var-list [variable])", 0, &var_list_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "var-set", "set a variable (?var-set variable value [type [path]])", 0, &var_set_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "var-delete", "remove a variable (?var-set variable)", 0, &var_delete_group_cmd_katcp, NULL, NULL);
 
     add_full_cmd_map_katcp(m, "version-list", "list version information (?version-list)", 0, &version_list_group_cmd_katcp, NULL, NULL);
 

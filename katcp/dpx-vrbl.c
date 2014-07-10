@@ -32,7 +32,13 @@
 
 #define MAX_DEPTH_VRBL 3
 
-void destroy_vrbl_katcp(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx);
+static void destroy_vrbl_katcp(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx);
+
+static struct katcp_vrbl *find_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx, char *key);
+static int insert_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx, struct katcp_vrbl *vx, char *key);
+static int remove_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx, struct katcp_vrbl *vx);
+
+/**********************************************************************************/
 
 void release_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
 struct katcp_vrbl_payload *setup_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, unsigned int type);
@@ -1427,8 +1433,10 @@ int configure_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, unsign
     return -1;
   }
 
-  if(vx->v_extra && state){
-    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "variable has already been given local state");
+  /* WARNING: configure gets used by sensors ... risk of clobbering things */
+
+  if(vx->v_extra){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "variable %s has already been given local state thus refusing configuration", vx->v_name);
     return -1;
   }
 
@@ -1527,7 +1535,7 @@ struct katcp_vrbl *create_vrbl_katcp(struct katcp_dispatch *d, unsigned int type
   return vx;
 }
 
-void destroy_vrbl_katcp(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx)
+static void destroy_vrbl_katcp(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx)
 {
   if(vx == NULL){
     return;
@@ -1537,7 +1545,7 @@ void destroy_vrbl_katcp(struct katcp_dispatch *d, char *name, struct katcp_vrbl 
   vx->v_refresh = NULL;
 
   if(vx->v_release){
-    (*(vx->v_release))(d, vx->v_extra, name, vx);
+    (*(vx->v_release))(d, vx->v_extra, name ? name : vx->v_name, vx);
     vx->v_release = NULL;
   }
 
@@ -1601,7 +1609,7 @@ int add_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int flags, 
 
 /* variable region functions ******************************************************/
 
-struct katcp_vrbl *find_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx, char *key)
+static struct katcp_vrbl *find_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx, char *key)
 {
   if(rx == NULL){
     return NULL;
@@ -1610,7 +1618,7 @@ struct katcp_vrbl *find_region_katcp(struct katcp_dispatch *d, struct katcp_regi
   return find_data_avltree(rx->r_tree, key);
 }
 
-int insert_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx, struct katcp_vrbl *vx, char *key)
+static int insert_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx, struct katcp_vrbl *vx, char *key)
 {
   struct avl_node *node;
 
@@ -1626,6 +1634,37 @@ int insert_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx, struc
   /* WARNING v_name will become invalid whenever this is removed from tree */
   /* TODO - check that variable deletion unsets this ? */
   vx->v_name = node->n_key;
+
+  return 0;
+}
+
+static int remove_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx, struct katcp_vrbl *vx)
+{
+  struct avl_node *n;
+
+  if(vx->v_name == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "remove region: possible problem - variable %p has no name, thus difficult to remove\n", vx);
+#endif
+    return -1;
+  }
+
+  n = find_name_node_avltree(rx->r_tree, vx->v_name);
+  if(n == NULL){
+    return -1;
+  }
+
+  /* v_name shared by node and vx, need to be deallocated concurrently */
+  
+  destroy_vrbl_katcp(d, vx->v_name, vx);
+
+  if(del_node_avltree(rx->r_tree, n, NULL) < 0){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "major logic problem: avl delete should not fail after node has been found\n");
+    abort();
+#endif
+    return -1;
+  }
 
   return 0;
 }
@@ -1735,7 +1774,7 @@ struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat
   struct katcp_group *gx;
   struct katcp_flat *fy;
   struct katcp_vrbl *vx;
-  struct katcp_region *vra[MAX_DEPTH_VRBL];
+  struct katcp_region *vra[MAX_DEPTH_VRBL], *rx;
   int i, count, last;
   char *copy, *var;
   unsigned int v[MAX_STAR];
@@ -1888,14 +1927,22 @@ struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat
 
   vx = NULL;
   i = 0;
+  rx = NULL;
 
-  do{
-    vx = find_region_katcp(d, vra[i], var);
+  for(i = 0; i < MAX_DEPTH_VRBL; i++){
+    if(vra[i]){
+      vx = find_region_katcp(d, vra[i], var);
 #ifdef DEBUG
-    fprintf(stderr, "variable update: search of region [%d]=%p for %s yields %p\n", i, vra[i], var, vx);
+      fprintf(stderr, "variable update: search of region [%d]=%p for %s yields %p\n", i, vra[i], var, vx);
 #endif
-    i++;
-  } while((i < MAX_DEPTH_VRBL) && (vra[i] != NULL) && (vx == NULL));
+      if(vx){
+        rx = vra[i];
+        i = MAX_DEPTH_VRBL;
+      }
+    } else {
+      i = MAX_DEPTH_VRBL;
+    }
+  } 
 
   if(vx == NULL){
     if(vo == NULL){
@@ -1913,14 +1960,19 @@ struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat
 
   } else {
 
-    if(vo == NULL){
-      free(copy);
-      return vx;
-    }
-
-    if(clobber){
-      free(copy);
-      return NULL;
+    if(vo == NULL){ /* no replacement given, so different meaning: delete or find */
+      if(clobber){ /* delete entry - replace it with something null */
+        free(copy);
+        if(remove_region_katcp(d, rx, vx) < 0){
+          /* WARNING: sadly this is unlikely to be triggered, more likely that there will be a not found case, which then returns NULL */
+          return vx;
+        } else {
+          return NULL;
+        }
+      } else {  /* just find */
+        free(copy);
+        return vx;
+      }
     }
 
     if(vo){
@@ -2174,18 +2226,20 @@ int var_declare_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   if(fresh){
     if(configure_vrbl_katcp(d, vx, options, NULL, NULL, NULL, NULL) < 0){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to configure new variable %s", name);
+      /* can only destroy a fresh variable, the others already in tree */
       destroy_vrbl_katcp(d, name, vx);
       return KATCP_RESULT_FAIL;
     }
 
     if(update_vrbl_katcp(d, fx, name, vx, 0) == NULL){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to declare new variable %s", name);
+      /* can only destroy a fresh variable, the others already in tree */
       destroy_vrbl_katcp(d, name, vx);
       return KATCP_RESULT_FAIL;
     }
   }
 
-  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "created variable %s with type %u and flags 0x%x", name, type, options);
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "%s variable %s with type %u and flags 0x%x", fresh ? "created" : "updated", name, type, options);
 
   return KATCP_RESULT_OK;
 }
@@ -2375,6 +2429,42 @@ int var_set_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
 
   if(scan_vrbl_katcp(d, vx, value, path, 1, type) < 0){
+    return KATCP_RESULT_FAIL;
+  }
+
+  return KATCP_RESULT_OK;
+}
+
+int var_delete_group_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  char *key;
+  struct katcp_vrbl *vx;
+  struct katcp_flat *fx;
+
+  fx = this_flat_katcp(d);
+  if(fx == NULL){
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_API);
+  }
+
+  if(argc < 2){
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
+  }
+
+  key = arg_string_katcp(d, 1);
+  if(key == NULL){
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
+  }
+
+  log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "attempting to locate %s for deletion", key);
+
+  vx = find_vrbl_katcp(d, key);
+  if(vx == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "variable %s not found", key);
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_NOT_FOUND);
+  }
+
+  if(update_vrbl_katcp(d, fx, key, NULL, 1)){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to remove variable %s", key);
     return KATCP_RESULT_FAIL;
   }
 
