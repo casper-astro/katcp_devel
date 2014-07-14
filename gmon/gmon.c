@@ -17,12 +17,16 @@ static int gmon_state(struct gmon_lib *g)
     switch (g->g_status) {
         case GMON_UNKNOWN:
             fpga_requeststatus(g->server);
+            g->g_status = GMON_IDLE;
             break;
+        case GMON_IDLE:
         case GMON_FPGA_DOWN:
             // do nothing
             break;
         case GMON_FPGA_READY:
-            fpga_requestmeta(g->server);  
+            fpga_requestmeta(g->server);
+            g->g_status = GMON_IDLE; 
+            break; 
         case GMON_REQ_META:
             g->g_status = GMON_POLL;
             break;

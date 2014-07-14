@@ -51,9 +51,10 @@ static void cmd_meta(struct gmon_lib *g)
 
     argcount = arg_count_katcl(g->server);
 
-    for (i = 1; i <= argcount; i++) {
+    printf("\n");
+    for (i = 1; i < argcount; i++) {
         arg = arg_string_katcl(g->server, i);
-        printf("arg %d : %s\n", i, arg);
+        printf("arg %d : %s ", i, arg);
     }
 }
 

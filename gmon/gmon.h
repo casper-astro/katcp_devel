@@ -25,6 +25,7 @@ extern "C" {
 
 enum gmon_status {
     GMON_UNKNOWN,
+    GMON_IDLE,
     GMON_FPGA_DOWN,
     GMON_FPGA_READY,
     GMON_REQ_META,
@@ -32,9 +33,9 @@ enum gmon_status {
 };
 
 struct gmon_lib {
-    struct katcl_line *server;  ///< server
-    struct katcl_line *log;     ///< logging
-    enum gmon_status g_status;  ///< gateware monitor status
+    struct katcl_line *server;              ///< server
+    struct katcl_line *log;                 ///< logging
+    volatile enum gmon_status g_status;     ///< gateware monitor status
 };
 
 int gmon_task(struct gmon_lib *g);
