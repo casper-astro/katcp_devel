@@ -161,7 +161,7 @@ int client_config_group_cmd_katcp(struct katcp_dispatch *d, int argc)
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire client name");
       return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_BUG);
     } 
-    fx = scope_name_flat_katcp(d, client, fy);
+    fx = find_name_flat_katcp(d, NULL, client, 0);
     if(fx == NULL){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to locate client %s", client);
       return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_NOT_FOUND);
@@ -827,12 +827,7 @@ int scope_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     }
 
     if(!strcmp(ptr, "client")){
-      gx = this_group_katcp(d);
-      if(gx == NULL){
-        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no current group available");
-        return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_API);
-      }
-      fx = search_name_flat_katcp(d, name, gx, 0);
+      fx = find_name_flat_katcp(d, NULL, name, 0);
       if(fx == NULL){
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "client %s not found", name);
         return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_NOT_FOUND);

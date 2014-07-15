@@ -1855,6 +1855,7 @@ struct katcp_flat *search_name_flat_katcp(struct katcp_dispatch *d, char *name, 
   }
 
   if(limit && (gr != NULL)){
+    /* WARNING: risky - if user can persuade us not to find gr, then can search global scope */
     return NULL;
   }
 
