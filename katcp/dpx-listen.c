@@ -120,6 +120,8 @@ int accept_flat_katcp(struct katcp_dispatch *d, struct katcp_arb *a, unsigned in
       opts = fcntl(nfd, F_SETFL, opts | O_NONBLOCK);
     }
 
+    fcntl(nfd, F_SETFD, FD_CLOEXEC);
+
     snprintf(label, LABEL_BUFFER, "%s:%d", inet_ntoa(sa.sin_addr), ntohs(sa.sin_port));
     label[LABEL_BUFFER - 1] = '\0';
 
