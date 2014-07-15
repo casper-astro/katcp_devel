@@ -210,6 +210,127 @@ int log_group_info_katcp(struct katcp_dispatch *d, int argc)
 
 /* TODO: sensor logic: sensor-list, sensor-status ? */
 
+int sensor_list_group_info_katcp(struct katcp_dispatch *d, int argc)
+{
+  struct katcp_flat *fx;
+  struct katcl_parse *px;
+  struct katcp_vrbl *vx;
+  struct katcp_endpoint *self, *remote, *origin;
+  char *name, *description, *units, *type, *ptr;
+  int len;
+
+#ifdef DEBUG
+  fprintf(stderr, "log: encountered a log message\n");
+#endif
+
+  fx = this_flat_katcp(d);
+  if(fx == NULL){
+    return -1;
+  }
+
+  px = arg_parse_katcp(d);
+  if(px == NULL){
+    return -1;
+  }
+
+  origin = sender_to_flat_katcp(d, fx);
+  remote = remote_of_flat_katcp(d, fx);
+  self = handler_of_flat_katcp(d, fx);
+
+  if(origin == remote){ /* ... remote party is sending us a status update ... */
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "saw a sensor status update from remote party, should capture this");
+
+    name = get_string_parse_katcl(px, 1);
+    description = get_string_parse_katcl(px, 2);
+    units = get_string_parse_katcl(px, 3);
+    type = get_string_parse_katcl(px, 4);
+
+    if((name == NULL) || (description == NULL) || (type == NULL)){
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "deficient sensor declaration encountered");
+      return -1;
+    }
+
+    if(strchr(name, '*')){
+      ptr = strdup(name);
+      if(ptr == NULL){
+        return -1;
+      }
+    } else {
+      len = strlen(name);
+      ptr = malloc(len + 3);
+      if(ptr == NULL){
+        return -1;
+      }
+      ptr[0] = '*';
+      memcpy(ptr + 1, name, len);
+      ptr[len + 1] = '*';
+      ptr[len + 2] = '\0';
+    }
+
+    vx = find_vrbl_katcp(d, ptr);
+    if(vx != NULL){
+      if(vx->v_flags & KATCP_VRF_SEN){
+        /* WARNING: unclear - maybe clobber the sensor entirely ... */
+        log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "leaving old sensor definition unchanged");
+      } else {
+        /* unreasonable condition, up the severity */
+        log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unwilling to transform existing variable %s into a sensor", ptr);
+      }
+      free(ptr);
+      return 1; /* WARNING: is this a reasonable exit code ? */
+    }
+
+    /* here we can assume vx is a new variable */
+
+    vx = scan_vrbl_katcp(d, NULL, NULL, KATCP_VRC_SENSOR_VALUE, 1, KATCP_VRT_STRING);
+    if(vx == NULL){
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to declare sensor variable %s for %s", ptr, fx->f_name);
+      free(ptr);
+      return -1;
+    }
+
+    /* TODO: notice errors */
+    scan_vrbl_katcp(d, vx, description, KATCP_VRC_SENSOR_HELP, 1, KATCP_VRT_STRING);
+    scan_vrbl_katcp(d, vx, type, KATCP_VRC_SENSOR_TYPE, 1, KATCP_VRT_STRING);
+
+    if(units){
+      scan_vrbl_katcp(d, vx, units, KATCP_VRC_SENSOR_UNITS, 1, KATCP_VRT_STRING);
+    }
+
+    if(configure_vrbl_katcp(d, vx, KATCP_VRF_SEN, NULL, NULL, NULL, NULL) < 0){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to configure new variable %s as sensor", ptr);
+      destroy_vrbl_katcp(d, name, vx);
+      free(ptr);
+      return -1;
+    }
+
+    if(update_vrbl_katcp(d, fx, ptr, vx, 0) == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to store new sensor variable %s for client %s", ptr, fx->f_name);
+      destroy_vrbl_katcp(d, name, vx);
+      free(ptr);
+      return KATCP_RESULT_FAIL;
+    }
+
+    free(ptr);
+
+    return 0;
+
+
+  } else { /* we must have asked a sensor to send this to us, better relay it on */
+
+    if(remote == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "internal problem, saw a sensor status but have nowhere to send it to");
+      return -1;
+    }
+
+    send_message_endpoint_katcp(d, self, remote, px, 0);
+
+    return 0;
+
+  }
+
+}
+
 int sensor_status_group_info_katcp(struct katcp_dispatch *d, int argc)
 {
   struct katcp_flat *fx;
