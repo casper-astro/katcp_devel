@@ -6,7 +6,7 @@ INC = -I$(KATCP)
 LIB = -L$(KATCP) -lkatcp -lm
 
 EXE = kcpgmon
-SRC = main.c gmon.c cmdhandler.c fpga.c
+SRC = main.c gmon.c cmdhandler.c fpga.c sensor.c
 
 OBJ = $(patsubst %.c,%.o,$(SRC))
 
