@@ -109,7 +109,7 @@ int generic_log_level_group_cmd_katcp(struct katcp_dispatch *d, int argc, unsign
       }
       switch(type){
         case LEVEL_EXTENT_FLAT    :
-          fx = find_name_flat_katcp(d, NULL, name);
+          fx = find_name_flat_katcp(d, NULL, name, 0);
           if(fx == NULL){
             log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to locate a client with the name %s", name);
             return KATCP_RESULT_FAIL;

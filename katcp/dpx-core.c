@@ -1721,9 +1721,72 @@ struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, unsigned 
 
 /* auxillary calls **************************************************/
 
-struct katcp_flat *find_name_flat_katcp(struct katcp_dispatch *d, char *group, char *name)
+static int broadcast_group_katcp(struct katcp_dispatch *d, struct katcp_group *gx, struct katcl_parse *px, int (*check)(struct katcp_dispatch *d, struct katcp_flat *fx, void *data), void *data)
+{
+  int i, sum;
+  struct katcp_flat *fx;
+
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(gx == NULL){
+    fprintf(stderr, "major logic problem: broadcast to a group requires a group\n");
+    abort();
+  }
+  if(px == NULL){
+    fprintf(stderr, "major logic problem: broadcast requires a message to broadcast\n");
+    abort();
+  }
+#endif
+
+  sum = 0;
+
+  for(i = 0; i < gx->g_count; i++){
+    fx = gx->g_flats[i];
+    if((check == NULL) || ((*(check))(d, fx, data) == 0)){
+      /* ... eh, dis be horrible - reaching directly into fx - shouldn't we use the endpoints to queue messages, ... or is that just needlessly inefficient ? log_message uses a the same approach as here ... */
+      if(append_parse_katcl(fx->f_line, px) < 0){
+        sum = (-1);
+      } else {
+        if(sum >= 0){
+          sum++;
+        }
+      }
+    }
+  }
+
+  return sum;
+}
+
+int broadcast_flat_katcp(struct katcp_dispatch *d, struct katcp_group *gx, struct katcl_parse *px, int (*check)(struct katcp_dispatch *d, struct katcp_flat *fx, void *data), void *data)
+{
+  int i, sum, result;
+  struct katcp_shared *s;
+
+  s = d->d_shared;
+
+  if(gx){
+    return broadcast_group_katcp(d, gx, px, check, data);
+  }
+
+  sum = 0; /* assume things went ok */
+
+  for(i = 0; i < s->s_members; i++){
+    result = broadcast_group_katcp(d, s->s_groups[i], px, check, data);
+    if(result >= 0){
+      if(sum >= 0){
+        sum += result;
+      }
+    } else {
+      sum = (-1);
+    }
+  }
+
+  return sum;
+}
+
+struct katcp_flat *find_name_flat_katcp(struct katcp_dispatch *d, char *group, char *name, int limit)
 {
   struct katcp_group *gx;
+#if 0
   struct katcp_flat *fx;
   struct katcp_shared *s;
   unsigned int i, j;
@@ -1747,12 +1810,26 @@ struct katcp_flat *find_name_flat_katcp(struct katcp_dispatch *d, char *group, c
   }
 
   return NULL;
+#endif
+
+  if(group){
+    gx = find_group_katcp(d, group);
+    if(gx == NULL){
+      if(limit){
+        return NULL;
+      }
+    }
+  } else {
+    gx = NULL;
+  }
+
+  return search_name_flat_katcp(d, name, gx, limit);
 }
 
 struct katcp_flat *search_name_flat_katcp(struct katcp_dispatch *d, char *name, struct katcp_group *gx, int limit)
 {
   struct katcp_flat *fx;
-  struct katcp_group *gt;
+  struct katcp_group *gt, *gr;
   struct katcp_shared *s;
   unsigned int i, j;
 
@@ -1762,22 +1839,29 @@ struct katcp_flat *search_name_flat_katcp(struct katcp_dispatch *d, char *name, 
     return NULL;
   }
 
-  if(gx){
-    for(i = 0; i < gx->g_count; i++){
-      fx = gx->g_flats[i];
+  if(gx == NULL){
+    gr = this_group_katcp(d);
+  } else {
+    gr = gx;
+  }
+
+  if(gr){
+    for(i = 0; i < gr->g_count; i++){
+      fx = gr->g_flats[i];
       if(fx->f_name && (strcmp(name, fx->f_name) == 0)){
         return fx;
       }
     }
   }
 
-  if(limit){
+  if(limit && (gr != NULL)){
     return NULL;
   }
 
   for(j = 0; j < s->s_members; j++){
     gt = s->s_groups[j];
-    if(gt == gx){
+    if(gt == gr){
+      /* already examined ... */
       continue;
     }
     for(i = 0; i < gt->g_count; i++){
@@ -2051,7 +2135,7 @@ int rename_flat_katcp(struct katcp_dispatch *d, char *group, char *was, char *sh
 
   len = strlen(should) + 1;
 
-  fx = find_name_flat_katcp(d, group, was);
+  fx = find_name_flat_katcp(d, group, was, 0);
   if(fx == NULL){
     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "no entry %s found", was);
     return -1;
@@ -3520,7 +3604,7 @@ int relay_watchdog_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
   source = handler_of_flat_katcp(d, fx);
 
-  fx = find_name_flat_katcp(d, group, name);
+  fx = find_name_flat_katcp(d, group, name, 0);
   if(fx == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not look up name %s", name);
     return extra_response_katcp(d, KATCP_RESULT_FAIL, "resolver");
@@ -3663,6 +3747,7 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
 
     add_full_cmd_map_katcp(m, "log", "collect log messages (#log priority timestamp module text)", 0, &log_group_info_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "sensor-status", "handle sensor updates (#sensor-status timestamp 1 name status value)", 0, &sensor_status_group_info_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "sensor-list", "handle sensor definitions (#sensor-list name description units type [range])", 0, &sensor_list_group_info_katcp, NULL, NULL);
   }
 
   if(gx->g_maps[KATCP_MAP_INNER_INFORM] == NULL){

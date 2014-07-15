@@ -32,8 +32,6 @@
 
 #define MAX_DEPTH_VRBL 3
 
-static void destroy_vrbl_katcp(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx);
-
 static struct katcp_vrbl *find_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx, char *key);
 static int insert_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx, struct katcp_vrbl *vx, char *key);
 static int remove_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx, struct katcp_vrbl *vx);
@@ -1535,8 +1533,9 @@ struct katcp_vrbl *create_vrbl_katcp(struct katcp_dispatch *d, unsigned int type
   return vx;
 }
 
-static void destroy_vrbl_katcp(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx)
+void destroy_vrbl_katcp(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx)
 {
+  /* WARNING: risky api - vx might still be in tree ... */
   if(vx == NULL){
     return;
   }
@@ -1895,7 +1894,7 @@ struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat
         var = copy + 2;
       } else { /* G> search in named flat */
 
-        fy = find_name_flat_katcp(d, copy + 1, copy + v[0] + 1);
+        fy = find_name_flat_katcp(d, copy + 1, copy + v[0] + 1, 1);
         if(fy == NULL){
           free(copy);
           return NULL;

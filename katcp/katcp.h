@@ -693,7 +693,7 @@ void destroy_group_katcp(struct katcp_dispatch *d, struct katcp_group *g);
 struct katcp_flat *scope_name_flat_katcp(struct katcp_dispatch *d, char *name, struct katcp_flat *fx);
 struct katcp_flat *search_name_flat_katcp(struct katcp_dispatch *d, char *name, struct katcp_group *gx, int limit);
 
-struct katcp_flat *find_name_flat_katcp(struct katcp_dispatch *d, char *group, char *name);
+struct katcp_flat *find_name_flat_katcp(struct katcp_dispatch *d, char *group, char *name, int limit);
 int rename_flat_katcp(struct katcp_dispatch *d, char *group, char *was, char *should);
 int terminate_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx);
 
@@ -783,6 +783,7 @@ int scope_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 int log_group_info_katcp(struct katcp_dispatch *d, int argc);
 int sensor_status_group_info_katcp(struct katcp_dispatch *d, int argc);
+int sensor_list_group_info_katcp(struct katcp_dispatch *d, int argc);
 
 /* endpoints */
 

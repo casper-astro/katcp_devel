@@ -445,7 +445,7 @@ int relay_generic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
   source = handler_of_flat_katcp(d, fx);
 
-  fy = find_name_flat_katcp(d, NULL, name);
+  fy = find_name_flat_katcp(d, NULL, name, 0);
   if(fy == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not look up name %s", name);
     return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_NOT_FOUND);
@@ -559,7 +559,7 @@ int perform_forward_symbolic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
   source = handler_of_flat_katcp(d, fx);
 
-  fy = find_name_flat_katcp(d, NULL, fs->f_peer);
+  fy = find_name_flat_katcp(d, NULL, fs->f_peer, 0);
   if(fy == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no peer matching %s available to process request %s", fs->f_peer, req);
     return KATCP_RESULT_FAIL;

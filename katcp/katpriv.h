@@ -984,10 +984,11 @@ void shutdown_duplex_katcp(struct katcp_dispatch *d);
 int switch_group_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, struct katcp_group *gx);
 
 
-#define KATCP_FLAT_CONNECTING   0x1
-#define KATCP_FLAT_TOSERVER     0x2
-#define KATCP_FLAT_TOCLIENT     0x4
-#define KATCP_FLAT_HIDDEN       0x8
+#define KATCP_FLAT_CONNECTING   0x01
+#define KATCP_FLAT_TOSERVER     0x02
+#define KATCP_FLAT_TOCLIENT     0x04
+#define KATCP_FLAT_HIDDEN       0x08
+#define KATCP_FLAT_SEECHANGES   0x10
 
 struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, unsigned int flags, char *name, struct katcp_group *g);
 struct katcp_flat *create_exec_flat_katcp(struct katcp_dispatch *d, unsigned int flags, char *name, struct katcp_group *gx, char **vector);
@@ -1204,10 +1205,7 @@ struct katcp_vrbl_payload *find_payload_vrbl_katcp(struct katcp_dispatch *d, str
 int add_payload_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int flags, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
 int configure_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, unsigned int flags, void *state, int (*refresh)(struct katcp_dispatch *d, void *state, char *name, struct katcp_vrbl *vx), int (*change)(struct katcp_dispatch *d, void *state, char *name, struct katcp_vrbl *vx), void (*release)(struct katcp_dispatch *d, void *state, char *name, struct katcp_vrbl *vx));
 
-#if 0
 void destroy_vrbl_katcp(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx);
-#endif
-
 /* variable type handling */
 
 unsigned int type_from_string_vrbl_katcp(struct katcp_dispatch *d, char *string);
@@ -1235,7 +1233,6 @@ struct katcl_parse *make_sensor_katcp(struct katcp_dispatch *d, char *name, stru
 /* version callback */
 
 int version_generic_callback_katcp(struct katcp_dispatch *d, void *state, char *key, struct katcp_vrbl *vx);
-
 
 /******************************************/
 
