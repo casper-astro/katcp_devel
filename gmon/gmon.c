@@ -16,7 +16,7 @@ static int gmon_state(struct gmon_lib *g)
 
     switch (g->g_status) {
         case GMON_UNKNOWN:
-            fpga_requeststatus(g->server);
+            fpga_req_cmd(g->server, FPGA_REQ_CMD_STATUS);
             g->g_status = GMON_IDLE;
             break;
         case GMON_IDLE:
@@ -24,7 +24,7 @@ static int gmon_state(struct gmon_lib *g)
             // do nothing
             break;
         case GMON_FPGA_READY:
-            fpga_requestmeta(g->server);
+            fpga_req_cmd(g->server, FPGA_REQ_CMD_LISTDEV);
             g->g_status = GMON_IDLE; 
             break; 
         case GMON_REQ_META:

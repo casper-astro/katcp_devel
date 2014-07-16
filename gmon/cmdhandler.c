@@ -43,6 +43,16 @@ static void cmd_log(struct gmon_lib *g)
     }
 }
 
+static void cmd_listdev(struct gmon_lib *g)
+{
+    char *reg = NULL;
+
+    reg = arg_string_katcl(g->server, 1);
+    if (reg) {
+        printf("reg: %s\r", reg);
+    }    
+}
+
 static void cmd_meta(struct gmon_lib *g)
 {
     unsigned int argcount = 0;
@@ -61,6 +71,7 @@ static void cmd_meta(struct gmon_lib *g)
 static struct message messageLookup[] = {
     {KATCP_LOG_INFORM, cmd_log},
     {"#fpga", cmd_fpga},
+    {"#listdev", cmd_listdev},
     {"#meta", cmd_meta},
     {NULL, NULL}
 };
