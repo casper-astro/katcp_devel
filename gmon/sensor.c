@@ -1,8 +1,52 @@
+#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
 
 #include "sensor.h"
+
+struct sensor *sensor_create(char *name, char *desc)
+{
+    struct sensor *s = NULL;;
+    char *s_name = NULL;
+    char *s_desc = NULL;
+
+    s_name = strdup(name);
+    if (s_name == NULL) {
+        return NULL;
+    }
+
+    s_desc = strdup(desc);
+    if (s_desc == NULL) {
+        return NULL;
+    }
+
+    s = malloc(sizeof(struct sensor));
+
+    if (s) {
+        s->name = s_name;
+        s->desc = s_desc;
+        s->val = 1234;
+    }
+    
+    return s;
+}
+
+int sensor_destroy(struct sensor *s)
+{
+    if (s) {
+        if (s->name) {
+            free(s->name);
+        }
+        if (s->desc) {
+            free(s->desc);
+        }
+        free(s);
+        return 0;
+    } else {
+        return -1;
+    }
+}
 
 int sensor_add(struct katcl_line *l, struct sensor *s)
 {
@@ -23,9 +67,9 @@ int sensor_add(struct katcl_line *l, struct sensor *s)
                     KATCP_SENSOR_LIST_INFORM);
     retval += append_string_katcl(l, KATCP_FLAG_STRING, s->name); 
     retval += append_string_katcl(l, KATCP_FLAG_STRING, s->desc); 
-    retval += append_string_katcl(l, KATCP_FLAG_STRING, s->units); 
-    retval += append_string_katcl(l, KATCP_FLAG_LAST | KATCP_FLAG_STRING, 
-                    s->type); 
+    //retval += append_string_katcl(l, KATCP_FLAG_STRING, s->units); 
+    //retval += append_string_katcl(l, KATCP_FLAG_LAST | KATCP_FLAG_STRING, 
+    //                s->type); 
 
     return retval;
 }
@@ -34,6 +78,7 @@ int sensor_update(struct katcl_line *l, struct sensor *s)
 {
     struct timeval now;
     int retval = 0;
+    char *valstr = NULL;
     
     if (l == NULL) {
         fprintf(stderr, "NULL katcl_line pointer");
@@ -60,9 +105,10 @@ int sensor_update(struct katcl_line *l, struct sensor *s)
     /* only update one sensor */
     retval += append_string_katcl(l, KATCP_FLAG_STRING, "1");
     retval += append_string_katcl(l, KATCP_FLAG_STRING, s->name);
-    retval += append_string_katcl(l, KATCP_FLAG_STRING, s->status);
+    //retval += append_string_katcl(l, KATCP_FLAG_STRING, s->status);
+    sprintf(valstr, "%d", s->val);
     retval += append_string_katcl(l, KATCP_FLAG_LAST | KATCP_FLAG_STRING, 
-                    s->val);
+                    valstr);
     
     return retval;
 }

@@ -7,6 +7,8 @@
 #ifndef _GMON_SENSOR_H_
 #define _GMON_SENSOR_H_
 
+#include <stdint.h>
+
 #include "katcp.h"
 #include "katcl.h"
 #include "katpriv.h"
@@ -18,11 +20,15 @@ extern "C" {
 struct sensor {
     char *name;     ///< sensor name in dotted notation
     char *desc;     ///< description of the information provided by the sensor
-    char *units;    ///< short form of the units for the sensor value, may be blank
-    char *type;     ///< [integer, float, boolean, timestamp, discrete, address, string]
-    char *status;   ///< [unknown, nominal, warn, error, failue]
-    char *val;      ///< value
+    //char *units;    ///< short form of the units for the sensor value, may be blank
+    //char *type;     ///< [integer, float, boolean, timestamp, discrete, address, string]
+    //char *status;   ///< [unknown, nominal, warn, error, failue]
+    uint32_t val;   ///< value
 };
+
+struct sensor *sensor_create(char *name, char *desc);
+
+int sensor_destroy(struct sensor *s);
 
 int sensor_add(struct katcl_line *l, struct sensor *s);
 

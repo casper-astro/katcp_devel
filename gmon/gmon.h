@@ -8,7 +8,7 @@
 #define _KATCP_GMON_H_
 
 #include "fpga.h"
-
+#include "sensor.h"
 #include "katcp.h"
 #include "katcl.h"
 #include "katpriv.h"
@@ -36,6 +36,8 @@ struct gmon_lib {
     struct katcl_line *server;              ///< server
     struct katcl_line *log;                 ///< logging
     volatile enum gmon_status g_status;     ///< gateware monitor status
+    unsigned int numsensors;                ///< number of sensors in the above list
+    struct sensor **sensorlist;             ///< sensor list
 };
 
 int gmon_task(struct gmon_lib *g);

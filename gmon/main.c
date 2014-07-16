@@ -34,8 +34,9 @@ int main(int argc, char *argv[])
     int opt = 0;
     struct sigaction sa;
     char *server;
-    struct gmon_lib gmon = {NULL, NULL, GMON_UNKNOWN};
+    struct gmon_lib gmon = {NULL, NULL, GMON_UNKNOWN, 0, NULL};
     int fd;
+    int i;
 
     /* initialize the signal handler */
     memset(&sa, 0, sizeof(sa));
@@ -103,6 +104,16 @@ int main(int argc, char *argv[])
 
     if (gmon.log) {
         destroy_katcl(gmon.log, 1);
+    }
+
+    for (i = 0; i < gmon.numsensors; i++) {
+        if (gmon.sensorlist[i] != NULL) {
+            sensor_destroy(gmon.sensorlist[i]);
+        }
+    }
+
+    if (gmon.sensorlist) {
+        free(gmon.sensorlist);
     }
 
     return EXIT_SUCCESS;
