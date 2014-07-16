@@ -49,7 +49,7 @@ static void cmd_listdev(struct gmon_lib *g)
 
     reg = arg_string_katcl(g->server, 1);
     if (reg) {
-        printf("reg: %s\r", reg);
+        printf("reg: %s\n", reg);
     }    
 }
 
