@@ -23,7 +23,7 @@ static int gmon_state(struct gmon_lib *g)
         case GMON_IDLE:
         case GMON_FPGA_DOWN:
             /* clear the sensor(s) and list */
-            gmon_destroy(g);
+            // gmon_destroy(g);
             break;
         case GMON_FPGA_READY:
             fpga_req_cmd(g->server, FPGA_REQ_CMD_LISTDEV);
@@ -121,11 +121,13 @@ int gmon_task(struct gmon_lib *g)
 void gmon_destroy(struct gmon_lib *g)
 {
     int i = 0;
+    int num = g->numsensors;
 
     /*free sensors */
-    for (i = 0; i < g->numsensors; i++) {
+    for (i = 0; i < num; i++) {
         if (g->sensorlist[i]) {
             sensor_destroy(g->sensorlist[i]);
+            g->numsensors--;
         }
     }
 
