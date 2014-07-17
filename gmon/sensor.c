@@ -42,6 +42,7 @@ int sensor_destroy(struct sensor *s)
             free(s->desc);
         }
         free(s);
+        s = NULL;
         return 0;
     } else {
         return -1;
