@@ -50,20 +50,24 @@ static void cmd_listdev(struct gmon_lib *g)
     char *reg = NULL;
     char *description = "Temporary description";
     struct sensor *regsensor = NULL;
+    struct sensor **tmpsensorlist = NULL;
 
     reg = arg_string_katcl(g->server, 1);
     if (reg) {
-        printf("reg: %s\n", reg);
-
         /* add the register to the sensorlist */
         regsensor = sensor_create(reg, description);
         if (regsensor) { 
-            g->sensorlist = realloc(g->sensorlist, sizeof(regsensor));
-            if (g->sensorlist) {
+            tmpsensorlist = realloc(g->sensorlist, (g->numsensors + 1) * sizeof(regsensor));
+            if (tmpsensorlist) {
+                g->sensorlist = tmpsensorlist;
                 g->sensorlist[g->numsensors] = regsensor;
                 g->numsensors++;
                 log_message_katcl(g->log, KATCP_LEVEL_INFO, GMON_PROG,
                     "added %s register to sensorlist, total = %d", reg, g->numsensors);
+            } else {
+                sensor_destroy(regsensor);
+                log_message_katcl(g->log, KATCP_LEVEL_WARN, GMON_PROG,
+                    "could not add %s registers to the sensorlist", reg);
             }
         }
     }    
