@@ -42,6 +42,8 @@ struct gmon_lib {
 
 int gmon_task(struct gmon_lib *g);
 
+void gmon_destroy(struct gmon_lib *g);
+
 #ifdef __cplusplus
 }
 #endif

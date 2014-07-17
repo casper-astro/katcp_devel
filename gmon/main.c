@@ -36,7 +36,6 @@ int main(int argc, char *argv[])
     char *server;
     struct gmon_lib gmon = {NULL, NULL, GMON_UNKNOWN, 0, NULL};
     int fd;
-    int i;
 
     /* initialize the signal handler */
     memset(&sa, 0, sizeof(sa));
@@ -95,25 +94,20 @@ int main(int argc, char *argv[])
         gmon_task(&gmon);
     }
 
+    /* perform clean-up */
     sync_message_katcl(gmon.log, KATCP_LEVEL_INFO, GMON_PROG, 
                         "shutting down %s...", GMON_PROG);
 
+    /* free gmon sensor resources */
+    gmon_destroy(&gmon);
+
+    /* free server and logger */
     if (gmon.server) {
         destroy_katcl(gmon.server, 1);
     }
 
     if (gmon.log) {
         destroy_katcl(gmon.log, 1);
-    }
-
-    for (i = 0; i < gmon.numsensors; i++) {
-        if (gmon.sensorlist[i] != NULL) {
-            sensor_destroy(gmon.sensorlist[i]);
-        }
-    }
-
-    if (gmon.sensorlist) {
-        free(gmon.sensorlist);
     }
 
     return EXIT_SUCCESS;

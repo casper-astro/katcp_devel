@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/select.h>
 #include <sys/time.h>
@@ -116,3 +117,19 @@ int gmon_task(struct gmon_lib *g)
     return retval;
 }
 
+void gmon_destroy(struct gmon_lib *g)
+{
+    int i = 0;
+
+    /*free sensors */
+    for (i = 0; i < g->numsensors; i++) {
+        if (g->sensorlist[i]) {
+            sensor_destroy(g->sensorlist[i]);
+        }
+    }
+
+    /* free sensorlist */
+    if (g->sensorlist) {
+        free(g->sensorlist);
+    }
+}

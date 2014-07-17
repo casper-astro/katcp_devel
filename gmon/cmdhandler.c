@@ -52,19 +52,23 @@ static void cmd_listdev(struct gmon_lib *g)
     struct sensor *regsensor = NULL;
     struct sensor **tmpsensorlist = NULL;
 
+    /* obtain the register name */
     reg = arg_string_katcl(g->server, 1);
     if (reg) {
-        /* add the register to the sensorlist */
+        /* create the sensor using the register name */
         regsensor = sensor_create(reg, description);
         if (regsensor) { 
+            /* increase the size of the sensorlist */
             tmpsensorlist = realloc(g->sensorlist, (g->numsensors + 1) * sizeof(regsensor));
             if (tmpsensorlist) {
+                /* add the sensor to the sensorlist */
                 g->sensorlist = tmpsensorlist;
                 g->sensorlist[g->numsensors] = regsensor;
                 g->numsensors++;
                 log_message_katcl(g->log, KATCP_LEVEL_INFO, GMON_PROG,
                     "added %s register to sensorlist, total = %d", reg, g->numsensors);
             } else {
+                /* sensorlist size could not be increased, destroy the sensor */ 
                 sensor_destroy(regsensor);
                 log_message_katcl(g->log, KATCP_LEVEL_WARN, GMON_PROG,
                     "could not add %s registers to the sensorlist", reg);
