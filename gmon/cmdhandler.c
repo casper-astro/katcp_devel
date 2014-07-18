@@ -94,12 +94,29 @@ static void cmd_meta(struct gmon_lib *g)
     }
 }
 
+static void cmd_wordread(struct gmon_lib *g)
+{
+    unsigned int argcount = 0;
+    char *arg = NULL;
+
+    argcount = arg_count_katcl(g->server);
+
+    arg = arg_string_katcl(g->server, 1);
+    if (!strcmp("ok", arg)) {
+        arg = arg_string_katcl(g->server, 2);
+        printf("reg %s, value = %s\n", g->sensorlist[g->readcollect]->name, arg);
+    } else {
+        printf("reg %s could not be read\n", g->sensorlist[g->readcollect]->name);
+    } 
+    g->readcollect++;   
+}
+
 static struct message messageLookup[] = {
     {KATCP_LOG_INFORM, cmd_log},
     {"#fpga", cmd_fpga},
     {"#listdev", cmd_listdev},
     {"#meta", cmd_meta},
-    {"!wordread", cmd_meta},
+    {"!wordread", cmd_wordread},
     {NULL, NULL}
 };
 

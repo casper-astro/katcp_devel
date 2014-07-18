@@ -12,16 +12,17 @@
 
 #define TIMEOUT_S   (5UL)
 
-static int gmon_poll_registers(struct gmon_lib *g)
+static void gmon_poll_registers(struct gmon_lib *g)
 {
     int i = 0;
-    int ret = 0;
 
+    g->readdispatch = 0;
+    g->readcollect = 0;
+   
     for (i = 0; i < g->numsensors; i++) {
         reg_req_wordread(g->server, g->sensorlist[i]->name);
+        g->readdispatch++;
     } 
-
-    return ret;
 }
 
 static int gmon_state(struct gmon_lib *g)
@@ -35,19 +36,18 @@ static int gmon_state(struct gmon_lib *g)
             break;
         case GMON_IDLE:
         case GMON_FPGA_DOWN:
-            /* clear the sensor(s) and list */
-            // gmon_destroy(g);
+            /* do nothing, as one does when idle/down... */
             break;
         case GMON_FPGA_READY:
             fpga_req_cmd(g->server, FPGA_REQ_LISTDEV);
-            g->g_status = GMON_POLL; 
+            g->g_status = GMON_IDLE; 
             break; 
         case GMON_REQ_META:
             g->g_status = GMON_POLL;
             break;
         case GMON_POLL:
             gmon_poll_registers(g);
-            // do nothing...for now...
+            g->g_status = GMON_IDLE;
             break;
 
         default:
@@ -126,7 +126,8 @@ int gmon_task(struct gmon_lib *g)
 
     } else {
         log_message_katcl(g->log, KATCP_LEVEL_INFO, GMON_PROG, 
-                            "timeout after %ld seconds", TIMEOUT_S);
+                            "timeout after %ld seconds, polling...", TIMEOUT_S);
+        g->g_status = GMON_POLL;
     }
 
     return retval;
