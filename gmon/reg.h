@@ -17,16 +17,7 @@
 extern "C" {
 #endif
 
-struct reg {
-    char *name;       ///< register name
-    uint32_t val;     ///< register value
-};
-
-int reg_readword(struct katcl_line *l, struct reg *r);
-
-int reg_writeword(struct katcl_line *l, struct reg *r);
-
-int reg_readtest(const struct katcl_line *l);
+int reg_req_wordread(struct katcl_line *l, char *reg);
 
 #ifdef __cplusplus
 }

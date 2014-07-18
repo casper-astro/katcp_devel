@@ -34,7 +34,13 @@ int main(int argc, char *argv[])
     int opt = 0;
     struct sigaction sa;
     char *server;
-    struct gmon_lib gmon = {NULL, NULL, GMON_UNKNOWN, 0, NULL};
+    struct gmon_lib gmon = {NULL, 
+                            NULL, 
+                            GMON_UNKNOWN, 
+                            0, 
+                            NULL,
+                            0,
+                            0};
     int fd;
 
     /* initialize the signal handler */

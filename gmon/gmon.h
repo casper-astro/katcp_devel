@@ -36,8 +36,10 @@ struct gmon_lib {
     struct katcl_line *server;              ///< server
     struct katcl_line *log;                 ///< logging
     volatile enum gmon_status g_status;     ///< gateware monitor status
-    unsigned int numsensors;                ///< number of sensors in the above list
+    unsigned int numsensors;                ///< number of sensors in the below list
     struct sensor **sensorlist;             ///< sensor list
+    unsigned int readdispatch;
+    unsigned int readcollect;
 };
 
 int gmon_task(struct gmon_lib *g);

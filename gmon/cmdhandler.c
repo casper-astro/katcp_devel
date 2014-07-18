@@ -99,6 +99,7 @@ static struct message messageLookup[] = {
     {"#fpga", cmd_fpga},
     {"#listdev", cmd_listdev},
     {"#meta", cmd_meta},
+    {"!wordread", cmd_meta},
     {NULL, NULL}
 };
 
