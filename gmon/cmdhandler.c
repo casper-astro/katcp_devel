@@ -98,10 +98,7 @@ static void cmd_meta(struct gmon_lib *g)
 
 static void cmd_wordread(struct gmon_lib *g)
 {
-    unsigned int argcount = 0;
     char *arg = NULL;
-
-    argcount = arg_count_katcl(g->server);
 
     arg = arg_string_katcl(g->server, 1);
     if (!strcmp("ok", arg)) {
