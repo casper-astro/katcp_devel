@@ -70,7 +70,7 @@ static void cmd_listdev(struct gmon_lib *g)
                 log_message_katcl(g->log, KATCP_LEVEL_INFO, GMON_PROG,
                     "added %s register to sensorlist, total = %d", reg, g->numsensors);
                 /* register the katcp sensor for ?sensor-list */
-                sensor_katcp_add(g->server, regsensor);
+                sensor_katcp_add(g->log, regsensor);
             } else {
                 /* sensorlist size could not be increased, destroy the sensor */ 
                 sensor_destroy(regsensor);
@@ -108,7 +108,7 @@ static void cmd_wordread(struct gmon_lib *g)
         arg = arg_string_katcl(g->server, 2);
         printf("reg %s, value = %s\n", g->sensorlist[g->readcollect]->name, arg);
         /* update the katcp sensorlist */
-        sensor_katcp_update(g->server, g->sensorlist[g->readcollect]);
+        sensor_katcp_update(g->log, g->sensorlist[g->readcollect]);
     } else {
         printf("reg %s could not be read\n", g->sensorlist[g->readcollect]->name);
     } 
