@@ -103,6 +103,8 @@ static void cmd_wordread(struct gmon_lib *g)
     arg = arg_string_katcl(g->server, 1);
     if (!strcmp("ok", arg)) {
         arg = arg_string_katcl(g->server, 2);
+        /* convert ascii hex string to int */
+        g->sensorlist[g->readcollect]->val = strtol(arg, NULL, 16);
         printf("reg %s, value = %s\n", g->sensorlist[g->readcollect]->name, arg);
         /* update the katcp sensorlist */
         sensor_katcp_update(g->log, g->sensorlist[g->readcollect]);

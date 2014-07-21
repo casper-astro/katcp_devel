@@ -8,49 +8,37 @@
 struct sensor *sensor_create(char *name, char *desc, char *units, char *type, char *status)
 {
     struct sensor *s = NULL;;
-    char *s_name = NULL;
-    char *s_desc = NULL;
-    char *s_units = NULL;
-    char *s_type = NULL;
-    char *s_status = NULL;
-
-    s_name = strdup(name);
-    if (s_name == NULL) {
-        return NULL;
-    }
-
-    s_desc = strdup(desc);
-    if (s_desc == NULL) {
-        return NULL;
-    }
-
-    /* units may be NULL */
-    if (units) {
-        s_units = strdup(units);
-        if (s_units == NULL) {
+    
+    s = calloc(1, sizeof(struct sensor));
+    if (s) {
+        s->name = strdup(name);
+        if (s->name == NULL) {
+            sensor_destroy(s);
             return NULL;
         }
-    }
-
-    s_type = strdup(type);
-    if (s_type == NULL) {
-        return NULL;
-    }
-
-    s_status = strdup(status);
-    if (s_status == NULL) {
-        return NULL;
-    }
-
-    s = malloc(sizeof(struct sensor));
-
-    if (s) {
-        s->name = s_name;
-        s->desc = s_desc;
-        s->units = s_units;
-        s->type = s_type;
-        s->status = s_status;
-        s->val = 0;
+        s->desc = strdup(desc);
+        if (s->desc == NULL) {
+            sensor_destroy(s);
+            return NULL;
+        }
+        /* units may be NULL */
+        if (units) {
+            s->units = strdup(units);
+            if (s->units == NULL) {
+                sensor_destroy(s);
+                return NULL;
+            }
+        }
+        s->type = strdup(type);
+        if (s->type == NULL) {
+            sensor_destroy(s);
+            return NULL;
+        }
+        s->status = strdup(status);
+        if (s->status == NULL) {
+            sensor_destroy(s);
+            return NULL;
+        }
     }
     
     return s;
@@ -112,7 +100,7 @@ int sensor_katcp_update(struct katcl_line *l, struct sensor *s)
 {
     struct timeval now;
     int retval = 0;
-    char *valstr = NULL;
+    //char *valstr = NULL;
     
     if (l == NULL) {
         fprintf(stderr, "NULL katcl_line pointer");
@@ -140,6 +128,10 @@ int sensor_katcp_update(struct katcl_line *l, struct sensor *s)
     retval += append_string_katcl(l, KATCP_FLAG_STRING, "1");
     retval += append_string_katcl(l, KATCP_FLAG_STRING, s->name);
     retval += append_string_katcl(l, KATCP_FLAG_STRING, s->status);
+
+    retval += append_unsigned_long_katcl(l, KATCP_FLAG_ULONG | KATCP_FLAG_LAST, s->val);
+    
+    /*
     if (s->val != 0) {
         sprintf(valstr, "%d", s->val);
         retval += append_string_katcl(l, KATCP_FLAG_LAST | KATCP_FLAG_STRING, 
@@ -147,6 +139,7 @@ int sensor_katcp_update(struct katcl_line *l, struct sensor *s)
     } else {
         retval += append_string_katcl(l, KATCP_FLAG_LAST | KATCP_FLAG_STRING, "0");
     }
+    */
     
     return retval;
 }
