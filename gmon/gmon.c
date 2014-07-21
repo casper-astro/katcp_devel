@@ -138,7 +138,7 @@ void gmon_destroy(struct gmon_lib *g)
     int i = 0;
     int num = g->numsensors;
 
-    /*free sensors */
+    /* free sensors */
     for (i = 0; i < num; i++) {
         if (g->sensorlist[i]) {
             sensor_destroy(g->sensorlist[i]);
