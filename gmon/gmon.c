@@ -48,8 +48,8 @@ static int gmon_state(struct gmon_lib *g)
             break;
         case GMON_POLL:
             gmon_poll_registers(g);
-            /* only return to IDLE once all the registers have been polled */
-            if (g->readdispatch == 0 && g->readcollect == 0) {
+            /* only return to IDLE once all the registers have been dispatched */
+            if (g->readdispatch == 0) {
                 g->g_status = GMON_IDLE;
             }
             break;
