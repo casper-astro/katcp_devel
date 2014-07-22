@@ -11,19 +11,19 @@
 #include "cmdhandler.h"
 #include "reg.h"
 
-#define TIMEOUT_S   (5UL)
+#define TIMEOUT_S       (5UL)   ///< Poll interval in seconds
 
 static void gmon_poll_registers(struct gmon_lib *g)
 {
-    int i = 0;
-
-    g->readdispatch = 0;
-    g->readcollect = 0;
-   
-    for (i = 0; i < g->numsensors; i++) {
-        reg_req_wordread(g->server, g->sensorlist[i]->name);
+    while (((g->readdispatch - g->readcollect) < GMON_POLL_QUEUE_LEN) &&
+            (g->readdispatch < g->numsensors)) {
+        reg_req_wordread(g->server, g->sensorlist[g->readdispatch]->name);
         g->readdispatch++;
-    } 
+    }
+
+    if (g->readdispatch >= g->numsensors) {
+        g->readdispatch = 0;
+    }        
 }
 
 static int gmon_state(struct gmon_lib *g)
@@ -48,7 +48,10 @@ static int gmon_state(struct gmon_lib *g)
             break;
         case GMON_POLL:
             gmon_poll_registers(g);
-            g->g_status = GMON_IDLE;
+            /* only return to IDLE once all the registers have been polled */
+            if (g->readdispatch == 0 && g->readcollect == 0) {
+                g->g_status = GMON_IDLE;
+            }
             break;
 
         default:

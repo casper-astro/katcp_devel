@@ -136,7 +136,11 @@ static void cmd_wordread(struct gmon_lib *g)
         log_message_katcl(g->log, KATCP_LEVEL_WARN, GMON_PROG,
             "could not read reg %s", g->sensorlist[g->readcollect]->name);
     } 
+    
     g->readcollect++;   
+    if (g->readcollect >= g->numsensors) {
+        g->readcollect = 0;
+    }
 }
 
 static struct message messageLookup[] = {
