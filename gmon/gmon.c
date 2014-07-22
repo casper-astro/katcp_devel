@@ -4,6 +4,7 @@
 #include <sys/select.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <errno.h>
 
 #include "gmon.h"
 #include "fpga.h"
@@ -98,11 +99,16 @@ int gmon_task(struct gmon_lib *g)
     } else {
         retval = select(fileno_katcl(g->server) + 1, &readfds, &writefds, NULL, &timeout);
     }
-        
-    if (retval == -1) {
+
+    if (retval == -1 && errno != EINTR) {
         perror("select()");
+        exit(EXIT_FAILURE);
+    } else if (retval == -1 && errno == EINTR) {
+        /* due to EINTR */
         return 1;
-    } else if (retval) {
+    }
+     
+    if (retval) {
         /* server data to process */
         if (FD_ISSET(fileno_katcl(g->server), &readfds)) {
             retval = read_katcl(g->server);
@@ -125,7 +131,7 @@ int gmon_task(struct gmon_lib *g)
         }
 
     } else {
-        log_message_katcl(g->log, KATCP_LEVEL_INFO, GMON_PROG, 
+        log_message_katcl(g->log, KATCP_LEVEL_TRACE, GMON_PROG, 
                             "timeout after %ld seconds, polling...", TIMEOUT_S);
         g->g_status = GMON_POLL;
     }

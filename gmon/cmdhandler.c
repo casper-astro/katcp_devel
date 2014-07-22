@@ -126,12 +126,15 @@ static void cmd_wordread(struct gmon_lib *g)
         }
         if (parse) {
             g->sensorlist[g->readcollect]->val = val;
+#if 0
             printf("reg %s, value = %s\n", g->sensorlist[g->readcollect]->name, arg);
+#endif
             /* update the katcp sensorlist */
             sensor_katcp_update(g->log, g->sensorlist[g->readcollect]);
         }
     } else {
-        printf("reg %s could not be read\n", g->sensorlist[g->readcollect]->name);
+        log_message_katcl(g->log, KATCP_LEVEL_WARN, GMON_PROG,
+            "could not read reg %s", g->sensorlist[g->readcollect]->name);
     } 
     g->readcollect++;   
 }
