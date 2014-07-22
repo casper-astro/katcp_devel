@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
+#include <errno.h>
+#include <stdbool.h>
 
 #include "gmon.h"
 #include "cmdhandler.h"
@@ -99,15 +102,34 @@ static void cmd_meta(struct gmon_lib *g)
 static void cmd_wordread(struct gmon_lib *g)
 {
     char *arg = NULL;
+    uint32_t val = 0;
+    char *endptr;
+    bool parse = true;
 
     arg = arg_string_katcl(g->server, 1);
     if (!strcmp("ok", arg)) {
         arg = arg_string_katcl(g->server, 2);
-        /* convert ascii hex string to int */
-        g->sensorlist[g->readcollect]->val = strtol(arg, NULL, 16);
-        printf("reg %s, value = %s\n", g->sensorlist[g->readcollect]->name, arg);
-        /* update the katcp sensorlist */
-        sensor_katcp_update(g->log, g->sensorlist[g->readcollect]);
+        /* convert ascii hex string to int, also refer to 'man strtol' */
+        errno = 0;
+        val = strtol(arg, &endptr, 16);
+        /* check for various strtol errors */
+        if ((errno == ERANGE && (val == LONG_MAX || val == LONG_MIN))
+                || (errno != 0 && val == 0)) {
+            log_message_katcl(g->log, KATCP_LEVEL_WARN, GMON_PROG,
+                "could not convert ascii string %s", arg);
+            parse = false;
+        }
+        if (endptr == arg) {
+            log_message_katcl(g->log, KATCP_LEVEL_WARN, GMON_PROG,
+                "no digits found %s", arg);
+            parse = false;
+        }
+        if (parse) {
+            g->sensorlist[g->readcollect]->val = val;
+            printf("reg %s, value = %s\n", g->sensorlist[g->readcollect]->name, arg);
+            /* update the katcp sensorlist */
+            sensor_katcp_update(g->log, g->sensorlist[g->readcollect]);
+        }
     } else {
         printf("reg %s could not be read\n", g->sensorlist[g->readcollect]->name);
     } 
