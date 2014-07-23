@@ -20,7 +20,8 @@
 #define GMON_VER_MINOR      (0)
 #define GMON_VER_BUGFIX     (0)
 
-#define GMON_POLL_QUEUE_LEN (5)
+#define GMON_POLL_TIME_S    (5)     ///< default register polling time in seconds
+#define GMON_POLL_QUEUE_LEN (5)     ///< number of wordread requests that can be in 'transit'
 
 #ifdef __cplusplus
 extern "C" {
@@ -38,11 +39,12 @@ enum gmon_status {
 struct gmon_lib {
     struct katcl_line *server;              ///< server
     struct katcl_line *log;                 ///< logging
+    unsigned int polltime;                  ///< register polling time
     volatile enum gmon_status g_status;     ///< gateware monitor status
     unsigned int numsensors;                ///< number of sensors in the below list
     struct sensor **sensorlist;             ///< sensor list
-    unsigned int readdispatch;
-    unsigned int readcollect;
+    unsigned int readdispatch;              ///< 'transit' wordread counter
+    unsigned int readcollect;               ///< 'transit' wordread counter 
 };
 
 int gmon_task(struct gmon_lib *g);

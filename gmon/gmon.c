@@ -11,8 +11,6 @@
 #include "cmdhandler.h"
 #include "reg.h"
 
-#define TIMEOUT_S       (5UL)   ///< Poll interval in seconds
-
 static void gmon_poll_registers(struct gmon_lib *g)
 {
     while (((g->readdispatch - g->readcollect) < GMON_POLL_QUEUE_LEN) &&
@@ -78,7 +76,7 @@ int gmon_task(struct gmon_lib *g)
 
     FD_ZERO(&readfds);
     FD_ZERO(&writefds);
-    timeout.tv_sec = TIMEOUT_S;
+    timeout.tv_sec = g->polltime;;
     timeout.tv_usec = 0;
 
     /* check if there is server data to process */    
@@ -135,7 +133,7 @@ int gmon_task(struct gmon_lib *g)
 
     } else {
         log_message_katcl(g->log, KATCP_LEVEL_TRACE, GMON_PROG, 
-                            "timeout after %ld seconds, polling...", TIMEOUT_S);
+                            "timeout after %ld seconds, polling...", g->polltime);
         g->g_status = GMON_POLL;
     }
 

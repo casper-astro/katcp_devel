@@ -21,6 +21,7 @@ static void signalhandler(int signum)
     switch (signum) {
         case SIGTERM:
         case SIGINT:
+        case SIGPIPE:
             monitor = 0;    
             break;
 
@@ -34,14 +35,12 @@ int main(int argc, char *argv[])
     int opt = 0;
     struct sigaction sa;
     char *server;
-    struct gmon_lib gmon = {NULL, 
-                            NULL, 
-                            GMON_UNKNOWN, 
-                            0, 
-                            NULL,
-                            0,
-                            0};
+    struct gmon_lib gmon = {0};
     int fd;
+
+    /* initialise gmon object */
+    gmon.polltime = GMON_POLL_TIME_S;
+    gmon.g_status = GMON_UNKNOWN;
 
     /* initialize the signal handler */
     memset(&sa, 0, sizeof(sa));
@@ -56,10 +55,13 @@ int main(int argc, char *argv[])
     }
 
     /* process command line arguments */
-    while ((opt = getopt(argc, argv, "hs:v")) != -1) {
+    while ((opt = getopt(argc, argv, "hs:t:v")) != -1) {
         switch (opt) {
             case 's':
                 server = optarg;
+                break;
+            case 't':
+                gmon.polltime = atoi(optarg);
                 break;
             case 'v':
                 print_version();
@@ -124,6 +126,7 @@ static void usage(void)
     printf("usage: %s [options]\n", GMON_PROG);
     printf("-h\t\t\tthis help\n");
     printf("-s server:port\t\tspecify server:port\n");
+    printf("-t polltime\t\tspecify the polltime in seconds [default %d]\n", GMON_POLL_TIME_S);
 
     printf("\nenvironment variable(s):\n");
     printf("\tKATCP_SERVER\tdefault server (overriden by -s option)\n");
