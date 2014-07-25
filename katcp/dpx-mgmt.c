@@ -119,6 +119,7 @@ int client_connect_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   fd = net_connect(client, 0, NETC_ASYNC);
   if(fd < 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to initiate connection to %s: %s", client, errno ? strerror(errno) : "unknown error");
+    return KATCP_RESULT_FAIL;
   }
 
   fcntl(fd, F_SETFD, FD_CLOEXEC);
