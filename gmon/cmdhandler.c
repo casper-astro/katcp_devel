@@ -24,13 +24,13 @@ static void cmd_fpga(struct gmon_lib *g)
     
     if (arg) {
         if (!strcmp("down", arg)) {
-            g->g_status = GMON_FPGA_DOWN;
+            g->state = GMON_FPGA_DOWN;
             /* free sensor resources */
             gmon_destroy(g);
             log_message_katcl(g->log, KATCP_LEVEL_INFO, GMON_PROG,
                                 "fpga down", NULL);
         } else if (!strcmp("ready", arg)) {
-            g->g_status = GMON_FPGA_READY; 
+            g->state = GMON_FPGA_READY; 
             log_message_katcl(g->log, KATCP_LEVEL_INFO, GMON_PROG,
                                 "fpga ready", NULL);
         }

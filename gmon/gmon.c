@@ -28,10 +28,10 @@ static int gmon_state(struct gmon_lib *g)
 {
     int retval = 0;
 
-    switch (g->g_status) {
+    switch (g->state) {
         case GMON_UNKNOWN:
             fpga_req_cmd(g->server, FPGA_REQ_STATUS);
-            g->g_status = GMON_IDLE;
+            g->state = GMON_IDLE;
             break;
         case GMON_IDLE:
         case GMON_FPGA_DOWN:
@@ -39,22 +39,22 @@ static int gmon_state(struct gmon_lib *g)
             break;
         case GMON_FPGA_READY:
             fpga_req_cmd(g->server, FPGA_REQ_LISTDEV);
-            g->g_status = GMON_IDLE; 
+            g->state = GMON_IDLE; 
             break; 
         case GMON_REQ_META:
-            g->g_status = GMON_POLL;
+            g->state = GMON_POLL;
             break;
         case GMON_POLL:
             gmon_poll_registers(g);
             /* only return to IDLE once all the registers have been dispatched */
             if (g->readdispatch == 0) {
-                g->g_status = GMON_IDLE;
+                g->state = GMON_IDLE;
             }
             break;
 
         default:
             fprintf(stderr, "gmon in unknown state, setting to initial state");
-            g->g_status = GMON_UNKNOWN;
+            g->state = GMON_UNKNOWN;
             break;
     }
 
@@ -94,7 +94,7 @@ int gmon_task(struct gmon_lib *g)
 
     /* we know (fileno_katcl(g->server) + 1) will be the highest since fileno_katcl(k) 
        return STDOUT_FILENO */
-    if (g->g_status == GMON_FPGA_DOWN) {
+    if (g->state == GMON_FPGA_DOWN) {
         /* sleep indefinitely if the FPGA is not ready */
         retval = select(fileno_katcl(g->server) + 1, &readfds, &writefds, NULL, NULL);
     } else {
@@ -134,7 +134,7 @@ int gmon_task(struct gmon_lib *g)
     } else {
         log_message_katcl(g->log, KATCP_LEVEL_TRACE, GMON_PROG, 
                             "timeout after %ld seconds, polling...", g->polltime);
-        g->g_status = GMON_POLL;
+        g->state = GMON_POLL;
     }
 
     return retval;

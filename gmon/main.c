@@ -1,3 +1,9 @@
+/* This is the main entry point for the Gateware Monitor (GMON)
+ * application. 
+ *
+ * 
+ */
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -40,7 +46,7 @@ int main(int argc, char *argv[])
 
     /* initialise gmon object */
     gmon.polltime = GMON_POLL_TIME_S;
-    gmon.g_status = GMON_UNKNOWN;
+    gmon.state = GMON_UNKNOWN;
 
     /* initialize the signal handler */
     memset(&sa, 0, sizeof(sa));
