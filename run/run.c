@@ -176,9 +176,10 @@ static int tweaklevel(int verbose, int level)
 
 int main(int argc, char **argv)
 {
+#define BUFFER 128
   int terminate, status, code;
   int levels[2], index, efds[2], ofds[2];
-  int i, j, c, offset, result;
+  int i, j, c, offset, result, rr;
   struct katcl_line *k;
   char *app;
   char *tmp;
@@ -187,6 +188,7 @@ int main(int argc, char **argv)
   struct iostate *erp, *orp;
   fd_set fsr, fsw;
   int mfd, fd;
+  unsigned char buffer[BUFFER];
 
   
   ts = &total;
@@ -425,7 +427,21 @@ int main(int argc, char **argv)
       }
 
       if(FD_ISSET(STDIN_FILENO, &fsr)){
-        result = (-2);
+        rr = read(STDIN_FILENO, buffer, BUFFER);
+        if(rr <= 0){
+          if(rr < 0){
+            switch(errno){
+              case EAGAIN :
+              case EINTR  :
+                break;
+              default :
+                result = (-2);
+                break;
+            }
+          } else {
+            result = (-2);
+          }
+        }
       }
 
       if(FD_ISSET(orp->i_fd, &fsr)){
@@ -469,4 +485,5 @@ int main(int argc, char **argv)
   destroy_katcl(k, 0);
 
   return code;
+#undef BUFFER
 }
