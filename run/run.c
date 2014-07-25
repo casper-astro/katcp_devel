@@ -181,7 +181,7 @@ int main(int argc, char **argv)
   int i, j, c, offset, result;
   struct katcl_line *k;
   char *app;
-  char *tmp, *buffer;
+  char *tmp;
   pid_t pid, r;
   struct totalstate total, *ts;
   struct iostate *erp, *orp;
@@ -192,12 +192,12 @@ int main(int argc, char **argv)
   ts = &total;
 
   terminate = 1;
+  offset = (-1);
 
   levels[0] = KATCP_LEVEL_INFO;
   levels[1] = KATCP_LEVEL_ERROR;
 
   i = j = 1;
-  buffer = NULL;
 
   ts->t_system = getenv("KATCP_LABEL");
   ts->t_verbose = 1;
