@@ -177,7 +177,7 @@ static int tweaklevel(int verbose, int level)
 int main(int argc, char **argv)
 {
 #define BUFFER 128
-  int terminate, status, code;
+  int terminate, status, code, childgone, parentgone;
   int levels[2], index, efds[2], ofds[2];
   int i, j, c, offset, result, rr;
   struct katcl_line *k;
@@ -375,6 +375,9 @@ int main(int argc, char **argv)
     return EX_OSERR;
   }
 
+  childgone = 0;
+  parentgone = 0;
+
   do{
     FD_ZERO(&fsr);
     FD_ZERO(&fsw);
@@ -435,23 +438,27 @@ int main(int argc, char **argv)
               case EINTR  :
                 break;
               default :
-                result = (-2);
+                parentgone = 1;
+                result = (-1);
                 break;
             }
           } else {
-            result = (-2);
+            parentgone = 1;
+            result = (-1);
           }
         }
       }
 
       if(FD_ISSET(orp->i_fd, &fsr)){
         if(run_iostate(ts, orp, k)){
+          childgone = 1;
           result = (-1);
         }
       }
 
       if(FD_ISSET(erp->i_fd, &fsr)){
         if(run_iostate(ts, erp, k)){
+          childgone = 1;
           result = (-1);
         }
       }
@@ -467,12 +474,22 @@ int main(int argc, char **argv)
     /* child has gone, collect the return code */
     if(WIFEXITED(status)){
       code = WEXITSTATUS(status);
+      if(code > 0){
+        log_message_katcl(k, tweaklevel(ts->t_verbose, KATCP_LEVEL_WARN), ts->t_system, "task %s exited with nonzero exit code", argv[offset]);
+      } else {
+        log_message_katcl(k, tweaklevel(ts->t_verbose, KATCP_LEVEL_INFO), ts->t_system, "task %s exited normally", argv[offset]);
+      }
+    } else if(WIFSIGNALED(status)){
+      log_message_katcl(k, tweaklevel(ts->t_verbose, KATCP_LEVEL_WARN), ts->t_system, "task %s exited with signal %d", argv[offset], WTERMSIG(status));
+    } else {
+      log_message_katcl(k, tweaklevel(ts->t_verbose, KATCP_LEVEL_WARN), ts->t_system, "task %s in rather unusual status 0x%x", argv[offset], status);
     }
-    terminate = 0;
+    childgone = 1;
   } 
 
-  if(result < (-1)){
+  if(parentgone && (childgone == 0)){
     if(terminate){
+      log_message_katcl(k, tweaklevel(ts->t_verbose, KATCP_LEVEL_INFO), ts->t_system, "terminating task %s", argv[offset]);
       kill(pid, SIGTERM);
     }
   }
