@@ -299,7 +299,7 @@ int main(int argc, char **argv)
       if(offset < 0){
         offset = i;
       }
-      i++;
+      i = argc;
     }
   }
 
