@@ -174,16 +174,89 @@ static int tweaklevel(int verbose, int level)
   return result;
 }
 
+static int collect_child(struct katcl_line *k, char *task, char *system, int verbose, pid_t pid)
+{
+  int status, code, sig, level;
+  pid_t result;
+
+  result = waitpid(pid, &status, WNOHANG);
+
+  if(result == 0){
+    /* child still running */
+    log_message_katcl(k, tweaklevel(verbose, KATCP_LEVEL_DEBUG), system, "task %s still running", task);
+    return 1;
+  }
+
+  if(result < 0){
+    switch(errno){
+      case ENOENT :
+      case ECHILD :
+        /* no child */
+        return 0;
+      default :
+        /* other problem */
+        log_message_katcl(k, tweaklevel(verbose, KATCP_LEVEL_WARN), system, "unable to collect task %s: %s", task, strerror(errno));
+        return -1;
+    }
+  }
+
+  if(result != pid){
+    log_message_katcl(k, tweaklevel(verbose, KATCP_LEVEL_ERROR), system, "major logic problem: expected pid %u but received %u", pid, result);
+    return -1;
+  }
+
+  /* now result == pid */
+
+  /* child has gone, collect the return code */
+  if(WIFEXITED(status)){
+    code = WEXITSTATUS(status);
+    if(code > 0){
+      log_message_katcl(k, tweaklevel(verbose, KATCP_LEVEL_WARN), system, "task %s exited with nonzero exit code", task);
+    } else {
+      log_message_katcl(k, tweaklevel(verbose, KATCP_LEVEL_INFO), system, "task %s exited normally", task);
+    }
+  
+
+    /* TODO: would be nice to relay the return code to parent somehow */
+    return 0;
+  } 
+  
+  if(WIFSIGNALED(status)){
+    sig = WTERMSIG(status);
+    switch(sig){
+      case SIGTERM :
+      case SIGKILL :
+        level = KATCP_LEVEL_INFO;
+        break;
+      case SIGPIPE :
+        level = KATCP_LEVEL_WARN;
+        break;
+      default :
+        level = KATCP_LEVEL_ERROR;
+        break;
+    }
+    log_message_katcl(k, tweaklevel(verbose, level), system, "task %s exited with signal %d", task, sig);
+
+    return 0;
+  } 
+  
+  
+  /* process stopped ? continued ? other weirdness */
+
+  log_message_katcl(k, tweaklevel(verbose, KATCP_LEVEL_WARN), system, "task %s in rather unusual status 0x%x", task, status);
+  return -1;
+}
+
 int main(int argc, char **argv)
 {
 #define BUFFER 128
-  int terminate, status, code, childgone, parentgone;
+  int terminate, code, childgone, parentgone;
   int levels[2], index, efds[2], ofds[2];
   int i, j, c, offset, result, rr;
   struct katcl_line *k;
   char *app;
   char *tmp;
-  pid_t pid, r;
+  pid_t pid;
   struct totalstate total, *ts;
   struct iostate *erp, *orp;
   fd_set fsr, fsw;
@@ -467,30 +540,39 @@ int main(int argc, char **argv)
 
   } while(result >= 0);
 
-  code = 1;
+  code = 0;
 
-  r = waitpid(pid, &status, WNOHANG);
-  if(r == pid){
-    /* child has gone, collect the return code */
-    if(WIFEXITED(status)){
-      code = WEXITSTATUS(status);
-      if(code > 0){
-        log_message_katcl(k, tweaklevel(ts->t_verbose, KATCP_LEVEL_WARN), ts->t_system, "task %s exited with nonzero exit code", argv[offset]);
-      } else {
-        log_message_katcl(k, tweaklevel(ts->t_verbose, KATCP_LEVEL_INFO), ts->t_system, "task %s exited normally", argv[offset]);
-      }
-    } else if(WIFSIGNALED(status)){
-      log_message_katcl(k, tweaklevel(ts->t_verbose, KATCP_LEVEL_WARN), ts->t_system, "task %s exited with signal %d", argv[offset], WTERMSIG(status));
-    } else {
-      log_message_katcl(k, tweaklevel(ts->t_verbose, KATCP_LEVEL_WARN), ts->t_system, "task %s in rather unusual status 0x%x", argv[offset], status);
-    }
-    childgone = 1;
-  } 
-
-  if(parentgone && (childgone == 0)){
+  if(collect_child(k, argv[offset], ts->t_system, ts->t_verbose, pid) > 0){
     if(terminate){
       log_message_katcl(k, tweaklevel(ts->t_verbose, KATCP_LEVEL_INFO), ts->t_system, "terminating task %s", argv[offset]);
-      kill(pid, SIGTERM);
+      if(kill(pid, SIGTERM) < 0){
+        switch(errno){
+          case ESRCH  :
+          case ENOENT :
+            break;
+          default :
+            log_message_katcl(k, tweaklevel(ts->t_verbose, KATCP_LEVEL_INFO), ts->t_system, "unable to terminate task %s", argv[offset]);
+            break;
+        }
+      } else {
+        sleep(1);
+        if(collect_child(k, argv[offset], ts->t_system, ts->t_verbose, pid) > 0){
+          log_message_katcl(k, tweaklevel(ts->t_verbose, KATCP_LEVEL_INFO), ts->t_system, "killing task %s", argv[offset]);
+          if(kill(pid, SIGKILL) < 0){
+            switch(errno){
+              case ESRCH  :
+              case ENOENT :
+                break;
+              default :
+                log_message_katcl(k, tweaklevel(ts->t_verbose, KATCP_LEVEL_INFO), ts->t_system, "unable to terminate task %s", argv[offset]);
+                break;
+            }
+          } else {
+            sleep(1);
+            collect_child(k, argv[offset], ts->t_system, ts->t_verbose, pid);
+          }
+        }
+      }
     }
   }
 
