@@ -26,11 +26,13 @@
 
 #define POLL_INTERVAL     10  /* polling interval, in msecs, how often we look at register */
 
-#define FRESH_FOUND          30000 /* length of time to cache a valid reply - units are poll interval, approx */
-#define FRESH_ANNOUNCE_FINAL  4000 /* interval when we announce ourselves - good idea to be shorter than others */
+#define FRESH_FOUND          50000 /* length of time to cache a valid reply - units are poll interval, approx */
+#define FRESH_ANNOUNCE_FINAL  8000 /* interval when we announce ourselves - good idea to be shorter than others */
 #define FRESH_ANNOUNCE_INITIAL  13 /* initial spamming interval, can not be smaller than 2 */
 #define FRESH_ANNOUNCE_LINEAR   70 /* value before which we are linear - not quadratic */
 #define ANNOUNCE_RATIO           4 /* own announcements happen more frequently than queries */
+
+#define SMALL_DELAY             10 /* wait this long before announcing ourselves */
 
 #define COPRIME_A         5 /* initial arp spamming offset as multiple of instance number, units poll interval */
 #define COPRIME_B        17 /* some other offset ... */
@@ -344,6 +346,9 @@ int reply_arp(struct getap_state *gs)
     memcpy(gs->s_arp_buffer, gs->s_rxb, 42);
     gs->s_arp_len = 42;
   }
+
+  /* WARNING: heuristic: also announce ourselves soon, on the basis that others might also want to know about us */
+  gs->s_arp_fresh[gs->s_self] = gs->s_iteration + SMALL_DELAY;
 
   return result;
 }
@@ -1447,6 +1452,57 @@ int tap_stop_cmd(struct katcp_dispatch *d, int argc)
   unlink_getap(d, gs);
 
   return KATCP_RESULT_OK;
+}
+
+void tap_reload_arp(struct katcp_dispatch *d, struct getap_state *gs)
+{
+  unsigned int i;
+
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "forcing re-acquire of network peers for %s", gs->s_tap_name);
+
+  for(i = 1; i < (GETAP_ARP_CACHE - 1); i++){
+    gs->s_arp_fresh[i] = gs->s_iteration + i + 1;
+    gs->s_arp_fresh[gs->s_self] = gs->s_iteration;
+  }
+
+}
+
+int tap_reload_cmd(struct katcp_dispatch *d, int argc)
+{
+  char *name;
+  unsigned int i;
+  struct tbs_raw *tr;
+
+  tr = get_current_mode_katcp(d);
+  if(tr == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to get raw state");
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(argc <= 1){
+    for(i = 0; i < tr->r_instances; i++){
+      tap_reload_arp(d, tr->r_taps[i]);
+    }
+
+    return KATCP_RESULT_OK;
+  }
+  
+  name = arg_string_katcp(d, 1);
+  if(name == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "internal failure while acquiring parameters");
+    return KATCP_RESULT_FAIL;
+  }
+
+  for(i = 0; i < tr->r_instances; i++){
+    if(!strcmp(tr->r_taps[i]->s_tap_name, name)){
+      tap_reload_arp(d, tr->r_taps[i]);
+      return KATCP_RESULT_OK;
+    }
+  }
+
+  log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no active tap instance %s found", name);
+
+  return KATCP_RESULT_FAIL;
 }
 
 void tap_print_info(struct katcp_dispatch *d, struct getap_state *gs)
