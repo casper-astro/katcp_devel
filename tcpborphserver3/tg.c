@@ -35,7 +35,7 @@
 #define SMALL_DELAY             10 /* wait this long before announcing ourselves */
 
 #define COPRIME_A         5 /* initial arp spamming offset as multiple of instance number, units poll interval */
-#define COPRIME_B        17 /* some other offset ... */
+#define COPRIME_B        23 /* some other offset ... */
 
 #define RECEIVE_BURST      8 /* read at most N frames per polling interval */
 
@@ -278,7 +278,7 @@ void announce_arp(struct getap_state *gs)
 static void request_arp(struct getap_state *gs, int index)
 {
   uint32_t host;
-  unsigned int extra;
+  unsigned int extra, pos, delta, reference, mine;
   int result;
 
   if(gs->s_self == index){
@@ -308,9 +308,26 @@ static void request_arp(struct getap_state *gs, int index)
   fprintf(stderr, "arp: sending arp request for index %d (host=0x%08x)\n", index, host);
 #endif
 
-  /* WARNING: arb calculation, attempt to have things diverge gradually */
-  extra = (gs->s_arp_fresh[index] % COPRIME_A) ? 0 : COPRIME_B;
-  gs->s_arp_fresh[index] = gs->s_iteration + (gs->s_announce * ANNOUNCE_RATIO) + extra;
+  /* pick an entry at random ... */
+  pos = (gs->s_iteration + index) % (GETAP_ARP_CACHE - 2) + 1;
+  reference = gs->s_arp_fresh[pos];
+
+  mine = gs->s_iteration + (gs->s_announce * ANNOUNCE_RATIO);
+  if(mine > reference){
+    delta = mine - reference;
+    /* try to get away from random entry ... */
+    if(delta < gs->s_announce){
+
+      extra = (COPRIME_B * ((index % COPRIME_A) + 1));
+      /* by some weird amount */
+      if(extra > gs->s_announce){
+        extra = gs->s_announce;
+      }
+      mine += extra;
+    }
+  }
+  gs->s_arp_fresh[index] = mine;
+
   gs->s_arp_len = 42;
 
   result = write_frame_fpga(gs, gs->s_arp_buffer, gs->s_arp_len);
@@ -1019,7 +1036,7 @@ int configure_fpga(struct getap_state *gs)
 
   for(i = 0; i < GETAP_ARP_CACHE; i++){
     /* heuristic to make things less bursty ... unclear if it is worth anything */
-    set_entry_arp(gs, i, broadcast_const, (GETAP_ARP_CACHE - gs->s_self) + (i * COPRIME_A));
+    set_entry_arp(gs, i, broadcast_const, (GETAP_ARP_CACHE - gs->s_self) + (i * COPRIME_B));
   }
 
   set_entry_arp(gs, gs->s_self, gs->s_mac_binary, 1);
@@ -1461,7 +1478,7 @@ void tap_reload_arp(struct katcp_dispatch *d, struct getap_state *gs)
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "forcing re-acquire of network peers for %s", gs->s_tap_name);
 
   for(i = 1; i < (GETAP_ARP_CACHE - 1); i++){
-    gs->s_arp_fresh[i] = gs->s_iteration + i + 1;
+    gs->s_arp_fresh[i] = gs->s_iteration + (i * COPRIME_A) + 1;
     gs->s_arp_fresh[gs->s_self] = gs->s_iteration;
   }
 
