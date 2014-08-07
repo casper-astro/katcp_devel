@@ -227,7 +227,9 @@ int main(int argc, char **argv)
     fd = STDOUT_FILENO;
   } else {
     flags = O_CREAT | O_WRONLY;
-    if(truncate == 0){
+    if(truncate){
+      flags |= O_TRUNC
+    } else {
       flags |= O_APPEND;
     }
     fd = open(output, flags, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
