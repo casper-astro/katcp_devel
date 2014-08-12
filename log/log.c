@@ -228,7 +228,7 @@ int main(int argc, char **argv)
   } else {
     flags = O_CREAT | O_WRONLY;
     if(truncate){
-      flags |= O_TRUNC
+      flags |= O_TRUNC;
     } else {
       flags |= O_APPEND;
     }
