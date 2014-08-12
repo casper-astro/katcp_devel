@@ -683,7 +683,9 @@ struct katcp_flat *this_flat_katcp(struct katcp_dispatch *d);
 struct katcp_cmd_item *this_cmd_katcp(struct katcp_dispatch *d);
 struct katcp_flat *require_flat_katcp(struct katcp_dispatch *d);
 
+struct katcp_group *scope_name_group_katcp(struct katcp_dispatch *d, char *name, struct katcp_flat *fx);
 struct katcp_group *find_group_katcp(struct katcp_dispatch *d, char *name);
+
 int hold_group_katcp(struct katcp_group *g);
 struct katcp_group *duplicate_group_katcp(struct katcp_dispatch *d, struct katcp_group *go, char *name, int depth);
 struct katcp_group *create_group_katcp(struct katcp_dispatch *d, char *name);
@@ -703,6 +705,8 @@ struct katcp_endpoint *sender_to_flat_katcp(struct katcp_dispatch *d, struct kat
 struct katcp_cmd_map *map_of_flat_katcp(struct katcp_flat *fx);
 
 int callback_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoint *issuer, struct katcl_parse *px, struct katcp_endpoint *recipient, int (*call)(struct katcp_dispatch *d, int argc), char *string, unsigned int flags);
+
+int broadcast_flat_katcp(struct katcp_dispatch *d, struct katcp_group *gx, struct katcl_parse *px, int (*check)(struct katcp_dispatch *d, struct katcp_flat *fx, void *data), void *data);
 
 /* duplex output logic ... should be made less visible */
 
@@ -778,6 +782,8 @@ int var_delete_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 int version_list_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 
 int scope_group_cmd_katcp(struct katcp_dispatch *d, int argc);
+int broadcast_group_cmd_katcp(struct katcp_dispatch *d, int argc);
+
 
 /* duplex related inform handlers */
 

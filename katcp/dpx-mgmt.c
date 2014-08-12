@@ -19,6 +19,8 @@
 #include <katpriv.h>
 #include <katcl.h>
 
+/* client stuff *******************************************************************/
+
 int client_exec_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   char *label, *group;
@@ -858,6 +860,108 @@ int scope_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     }
 
     fx->f_scope = scope;
+  }
+
+  return KATCP_RESULT_OK;
+}
+
+/*********************************************************************************/
+
+int broadcast_group_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  char *inform, *group;
+  struct katcl_parse *px, *py;
+  struct katcp_flat *fx;
+  struct katcp_group *gx;
+  char *ptr;
+
+  py = arg_parse_katcp(d);
+  if(py == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "interesting internal problem: unable to acquire current parser message");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_BUG);
+  }
+
+  fx = this_flat_katcp(d);
+  if(fx == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "logic problem: broadcast not run in flat scope");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_BUG);
+  }
+
+
+  if(argc < 3){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a group and a message");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
+  }
+
+  group = arg_string_katcp(d, 1);
+  if(group){
+
+    gx = scope_name_group_katcp(d, group, fx);
+    if(gx == NULL){
+      if(strcmp(group, "*")){ /* WARNING: made up syntax - needs to be checked across everything */
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to locate group called %s", group);
+        return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_NOT_FOUND);
+      }
+    }
+
+    /* TODO: should check scope - if not global, restrict to current one ... */
+
+  } else {
+    /* group is null, assume everybody */
+    switch(fx->f_scope){
+      case KATCP_SCOPE_GROUP : 
+        gx = this_group_katcp(d);
+        break;
+      case KATCP_SCOPE_GLOBAL : 
+        break;
+      /* case KATCP_SCOPE_SINGLE :  */
+      default :
+        /* TODO: should spam ourselves ... in order not to give away that we are restricted */
+        return KATCP_RESULT_OK;
+    }
+  }
+
+  inform = arg_string_katcp(d, 2);
+  if(inform == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a non-null inform");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
+  }
+
+  switch(inform[0]){
+    case KATCP_REPLY : 
+    case KATCP_REQUEST :
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "refusing to broadcast a message which is not an inform");
+      return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
+    /* case KATCP_INFORM : */
+    default :
+      break;
+  }
+  
+  ptr = default_message_type_katcm(inform, KATCP_INFORM);
+  if(ptr == NULL){
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_MALLOC);
+  }
+
+  px = create_parse_katcl();
+  if(px == NULL){
+    free(ptr);
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_MALLOC);
+  }
+
+  if(argc > 3){
+    add_string_parse_katcl(px, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, ptr);
+
+    add_trailing_parse_katcl(px, KATCP_FLAG_LAST, py, 3);
+
+  } else {
+    add_string_parse_katcl(px, KATCP_FLAG_FIRST | KATCP_FLAG_LAST | KATCP_FLAG_STRING, ptr);
+  }
+
+  free(ptr);
+  ptr = NULL;
+
+  if(broadcast_flat_katcp(d, gx, px, NULL, NULL) < 0){
+    return KATCP_RESULT_FAIL;
   }
 
   return KATCP_RESULT_OK;

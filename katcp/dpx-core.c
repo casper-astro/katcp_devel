@@ -1910,6 +1910,44 @@ struct katcp_flat *scope_name_flat_katcp(struct katcp_dispatch *d, char *name, s
   }
 }
 
+struct katcp_group *scope_name_group_katcp(struct katcp_dispatch *d, char *name, struct katcp_flat *fx)
+{
+  struct katcp_group *gx;
+
+  if((fx == NULL) || (name == NULL)){
+    return NULL;
+  }
+
+  gx = fx->f_group;
+  if(gx == NULL){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "logic problem: flat %p has no group\n", fx);
+    abort();
+#endif
+    return NULL;
+  }
+
+  switch(fx->f_scope){
+    case KATCP_SCOPE_GROUP :
+    case KATCP_SCOPE_SINGLE :
+      if(fx->f_name == NULL){
+        return NULL;
+      }
+      if(strcmp(name, gx->g_name)){
+        return NULL;
+      }
+      return gx;
+    case KATCP_SCOPE_GLOBAL :
+      return find_group_katcp(d, name);
+    default :
+#ifdef KATCP_CONSISTENCY_CHECKS
+      fprintf(stderr, "logic problem: flat %p has scope value %d which is invalid\n", fx, fx->f_scope);
+      abort();
+#endif
+      return NULL;
+  }
+}
+
 /*********************/
 
 
@@ -3722,6 +3760,7 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
     add_full_cmd_map_katcp(m, "version-list", "list version information (?version-list)", 0, &version_list_group_cmd_katcp, NULL, NULL);
 
     add_full_cmd_map_katcp(m, "scope", "change scoping level (?scope scope [(group | client) name])", 0, &scope_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "broadcast", "send messages to everybody (?broadcast group inform [arguments])", 0, &broadcast_group_cmd_katcp, NULL, NULL);
 
   } else {
     m = gx->g_maps[KATCP_MAP_REMOTE_REQUEST];
