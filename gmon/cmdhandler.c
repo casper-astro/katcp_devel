@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <limits.h>
 #include <errno.h>
 #include <stdbool.h>
 
@@ -113,8 +112,7 @@ static void cmd_wordread(struct gmon_lib *g)
         errno = 0;
         val = strtol(arg, &endptr, 16);
         /* check for various strtol errors */
-        if ((errno == ERANGE && (val == LONG_MAX || val == LONG_MIN))
-                || (errno != 0 && val == 0)) {
+        if ((errno == ERANGE) || (errno != 0 && val == 0)) {
             log_message_katcl(g->log, KATCP_LEVEL_WARN, GMON_PROG,
                 "could not convert ascii string %s", arg);
             parse = false;
