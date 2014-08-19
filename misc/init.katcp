@@ -18,6 +18,7 @@
 ?define mode bc8n400M1k_top restart-mode-bc8n400M1k_top nominal
 ?define mode bc8n400M1k_bottom restart-mode-bc8n400M1k_bottom nominal
 ?job process tmon exec://tmon
+?job process smon exec://smon
 ?forget ?halt
 ?forget ?restart
 ?hide ?sensor ?process ?arb ?define ?job ?notice ?dispatch ?watchannounce ?sm ?roach ?search ?set ?get ?dict ?version
@@ -32,8 +33,6 @@
 ?process ?capture-list list\_available\_data\_streams\_(?capture-list)
 ?process ?capture-status return\_status\_of\_data\_stream\_(?capture-status\_stream)
 ?process ?capture-destination set\_the\_destination\_for\_a\_stream\_(?capture-destination\_stream\_ip\_port)
-?process ?capture-destination-beamformer-data set\_the\_destination\_for\_data\_component\_of\_a\_stream\_(?capture-destination-beamformer-data\_stream\_ip\_port)
-?process ?capture-destination-beamformer-meta set\_the\_destination\_for\_descriptor\_component\_of\_a\_stream\_(?capture-destination-beamformer-meta\_stream\_ip\_port)
 ?process ?k7-accumulation-length sets\_the\_accumulation\_length\_(?k7-accumlation-length\_accumulation-period)
 ?process ?k7-delay set\_the\_delay\_and\_fringe\_correction\_(?k7-delay\_board-input\_time\_delay-value\_delay-rate\_fringe-offset\_fringe-rate)
 ?process ?k7-snap-shot retrieve\_a\_processing\_pipeline\_data\_block\_(?k7-snap-shot\_[adc\_board-input|quant\_[count]])
