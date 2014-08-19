@@ -1260,8 +1260,7 @@ int upload_cmd(struct katcp_dispatch *d, int argc)
 
   status_fpga_tbs(d, TBS_FPGA_PROGRAMMED);
 
-  /* 128M FPGA size */
-  tr->r_top_register = TBS_ROACH_MAXMAP;
+  tr->r_top_register = infer_fpga_range(d);
 
   if(map_raw_tbs(d) < 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "Unable to map /dev/roach/mem");

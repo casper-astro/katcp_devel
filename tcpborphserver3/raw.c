@@ -25,10 +25,6 @@
 
 /*********************************************************************/
 
-int status_fpga_tbs(struct katcp_dispatch *d, int status);
-
-/*********************************************************************/
-
 static volatile int bus_error_happened;
 
 void handle_bus_error(int signal)
@@ -1941,10 +1937,23 @@ int unmap_raw_tbs(struct katcp_dispatch *d)
   return 0;
 }
 
+unsigned int infer_fpga_range(struct katcp_dispatch *d)
+{
+  int tmp;
+
+  tmp = 1; /* compiler ... */
+
+  if((uint32_t)(&tmp) > (2 * 1024 * 1024 * 1024UL)){
+    return TBS_ROACH_PARTIAL_MAP;
+  } else {
+    return TBS_ROACH_FULL_MAP;
+  }
+}
+
 int map_raw_tbs(struct katcp_dispatch *d)
 {
   struct tbs_raw *tr;
-  unsigned int power;
+  unsigned int power, window;
   int fd;
 
   tr = get_mode_katcp(d, TBS_MODE_RAW);
@@ -1968,8 +1977,16 @@ int map_raw_tbs(struct katcp_dispatch *d)
 
   tr->r_map_size = power;
 
-  if(tr->r_map_size > TBS_ROACH_MAXMAP){ /* 0x08000000 (128M) */
-    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "requesting to map area of 0x%x larger than bank size", tr->r_map_size);
+  window = infer_fpga_range(d);
+
+  if(tr->r_map_size > window){ 
+    if(window < TBS_ROACH_PARTIAL_MAP){
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "mapping more than 0x%x fpga space requires a different kernel", window);
+    } else {
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "requesting to map area of 0x%x larger than fpga bank size", tr->r_map_size);
+    }
+  } else {
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "map request 0x%x is within limit 0x%x", tr->r_map_size, window);
   }
 
   fd = open(TBS_FPGA_MEM, O_RDWR);
@@ -2082,7 +2099,7 @@ int start_fpg_tbs(struct katcp_dispatch *d)
     return -1;
   }
 
-  tr->r_top_register = TBS_ROACH_MAXMAP;
+  tr->r_top_register = infer_fpga_range(d);
 
   if(map_raw_tbs(d) < 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "Unable to map /dev/roach/mem");

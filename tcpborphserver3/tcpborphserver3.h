@@ -33,12 +33,10 @@
 
 #define TBS_ROACH_CHASSIS  "roach2chassis"
 
-/* largest bank EPB can see is 128M */
-#if 1
-#define TBS_ROACH_MAXMAP   (128*1024*1024)
-#else
-#define TBS_ROACH_MAXMAP   (32*1024*1024)
-#endif
+/* on a 1Gb kernel / 3G user split, this is what we can see */
+#define TBS_ROACH_PARTIAL_MAP  (32*1024*1024)
+/* on a 2Gb kernel / 2G user split, we can see the full bank EPB of 128M */
+#define TBS_ROACH_FULL_MAP     (128*1024*1024)
 
 int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir, int argc, char **argv);
 
@@ -50,6 +48,8 @@ int stop_fpga_tbs(struct katcp_dispatch *d);
 
 int status_fpga_tbs(struct katcp_dispatch *d, int status);
 int map_raw_tbs(struct katcp_dispatch *d);
+unsigned int infer_fpga_range(struct katcp_dispatch *d);
+
 
 #define GETAP_IP_BUFFER         16
 #define GETAP_MAC_BUFFER        18
