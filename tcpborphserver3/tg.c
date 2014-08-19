@@ -257,6 +257,13 @@ void announce_arp(struct getap_state *gs)
 
 
   gs->s_arp_len = 42;
+
+#ifdef DEBUG
+  if(gs->s_arp_len + 4 < GETAP_ARP_FRAME){ /* test should be more sophisticated ... */
+    fprintf(stderr, "arp: critical problem: arp packet of %u bytes exceeds buffer\n", gs->s_arp_len);
+  }
+#endif
+
   result = write_frame_fpga(gs, gs->s_arp_buffer, gs->s_arp_len);
   if(result != 0){
     gs->s_arp_len = 0;
@@ -329,6 +336,11 @@ static void request_arp(struct getap_state *gs, int index)
   gs->s_arp_fresh[index] = mine;
 
   gs->s_arp_len = 42;
+#ifdef DEBUG
+  if(gs->s_arp_len + 4 < GETAP_ARP_FRAME){ /* test should be more sophisticated ... */
+    fprintf(stderr, "arp: critical problem: arp packet of %u bytes exceeds buffer\n", gs->s_arp_len);
+  }
+#endif
 
   result = write_frame_fpga(gs, gs->s_arp_buffer, gs->s_arp_len);
   if(result != 0){
@@ -522,10 +534,24 @@ int write_mac_fpga(struct getap_state *gs, unsigned int offset, const uint8_t *m
 
 /* transmit to gateware *************************************************/
 
+#define CRCPOLY_LE 0xedb88320
+
+static uint32_t crc32_le(uint32_t crc, unsigned char *p, unsigned int len)
+{
+  int i;
+  while (len--){
+    crc ^= *p++;
+    for (i = 0; i < 8; i++){
+      crc = (crc >> 1) ^ ((crc & 1) ? CRCPOLY_LE : 0);
+    }
+  }
+  return crc;
+}
+
 static int write_frame_fpga(struct getap_state *gs, unsigned char *data, unsigned int len)
 {
-  uint32_t buffer_sizes;
-  unsigned int actual;
+  uint32_t buffer_sizes, tmp;
+  unsigned int actual, final;
   struct katcp_dispatch *d;
   void *base;
 
@@ -548,8 +574,10 @@ static int write_frame_fpga(struct getap_state *gs, unsigned char *data, unsigne
     actual = len;
   }
 
-  if(actual > GETAP_MAX_FRAME){
-    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "frame request %u exeeds limit %u", actual, GETAP_MAX_FRAME);
+  final = ((actual + 4 + 7) / 8) * 8;
+
+  if(final > GETAP_MAX_FRAME){ /* subtract checksum */
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "frame request %u exeeds limit %u", final, GETAP_MAX_FRAME);
     return -1;
   }
 
@@ -567,15 +595,24 @@ static int write_frame_fpga(struct getap_state *gs, unsigned char *data, unsigne
 #endif
   }
 
-  memcpy(base + GO_TXBUFFER, data, actual);
+  tmp = crc32_le(0xffffffffUL, data, final - 4);
 
+  data[final - 4] = ~(0xff & (tmp      ));
+  data[final - 3] = ~(0xff & (tmp >>  8));
+  data[final - 2] = ~(0xff & (tmp >> 16));
+  data[final - 1] = ~(0xff & (tmp >> 24));
+
+  memcpy(base + GO_TXBUFFER, data, final);
+
+  buffer_sizes = (buffer_sizes & 0xffff) | (0xffff0000 & ((final / 8) << 16));
+#if 0
   buffer_sizes = (buffer_sizes & 0xffff) | (0xffff0000 & (((actual + 7) / 8) << 16));
+#endif
   *((uint32_t *)(base + GO_BUFFER_SIZES)) = buffer_sizes;
 
 #ifdef DEBUG
-  fprintf(stderr, "txf: wrote date to %p (bytes=%d, gateware register=0x%08x)\n", base + GO_TXBUFFER, actual, buffer_sizes);
+  fprintf(stderr, "txf: wrote date to %p (bytes=%d, gateware register=0x%08x)\n", base + GO_TXBUFFER, final, buffer_sizes);
 #endif
-
 
 #if 0
   fprintf(stderr, "txf: loaded %u bytes into TX buffer: \n",wr);
