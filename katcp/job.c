@@ -407,6 +407,7 @@ int acknowledge_request_job_katcp(struct katcp_dispatch *d, struct katcp_notice 
   return 0;
 }
 
+#ifdef KATCP_DEPRECATED
 static int get_request_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 {
   struct katcl_parse *p, *px;
@@ -534,6 +535,7 @@ static int dict_request_job_katcp(struct katcp_dispatch *d, struct katcp_notice 
 
   return 1;
 }
+#endif
 
 static int relay_log_job_katcp(struct katcp_dispatch *d, struct katcp_notice *n, void *data)
 {
@@ -672,6 +674,8 @@ struct katcp_job *create_job_katcp(struct katcp_dispatch *d, struct katcp_url *n
 
   dl = template_shared_katcp(d);
   if(dl){
+
+#ifdef KATCP_DEPRECATED
     if(match_inform_job_katcp(dl, j, KATCP_DICT_REQUEST, &dict_request_job_katcp, NULL) < 0){
       log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to register dict command for job %s", j->j_url->u_str ? j->j_url->u_str : "<anonymous>");
     }
@@ -681,6 +685,8 @@ struct katcp_job *create_job_katcp(struct katcp_dispatch *d, struct katcp_url *n
     if(match_inform_job_katcp(dl, j, KATCP_SET_REQUEST, &set_request_job_katcp, NULL) < 0){
       log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to register %s command for job %s", KATCP_SET_REQUEST, j->j_url->u_str ? j->j_url->u_str : "<anonymous>");
     }
+#endif
+
     if(match_inform_job_katcp(dl, j, KATCP_LOG_INFORM, &relay_log_job_katcp, NULL) < 0){
       log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to register log relay for job %s", j->j_url->u_str ? j->j_url->u_str : "<anonymous>");
     }

@@ -26,7 +26,7 @@ struct bof_state
 #if 0
   int b_fd;
 #endif
-  gzFile b_fd;
+  gzFile b_gzf;
 
   int b_xinu;
   unsigned long b_file_size;
@@ -189,15 +189,15 @@ void close_bof(struct katcp_dispatch *d, struct bof_state *bs)
     return;
   }
 
-  if(bs->b_fd >= 0){
+  if(bs->b_gzf >= 0){
 #if 0
     close(bs->b_fd);
 #endif
-    gzclose(bs->b_fd);
+    gzclose(bs->b_gzf);
 #if 0
     bs->b_fd = (-1);
 #endif
-    bs->b_fd = NULL;
+    bs->b_gzf = NULL;
   }
 
   bs->b_xinu = 0;
@@ -230,7 +230,11 @@ struct bof_state *open_bof_fd(struct katcp_dispatch *d, int fd)
   struct bofhdr bh;
   struct hwrhdr hh;
 
-  if (fd < 0){
+  if(fd < 0){
+    return NULL;
+  }
+
+  if(lseek(fd, 0, SEEK_SET) < 0){
     return NULL;
   }
   
@@ -248,7 +252,7 @@ struct bof_state *open_bof_fd(struct katcp_dispatch *d, int fd)
 #if 0
   bs->b_fd = (-1);
 #endif
-  bs->b_fd = NULL;
+  bs->b_gzf = NULL;
 
   bs->b_xinu = 0;
   bs->b_file_size = 0;
@@ -264,8 +268,8 @@ struct bof_state *open_bof_fd(struct katcp_dispatch *d, int fd)
 
   bs->b_strings = NULL;
 
-  bs->b_fd = gzdopen(fd, "r");
-  if(bs->b_fd == NULL){
+  bs->b_gzf = gzdopen(fd, "r");
+  if(bs->b_gzf == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "gzdopen fail %s", strerror(errno));
     close_bof(d, bs);
     return NULL;
@@ -285,7 +289,7 @@ struct bof_state *open_bof_fd(struct katcp_dispatch *d, int fd)
 #if 0
   rr = read(bs->b_fd, &bh, sizeof(struct bofhdr));
 #endif
-  rr = gzread(bs->b_fd, &bh, sizeof(struct bofhdr));
+  rr = gzread(bs->b_gzf, &bh, sizeof(struct bofhdr));
   if(rr != sizeof(struct bofhdr)){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to read header of %d bytes", sizeof(struct bofhdr));
     close_bof(d, bs);
@@ -300,7 +304,7 @@ struct bof_state *open_bof_fd(struct katcp_dispatch *d, int fd)
 #if 0
   if(lseek(bs->b_fd, bs->b_hwr_offset, SEEK_SET) != bs->b_hwr_offset){
 #endif
-  if(gzseek(bs->b_fd, bs->b_hwr_offset, SEEK_SET) != bs->b_hwr_offset){
+  if(gzseek(bs->b_gzf, bs->b_hwr_offset, SEEK_SET) != bs->b_hwr_offset){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to seek to gateware header at location 0x%lx", bs->b_hwr_offset);
     close_bof(d, bs);
     return NULL;
@@ -309,7 +313,7 @@ struct bof_state *open_bof_fd(struct katcp_dispatch *d, int fd)
 #if 0
   rr = read(bs->b_fd, &hh, sizeof(struct hwrhdr));
 #endif
-  rr = gzread(bs->b_fd, &hh, sizeof(struct hwrhdr));
+  rr = gzread(bs->b_gzf, &hh, sizeof(struct hwrhdr));
   if(rr != sizeof(struct hwrhdr)){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to read gateware header of %d bytes", sizeof(struct hwrhdr));
     close_bof(d, bs);
@@ -330,7 +334,7 @@ struct bof_state *open_bof_fd(struct katcp_dispatch *d, int fd)
 #if 0
   if(lseek(bs->b_fd, bs->b_str_offset, SEEK_SET) != bs->b_str_offset){
 #endif
-  if(gzseek(bs->b_fd, bs->b_str_offset, SEEK_SET) != bs->b_str_offset){
+  if(gzseek(bs->b_gzf, bs->b_str_offset, SEEK_SET) != bs->b_str_offset){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to seek to string table location at 0x%lx", bs->b_str_offset);
     close_bof(d, bs);
     return NULL;
@@ -341,7 +345,7 @@ struct bof_state *open_bof_fd(struct katcp_dispatch *d, int fd)
 #if 0
     rr = read(bs->b_fd, bs->b_strings + have, bs->b_str_size - have);
 #endif
-    rr = gzread(bs->b_fd, bs->b_strings + have, bs->b_str_size - have);
+    rr = gzread(bs->b_gzf, bs->b_strings + have, bs->b_str_size - have);
     switch(rr){
       case -1 : 
         switch(errno){
@@ -392,7 +396,7 @@ int program_bof(struct katcp_dispatch *d, struct bof_state *bs, char *device)
 #if 0
   if(lseek(bs->b_fd, bs->b_bit_offset, SEEK_SET) != (bs->b_bit_offset)){
 #endif
-  if(gzseek(bs->b_fd, bs->b_bit_offset, SEEK_SET) != (bs->b_bit_offset)){
+  if(gzseek(bs->b_gzf, bs->b_bit_offset, SEEK_SET) != (bs->b_bit_offset)){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "seek to bitstream start at 0x%lx failed", bs->b_bit_offset);
     return -1;
   }
@@ -416,7 +420,7 @@ int program_bof(struct katcp_dispatch *d, struct bof_state *bs, char *device)
 #if 0
     rr = read(bs->b_fd, buffer, can);
 #endif
-    rr = gzread(bs->b_fd, buffer, can);
+    rr = gzread(bs->b_gzf, buffer, can);
     switch(rr){
       case -1 :
         switch(errno){
@@ -491,7 +495,7 @@ int index_bof(struct katcp_dispatch *d, struct bof_state *bs)
 #if 0
   if(lseek(bs->b_fd, bs->b_hwr_offset + sizeof(struct hwrhdr), SEEK_SET) != (bs->b_hwr_offset + sizeof(struct hwrhdr))){
 #endif
-  if(gzseek(bs->b_fd, bs->b_hwr_offset + sizeof(struct hwrhdr), SEEK_SET) != (bs->b_hwr_offset + sizeof(struct hwrhdr))){
+  if(gzseek(bs->b_gzf, bs->b_hwr_offset + sizeof(struct hwrhdr), SEEK_SET) != (bs->b_hwr_offset + sizeof(struct hwrhdr))){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "seek to register index at 0x%lx failed", bs->b_hwr_offset + sizeof(struct hwrhdr));
     return -1;
   }
@@ -500,7 +504,7 @@ int index_bof(struct katcp_dispatch *d, struct bof_state *bs)
 #if 0
     rr = read(bs->b_fd, &br, sizeof(struct bofioreg));
 #endif
-    rr = gzread(bs->b_fd, &br, sizeof(struct bofioreg));
+    rr = gzread(bs->b_gzf, &br, sizeof(struct bofioreg));
     if(rr < sizeof(struct bofioreg)){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to read register descriptor structure number %u from disk: %s", i, (rr < 0) ? strerror(errno) : "incomplete read");
       return -1;

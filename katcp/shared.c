@@ -197,8 +197,11 @@ int startup_shared_katcp(struct katcp_dispatch *d)
   s->s_fallback = NULL;
   s->s_this = NULL;
   s->s_members = 0;
+  s->s_lock = 0;
 
   s->s_endpoints = NULL;
+
+  s->s_region = NULL;
 
   s->s_build_state = NULL;
   s->s_build_items = 0;
@@ -241,8 +244,10 @@ int startup_shared_katcp(struct katcp_dispatch *d)
 
   s->s_size = 1;
 
+#if 1
   s->s_type = NULL;
   s->s_type_count = 0;
+#endif
 
 #ifdef DEBUG
   if(d->d_shared){
@@ -258,8 +263,12 @@ int startup_shared_katcp(struct katcp_dispatch *d)
   d->d_shared = s;
 
 #ifdef KATCP_EXPERIMENTAL
-  if(init_flats_katcp(d, KATCP_FLAT_STACK) < 0){
-    shutdown_shared_katcp(d);
+  if(startup_duplex_katcp(d, KATCP_FLAT_STACK) < 0){
+
+    /* TODO: provide proper destruction function to undo setup_shared ... */
+    free(s->s_vector);
+    free(s);
+    d->d_shared = NULL;
     return -1;
   }
 #endif
@@ -346,8 +355,11 @@ void shutdown_shared_katcp(struct katcp_dispatch *d)
 
   destroy_versions_katcp(d);
   
+#ifdef KATCP_DEPRECATED
   destroy_type_list_katcp(d);
+#endif
 
+  /* WARNING: invokes callbacks, assumes client API still available */
   destroy_arbs_katcp(d);
 
   while(s->s_count > 0){
@@ -362,10 +374,12 @@ void shutdown_shared_katcp(struct katcp_dispatch *d)
   /* at this point it is unsafe to call API functions on the shared structure */
 
 #ifdef KATCP_EXPERIMENTAL
-  /* TODO: destroy groups ... */
+  shutdown_duplex_katcp(d);
+#if 0 /* was previously */
   destroy_flats_katcp(d);
   destroy_groups_katcp(d);
   release_endpoints_katcp(d);
+#endif
 #endif
 
 
@@ -968,14 +982,12 @@ static int expand_modes_katcp(struct katcp_dispatch *d, unsigned int mode)
 int mode_version_katcp(struct katcp_dispatch *d, int mode, char *subsystem, int major, int minor)
 {
 #define BUFFER 20
-  struct katcp_shared *s;
 #if 0
   struct katcp_entry *e;
 #endif
   char buffer[BUFFER];
 
   sane_shared_katcp(d);
-  s = d->d_shared;
 
   if(expand_modes_katcp(d, mode) < 0){
     return -1;

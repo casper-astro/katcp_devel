@@ -1,3 +1,5 @@
+#ifdef KATCP_DEPRECATED
+
 /* (c) 2010,2011 SKA SA */
 /* Released under the GNU GPLv3 - see COPYING */
 #define _GNU_SOURCE
@@ -1365,5 +1367,5 @@ int search_cmd_katcp(struct katcp_dispatch *d, int argc)
   
   return KATCP_RESULT_OK;
 }
-
+#endif
 

@@ -25,16 +25,31 @@
 #define TBS_FPGA_MEM       "dev-roach-mem"
 #endif
 
+#define TBS_KCPFPG_PATH    "/bin/kcpfpg"
+#define TBS_RAMFILE_PATH   "/dev/shm/gateware"
+
 #define TBS_FPGA_STATUS    "#fpga"
+#define TBS_KCPFPG_EXE     "kcpfpg"
 
 #define TBS_ROACH_CHASSIS  "roach2chassis"
+
+/* largest bank EPB can see is 128M */
+#if 0
+#define TBS_ROACH_MAXMAP   (128*1024*1024)
+#else
+#define TBS_ROACH_MAXMAP   (32*1024*1024)
+#endif
 
 int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir, int argc, char **argv);
 
 #include "loadbof.h"
 
-int start_fpga_tbs(struct katcp_dispatch *d, struct bof_state *bs);
+int start_fpg_tbs(struct katcp_dispatch *d);
+int start_bof_tbs(struct katcp_dispatch *d, struct bof_state *bs);
 int stop_fpga_tbs(struct katcp_dispatch *d);
+
+int status_fpga_tbs(struct katcp_dispatch *d, int status);
+int map_raw_tbs(struct katcp_dispatch *d);
 
 #define GETAP_IP_BUFFER         16
 #define GETAP_MAC_BUFFER        18
@@ -60,6 +75,8 @@ struct getap_state{
   unsigned short s_port;
 
   unsigned int s_self;
+  unsigned int s_index;
+  unsigned int s_announce;
 
   uint8_t s_mac_binary[GETAP_MAC_SIZE];
   uint32_t s_address_binary;
@@ -67,7 +84,7 @@ struct getap_state{
   uint32_t s_network_binary;
 
   unsigned int s_instance;
-  uint16_t s_iteration;
+  uint32_t s_iteration;
   unsigned int s_burst;
   unsigned int s_deferrals;
 
@@ -92,13 +109,14 @@ struct getap_state{
   unsigned char s_arp_buffer[GETAP_ARP_FRAME];
 
   uint8_t s_arp_table[GETAP_ARP_CACHE][GETAP_MAC_SIZE];
-  uint16_t s_arp_fresh[GETAP_ARP_CACHE];
+  uint32_t s_arp_fresh[GETAP_ARP_CACHE];
 };
 
 #define TBS_FPGA_DOWN        0
 #define TBS_FPGA_PROGRAMMED  1
 #define TBS_FPGA_MAPPED      2
-#define TBS_STATES_FPGA      3
+#define TBS_FPGA_READY       3    
+#define TBS_STATES_FPGA      4
 
 struct tbs_raw
 {
@@ -120,6 +138,15 @@ struct tbs_raw
 
   struct getap_state **r_taps;
   unsigned int r_instances;
+
+  struct avl_tree *r_meta;
+};
+
+struct meta_entry
+{
+  char **m;
+  int m_size;
+  struct meta_entry *m_next;
 };
 
 #define TBS_READABLE   1
@@ -153,12 +180,29 @@ struct tbs_hwsensor
 int setup_hwmon_tbs(struct katcp_dispatch *d);
 void destroy_hwsensor_tbs(void *data);
 
+#define TBS_FORMAT_BAD (-1)
+#define TBS_FORMAT_ANY   0
+#define TBS_FORMAT_BOF   1
+#define TBS_FORMAT_FPG   2
+#define TBS_FORMAT_BIN   3
+
+#define TBS_DEL_NEVER  0
+#define TBS_DEL_ERROR  1
+#define TBS_DEL_ALWAYS 2
+
 struct tbs_port_data {
   int t_port;
   unsigned int t_timeout;
-  int t_program;
+
   unsigned int t_expected;
+
   int t_fd;
+  char *t_name;
+  int t_type;
+  int t_del;
+
+  int t_program;
+
 #if 0
   struct katcp_notice *t_notice;
   int t_rsize;
@@ -166,10 +210,20 @@ struct tbs_port_data {
 #endif
 };
 
-struct katcp_job * run_child_process_tbs(struct katcp_dispatch *d, struct katcp_url *url, int (*call)(struct katcl_line *, void *), void *data, struct katcp_notice *n); 
+int upload_generic_resume_tbs(struct katcp_dispatch *d, struct katcp_notice *n, void *data);
+int detect_file_tbs(struct katcp_dispatch *d, char *name, int fd);
 
-int upload_cmd(struct katcp_dispatch *d, int argc);
-int uploadbof_cmd(struct katcp_dispatch *d, int argc);
+struct katcp_job *run_child_process_tbs(struct katcp_dispatch *d, struct katcp_url *url, int (*call)(struct katcl_line *, void *), void *data, struct katcp_notice *n); 
+
+int upload_program_cmd(struct katcp_dispatch *d, int argc);
+int upload_filesystem_cmd(struct katcp_dispatch *d, int argc);
+int upload_bin_cmd(struct katcp_dispatch *d, int argc);
+
+
+#if 0
+int run_fpg_generic(struct katcp_dispatch *d, struct katcp_notice *n, void *data);
+int run_resume_generic(struct katcp_dispatch *d, struct katcp_notice *n, void *data);
+#endif
 
 int start_chassis_cmd(struct katcp_dispatch *d, int argc);
 int led_chassis_cmd(struct katcp_dispatch *d, int argc);

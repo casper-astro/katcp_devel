@@ -211,12 +211,17 @@ void *get_precedence_head_gueue_katcl(struct katcl_gueue *g, unsigned int preced
     return get_head_gueue_katcl(g);
   }
 
-#ifdef KATCP_CONSISTENCY_CHECKS
-  if((g->g_count == 0) || (g->g_size == 0) || (g->g_count > g->g_size)){
+  if(g->g_count == 0){ 
 #ifdef DEBUG
-    fprintf(stderr, "generic queue: reasonability test on get failed (count=%u, size=%u)\n", g->g_count, g->g_size);
+    fprintf(stderr, "generic queue: shortcut test triggered on empty queue %p\n", g);
 #endif
     return NULL;
+  }
+
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if((g->g_size == 0) || (g->g_count > g->g_size)){
+    fprintf(stderr, "generic queue: sanity check failed for get (count=%u, size=%u)\n", g->g_count, g->g_size);
+    abort();
   }
 #endif
 
