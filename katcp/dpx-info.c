@@ -338,8 +338,11 @@ int sensor_status_group_info_katcp(struct katcp_dispatch *d, int argc)
   struct katcp_endpoint *self, *remote, *origin;
 
 #ifdef DEBUG
-  fprintf(stderr, "log: encountered a log message\n");
+  fprintf(stderr, "log: encountered a sensor-status message\n");
 #endif
+
+  log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "saw a sensor status message");
+
 
   fx = this_flat_katcp(d);
   if(fx == NULL){
@@ -360,6 +363,8 @@ int sensor_status_group_info_katcp(struct katcp_dispatch *d, int argc)
     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "saw a sensor status update from remote party, should capture this");
 
   } else { /* we must have asked a sensor to send this to us, better relay it on */
+
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "origin endpoint of message is %p, remote %p", origin, remote);
 
     if(remote == NULL){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "internal problem, saw a sensor status but have nowhere to send it to");
