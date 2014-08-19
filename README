@@ -14,6 +14,7 @@ General purpose components:
   msg         - something to generate katcp log messages (glue logic)
   par         - similar to cmd, but talk to multiple devices in parallel
   con         - run concurrent subprocesses
+  run         - simple wrapper to "katcp-ify" output of a program
   sq          - simple katcp sensor query utility which blocks until 
                 a sensor changes to a specified status
   examples    - simple examples 
