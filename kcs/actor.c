@@ -706,7 +706,7 @@ int relay_reply_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data
 #ifdef DEBUG
     fprintf(stderr, "resume: parameter %d is %s\n", 1, ptr);
 #endif
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "relay katcp reply: %s", ptr);
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "relay katcp reply: %s", ptr);
     
     if (strcmp(ptr, "fail") == 0){
       release_sm_notice_actor_katcp(d, a, p);

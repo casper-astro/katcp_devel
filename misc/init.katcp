@@ -18,6 +18,7 @@
 ?define mode bc8n400M1k_top restart-mode-bc8n400M1k_top nominal
 ?define mode bc8n400M1k_bottom restart-mode-bc8n400M1k_bottom nominal
 ?job process tmon exec://tmon
+?job process smon exec://smon
 ?forget ?halt
 ?forget ?restart
 ?hide ?sensor ?process ?arb ?define ?job ?notice ?dispatch ?watchannounce ?sm ?roach ?search ?set ?get ?dict ?version

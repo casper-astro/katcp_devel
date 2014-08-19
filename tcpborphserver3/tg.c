@@ -44,9 +44,10 @@
 #define GO_MAC          0x00
 #define GO_GATEWAY      0x0c
 #define GO_ADDRESS      0x10
-#define GO_MCADDR       0x30 /* mcast ip */
-#define GO_MCMASK       0x34 /* mcast count ff.ff.ff.f7 to encode ip base +8 addresses
-                                or          ff.ff.ff.fb to encode ip base +4 addresses*/
+
+#define GO_MCADDR       0x30 /*mcast ip*/
+#define GO_MCMASK       0x34 /*mcast count ff.ff.ff.f7 to encode ip base +8 addresses
+                               or          ff.ff.ff.fb to encode ip base +4 addresses*/
 #define GO_BUFFER_SIZES 0x18
 #define GO_EN_RST_PORT  0x20
 
@@ -1707,7 +1708,6 @@ int tap_multicast_add_group_cmd(struct katcp_dispatch *d, int argc)
   }
 
   if(gs->s_mcast_fd < 0){
-
     gs->s_mcast_fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (gs->s_mcast_fd < 0){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to open multicast %s socket on %s", mode, name);
@@ -1957,4 +1957,5 @@ int tap_route_add_cmd(struct katcp_dispatch *d, int argc)
   }
 
   return KATCP_RESULT_OK;
-} 
+}
+
