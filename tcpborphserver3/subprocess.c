@@ -57,13 +57,13 @@ struct katcp_job *run_child_process_tbs(struct katcp_dispatch *d, struct katcp_u
     return NULL;
   
   pid = fork();
-  if (pid < 0){
+  if(pid < 0){
     close(fds[0]);
     close(fds[1]);
     return NULL;
   }
 
-  if (pid > 0){
+  if(pid > 0){
     close(fds[0]);
     fcntl(fds[1], F_SETFD, FD_CLOEXEC);
 
@@ -72,7 +72,7 @@ struct katcp_job *run_child_process_tbs(struct katcp_dispatch *d, struct katcp_u
 #endif
 
     j = create_job_katcp(d, url, pid, fds[1], 0, n);
-    if (j == NULL){
+    if(j == NULL){
       log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "unable to allocate job logic so terminating child process");
       kill(pid, SIGTERM);
       close(fds[1]);
@@ -121,7 +121,7 @@ struct katcp_job *run_child_process_tbs(struct katcp_dispatch *d, struct katcp_u
 
   result = ((*call)(xl, data));
 
-  exit((result < 0) ? (result * -1) : result);
+  exit((result < 0) ? (result * (-1)) : result);
 
   return NULL;
 }

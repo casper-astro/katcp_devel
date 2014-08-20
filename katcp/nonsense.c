@@ -2132,6 +2132,11 @@ static int run_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a, 
   } else {
     log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "running acquire instance %p (type=%d) with %d sensors", a, a->a_type, a->a_count);
 
+#ifdef KATCP_EXPERIMENTAL
+    a->a_real.tv_sec  = now.tv_sec;
+    a->a_real.tv_usec = now.tv_usec;
+#endif
+
     switch(a->a_type){
       case KATCP_SENSOR_INTEGER :
       case KATCP_SENSOR_BOOLEAN :
@@ -2269,6 +2274,18 @@ int is_up_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a)
 
   return a->a_users;
 }
+
+#ifdef KATCP_EXPERIMENTAL
+void set_timestamp_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a, struct timeval *tv)
+{
+  sane_acquire(a);
+
+  if(tv){
+    a->a_real.tv_sec = tv->tv_sec;
+    a->a_real.tv_usec = tv->tv_usec;
+  }
+}
+#endif
 
 /*************************************************************************/
 
@@ -3180,17 +3197,31 @@ int append_sensor_value_katcp(struct katcp_dispatch *d, int flags, struct katcp_
 int generic_sensor_update_katcp(struct katcp_dispatch *d, struct katcp_sensor *sn, char *name)
 {
   char *status;
+  struct timeval *tv;
+
+#ifdef KATCP_EXPERIMENTAL
+  struct katcp_acquire *a;
+
+  a = sn->s_acquire;
+  if(a){
+    tv = &(a->a_real);
+  } else {
+    tv = &(sn->s_recent);
+  }
+#else
+  tv = &(sn->s_recent);
+#endif
 
   if(append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, name) < 0){
     return -1;
   }
 
 #if KATCP_PROTOCOL_MAJOR_VERSION >= 5
-  if(append_args_katcp(d, 0, "%lu.%03lu", sn->s_recent.tv_sec, sn->s_recent.tv_usec / 1000) < 0){
+  if(append_args_katcp(d, 0, "%lu.%03lu", tv->tv_sec, tv->tv_usec / 1000) < 0){
     return -1;
   }
 #else 
-  if(append_args_katcp(d, 0, "%lu%03lu", sn->s_recent.tv_sec, sn->s_recent.tv_usec / 1000) < 0){
+  if(append_args_katcp(d, 0, "%lu%03lu", tv->tv_sec, tv->tv_usec / 1000) < 0){
     return -1;
   }
 #endif

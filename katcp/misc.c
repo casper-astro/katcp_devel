@@ -63,3 +63,32 @@ void delete_vector_katcm(char **vector, unsigned int size)
 
   free(vector);
 }
+
+char *default_message_type_katcm(char *string, int type)
+{
+  int len;
+  char *ptr;
+
+  if(string == NULL){
+    return NULL;
+  }
+
+  switch(string[0]){
+    case KATCP_REQUEST : 
+    case KATCP_REPLY   :
+    case KATCP_INFORM  :
+      return strdup(string);
+  }
+
+  len = strlen(string);
+
+  ptr = malloc(len + 2);
+  if(ptr == NULL){
+    return NULL;
+  }
+
+  ptr[0] = type;
+  memcpy(ptr + 1, string, len + 1);
+
+  return ptr;
+}

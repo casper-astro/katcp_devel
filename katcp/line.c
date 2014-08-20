@@ -206,6 +206,47 @@ int error_katcl(struct katcl_line *l)
 
 /***********************************************************************************/
 
+int load_katcl(struct katcl_line *l, char *buffer, unsigned int size)
+{
+  char *ptr;
+  struct katcl_parse *p;
+
+  sane_line_katcl(l);
+
+#if DEBUG > 1
+  fprintf(stderr, "line: invoking read on line %p\n", l);
+#endif
+
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(l->l_next == NULL){
+    fprintf(stderr, "line: logic failure, l_next should always be valid\n");
+    abort();
+  }
+#endif
+
+  p = l->l_next;
+
+  if(p->p_size <= (p->p_have + size)){
+    ptr = (char *)realloc(p->p_buffer, p->p_have + size + 1);
+    if(ptr == NULL){
+#ifdef DEBUG 
+      fprintf(stderr, "read: realloc to %d failed\n", p->p_size + KATCL_BUFFER_INC);
+#endif
+      l->l_error = ENOMEM;
+      return -1;
+    }
+
+    p->p_buffer = ptr;
+    p->p_size = p->p_have + size + 1;
+  }
+
+  memcpy(p->p_buffer + p->p_have, buffer, size);
+
+  p->p_have += size;
+
+  return 0;
+}
+
 int read_katcl(struct katcl_line *l)
 {
   int rr;
@@ -641,6 +682,24 @@ int append_parameter_katcl(struct katcl_line *l, int flags, struct katcl_parse *
   return after_append_katcl(l, flags, result);
 }
 
+int append_trailing_katcl(struct katcl_line *l, int flags, struct katcl_parse *px, unsigned int start)
+{
+  struct katcl_parse *p;
+  int result;
+
+  p = before_append_katcl(l, flags);
+  if(p == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "append: before_append failed\n");
+#endif
+    return -1;
+  }
+
+  result = add_trailing_parse_katcl(p, flags, px, start);
+
+  return after_append_katcl(l, flags, result);
+}
+
 int append_parse_katcl(struct katcl_line *l, struct katcl_parse *p)
 {
   int result;
@@ -666,6 +725,24 @@ int append_parse_katcl(struct katcl_line *l, struct katcl_parse *p)
   result = add_tail_queue_katcl(l->l_queue, p);	
 
   return result;
+}
+
+int append_end_katcl(struct katcl_line *l)
+{
+  struct katcl_parse *p;
+  int result;
+
+  p = before_append_katcl(l, KATCP_FLAG_LAST);
+  if(p == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "append: before_append failed at end\n");
+#endif
+    return -1;
+  }
+
+  result = add_end_parse_katcl(p);
+
+  return after_append_katcl(l, KATCP_FLAG_LAST, result);
 }
 
 /**************************************************************/
