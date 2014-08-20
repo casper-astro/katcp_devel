@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sysexits.h>
+#include <signal.h>
 
 #include <sys/select.h>
 #include <sys/types.h>
@@ -121,6 +122,10 @@ struct ntp_message{
   uint16_t n_count;
   uint8_t n_data[NTP_MAX_DATA];
 } __attribute__ ((packed));
+
+/*****************************************************************************/
+
+volatile int run;
 
 /*****************************************************************************/
 
@@ -595,6 +600,22 @@ int recv_ntp_poco(struct katcp_dispatch *d, struct ntp_sensor_poco *nt)
 
 /*****************************************************************************/
 
+static void handle_signal(int s)
+{
+  switch(s){
+    case SIGHUP :
+      run = (-1);
+      break;
+    case SIGINT :
+    case SIGTERM :
+      run = 0;
+      break;
+  }
+}
+
+/*****************************************************************************/
+
+
 int main(int argc, char **argv)
 {
 #define BUFFER 128
@@ -606,6 +627,7 @@ int main(int argc, char **argv)
   struct timeval delta, now, when, template;
   fd_set fsr;
   char buffer[BUFFER];
+  struct sigaction sag;
 
   period = TMON_POLL_INTERVAL;
   previous = (-1);
@@ -679,9 +701,17 @@ int main(int argc, char **argv)
   }
 #endif
 
+  sag.sa_handler = handle_signal;
+  sigemptyset(&(sag.sa_mask));
+  sag.sa_flags = SA_RESTART;
+
+  sigaction(SIGINT, &sag, NULL);
+  sigaction(SIGHUP, &sag, NULL);
+  sigaction(SIGTERM, &sag, NULL);
+
   gettimeofday(&when, NULL);
 
-  for(;;){
+  for(run = 1; run > 0; ){
     
     if(cmp_time_katcp(&now, &when) >= 0){
 #ifdef DEBUG

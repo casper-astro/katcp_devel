@@ -36,7 +36,8 @@ void usage(char *app)
   printf("-s script-dir    directory to load scripts from\n");
   printf("-i init-file     file containing commands to run at startup\n");
   printf("-l log-file      log file name\n");
-  printf("-f               run in foreground (default is background)\n");
+  printf("-d               detach and run in background\n");
+  printf("-f               run in foreground\n");
 
 }
 
@@ -77,7 +78,12 @@ int main(int argc, char **argv)
 
         case 'f' :
           j++;
-          foreground = 1 - foreground;
+          foreground = 1;
+          break;
+
+        case 'd' :
+          j++;
+          foreground = 0;
           break;
 
         case 'l' :

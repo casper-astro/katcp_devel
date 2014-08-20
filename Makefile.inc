@@ -30,6 +30,9 @@ CFLAGS += -DKATCP_CONSISTENCY_CHECKS
 # log selected noncritical failures to stderr 
 CFLAGS += -DKATCP_STDERR_ERRORS
 
+# implement the katcp -T option
+#CFLAGS += -DKATCP_ENABLE_TAGS
+
 # log client messages 
 CFLAGS += -DKATCP_LOG_REQUESTS
 
@@ -37,22 +40,25 @@ CFLAGS += -DKATCP_LOG_REQUESTS
 CFLAGS += -DKATCP_SUBPROCESS
 
 # enable newer, broken or nonfunctional code
-CFLAGS += -DKATCP_EXPERIMENTAL
+#CFLAGS += -DKATCP_EXPERIMENTAL
+
+# keep older code 
+CFLAGS += -DKATCP_DEPRECATED
 
 # pick a protocol reversion from the list. Making up
 # your own major values doesn't work unless you also implement what 
 # the protocol requires
-CFLAGS += -DKATCP_PROTOCOL_MAJOR_VERSION=5 -DKATCP_PROTOCOL_MINOR_VERSION=0
-#CFLAGS += -DKATCP_PROTOCOL_MAJOR_VERSION=4 -DKATCP_PROTOCOL_MINOR_VERSION=9
+#CFLAGS += -DKATCP_PROTOCOL_MAJOR_VERSION=5 -DKATCP_PROTOCOL_MINOR_VERSION=0
+CFLAGS += -DKATCP_PROTOCOL_MAJOR_VERSION=4 -DKATCP_PROTOCOL_MINOR_VERSION=9
 
 # amount of debugging logic to enable 
 #CFLAGS += -DDEBUG=4
-CFLAGS += -DDEBUG
+#CFLAGS += -DDEBUG
 CFLAGS += -ggdb
 
 # what compiler to use 
 CC = $(CROSS_COMPILE)gcc
-# C++ implements stronger type checks... so this gives loads of warnings
+# C++ implements more finicky type checks... so this gives loads of warnings
 #CC = g++ -fpermissive
 
 GITVER = $(shell git describe --always --tags --dirty 2> /dev/null || echo unknown)

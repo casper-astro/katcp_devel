@@ -3,7 +3,11 @@ include Makefile.inc
 ###############################################################################
 
 LIBRARY = katcp
-APPS = kcs cmd examples sq bulkread tmon log fmon modules tcpborphserver3 msg delay par sgw xport con dmon gmon
+APPS = kcs cmd examples sq bulkread tmon log fmon tcpborphserver3 msg delay par sgw xport con dmon smon fpg run gmon
+ifeq ($(findstring KATCP_DEPRECATED,$(CFLAGS)),KATCP_DEPRECATED)
+APPS += modules
+endif
+
 MISC = scripts misc 
 
 EVERYTHING = $(LIBRARY) $(APPS) $(MISC)

@@ -156,11 +156,13 @@ int register_every_ms_katcp(struct katcp_dispatch *d, unsigned int milli, int (*
 
 int register_every_tv_katcp(struct katcp_dispatch *d, struct timeval *tv, int (*call)(struct katcp_dispatch *d, void *data), void *data)
 {
-  struct katcp_shared *s;
   struct katcp_time *ts;
   struct timeval now;
 
+#if 0
+  struct katcp_shared *s;
   s = d->d_shared;
+#endif
 
 #ifdef DEBUG
   if(tv->tv_usec >= 1000000){

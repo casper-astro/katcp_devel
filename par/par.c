@@ -427,6 +427,7 @@ void usage(char *app)
   printf("-l label           assign log messages a given label\n");
   printf("-m                 munge replies into log messages\n");
   printf("-n                 suppress relaying of downstream version information\n");
+  printf("-p                 continue even if client requests return fail\n");
   printf("-q                 run quietly\n");
   printf("-s server:port     specify server:port\n");
   printf("-t timeout         set timeout (in ms)\n");
@@ -456,8 +457,8 @@ int main(int argc, char **argv)
   fd_set fsr, fsw;
 
   char *app, *parm, *cmd, *copy, *ptr, *servers, *extra, *label;
-  int i, j, c, fd, mfd, count;
-  int verbose, result, status, info, timeout, flags, show, munge, once;
+  int i, j, c, fd, mfd, count, fails, success;
+  int verbose, result, status, info, timeout, flags, show, munge, once, persist;
   int xmit, code;
   unsigned int len;
   
@@ -465,7 +466,8 @@ int main(int argc, char **argv)
   if(servers == NULL){
     servers = "localhost:7147";
   }
-  
+
+  persist = 0; 
   once = 1;
   munge = 0;
   info = 1;
@@ -479,6 +481,7 @@ int main(int argc, char **argv)
   extra = NULL;
   label = KCPPAR_NAME;
   count = 0;
+  fails = 0;
   px = NULL;
 
   k = create_katcl(STDOUT_FILENO);
@@ -518,6 +521,10 @@ int main(int argc, char **argv)
           j++;
           break;
 
+        case 'p' : 
+          persist = 1;
+          j++;
+          break;
 
         case 'q' : 
           verbose = 0;
@@ -836,6 +843,7 @@ int main(int argc, char **argv)
                         parm = arg_string_katcl(rx->r_line, 1);
                         if(parm){
                           if(strcmp(parm, KATCP_OK) == 0){
+                            success = 1;
                             count++;
                             if(munge){
                               log_message_katcl(k, KATCP_LEVEL_INFO, label, "%s %s ok", rx->r_name, ptr);
@@ -843,6 +851,20 @@ int main(int argc, char **argv)
                             if(verbose > 1){
                               log_message_katcl(k, KATCP_LEVEL_TRACE, label, "request %s to %s returned ok", ptr, rx->r_name);
                             }
+                          } else {
+                            success = 0;
+                            if(persist){
+                              fails++;
+                            }
+                            if(munge){
+                              extra = arg_string_katcl(rx->r_line, 2);
+                              log_message_katcl(k, KATCP_LEVEL_ERROR, label, "%s %s %s (%s)", rx->r_name, ptr, parm, extra ? extra : "no extra information");
+                            } 
+                            if(verbose > 0){
+                              log_message_katcl(k, KATCP_LEVEL_ERROR, label, "downstream %s unable to process %s with status %s (%s)", rx->r_name, cmd, parm, extra ? extra : "no extra information");
+                            }
+                          }
+                          if(success || persist){
                             result = next_request(rx);
                             if(result){
                               if(result < 0){
@@ -853,13 +875,6 @@ int main(int argc, char **argv)
                               } 
                             }
                           } else {
-                            if(munge){
-                              extra = arg_string_katcl(rx->r_line, 2);
-                              log_message_katcl(k, KATCP_LEVEL_ERROR, label, "%s %s %s (%s)", rx->r_name, ptr, parm, extra ? extra : "no extra information");
-                            } 
-                            if(verbose > 0){
-                              log_message_katcl(k, KATCP_LEVEL_ERROR, label, "downstream %s unable to process %s with status %s (%s)", rx->r_name, cmd, parm, extra ? extra : "no extra information");
-                            }
                             update_state(ss, rx, RX_FAIL);
                           }
                         } else {
@@ -907,6 +922,13 @@ int main(int argc, char **argv)
         log_message_katcl(k, KATCP_LEVEL_INFO, label, "%d operations ok", count);
       } else {
         log_message_katcl(k, KATCP_LEVEL_INFO, label, "did nothing successfully");
+      }
+      if(fails > 0){
+        log_message_katcl(k, KATCP_LEVEL_WARN, label, "%d operations failed by %s", fails, (ss->s_count == 1) ? "client" : "clients");
+#if 0
+        /* unclear - if we are supposed to ignore failures, shouldn't we also pretent the return code is fine too ? */
+        status = 1;
+#endif
       }
     }
   }

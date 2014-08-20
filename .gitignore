@@ -1,5 +1,8 @@
-# files to be ignore by git
+# files to be ignored by git
 *.o
 *.a
 *.so
+
+# ignore ctags
 tags
+core

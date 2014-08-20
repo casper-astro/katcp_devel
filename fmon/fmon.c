@@ -14,6 +14,7 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <math.h>
+#include <signal.h>
 
 #include <arpa/inet.h>
 
@@ -276,6 +277,7 @@ static void handle_signal(int s)
     case SIGHUP :
       run = (-1);
       break;
+    case SIGINT :
     case SIGTERM :
       run = 0;
       break;
@@ -314,12 +316,12 @@ void destroy_fmon(struct fmon_state *f)
 
       s->s_type = (-1);
 
-      if(s->s_name == NULL){
+      if(s->s_name){
         free(s->s_name);
         s->s_name = NULL;
       }
 
-      if(s->s_description == NULL){
+      if(s->s_description){
         free(s->s_description);
         s->s_description = NULL;
       }
@@ -340,12 +342,12 @@ void destroy_fmon(struct fmon_state *f)
 
     s->s_type = (-1);
 
-    if(s->s_name == NULL){
+    if(s->s_name){
       free(s->s_name);
       s->s_name = NULL;
     }
 
-    if(s->s_description == NULL){
+    if(s->s_description){
       free(s->s_description);
       s->s_description = NULL;
     }
@@ -471,6 +473,7 @@ struct fmon_state *create_fmon(char *server, int verbose, unsigned int timeout, 
     s = &(f->f_sensors[i]);
     s->s_type = (-1);
     s->s_name = NULL;
+    s->s_description = NULL;
     s->s_value = 0;
     s->s_fvalue = 0.0;
     s->s_status = KATCP_STATUS_UNKNOWN;
@@ -485,6 +488,7 @@ struct fmon_state *create_fmon(char *server, int verbose, unsigned int timeout, 
 
       s->s_type = (-1);
       s->s_name = NULL;
+      s->s_description = NULL;
       s->s_value = 0;
       s->s_fvalue = 0.0;
       s->s_status = KATCP_STATUS_UNKNOWN;
@@ -2225,6 +2229,7 @@ int main(int argc, char **argv)
   sigemptyset(&(sag.sa_mask));
   sag.sa_flags = SA_RESTART;
 
+  sigaction(SIGINT, &sag, NULL);
   sigaction(SIGHUP, &sag, NULL);
   sigaction(SIGTERM, &sag, NULL);
 
@@ -2286,6 +2291,7 @@ int main(int argc, char **argv)
 
   if(f){
     destroy_fmon(f);
+    f = NULL;
   }
 
   return 0;
