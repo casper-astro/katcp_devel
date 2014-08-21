@@ -1272,7 +1272,7 @@ char *type_to_string_vrbl_katcp(struct katcp_dispatch *d, unsigned int type)
 
 /* WARNING: order important, needs to correspond to bit position */
 
-static char *flag_lookup_vrbl[] = { "environment",  "version", "sensor", "fluid", NULL };
+static char *flag_lookup_vrbl[] = { "environment",  "version", "sensor", "fluid", "hidden", NULL };
 
 unsigned int flag_from_string_vrbl_katcp(struct katcp_dispatch *d, char *string)
 {
@@ -1425,6 +1425,27 @@ struct katcp_vrbl *scan_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *
   return vt;
 }
 
+int flags_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, unsigned int clear, unsigned int set)
+{
+  if(vx == NULL){
+    return -1;
+  }
+
+  vx->v_flags = (vx->v_flags & (clear ^ KATCP_MASK_VRF)) | set;
+
+  return 0;
+}
+
+int hide_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx)
+{
+  return flags_vrbl_katcp(d, vx, 0, KATCP_VRF_HID);
+}
+
+int show_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx)
+{
+  return flags_vrbl_katcp(d, vx, KATCP_VRF_HID, 0);
+}
+
 int configure_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, unsigned int flags, void *state, int (*refresh)(struct katcp_dispatch *d, void *state, char *name, struct katcp_vrbl *vx), int (*change)(struct katcp_dispatch *d, void *state, char *name, struct katcp_vrbl *vx), void (*release)(struct katcp_dispatch *d, void *state, char *name, struct katcp_vrbl *vx))
 {
   if(vx == NULL){
@@ -1569,6 +1590,13 @@ int add_payload_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int
   if(vx == NULL){
     return -1;
   }
+
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(vx->v_flags & KATCP_VRF_HID){
+    fprintf(stderr, "logic failure: attempting to display hidden variable %p\n", vx);
+    abort();
+  }
+#endif
 
   if(py == NULL){
     ty = vx->v_payload;
@@ -2263,6 +2291,10 @@ int var_list_callback_katcp(struct katcp_dispatch *d, void *state, char *key, st
 #ifdef DEBUG
   fprintf(stderr, "variable: about to list %s at %p\n", key, vx);
 #endif
+
+  if(vx->v_flags & KATCP_VRF_HID){
+    return 0;
+  }
 
   py = vx->v_payload;
 

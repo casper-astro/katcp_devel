@@ -1,3 +1,5 @@
+#define DEBUG
+
 #ifdef KATCP_EXPERIMENTAL
 
 #include <stdio.h>
@@ -594,6 +596,12 @@ int sensor_list_callback_katcp(struct katcp_dispatch *d, unsigned int *count, ch
     return result;
   }
 
+  if(vx->v_flags & KATCP_VRF_HID){
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "subpressing listing of hidden sensor %s", key);
+    return 0;
+  }
+
+
 #if 0
   vy = find_payload_katcp(d, vx, KATCP_VRC_SENSOR_VALUE);
   uy = find_payload_katcp(d, vx, KATCP_VRC_SENSOR_UNITS);
@@ -732,6 +740,11 @@ int sensor_sampling_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_NOT_FOUND);
   }
 
+  if(vx->v_flags & KATCP_VRF_HID){
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "not using hidden sensor %s", key);
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_NOT_FOUND);
+  }
+
   fx = this_flat_katcp(d);
   if(fx == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "sensor sampling not available outside duplex context");
@@ -806,9 +819,28 @@ int sensor_sampling_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 int sensor_value_callback_katcp(struct katcp_dispatch *d, unsigned int *count, char *key, struct katcp_vrbl *vx)
 {
   struct katcl_parse *px;
+  int result;
+
+  result = is_vrbl_sensor_katcp(d, vx);
+  if(result <= 0){
+#ifdef DEBUG
+    fprintf(stderr, "sensor value: %p not a sensor\n", vx);
+#endif
+    return result;
+  }
+
+  if(vx->v_flags & KATCP_VRF_HID){
+#ifdef DEBUG
+    fprintf(stderr, "sensor value: %p is hidden\n", vx);
+#endif
+    return 0;
+  }
 
   px = make_sensor_katcp(d, key, vx, KATCP_SENSOR_VALUE_INFORM);
   if(px == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "sensor value: unable to assemble output for %p\n", vx);
+#endif
     return -1;
   }
 

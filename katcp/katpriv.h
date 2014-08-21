@@ -440,11 +440,17 @@ struct katcp_arb{
 #define KATCP_VRT_ARRAY     2
 #define KATCP_MAX_VRT       3
 
+
+/* flags need to be contigous, flag_from_string_vrbl_katcp needs that */
+
 #define KATCP_VRF_NONE     0
-#define KATCP_VRF_ENV    0x1  /* exported to environment */
-#define KATCP_VRF_VER    0x2  /* a version variable */
-#define KATCP_VRF_SEN    0x4  /* a variable visible as a sensor */
-#define KATCP_VRF_FLX    0x8  /* type can change */
+#define KATCP_VRF_ENV   0x01  /* exported to environment */
+#define KATCP_VRF_VER   0x02  /* a version variable */
+#define KATCP_VRF_SEN   0x04  /* a variable visible as a sensor */
+#define KATCP_VRF_FLX   0x08  /* type can change */
+#define KATCP_VRF_HID   0x10  /* hidden */
+
+#define KATCP_MASK_VRF  0x1f  /* mask of all flags */
 
 /* other possible options */
 #if 0
@@ -461,6 +467,7 @@ struct katcp_arb{
 #define KATCP_VRC_SENSOR_UNITS    ":units"
 #define KATCP_VRC_SENSOR_TYPE     ":type"
 #define KATCP_VRC_SENSOR_RANGE    ":range"
+#define KATCP_VRC_SENSOR_TIME     ":time"
 
 struct katcp_vrbl_payload;
 
@@ -1197,6 +1204,9 @@ int find_type_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, char *
 struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, char *name, struct katcp_vrbl *vo, int clobber);
 
 int traverse_vrbl_katcp(struct katcp_dispatch *d, void *state, int (*callback)(struct katcp_dispatch *d, void *state, char *key, void *data));
+
+int hide_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx);
+int show_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx);
 
 /* variable payload manipulation */
 
