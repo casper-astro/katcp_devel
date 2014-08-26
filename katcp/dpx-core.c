@@ -1204,11 +1204,11 @@ int wake_endpoint_peer_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoin
     return KATCP_RESULT_FAIL;
   }
 
-  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "received a message %s ... ", str);
-
   type = str[0];
   source = source_endpoint_katcp(d, msg);
   rh = NULL;
+
+  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "received a message %s ... (message source endpoint %p, remote %p)", str, source, fx->f_remote);
 
   switch(type){
     case KATCP_REQUEST :
@@ -1218,6 +1218,7 @@ int wake_endpoint_peer_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoin
       break;
 
     case KATCP_INFORM  :
+      fx->f_current_endpoint = source;
       fx->f_current_map = (source == fx->f_remote) ? KATCP_MAP_REMOTE_INFORM : KATCP_MAP_INNER_INFORM;
       /* WARNING: fall */
     case KATCP_REPLY   :
@@ -1971,6 +1972,13 @@ int version_generic_callback_katcp(struct katcp_dispatch *d, void *state, char *
   if((vx->v_flags & KATCP_VRF_VER) == 0){
 #ifdef DEBUG
     fprintf(stderr, "version: %p not a version variable\n", vx);
+#endif
+    return 0;
+  }
+
+  if(vx->v_flags & KATCP_VRF_HID){
+#ifdef DEBUG
+    fprintf(stderr, "version: version variable %p currently hidden\n", vx);
 #endif
     return 0;
   }

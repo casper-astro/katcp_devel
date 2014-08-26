@@ -271,6 +271,8 @@ int broadcast_subscribe_katcp(struct katcp_dispatch *d, struct katcp_wit *w, str
     }
 #endif
 
+    /* WARNING: for events: should we check that something actually has changed ? */
+
     if(sub->s_strategy == KATCP_STRATEGY_EVENT){
       if(send_message_endpoint_katcp(d, w->w_endpoint, sub->s_endpoint, px, 0) < 0){
         /* other end could have gone away, notice it ... */
@@ -302,7 +304,7 @@ int is_vrbl_sensor_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx)
     return 0;
   }
 
-  py = find_payload_katcp(d, vx, ":value");
+  py = find_payload_katcp(d, vx, KATCP_VRC_SENSOR_VALUE);
   if(py == NULL){
     return 0;
   }
@@ -384,23 +386,25 @@ int add_partial_sensor_katcp(struct katcp_dispatch *d, struct katcl_parse *px, c
 
   r = 0;
 
-#if KATCP_PROTOCOL_MAJOR_VERSION >= 5   
-  results[r++] = add_timestamp_parse_katcl(px, flags & KATCP_FLAG_FIRST, NULL);
+  py = find_payload_katcp(d, vx, KATCP_VRC_SENSOR_TIME);
+  if(py){
+    results[r++] = add_payload_vrbl_katcp(d, px, 0, vx, py);
+  } else {
+    results[r++] = add_timestamp_parse_katcl(px, flags & KATCP_FLAG_FIRST, NULL);
+  }
+
   results[r++] = add_string_parse_katcl(px, KATCP_FLAG_STRING, "1");
-#else
-  results[r++] = add_string_parse_katcl(px, (flags & KATCP_FLAG_FIRST) | KATCP_FLAG_STRING, "1");
-#endif
 
   results[r++] = add_string_parse_katcl(px, KATCP_FLAG_STRING, ptr);
 
-  py = find_payload_katcp(d, vx, ":status");
+  py = find_payload_katcp(d, vx, KATCP_VRC_SENSOR_STATUS);
   if(py){
     results[r++] = add_payload_vrbl_katcp(d, px, 0, vx, py);
   } else {
     results[r++] = add_string_parse_katcl(px, KATCP_FLAG_STRING, "unknown");
   }
 
-  py = find_payload_katcp(d, vx, ":value");
+  py = find_payload_katcp(d, vx, KATCP_VRC_SENSOR_VALUE);
   if(py){
     results[r++] = add_payload_vrbl_katcp(d, px, flags & KATCP_FLAG_LAST, vx, py);
   } else {
@@ -461,6 +465,10 @@ int change_sensor_katcp(struct katcp_dispatch *d, void *state, char *name, struc
 #ifdef DEBUG
   fprintf(stderr, "sensor: triggering sensor change logic on sensor %s\n", name);
 #endif
+
+  if(vx->v_flags & KATCP_VRF_HID){
+    return 0;
+  }
 
   px = make_sensor_katcp(d, name, vx, KATCP_SENSOR_STATUS_INFORM);
   if(px == NULL){

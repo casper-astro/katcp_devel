@@ -238,7 +238,7 @@ int sensor_list_group_info_katcp(struct katcp_dispatch *d, int argc)
   self = handler_of_flat_katcp(d, fx);
 
   if(origin == remote){ /* ... remote party is sending us a status update ... */
-    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "saw a sensor status update from remote party, should capture this");
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "saw a sensor status update from remote party, should capture this");
 
     name = get_string_parse_katcl(px, 1);
     description = get_string_parse_katcl(px, 2);
@@ -269,7 +269,10 @@ int sensor_list_group_info_katcp(struct katcp_dispatch *d, int argc)
 
     vx = find_vrbl_katcp(d, ptr);
     if(vx != NULL){
-      if(vx->v_flags & KATCP_VRF_SEN){
+      if(is_vrbl_sensor_katcp(d, vx)){
+#if 0
+      if(vx->v_flags & KATCP_VRF_SEN){ /* might be better choice: the extra checks in is_vrbl might be too fussy during set up ? */
+#endif
         /* WARNING: unclear - maybe clobber the sensor entirely ... */
         log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "leaving old sensor definition unchanged");
       } else {
@@ -284,7 +287,7 @@ int sensor_list_group_info_katcp(struct katcp_dispatch *d, int argc)
 
     vx = scan_vrbl_katcp(d, NULL, NULL, KATCP_VRC_SENSOR_VALUE, 1, KATCP_VRT_STRING);
     if(vx == NULL){
-      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to declare sensor variable %s for %s", ptr, fx->f_name);
+      log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "unable to declare sensor variable %s for %s", ptr, fx->f_name);
       free(ptr);
       return -1;
     }
@@ -336,13 +339,15 @@ int sensor_status_group_info_katcp(struct katcp_dispatch *d, int argc)
   struct katcp_flat *fx;
   struct katcl_parse *px;
   struct katcp_endpoint *self, *remote, *origin;
+  struct katcp_vrbl *vx;
+  char *name, *stamp, *value, *status;
+  int unhide;
 
 #ifdef DEBUG
   fprintf(stderr, "log: encountered a sensor-status message\n");
 #endif
 
-  log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "saw a sensor status message");
-
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "saw a sensor status message");
 
   fx = this_flat_katcp(d);
   if(fx == NULL){
@@ -360,11 +365,47 @@ int sensor_status_group_info_katcp(struct katcp_dispatch *d, int argc)
 
   if(origin == remote){ /* ... remote party is sending us a status update ... */
 
-    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "saw a sensor status update from remote party, should capture this");
+    stamp = get_string_parse_katcl(px, 1);
+    name = get_string_parse_katcl(px, 3);
+    status = get_string_parse_katcl(px, 4);
+    value = get_string_parse_katcl(px, 5);
+
+    if((stamp == NULL) || (name == NULL) || (status == NULL) || (value == NULL)){
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "deficient sensor update encountered");
+      return -1;
+    }
+
+    vx = find_vrbl_katcp(d, name);
+    if(vx){
+      if(is_vrbl_sensor_katcp(d, vx)){
+
+        if(vx->v_flags & KATCP_VRF_HID){
+          log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "variable %s is hidden", name);
+          unhide = 0;
+        } else {
+          hide_vrbl_katcp(d, vx);
+          unhide = 1;
+        }
+
+        scan_vrbl_katcp(d, vx, stamp,  KATCP_VRC_SENSOR_TIME,   1, KATCP_VRT_STRING);
+        scan_vrbl_katcp(d, vx, status, KATCP_VRC_SENSOR_STATUS, 1, KATCP_VRT_STRING);
+
+        if(unhide){
+          show_vrbl_katcp(d, vx);
+        }
+
+        scan_vrbl_katcp(d, vx, value,  KATCP_VRC_SENSOR_VALUE,  1, KATCP_VRT_STRING);
+
+      } else {
+        log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "variable %s exists but not a sensor thus not propagating it", name);
+      }
+    } else {
+      log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "no declaration for sensor %s thus not propagating it", name);
+    }
 
   } else { /* we must have asked a sensor to send this to us, better relay it on */
 
-    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "origin endpoint of message is %p, remote %p", origin, remote);
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "origin endpoint of message is %p, remote %p", origin, remote);
 
     if(remote == NULL){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "internal problem, saw a sensor status but have nowhere to send it to");

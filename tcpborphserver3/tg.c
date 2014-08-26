@@ -665,16 +665,19 @@ static int transmit_frame_fpga(struct getap_state *gs)
 
 int transmit_ip_fpga(struct getap_state *gs)
 {
-  uint8_t mcast_mac[6] = { 0x01, 0x00, 0x5E, 0x00, 0x00, 0x00 };
+  uint8_t prefix[3] = { 0x01, 0x00, 0x5e };
   uint8_t *mac;
+#if 0
   uint32_t temp;
+#endif
 
-  if (gs->s_txb[SIZE_FRAME_HEADER + IP_DEST1] >= 0xE0 && gs->s_txb[SIZE_FRAME_HEADER + IP_DEST1] < 0xF0){
+  if((gs->s_txb[SIZE_FRAME_HEADER + IP_DEST1] & 0xf0) == 0xe0){
 
 #ifdef DEBUG
     fprintf(stderr, "txf: calculating multicast mac\n");
 #endif
 
+#if 0
     temp = 0x7FFFFF & ( gs->s_txb[SIZE_FRAME_HEADER + IP_DEST1] << 24 
                       | gs->s_txb[SIZE_FRAME_HEADER + IP_DEST2] << 16 
                       | gs->s_txb[SIZE_FRAME_HEADER + IP_DEST3] << 8 
@@ -683,18 +686,25 @@ int transmit_ip_fpga(struct getap_state *gs)
     mcast_mac[3] = temp & 0xFF0000;
     mcast_mac[4] = temp & 0xFF00;
     mcast_mac[5] = temp & 0xFF;
+#endif
 
-    mac = (uint8_t *) &mcast_mac;
+    memcpy(gs->s_txb, prefix, 3);
+
+    gs->s_txb[3] = 0x7f & gs->s_txb[SIZE_FRAME_HEADER + IP_DEST2];
+    gs->s_txb[4] =        gs->s_txb[SIZE_FRAME_HEADER + IP_DEST3];
+    gs->s_txb[5] =        gs->s_txb[SIZE_FRAME_HEADER + IP_DEST4];
+
   } else {
+
     mac = gs->s_arp_table[gs->s_txb[SIZE_FRAME_HEADER + IP_DEST4]];
+    memcpy(gs->s_txb, mac, GETAP_MAC_SIZE);
+
   }
 
 #ifdef DEBUG
-  fprintf(stderr, "txf: looked up dst mac: %x:%x:%x:%x:%x:%x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+  fprintf(stderr, "txf: looked up dst gs->s_txb: %x:%x:%x:%x:%x:%x\n", gs->s_txb[0], gs->s_txb[1], gs->s_txb[2], gs->s_txb[3], gs->s_txb[4], gs->s_txb[5]);
 #endif
   
-  memcpy(gs->s_txb, mac, GETAP_MAC_SIZE);
-
   return transmit_frame_fpga(gs);
 }
 
