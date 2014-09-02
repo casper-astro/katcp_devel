@@ -4399,7 +4399,7 @@ int sensor_cmd_katcp(struct katcp_dispatch *d, int argc)
           break;
         case KATCP_SENSOR_DISCRETE : 
           dsa = a->a_more;
-          log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "discrte acquire current value %u, get %p and local state %p", dsa->da_current, dsa->da_get, a->a_local);
+          log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "discrete acquire current value %u, get %p and local state %p", dsa->da_current, dsa->da_get, a->a_local);
           break;
 #ifdef KATCP_USE_FLOATS
         case KATCP_SENSOR_FLOAT :
