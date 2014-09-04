@@ -3309,7 +3309,14 @@ int sensor_value_cmd_katcp(struct katcp_dispatch *d, int argc)
   for(i = 0; i < s->s_tally; i++){
     sn = s->s_sensors[i];
     if((sn->s_mode == 0) || (s->s_mode == sn->s_mode)){
+      /* heavily depend on lazy evaluation, both for name and prefix not causing invalid memory accesses */
+#ifdef KATCP_STRICT_SENSOR_MATCH
+      if((name == NULL) || 
+         (strcmp(name, sn->s_name) == 0) || 
+         ((strncmp(name, sn->s_name, prefix) == 0) && (sn->s_name[prefix] == '.'))){
+#else
       if((name == NULL) || (!strncmp(name, sn->s_name, prefix))){
+#endif
         force_acquire_katcp(d, sn);
         count++;
       } /* else: display mode specific sensors but mark their status unknown ? */
@@ -3429,7 +3436,13 @@ int sensor_list_cmd_katcp(struct katcp_dispatch *d, int argc)
   for(i = 0; i < s->s_tally; i++){
     sn = s->s_sensors[i];
     if((sn->s_mode == 0) || (s->s_mode == sn->s_mode)){
-      if(name == NULL || (!strncmp(name, sn->s_name, prefix))){
+#ifdef KATCP_STRICT_SENSOR_MATCH
+      if((name == NULL) || 
+         (strcmp(name, sn->s_name) == 0) || 
+         ((strncmp(name, sn->s_name, prefix) == 0) && (sn->s_name[prefix] == '.'))){
+#else
+      if((name == NULL) || (!strncmp(name, sn->s_name, prefix))){
+#endif
         if(inform_sensor_list_katcp(d, sn) < 0){
           return KATCP_RESULT_FAIL;
         }
