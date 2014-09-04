@@ -46,7 +46,7 @@ CFLAGS += -DKATCP_SUBPROCESS
 CFLAGS += -DKATCP_DEPRECATED
 
 # inhibit sensor-{value,list} prefix matching, unless it is on a . boundary
-#CFLAGS += KATCP_STRICT_SENSOR_MATCH
+#CFLAGS += -DKATCP_STRICT_SENSOR_MATCH
 
 # pick a protocol reversion from the list. Making up
 # your own major values doesn't work unless you also implement what 
