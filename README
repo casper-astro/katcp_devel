@@ -17,6 +17,9 @@ General purpose components:
   run         - simple wrapper to "katcp-ify" output of a program
   sq          - simple katcp sensor query utility which blocks until 
                 a sensor changes to a specified status
+  sgw         - a serial gateway to proxy katcp requests to a serial port
+  mpx         - a katcp multiplexer allowing a single executable to talk
+                to multiple servers, one at a turn 
   examples    - simple examples 
 
 Applications for roaches:
@@ -26,6 +29,9 @@ Applications for roaches:
                 with a mmap driver and a roach2
 
   bulkread    - a utlity to perform a ?bulkread request
+
+  fpg         - programming utility to load .fpg files. An .fpg file contains
+                a bitstream and meta information
 
 Project specific code, requring particular gateware and instruments:
 
@@ -37,4 +43,9 @@ Project specific code, requring particular gateware and instruments:
                 (used by kcs)
   fmon        - fengine monitoring utility to poll gateware status registers 
                 (used by kcs)
+  smon        - monitor common server statistics
+
+Incomplete:
+
   wops        - (incomplete & ignore)
+  wss         - 

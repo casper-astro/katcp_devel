@@ -1,0 +1,26 @@
+
+This is the programming utility which parses an .fpg file. It requires
+tcpborphserver3 to do the actual programming
+
+An fpg file consists of the following sections
+
+  #!/bin/kcpfpg        - a header making it possible to execute an .fpg file
+                         with chmod +x and the correct KATCP_SERVER variable
+                         this permits remote programming 
+  ?uploadbin           - boilerplate to trigger the bitstream upload      
+  ?register            - register definitions: map a name to a memory region
+  ... 
+  ?meta                - other information describing the bistream
+  ...
+  ?quit                - an end of katcp messages marker
+  <bitstream>          - the bitstream to be programmed into the fpga
+
+
+The astute reader will notice that an .fpg file bears some resemblance 
+a shar archive and also to a "frozen" http post request. Shoulders of 
+giants 'n stuff
+
+Also: It is quite possible to add extra things to this .fpg file, maybe even
+tap-start requests, just note that you will have to edit the file in binary
+mode (eg vim -b) lest your editor munges the binary parts of the bitstream
+
