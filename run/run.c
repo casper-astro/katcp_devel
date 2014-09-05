@@ -152,8 +152,11 @@ int run_iostate(struct totalstate *ts, struct iostate *io, struct katcl_line *k)
 
 void usage(char *app)
 {
+  printf("kcprun: a wrapper to katcp-ify program output\n\n");
   printf("usage: %s [options] command ...\n", app);
   printf("-h                 this help\n");
+  printf("-q                 run quietly\n");
+  printf("-v                 increase verbosity\n");
   printf("-e level           specify the level for messages from standard error\n");
   printf("-o level           specify the level for messages from standard output\n");
   printf("-s subsystem       specify the subsystem (overrides KATCP_LABEL)\n");
