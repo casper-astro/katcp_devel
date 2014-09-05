@@ -467,7 +467,7 @@ int word_write_cmd(struct katcp_dispatch *d, int argc)
 
     log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "writing 0x%x to position 0x%x", update, j);
     
-    if(((unsigned int)tr->r_map + j) >= tr->r_map + tr->r_map_size){
+    if(((unsigned int)tr->r_map + j) > tr->r_map + tr->r_map_size){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, 
         "register %s is outside mapped range 0x%08x", name, 
          (unsigned int)tr->r_map + j);
@@ -708,7 +708,7 @@ int write_cmd(struct katcp_dispatch *d, int argc)
     /* now write a partial destination, so need to load in some bits */
     if(remaining_bits > 0){
 
-      if(((unsigned int)tr->r_map + ptr_base) >= tr->r_map + tr->r_map_size){
+      if(((unsigned int)tr->r_map + ptr_base) > tr->r_map + tr->r_map_size){
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, 
             "register %s is outside mapped range 0x%08x", name, 
              (unsigned int)tr->r_map + ptr_base);
