@@ -812,10 +812,12 @@ int main(int argc, char **argv)
   }
 #endif
 
-  if(finalise_upload(ipr) < 0){
-    sync_message_katcl(ipr->i_print, KATCP_LEVEL_ERROR, ipr->i_label, "unable to send finalise");
-    destroy_ipr(ipr);
-    return 4;
+  if(program){
+    if(finalise_upload(ipr) < 0){
+      sync_message_katcl(ipr->i_print, KATCP_LEVEL_ERROR, ipr->i_label, "unable to send finalise");
+      destroy_ipr(ipr);
+      return 4;
+    }
   }
 
   sync_message_katcl(ipr->i_print, KATCP_LEVEL_DEBUG, ipr->i_label, "finalise command sent successfully");
