@@ -594,7 +594,13 @@ int finalise_upload(struct ipr_state *ipr)
 
 void usage(char *name)
 {
-  fprintf(stderr, "usage: %s [-s server] [-l label] [-q] [-v] [-h] file.fpg [server]\n", name);
+  printf("usage: %s [-n] [-s server] [-l label] [-q] [-v] [-h] file.fpg [server]\n", name);
+  printf("-s server   connect to the given server\n");
+  printf("-q          run quietly\n");
+  printf("-v          increase verbosity\n");
+  printf("-h          this help\n");
+  printf("-n          do not program, just run register/meta definitions\n");
+
 }
 
 int main(int argc, char **argv)
@@ -603,7 +609,7 @@ int main(int argc, char **argv)
   char *server, *label, *file;
   char *request, *status;
 
-  int verbose, fail;
+  int verbose, fail, program;
   int i, j, c;
 
   int timeout = SHORT_TIMEOUT;
@@ -631,8 +637,9 @@ int main(int argc, char **argv)
   file = NULL;
   fail = 1;
 
-  i = j = 1;
+  program = 1;
 
+  i = j = 1;
   while (i < argc) {
     if (argv[i][0] == '-') {
       c = argv[i][j];
@@ -644,6 +651,10 @@ int main(int argc, char **argv)
 
         case 'v' : 
           verbose++;
+          j++;
+          break;
+        case 'n' : 
+          program = 0;
           j++;
           break;
         case 'q' : 
@@ -721,21 +732,25 @@ int main(int argc, char **argv)
   if(ipr->i_verbose){
     sync_message_katcl(ipr->i_print, KATCP_LEVEL_TRACE, ipr->i_label, "using %ums and %ums for short and long timeouts respectively", ipr->i_timeout, ipr->i_timeout * LONG_TIMEOUT_FACTOR);
   }
-  
-  /* send UPLOAD command */
-  if(prepare_upload(ipr) < 0){
-    sync_message_katcl(ipr->i_print, KATCP_LEVEL_ERROR, ipr->i_label, "upload prepare failed");
-    destroy_ipr(ipr);
-    return 4;
-  }
 
-  sync_message_katcl(ipr->i_print, KATCP_LEVEL_DEBUG, ipr->i_label, "upload request sent");
+  if(program){
+    /* send UPLOAD command */
+    if(prepare_upload(ipr) < 0){
+      sync_message_katcl(ipr->i_print, KATCP_LEVEL_ERROR, ipr->i_label, "upload prepare failed");
+      destroy_ipr(ipr);
+      return 4;
+    }
 
-  /* Program FPGA */
-  if(program_bin(ipr, server, port) < 0){
-    sync_message_katcl(ipr->i_print, KATCP_LEVEL_ERROR, ipr->i_label, "unable to program fpga");
-    destroy_ipr(ipr);
-    return 4;
+    sync_message_katcl(ipr->i_print, KATCP_LEVEL_DEBUG, ipr->i_label, "upload request sent");
+
+    /* Program FPGA */
+    if(program_bin(ipr, server, port) < 0){
+      sync_message_katcl(ipr->i_print, KATCP_LEVEL_ERROR, ipr->i_label, "unable to program fpga");
+      destroy_ipr(ipr);
+      return 4;
+    }
+  } else {
+    sync_message_katcl(ipr->i_print, KATCP_LEVEL_INFO, ipr->i_label, "fpga programming inhibited, only defining registers");
   }
 
   while(have_katcl(ipr->i_input) > 0){
@@ -797,10 +812,12 @@ int main(int argc, char **argv)
   }
 #endif
 
-  if(finalise_upload(ipr) < 0){
-    sync_message_katcl(ipr->i_print, KATCP_LEVEL_ERROR, ipr->i_label, "unable to send finalise");
-    destroy_ipr(ipr);
-    return 4;
+  if(program){
+    if(finalise_upload(ipr) < 0){
+      sync_message_katcl(ipr->i_print, KATCP_LEVEL_ERROR, ipr->i_label, "unable to send finalise");
+      destroy_ipr(ipr);
+      return 4;
+    }
   }
 
   sync_message_katcl(ipr->i_print, KATCP_LEVEL_DEBUG, ipr->i_label, "finalise command sent successfully");

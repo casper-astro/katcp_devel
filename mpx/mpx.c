@@ -453,6 +453,7 @@ void usage(char *app)
   printf("-i                 indexed rather than symbolic selection\n");
   printf("-s switch          command used to switch (default %s)\n", DEFAULT_SWITCH);
   printf("-n host:port       remote party to contact\n");
+  printf("-l label           set symbolic name for next peer\n");
   printf("-e command [args]  subprocess to launch\n");
 
 }
@@ -560,57 +561,13 @@ int main(int argc, char **argv)
           j = 1;
           break;
 
-#if 0
-        case 't' : 
-          truncate = 1;
-          j++;
-          break;
-
-        case 'q' : 
-          verbose = 0;
-          j++;
-          break;
-
-        case 'l' :
-        case 'o' :
-        case 'a' :
-        case 's' :
-
-          j++;
-          if (argv[i][j] == '\0') {
-            j = 0;
-            i++;
-          }
-          if (i >= argc) {
-            fprintf(stderr, "%s: usage: argument needs a parameter\n", app);
-            return EX_USAGE;
-          }
-
-          switch(c){
-            case 'l' :
-              level = argv[i] + j;
-              break;
-            case 'o' :
-              output = argv[i] + j;
-              break;
-            case 'a' : 
-              attempts = atoi(argv[i] + j);
-              break;
-            case 's' : 
-              server = argv[i] + j;
-              break;
-          }
-
-          i++;
-          j = 1;
-          break;
-#endif
-
         case '-' :
           j++;
           break;
+
         case '\0':
           if(j == 1){
+            sleep(1);
             if(add_input(ms, STDIN_FILENO, discarding, label ? label : "-") < 0){
               fprintf(stderr, "%s: unable to add standard stream\n", app);
               return EX_UNAVAILABLE;

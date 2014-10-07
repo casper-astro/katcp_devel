@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <signal.h>
 #include <errno.h>
 #include <string.h>
 #include <ctype.h>
@@ -71,7 +72,6 @@ static int create_lock(char *device)
 /*-------This function removes a lock file for a serial device--------*/
 static int remove_lock(char *device)
 {
-  int lockfd;
   char filename[30] = ""; 
   char *device_num = NULL;
 
@@ -93,6 +93,7 @@ static int remove_lock(char *device)
 
 
 
+static volatile int system_run = 1;
 
 static int start_serial(char *device, int speed)
 {
@@ -156,6 +157,11 @@ static int start_serial(char *device, int speed)
   return fd;
 }
 
+static void handle_signal(int signal)
+{
+  system_run = 0;
+}
+
 void usage(char *label, struct katcl_line *k)
 {
   sync_message_katcl(k, KATCP_LEVEL_INFO, label, "serial-device [port [serial-speed]]");
@@ -164,10 +170,11 @@ void usage(char *label, struct katcl_line *k)
 int main(int argc, char **argv)
 {
   char *net, *serial, *label;
-  int i, j, c, lfd, run, fd, mfd, result, count, speed;
+  int i, j, c, lfd, fd, mfd, result, count, speed, locking;
   struct katcl_line *sk, *nk, *k;
   struct katcl_parse *p;
   fd_set fsr, fsw;
+  struct sigaction sa;
   
   label = "katcp-serial-gateway";
 
@@ -179,6 +186,7 @@ int main(int argc, char **argv)
   sk = NULL;
   nk = NULL;
 
+  locking = 0;
   speed = 0;
   serial = NULL;
   net = NULL;
@@ -193,6 +201,11 @@ int main(int argc, char **argv)
         case 'h' :
           usage(label, k);
           return 0;
+
+        case 'u' :
+          locking = 1;
+          j++;
+          break;
 
         case 'b' :
         case 'p' :
@@ -251,6 +264,17 @@ int main(int argc, char **argv)
 
   }
 
+
+  sa.sa_handler = handle_signal; 
+
+  sa.sa_flags = 0;
+  sigemptyset(&(sa.sa_mask));
+
+  sigaction(SIGHUP, &sa, NULL);
+  sigaction(SIGTERM, &sa, NULL);
+  sigaction(SIGINT, &sa, NULL);
+
+
   if(net == NULL){
     net = "7148";
   }
@@ -297,7 +321,7 @@ int main(int argc, char **argv)
     return 3;
   }
 
-  for(run = 1; run; ){
+  while(system_run > 0){
     mfd = 0;
     FD_ZERO(&fsr);
     FD_ZERO(&fsw);
@@ -424,7 +448,7 @@ int main(int argc, char **argv)
           log_message_katcl(k, KATCP_LEVEL_ERROR, label, "unable to write to serial port %s: %s", serial, strerror(error_katcl(sk)));
           destroy_katcl(sk, 1);
           sk = NULL;
-          run = 0;
+          system_run = 0;
           /* WARNING: unsatisfactory, may starve flushing logic */
           continue;
         }
@@ -440,7 +464,7 @@ int main(int argc, char **argv)
           }
           destroy_katcl(sk, 1);
           sk = NULL;
-          run = 0;
+          system_run = 0;
         }
         while(have_katcl(sk) > 0){
           p = ready_katcl(sk);
@@ -457,6 +481,8 @@ int main(int argc, char **argv)
     }
 
   }
+
+  log_message_katcl(k, KATCP_LEVEL_INFO, label, "serial gateway shutting down");
 
   if(nk){
     destroy_katcl(nk, 1);
