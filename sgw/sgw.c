@@ -47,7 +47,7 @@ static int create_lock(char *device)
 {
   int lockfd;		//this int holds the lock file's file-descriptor
   char filename[30] = ""; 
-  char pid[6] = "";
+  char pid[11] ;
   char *device_num = NULL;
 
   strcpy(filename, "/var/lock/LCK..");
@@ -55,13 +55,13 @@ static int create_lock(char *device)
   device_num++;
   strcat(filename, device_num);
 
-  lockfd = open(filename , O_RDWR | O_CREAT | O_EXCL, S_IRWXU);
+  lockfd = open(filename , O_RDWR | O_CREAT | O_EXCL, S_IRWXU);     //O_EXCL in conjuction with O_CREAT says return error if already exists
   if (lockfd < 0){
     fprintf(stderr, "Error creating %s: %s\n", filename, strerror(errno));
     return -1;
   } 
 
-  snprintf(pid, 6, "%d\n", getpid());  //get the pid and write it to a string
+  snprintf(pid, 12, "%10d\n", getpid());  //get the pid and write it to a string
   write(lockfd, pid, strlen(pid));	//write pid string to the lock file
 
   close(lockfd);
@@ -253,12 +253,7 @@ int main(int argc, char **argv)
         serial = argv[i];
       } else if(net == NULL){
         net = argv[i];
-      } else if(speed == 0){
-        speed = atoi(argv[i]);
-      } else {
-        sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "excess argument %s", argv[i]);
-        return 2;
-      }
+      } else if(speed == 0){ speed = atoi(argv[i]); } else { sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "excess argument %s", argv[i]); return 2; }
       i++;
     }
 
@@ -312,12 +307,14 @@ int main(int argc, char **argv)
   sk = create_katcl(fd);
   if(sk == NULL){
     sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "unable to run katcp wrapper on serial file descriptor");
+    remove_lock(serial);
     return 4;
   }
 
   lfd = net_listen(net, 0, 0);
   if(lfd < 0){
     sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "unable to create listener on %s", net);
+    remove_lock(serial);
     return 3;
   }
 
