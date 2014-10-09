@@ -3719,7 +3719,8 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
     add_full_cmd_map_katcp(m, "list-duplex", "display active connection detail (?list-duplex)", 0, &list_duplex_cmd_katcp, NULL, NULL);
 
     add_full_cmd_map_katcp(m, "log-level", "retrieve or adjust the log level (?log-level [level])", 0, &log_level_group_cmd_katcp, NULL, NULL);
-    add_full_cmd_map_katcp(m, "log-local", "adjust the log level of the current connection (?log-default [level])", 0, &log_local_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "log-local", "adjust the log level of the current connection (?log-local [level])", 0, &log_local_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "log-limit", "adjust the log level of the current connection (?log-limit [level])", 0, &log_local_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "log-default", "retrieve or adjust the log level of subsequent connections (?log-default [level])", 0, &log_default_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "log-override", "retrieve or adjust the log level in various permutations (?log-override [level [client|group|default [name]]])", 0, &log_override_group_cmd_katcp, NULL, NULL);
 
