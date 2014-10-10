@@ -55,7 +55,7 @@ static int create_lock(char *device)
   device_num++;
   strcat(filename, device_num);
 
-  lockfd = open(filename , O_RDWR | O_CREAT | O_EXCL, S_IRWXU);     //O_EXCL in conjuction with O_CREAT says return error if already exists
+  lockfd = open(filename , O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);     //O_EXCL in conjuction with O_CREAT says return error if already exists
   if (lockfd < 0){
     fprintf(stderr, "Error creating %s: %s\n", filename, strerror(errno));
     return -1;
