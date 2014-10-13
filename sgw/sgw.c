@@ -52,8 +52,14 @@ static int create_lock(char *device)
 
   strcpy(filename, "/var/lock/LCK..");
   device_num = strrchr(device, '/');
-  device_num++;
-  strcat(filename, device_num);
+ 
+  if (device_num == NULL){
+    strcat(filename, device);
+  }
+  else{
+    device_num++;
+    strcat(filename, device_num);
+  }
 
   lockfd = open(filename , O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);     //O_EXCL in conjuction with O_CREAT says return error if already exists
   if (lockfd < 0){
@@ -76,9 +82,14 @@ static int remove_lock(char *device)
   char *device_num = NULL;
 
   strcpy(filename, "/var/lock/LCK..");
-  device_num = strrchr(device, '/');
-  device_num++;
-  strcat(filename, device_num);
+
+  if (device_num == NULL){
+    strcat(filename, device);
+  }
+  else{
+    device_num++;
+    strcat(filename, device_num);
+  }
 
   if ( unlink(filename) < 0 )
   {
