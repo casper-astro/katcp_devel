@@ -1190,6 +1190,8 @@ void forget_endpoint_katcp(struct katcp_dispatch *d, struct katcp_endpoint *ep);
 int code_from_scope_katcp(char *scope);
 char *string_from_scope_katcp(unsigned int scope);
 
+int fixup_timestamp_katcp(char *src, char *dst, int size);
+
 /* internal variable use ******************/
 
 struct katcp_region *create_region_katcp(struct katcp_dispatch *d);

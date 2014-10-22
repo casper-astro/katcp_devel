@@ -40,7 +40,7 @@ CFLAGS += -DKATCP_LOG_REQUESTS
 CFLAGS += -DKATCP_SUBPROCESS
 
 # enable newer, broken or nonfunctional code
-#CFLAGS += -DKATCP_EXPERIMENTAL
+CFLAGS += -DKATCP_EXPERIMENTAL
 
 # keep older code 
 CFLAGS += -DKATCP_DEPRECATED

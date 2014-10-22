@@ -336,11 +336,13 @@ int sensor_list_group_info_katcp(struct katcp_dispatch *d, int argc)
 
 int sensor_status_group_info_katcp(struct katcp_dispatch *d, int argc)
 {
+#define TIMESTAMP_BUFFER 16
   struct katcp_flat *fx;
   struct katcl_parse *px;
   struct katcp_endpoint *self, *remote, *origin;
   struct katcp_vrbl *vx;
-  char *name, *stamp, *value, *status;
+  char *name, *stamp, *ptr, *value, *status;
+  char buffer[TIMESTAMP_BUFFER];
   int unhide;
 
 #ifdef DEBUG
@@ -375,6 +377,11 @@ int sensor_status_group_info_katcp(struct katcp_dispatch *d, int argc)
       return -1;
     }
 
+    if(fixup_timestamp_katcp(stamp, buffer, TIMESTAMP_BUFFER) < 0){
+      return -1;
+    }
+    buffer[TIMESTAMP_BUFFER - 1] = '\0';
+
     vx = find_vrbl_katcp(d, name);
     if(vx){
       if(is_vrbl_sensor_katcp(d, vx)){
@@ -387,7 +394,7 @@ int sensor_status_group_info_katcp(struct katcp_dispatch *d, int argc)
           unhide = 1;
         }
 
-        scan_vrbl_katcp(d, vx, stamp,  KATCP_VRC_SENSOR_TIME,   1, KATCP_VRT_STRING);
+        scan_vrbl_katcp(d, vx, buffer,  KATCP_VRC_SENSOR_TIME,   1, KATCP_VRT_STRING);
         scan_vrbl_katcp(d, vx, status, KATCP_VRC_SENSOR_STATUS, 1, KATCP_VRT_STRING);
 
         if(unhide){
@@ -416,6 +423,7 @@ int sensor_status_group_info_katcp(struct katcp_dispatch *d, int argc)
   }
 
   return 0;
+#undef TIMESTAMP_BUFFER
 }
 
 #endif
