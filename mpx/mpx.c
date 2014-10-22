@@ -634,6 +634,8 @@ int main(int argc, char **argv)
           return EX_SOFTWARE;
       }
 
+      /* j = 0; */
+
       i++;
     }
   }
