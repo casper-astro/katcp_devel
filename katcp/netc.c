@@ -19,6 +19,94 @@
 
 #include "netc.h"
 
+int net_address(struct sockaddr *sa, char *name, int port, int flags)
+{
+  struct hostent *he;
+  struct sockaddr_in *sai;
+  char *ptr, *host, *copy;
+  int p, result;
+
+  if(sa == NULL){
+    return -1;
+  }
+
+  sai = (struct sockaddr_in *) sa;
+
+  if(port){
+    p = port;
+  }
+
+  if(name == NULL){
+    return -1;
+  }
+
+  copy = strdup(name);
+  if(copy == NULL){
+    if(flags & NETC_VERBOSE_ERRORS){ 
+      fprintf(stderr, "address: internal allocation failure\n");
+    }
+    return -1;
+  }
+
+  ptr = strchr(copy, ':');
+  if(ptr){
+    p = atoi(ptr + 1);
+    if(ptr == copy){
+      host = NULL;
+    } else {
+      host = copy;
+      ptr[0] = '\0';
+    }
+  } else {
+    ptr = strchr(copy, '.');
+    if(ptr){
+      host = copy;
+    } else {
+      p = atoi(copy);
+      host = NULL;
+    }
+  }
+
+  /* now we have a port, if there ever was one */
+
+  if(host){
+    if(inet_aton(host, &(sai->sin_addr)) == 0){
+      he = gethostbyname(host);
+      if((he == NULL) || (he->h_addrtype != AF_INET)){
+        if(flags & NETC_VERBOSE_ERRORS){ 
+          fprintf(stderr, "address: unable to resolve %s to ipv4 address\n", host);
+        }
+        result = (-1);
+      }
+
+      sai->sin_addr = *(struct in_addr *) he->h_addr;
+    }
+  } else {
+    result = 1;
+  }
+
+  free(copy);
+
+  if(p > 0){
+    if(p > 0xffff){
+      if(flags & NETC_VERBOSE_ERRORS){ 
+        fprintf(stderr, "address: port %d unreasonably large\n", p);
+      }
+      result = (-1);
+    } else {
+      sai->sin_port = htons(p);
+    }
+  } else {
+    if(result == 0){
+      result = 1;
+    }
+  }
+
+  sai->sin_family = AF_INET;
+
+  return result;
+}
+
 int net_connect(char *name, int port, int flags)
 {
   /* WARNING: this function may call resolvers, and blocks for those */
