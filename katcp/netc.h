@@ -13,6 +13,9 @@ extern "C" {
 
 #define NETC_DEFAULT_PORT    7147
 
+#include <sys/types.h>
+#include <sys/socket.h>
+
 int net_connect(char *name, int port, int flags);
 int net_listen(char *name, int port, int flags);
 int net_address(struct sockaddr *sa, char *name, int port, int flags);
