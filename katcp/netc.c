@@ -48,6 +48,8 @@ int net_address(struct sockaddr *sa, char *name, int port, int flags)
     return -1;
   }
 
+  result = 0;
+
   ptr = strchr(copy, ':');
   if(ptr){
     p = atoi(ptr + 1);
