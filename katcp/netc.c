@@ -23,8 +23,8 @@ int net_address(struct sockaddr *sa, char *name, int port, int flags)
 {
   struct hostent *he;
   struct sockaddr_in *sai;
-  char *ptr, *host, *copy;
-  int p, result;
+  char *ptr, *host, *copy, *end;
+  int p, t, result;
 
   if(sa == NULL){
     return -1;
@@ -64,8 +64,13 @@ int net_address(struct sockaddr *sa, char *name, int port, int flags)
     if(ptr){
       host = copy;
     } else {
-      p = atoi(copy);
-      host = NULL;
+      t = strtoul(copy, &end, 10);
+      if(end[0] == '\0'){
+        p = t;
+        host = NULL;
+      } else {
+        host = copy;
+      }
     }
   }
 
