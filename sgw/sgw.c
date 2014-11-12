@@ -38,6 +38,72 @@ static struct speed_item speed_table[] = {
   { 0,       B0 } 
 };
 
+
+
+
+
+/*-----This function creates a lock file for a serial device-----*/
+static int create_lock(char *device)
+{
+  int lockfd;		//this int holds the lock file's file-descriptor
+  char filename[30] = ""; 
+  char pid[11] ;
+  char *device_num = NULL;
+
+  strcpy(filename, "/var/lock/LCK..");
+  device_num = strrchr(device, '/');
+ 
+  if (device_num == NULL){
+    strcat(filename, device);
+  }
+  else{
+    device_num++;
+    strcat(filename, device_num);
+  }
+
+  lockfd = open(filename , O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);     //O_EXCL in conjuction with O_CREAT says return error if already exists
+  if (lockfd < 0){
+    fprintf(stderr, "Error creating %s: %s\n", filename, strerror(errno));
+    return -1;
+  } 
+
+  snprintf(pid, 12, "%10d\n", getpid());  //get the pid and write it to a string
+  write(lockfd, pid, strlen(pid));	//write pid string to the lock file
+
+  close(lockfd);
+  return 0;
+}
+
+
+/*-------This function removes a lock file for a serial device--------*/
+static int remove_lock(char *device)
+{
+  char filename[30] = ""; 
+  char *device_num = NULL;
+
+  strcpy(filename, "/var/lock/LCK..");
+
+  if (device_num == NULL){
+    strcat(filename, device);
+  }
+  else{
+    device_num++;
+    strcat(filename, device_num);
+  }
+
+  if ( unlink(filename) < 0 )
+  {
+    fprintf(stderr, "Error deleting %s: %s\n", filename, strerror(errno));
+    return -1;
+  }
+  
+  return 0;
+ 
+}
+
+
+
+
 static volatile int system_run = 1;
 
 static int start_serial(char *device, int speed)
@@ -198,12 +264,7 @@ int main(int argc, char **argv)
         serial = argv[i];
       } else if(net == NULL){
         net = argv[i];
-      } else if(speed == 0){
-        speed = atoi(argv[i]);
-      } else {
-        sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "excess argument %s", argv[i]);
-        return 2;
-      }
+      } else if(speed == 0){ speed = atoi(argv[i]); } else { sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "excess argument %s", argv[i]); return 2; }
       i++;
     }
 
@@ -234,20 +295,37 @@ int main(int argc, char **argv)
     return 2;
   }
 
+#if 0
+  fd = open(serial, O_RDWR | O_NOCTTY);
+#endif
+
+
+  if (create_lock(serial) < 0){
+    sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "unable to create lock file");
+    return -1;  
+  }
+
+
+
   fd = start_serial(serial, speed);
+
+
   if(fd < 0){
     sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "unable to open serial device %s: %s", serial, strerror(errno));
+    remove_lock(serial);
     return 3;
   }
   sk = create_katcl(fd);
   if(sk == NULL){
     sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "unable to run katcp wrapper on serial file descriptor");
+    remove_lock(serial);
     return 4;
   }
 
   lfd = net_listen(net, 0, 0);
   if(lfd < 0){
     sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "unable to create listener on %s", net);
+    remove_lock(serial);
     return 3;
   }
 
@@ -430,6 +508,10 @@ int main(int argc, char **argv)
 
   while(write_katcl(k) == 0);
   destroy_katcl(k, 0);
+
+  
+  remove_lock(serial);
+
 
   return 0;
 }
