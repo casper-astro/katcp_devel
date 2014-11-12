@@ -3,6 +3,11 @@
 *.a
 *.so
 
+# ignore eclipse project files
+.cproject
+.project
+.settings/
+
 # ignore ctags
 tags
 core
