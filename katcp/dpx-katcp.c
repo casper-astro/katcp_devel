@@ -1,5 +1,3 @@
-#define DEBUG
-
 #ifdef KATCP_EXPERIMENTAL
 
 #include <stdio.h>

@@ -1202,6 +1202,7 @@ struct katcp_vrbl_payload *find_payload_katcp(struct katcp_dispatch *d, struct k
 
 int type_payload_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
 int find_type_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, char *path);
+char *path_suffix_vrbl_katcp(struct katcp_dispatch *d, char *path);
 
 struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, char *name, struct katcp_vrbl *vo, int clobber);
 

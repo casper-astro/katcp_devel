@@ -32,6 +32,11 @@
 
 #define MAX_DEPTH_VRBL 3
 
+#define DELIM_GROUP    '*'
+#define DELIM_TREE     ':'
+#define DELIM_ARRAY    '#' 
+#define DELIM_UNKNOWN  '.'
+
 static struct katcp_vrbl *find_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx, char *key);
 static int insert_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx, struct katcp_vrbl *vx, char *key);
 static int remove_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx, struct katcp_vrbl *vx);
@@ -125,9 +130,9 @@ static int next_element_path_vrbl(char *path)
 
   for(i = 0; path[i] != '\0'; i++){
     switch(path[i]){
-      case ':' : 
-      case '#' :
-      case '.' : 
+      case DELIM_TREE : 
+      case DELIM_ARRAY :
+      case DELIM_UNKNOWN : 
         if(i > 1){
           return i;
         } else if(i == 1){
@@ -156,12 +161,12 @@ static unsigned int infer_type_path_vrbl(char *path)
   }
 
   switch(path[0]){
-    case ':' : 
+    case DELIM_TREE : 
       return KATCP_VRT_TREE;
-    case '#' :
+    case DELIM_ARRAY :
       return KATCP_VRT_ARRAY;
 #if 0
-    case '.' : 
+    case DELIM_UNKNOWN : 
       return TODO;
 #endif
       /* case '\0' : */
@@ -543,7 +548,7 @@ int scan_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct
     }
   }
 
-  if(path[0] != ':'){
+  if(path[0] != DELIM_TREE){
 #ifdef KATCP_CONSISTENCY_CHECKS
     fprintf(stderr, "tree insert: unexpected path specification %s\n", path);
 #endif
@@ -662,7 +667,7 @@ struct katcp_vrbl_payload *element_tree_vrbl_katcp(struct katcp_dispatch *d, str
 
   /* WARNING: this has a fair bit in common with the scan logic, but splitting it out is messy ... */
 
-  if(path[0] != ':'){
+  if(path[0] != DELIM_TREE){
     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "invalid compound variable access path %s at tree", path);
     return NULL;
   }
@@ -980,7 +985,7 @@ int scan_array_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struc
     }
   }
 
-  if(path[0] != '#'){
+  if(path[0] != DELIM_ARRAY){
 #ifdef KATCP_CONSISTENCY_CHECKS
     fprintf(stderr, "tree insert: unexpected path specification %s\n", path);
 #endif
@@ -1108,7 +1113,7 @@ struct katcp_vrbl_payload *element_array_vrbl_katcp(struct katcp_dispatch *d, st
 
   /* WARNING: this has a fair bit in common with the scan logic, but splitting it out is messy ... */
 
-  if(path[0] != '#'){
+  if(path[0] != DELIM_ARRAY){
     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "invalid compound variable access path %s at array", path);
     return NULL;
   }
@@ -1471,10 +1476,33 @@ int configure_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, unsign
   return 0;
 }
 
+char *path_suffix_vrbl_katcp(struct katcp_dispatch *d, char *path)
+{
+  unsigned int infer;
+  int next;
+
+  if(path){
+    infer = infer_type_path_vrbl(path);
+    if(infer >= KATCP_MAX_VRT){
+      next = next_element_path_vrbl(path);
+      if(next > 0){ /* didn't look like the start of a path, but has more down the line -> assume region prefix, remove it */
+        return path + next;
+      } else {
+        return NULL; /* didn't look like the start of a path, nothing down the line -> assume string, remove all */
+      }
+    } else {
+      return path; /* looks like the start of a valid path */
+    }
+  } else {
+    return NULL; /* no choice, null path */
+  }
+}
+
 struct katcp_vrbl_payload *find_payload_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, char *path)
 {
   unsigned int type;
   struct katcp_vrbl_payload *py;
+  char *actual;
 
   if(vx == NULL){
     return NULL;
@@ -1490,7 +1518,6 @@ struct katcp_vrbl_payload *find_payload_katcp(struct katcp_dispatch *d, struct k
   }
 
   type = py->p_type;
-
   if(type >= KATCP_MAX_VRT){
 #ifdef KATCP_CONSISTENCY_CHECKS
     fprintf(stderr, "logic failure: variable has payload has invalid type\n");
@@ -1499,7 +1526,9 @@ struct katcp_vrbl_payload *find_payload_katcp(struct katcp_dispatch *d, struct k
     return NULL;
   }
 
-  return (*(ops_type_vrbl[type].t_element))(d, vx, py, path);
+  actual = path_suffix_vrbl_katcp(d, path);
+
+  return (*(ops_type_vrbl[type].t_element))(d, vx, py, actual);
 }
 
 int type_payload_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py)
@@ -1802,7 +1831,7 @@ struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat
   struct katcp_flat *fy;
   struct katcp_vrbl *vx;
   struct katcp_region *vra[MAX_DEPTH_VRBL], *rx;
-  int i, count, last;
+  int i, count, last, haspath;
   char *copy, *var;
   unsigned int v[MAX_STAR];
 
@@ -1813,7 +1842,35 @@ struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat
 
   s = d->d_shared;
 
+  haspath = 0;
   count = 0;
+  i = 0;
+
+  while(copy[i] != '\0'){
+    switch(copy[i]){
+      case DELIM_GROUP :
+        if(count >= MAX_STAR){
+          free(copy);
+          return NULL;
+        }
+        v[count] = i;
+        copy[i] = '\0';
+        count++;
+        i++;
+        break;
+      case DELIM_TREE    :
+      case DELIM_ARRAY   :
+      case DELIM_UNKNOWN :
+        haspath = 1;
+        copy[i] = '\0';
+        break;
+      default :
+        i++;
+        break;
+    }
+  }
+
+#if 0
   for(i = 0; copy[i] != '\0'; i++){
     if(copy[i] == '*'){
       if(count >= MAX_STAR){
@@ -1825,6 +1882,8 @@ struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat
       count++;
     }
   }
+#endif
+
   if(i <= 0){
     free(copy);
     return NULL;
