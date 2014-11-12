@@ -155,10 +155,14 @@ int add_build_katcp(struct katcp_dispatch *d, char *build);
 int del_build_katcp(struct katcp_dispatch *d, int index);
 int build_katcp(struct katcp_dispatch *d, char *build);
 
-/* make life easier for users, let them store their state here */
+#if 0
+/* no longer available, use the mode logic... */
 void *get_code_katcp(struct katcp_dispatch *d, unsigned int index);
 int set_code_katcp(struct katcp_dispatch *d, unsigned int index, void *state);
 int set_clear_code_katcp(struct katcp_dispatch *d, unsigned int index, void *p, void (*clear)(struct katcp_dispatch *d));
+#endif
+
+/* this is just a special case of mode logic */
 void *get_state_katcp(struct katcp_dispatch *d);
 void set_state_katcp(struct katcp_dispatch *d, void *p);
 void set_clear_state_katcp(struct katcp_dispatch *d, void *p, void (*clear)(struct katcp_dispatch *d, unsigned int mode));
