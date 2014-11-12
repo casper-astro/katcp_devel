@@ -341,7 +341,7 @@ int sensor_status_group_info_katcp(struct katcp_dispatch *d, int argc)
   struct katcl_parse *px;
   struct katcp_endpoint *self, *remote, *origin;
   struct katcp_vrbl *vx;
-  char *name, *stamp, *ptr, *value, *status;
+  char *name, *stamp, *value, *status;
   char buffer[TIMESTAMP_BUFFER];
   int unhide;
 
