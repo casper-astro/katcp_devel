@@ -264,12 +264,16 @@ int main(int argc, char **argv)
         serial = argv[i];
       } else if(net == NULL){
         net = argv[i];
-      } else if(speed == 0){ speed = atoi(argv[i]); } else { sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "excess argument %s", argv[i]); return 2; }
+      } else if(speed == 0){ 
+        speed = atoi(argv[i]); 
+      } else { 
+        sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "excess argument %s", argv[i]); 
+        return 2; 
+      }
       i++;
     }
 
   }
-
 
   sa.sa_handler = handle_signal; 
 
@@ -279,7 +283,6 @@ int main(int argc, char **argv)
   sigaction(SIGHUP, &sa, NULL);
   sigaction(SIGTERM, &sa, NULL);
   sigaction(SIGINT, &sa, NULL);
-
 
   if(net == NULL){
     net = "7148";
