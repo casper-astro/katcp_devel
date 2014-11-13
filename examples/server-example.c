@@ -53,6 +53,20 @@ int ok_check_cmd(struct katcp_dispatch *d, int argc)
   return KATCP_RESULT_OK; /* have the system send a status message for us */
 }
 
+#ifdef KATCP_USE_FLOATS
+int float_check_cmd(struct katcp_dispatch *d, int argc)
+{
+  double value;
+
+  if(argc > 1){
+    value = arg_double_katcp(d, 1);
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "floating point number is %f", value);
+  }
+
+  return KATCP_RESULT_OK; /* have the system send a status message for us */
+}
+#endif
+
 int fail_check_cmd(struct katcp_dispatch *d, int argc)
 {
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "saw fail check with %d arguments", argc);
@@ -157,6 +171,9 @@ int main(int argc, char **argv)
   result += register_katcp(d, "?check-pause", "pauses", &pause_check_cmd);
 #ifdef KATCP_SUBPROCESS
   result += register_katcp(d, "?check-subprocess", "runs sleep 10 as a subprocess and waits for completion", &subprocess_check_cmd);
+#endif
+#ifdef KATCP_USE_FLOATS
+  result += register_katcp(d, "?check-float", "check floating point output", &float_check_cmd);
 #endif
 
   if(result < 0){
