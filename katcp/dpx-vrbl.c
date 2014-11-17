@@ -1,5 +1,3 @@
-#define DEBUG
-
 #ifdef KATCP_EXPERIMENTAL
 
 /* The user interface to operate on variables is (still) inconsistent:
