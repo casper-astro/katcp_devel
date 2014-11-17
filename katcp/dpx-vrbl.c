@@ -1,3 +1,5 @@
+#define DEBUG
+
 #ifdef KATCP_EXPERIMENTAL
 
 /* The user interface to operate on variables is (still) inconsistent:
@@ -132,7 +134,9 @@ static int next_element_path_vrbl(char *path)
     switch(path[i]){
       case DELIM_TREE : 
       case DELIM_ARRAY :
+#if 0
       case DELIM_UNKNOWN : 
+#endif
         if(i > 1){
           return i;
         } else if(i == 1){
@@ -1412,6 +1416,8 @@ struct katcp_vrbl *scan_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *
   result = (*(ops_type_vrbl[py->p_type].t_scan))(d, vt, py, text, path, create, type);
   if(result < 0){
 
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "unable to scan variable %s", text ? text : "[null]");
+
     if(vx == NULL){
       /* we created it, we'd better clean up too */
       release_vrbl_katcp(d, vt, py);
@@ -1527,6 +1533,10 @@ struct katcp_vrbl_payload *find_payload_katcp(struct katcp_dispatch *d, struct k
   }
 
   actual = path_suffix_vrbl_katcp(d, path);
+
+#ifdef DEBUG
+  fprintf(stderr, "find payload: full path is %s suffix is %s\n", path, actual);
+#endif
 
   return (*(ops_type_vrbl[type].t_element))(d, vx, py, actual);
 }
@@ -1860,7 +1870,9 @@ struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat
         break;
       case DELIM_TREE    :
       case DELIM_ARRAY   :
+#if 0
       case DELIM_UNKNOWN :
+#endif
         haspath = 1;
         copy[i] = '\0';
         break;
@@ -1911,7 +1923,7 @@ struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat
   var = NULL;
 
 #ifdef DEBUG
-  fprintf(stderr, "variable update: doing a %d star search, stars at", count);
+  fprintf(stderr, "variable update: in %s doing a %d star search, stars at", name, count);
   for(i = 0; i < count; i++){
     fprintf(stderr, " %d", v[i]);
   }

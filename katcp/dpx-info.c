@@ -238,7 +238,7 @@ int sensor_list_group_info_katcp(struct katcp_dispatch *d, int argc)
   self = handler_of_flat_katcp(d, fx);
 
   if(origin == remote){ /* ... remote party is sending us a status update ... */
-    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "saw a sensor status update from remote party, should capture this");
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "saw a sensor list from remote party, attempting to it");
 
     name = get_string_parse_katcl(px, 1);
     description = get_string_parse_katcl(px, 2);
@@ -284,6 +284,7 @@ int sensor_list_group_info_katcp(struct katcp_dispatch *d, int argc)
     }
 
     /* here we can assume vx is a new variable */
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "defining new sensor %s as %s", name, ptr);
 
     vx = scan_vrbl_katcp(d, NULL, NULL, KATCP_VRC_SENSOR_VALUE, 1, KATCP_VRT_STRING);
     if(vx == NULL){
@@ -313,6 +314,8 @@ int sensor_list_group_info_katcp(struct katcp_dispatch *d, int argc)
       free(ptr);
       return KATCP_RESULT_FAIL;
     }
+
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "declared variable %s as %s", name, ptr);
 
     free(ptr);
 
