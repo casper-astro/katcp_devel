@@ -24,18 +24,32 @@
 #include "tapper.h"
 #include "tg.h"
 
-#define POLL_INTERVAL     10  /* polling interval, in msecs, how often we look at register */
+#define POLL_INTERVAL         10  /* polling interval, in msecs, how often we look at register */
+#define CACHE_DIVISOR          4  /* 256 / div - longest initial delay */
 
-#define FRESH_FOUND          50000 /* length of time to cache a valid reply - units are poll interval, approx */
+#define FRESH_VALID        50000 /* length of time to cache a valid reply - units are poll interval, approx */
+
+#define ANNOUNCE_INITIAL      13 /* how often we announce ourselves initially */
+#define ANNOUNCE_FINAL      1000 /* rate to which we decay */
+#define ANNOUNCE_STEP          1 /* amount by which we increment */
+
+#define SMALL_DELAY             10 /* wait this long before announcing ourselves, after arp reply */
+
+#define SPAM_INITIAL          25 /* how often we spam an address initially */
+#define SPAM_FINAL          5000 /* rate at which we end up */
+#define SPAM_STEP             50 /* amount by which we increment */
+
+#if 0
 #define FRESH_ANNOUNCE_FINAL  8000 /* interval when we announce ourselves - good idea to be shorter than others */
 #define FRESH_ANNOUNCE_INITIAL  13 /* initial spamming interval, can not be smaller than 2 */
 #define FRESH_ANNOUNCE_LINEAR   70 /* value before which we are linear - not quadratic */
-#define ANNOUNCE_RATIO           4 /* own announcements happen more frequently than queries */
 
-#define SMALL_DELAY             10 /* wait this long before announcing ourselves */
+#define ANNOUNCE_RATIO           4 /* own announcements happen more frequently than queries */
+#endif
 
 #define COPRIME_A         5 /* initial arp spamming offset as multiple of instance number, units poll interval */
 #define COPRIME_B        23 /* some other offset ... */
+#define COPRIME_C       101 /* offset to make requests not sequential ... */
 
 #define RECEIVE_BURST      8 /* read at most N frames per polling interval */
 
@@ -178,6 +192,21 @@ int text_to_mac(uint8_t *binary, const char *text)
   return 0;
 }
 
+static unsigned int compute_rate(unsigned int *array, int increment)
+{
+  /* WARNING: better make sure this array is actually the correct size */
+
+  if(array[GETAP_PERIOD_CURRENT] >= array[GETAP_PERIOD_STOP]){
+    return array[GETAP_PERIOD_STOP];
+  }
+
+  if(increment > 0){
+    array[GETAP_PERIOD_CURRENT] += array[GETAP_PERIOD_INCREMENT];
+  }
+
+  return array[GETAP_PERIOD_CURRENT];
+}
+
 /* arp related functions  ***********************************************/
 
 int set_entry_arp(struct getap_state *gs, unsigned int index, const uint8_t *mac, unsigned int fresh)
@@ -224,7 +253,7 @@ void glean_arp(struct getap_state *gs, uint8_t *mac, uint8_t *ip)
   fprintf(stderr, "glean: adding entry %d\n", ip[3]);
 #endif
 
-  set_entry_arp(gs, ip[3], mac, FRESH_FOUND);
+  set_entry_arp(gs, ip[3], mac, gs->s_valid_period);
 }
 
 void announce_arp(struct getap_state *gs)
@@ -256,7 +285,6 @@ void announce_arp(struct getap_state *gs)
   fprintf(stderr, "arp: sending arp announce\n");
 #endif
 
-
   gs->s_arp_len = 42;
 
 #ifdef DEBUG
@@ -270,23 +298,27 @@ void announce_arp(struct getap_state *gs)
     gs->s_arp_len = 0;
   }
 
-  if(gs->s_announce < FRESH_ANNOUNCE_FINAL){
-    if(gs->s_announce < FRESH_ANNOUNCE_LINEAR){
-      gs->s_announce = gs->s_announce + 1;
+#if 0
+  if(gs->s_period < FRESH_ANNOUNCE_FINAL){
+    if(gs->s_period < FRESH_ANNOUNCE_LINEAR){
+      gs->s_period = gs->s_period + 1;
     } else {
-      gs->s_announce = gs->s_announce * 2;
+      gs->s_period = gs->s_period * 2;
     }
   } else {
-    gs->s_announce = FRESH_ANNOUNCE_FINAL;
+    gs->s_period = FRESH_ANNOUNCE_FINAL;
   }
+#endif
 
-  gs->s_arp_fresh[gs->s_self] = gs->s_iteration + gs->s_announce;
+  gs->s_arp_fresh[gs->s_self] = gs->s_iteration + compute_rate(gs->s_announce_period, 1);
 }
 
 static void request_arp(struct getap_state *gs, int index)
 {
   uint32_t host;
+#if 0
   unsigned int extra, pos, delta, reference, mine;
+#endif
   int result;
 
   if(gs->s_self == index){
@@ -316,25 +348,29 @@ static void request_arp(struct getap_state *gs, int index)
   fprintf(stderr, "arp: sending arp request for index %d (host=0x%08x)\n", index, host);
 #endif
 
+#if 0
   /* pick an entry at random ... */
   pos = (gs->s_iteration + index) % (GETAP_ARP_CACHE - 2) + 1;
   reference = gs->s_arp_fresh[pos];
 
-  mine = gs->s_iteration + (gs->s_announce * ANNOUNCE_RATIO);
+  mine = gs->s_iteration + (gs->s_period * ANNOUNCE_RATIO);
   if(mine > reference){
     delta = mine - reference;
     /* try to get away from random entry ... */
-    if(delta < gs->s_announce){
+    if(delta < gs->s_period){
 
       extra = (COPRIME_B * ((index % COPRIME_A) + 1));
       /* by some weird amount */
-      if(extra > gs->s_announce){
-        extra = gs->s_announce;
+      if(extra > gs->s_period){
+        extra = gs->s_period;
       }
       mine += extra;
     }
   }
   gs->s_arp_fresh[index] = mine;
+#endif
+
+  gs->s_arp_fresh[index] = gs->s_iteration + compute_rate(gs->s_spam_period, (index > 1) ? 0 : 1);
 
   gs->s_arp_len = 42;
 #ifdef DEBUG
@@ -1083,8 +1119,8 @@ int configure_fpga(struct getap_state *gs)
 #endif
 
   for(i = 0; i < GETAP_ARP_CACHE; i++){
-    /* heuristic to make things less bursty ... unclear if it is worth anything */
-    set_entry_arp(gs, i, broadcast_const, (GETAP_ARP_CACHE - gs->s_self) + (i * COPRIME_B));
+    /* heuristic to make things less bursty ... unclear if it is worth anything in large networks */
+    set_entry_arp(gs, i, broadcast_const, 2 + ((gs->s_self + (i * COPRIME_C)) % (GETAP_ARP_CACHE / CACHE_DIVISOR)));
   }
 
   set_entry_arp(gs, gs->s_self, gs->s_mac_binary, 1);
@@ -1162,7 +1198,9 @@ void destroy_getap(struct katcp_dispatch *d, struct getap_state *gs)
   gs->s_port = 0;
   gs->s_self = 0;
   gs->s_index = 0;
-  gs->s_announce = 0;
+#if 0
+  gs->s_period = 0;
+#endif
   gs->s_iteration = 0;
 
   gs->s_rx_len = 0;
@@ -1279,7 +1317,9 @@ struct getap_state *create_getap(struct katcp_dispatch *d, unsigned int instance
 
   gs->s_self = 0;
   gs->s_index = 1;
-  gs->s_announce = FRESH_ANNOUNCE_INITIAL;
+#if 0
+  gs->s_period = FRESH_ANNOUNCE_INITIAL;
+#endif
 
   /* mac, address, mask, network binary */
 
@@ -1287,6 +1327,18 @@ struct getap_state *create_getap(struct katcp_dispatch *d, unsigned int instance
   gs->s_iteration = 0;
   gs->s_burst = RECEIVE_BURST;
   gs->s_deferrals = 0;
+
+  gs->s_announce_period[GETAP_PERIOD_START    ] = ANNOUNCE_INITIAL;
+  gs->s_announce_period[GETAP_PERIOD_STOP     ] = ANNOUNCE_FINAL;
+  gs->s_announce_period[GETAP_PERIOD_INCREMENT] = ANNOUNCE_STEP;
+  gs->s_announce_period[GETAP_PERIOD_CURRENT  ] = gs->s_announce_period[GETAP_PERIOD_START];
+
+  gs->s_spam_period[GETAP_PERIOD_START    ] = SPAM_INITIAL;
+  gs->s_spam_period[GETAP_PERIOD_STOP     ] = SPAM_FINAL;
+  gs->s_spam_period[GETAP_PERIOD_INCREMENT] = SPAM_STEP;
+  gs->s_spam_period[GETAP_PERIOD_CURRENT  ] = gs->s_spam_period[GETAP_PERIOD_START];
+
+  gs->s_valid_period = FRESH_VALID;
 
   gs->s_register = NULL;
 
@@ -1526,9 +1578,12 @@ void tap_reload_arp(struct katcp_dispatch *d, struct getap_state *gs)
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "forcing re-acquire of network peers for %s", gs->s_tap_name);
 
   for(i = 1; i < (GETAP_ARP_CACHE - 1); i++){
+#if 0
     gs->s_arp_fresh[i] = gs->s_iteration + (i * COPRIME_A) + 1;
-    gs->s_arp_fresh[gs->s_self] = gs->s_iteration;
+#endif
+    gs->s_arp_fresh[i] = 2 + ((gs->s_self + (i * COPRIME_C)) % (GETAP_ARP_CACHE / CACHE_DIVISOR));
   }
+  gs->s_arp_fresh[gs->s_self] = gs->s_iteration;
 
 }
 
@@ -1570,15 +1625,150 @@ int tap_reload_cmd(struct katcp_dispatch *d, int argc)
   return KATCP_RESULT_FAIL;
 }
 
+int tap_runtime_configure(struct katcp_dispatch *d, struct getap_state *gs, char *key, char *value)
+{
+  unsigned long v;
+  char *ptr;
+  int valid, len;
+  unsigned int *array, index;
+
+  if(key == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no key given");
+    return -1;
+  }
+
+  if(value == NULL){
+    valid = 0;
+  } else {
+    v = strtoul(value, &ptr, 0);
+    if(ptr[0] == '\0'){
+      valid = 1;
+    } else {
+      valid = (-1);
+    }
+  }
+
+  ptr = strchr(key, '-');
+  if(ptr == NULL){
+    len = strlen(key);
+  } else {
+    len = ptr - key;
+  }
+
+  if(!strncmp(key, "valid-", len)){
+    if(valid >= 0){
+      if(valid > 0){
+        gs->s_valid_period = v;
+      }
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "live stations valid for %ums", gs->s_valid_period * POLL_INTERVAL);
+    } else {
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "invalid configuration value %s", value);
+    }
+  } else if(!(strncmp(key, "query-", len) && strncmp(key, "announce-", len))){
+    if(!strncmp(key, "query-", len)){
+      array = gs->s_spam_period;
+    } else {
+      array = gs->s_announce_period;
+    }
+
+    ptr = key + len;
+    if(ptr[0] == '-'){
+      if(!strcmp(ptr, "-start")){
+        index = GETAP_PERIOD_START;
+      } else if(!strcmp(ptr, "-stop")){
+        index = GETAP_PERIOD_STOP;
+      } else if(!strcmp(ptr, "-step")){
+        index = GETAP_PERIOD_INCREMENT;
+      } else {
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "invalid configuration setting %s", key);
+        index = (-1);
+        return -1;
+      }
+    }
+    if(valid >= 0){
+      if(valid > 0){
+        array[index] = v;
+      }
+      if(array[GETAP_PERIOD_START] > array[GETAP_PERIOD_STOP]){
+        v = array[GETAP_PERIOD_START];
+        array[GETAP_PERIOD_START] = array[GETAP_PERIOD_STOP];
+        array[GETAP_PERIOD_STOP] = v;
+      }
+      if(array[GETAP_PERIOD_CURRENT] > array[GETAP_PERIOD_START]){
+        array[GETAP_PERIOD_CURRENT] = array[GETAP_PERIOD_START];
+      }
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s set to %ums", key, array[index] * POLL_INTERVAL);
+    } else {
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "invalid configuration value %s", value);
+    }
+  } else {
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unknown configuration setting %s", key);
+    return -1;
+  }
+
+  return 0;
+}
+
+int tap_config_cmd(struct katcp_dispatch *d, int argc)
+{
+  char *name, *key, *value;
+  unsigned int i;
+  struct tbs_raw *tr;
+
+  tr = get_current_mode_katcp(d);
+  if(tr == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to get raw state");
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(argc <= 2){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a device and setting");
+    return KATCP_RESULT_FAIL;
+  }
+  
+  name = arg_string_katcp(d, 1);
+  if(name == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "internal failure while acquiring device name");
+    return KATCP_RESULT_FAIL;
+  }
+
+  key = arg_string_katcp(d, 2);
+  if(key == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "internal failure while acquiring configuration setting for %s", name);
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(argc > 2){
+    value = arg_string_katcp(d, 3);
+  } else {
+    value = NULL;
+  }
+
+  for(i = 0; i < tr->r_instances; i++){
+    if(!strcmp(tr->r_taps[i]->s_tap_name, name)){
+      return (tap_runtime_configure(d, tr->r_taps[i], key, value) < 0) ? KATCP_RESULT_FAIL : KATCP_RESULT_OK;
+    }
+  }
+
+  log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no active tap instance %s found", name);
+
+  return KATCP_RESULT_FAIL;
+}
+
+static void tap_print_period_info(struct katcp_dispatch *d, char *prefix, unsigned int *array)
+{
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%s period initially every %ums currently %ums incrementing by %ums until %ums", prefix, array[GETAP_PERIOD_START] * POLL_INTERVAL, array[GETAP_PERIOD_CURRENT] * POLL_INTERVAL, array[GETAP_PERIOD_INCREMENT] * POLL_INTERVAL, array[GETAP_PERIOD_STOP] * POLL_INTERVAL);
+}
+
 void tap_print_info(struct katcp_dispatch *d, struct getap_state *gs)
 {
   unsigned int i;
 
   for(i = 1; i < (GETAP_ARP_CACHE - 1); i++){
-    log_message_katcp(gs->s_dispatch, memcmp(gs->s_arp_table[i], broadcast_const, 6) ? KATCP_LEVEL_INFO : KATCP_LEVEL_TRACE, NULL, "peer %02x:%02x:%02x:%02x:%02x:%02x at index %u valid for %u", gs->s_arp_table[i][0], gs->s_arp_table[i][1], gs->s_arp_table[i][2], gs->s_arp_table[i][3], gs->s_arp_table[i][4], gs->s_arp_table[i][5], i, gs->s_arp_fresh[i] - gs->s_iteration);
+    log_message_katcp(gs->s_dispatch, memcmp(gs->s_arp_table[i], broadcast_const, 6) ? KATCP_LEVEL_INFO : KATCP_LEVEL_TRACE, NULL, "%s %02x:%02x:%02x:%02x:%02x:%02x at index %u valid for %ums", (gs->s_self == i) ? "self" : "peer", gs->s_arp_table[i][0], gs->s_arp_table[i][1], gs->s_arp_table[i][2], gs->s_arp_table[i][3], gs->s_arp_table[i][4], gs->s_arp_table[i][5], i, (gs->s_arp_fresh[i] - gs->s_iteration) * POLL_INTERVAL);
   }
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "current index %u", gs->s_index);
-  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "own index %u", gs->s_self);
+  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_DEBUG, NULL, "own index %u", gs->s_self);
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "current iteration %u", gs->s_iteration);
 
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "polling interval %ums", gs->s_timer);
@@ -1590,8 +1780,11 @@ void tap_print_info(struct katcp_dispatch *d, struct getap_state *gs)
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "gateware port is %u", gs->s_port);
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "tap device name %s on fd %d", gs->s_tap_name, gs->s_tap_fd);
 
-  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "announcement initially every %u now %u and finally %u", FRESH_ANNOUNCE_INITIAL, gs->s_announce, FRESH_ANNOUNCE_FINAL);
-  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "ratio of announce to query is 1:%u", ANNOUNCE_RATIO);
+
+  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "valid entries cached for %ums", gs->s_valid_period * POLL_INTERVAL);
+
+  tap_print_period_info(d, "announce", gs->s_announce_period);
+  tap_print_period_info(d, "query",    gs->s_spam_period);
 
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "current arp spam deferrals %u", gs->s_deferrals);
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "current buffers arp=%u/rx=%u/tx=%u", gs->s_arp_len, gs->s_rx_len, gs->s_tx_len);

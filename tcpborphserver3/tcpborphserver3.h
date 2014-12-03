@@ -59,6 +59,13 @@ unsigned int infer_fpga_range(struct katcp_dispatch *d);
 
 #define GETAP_ARP_CACHE        256
 
+#define GETAP_PERIOD_CURRENT     0
+#define GETAP_PERIOD_INCREMENT   1
+#define GETAP_PERIOD_START       2
+#define GETAP_PERIOD_STOP        3
+
+#define GETAP_VECTOR_PERIOD      4
+
 struct getap_state{
   uint32_t s_magic;
 
@@ -76,7 +83,7 @@ struct getap_state{
 
   unsigned int s_self;
   unsigned int s_index;
-  unsigned int s_announce;
+  unsigned int s_period;
 
   uint8_t s_mac_binary[GETAP_MAC_SIZE];
   uint32_t s_address_binary;
@@ -87,6 +94,10 @@ struct getap_state{
   uint32_t s_iteration;
   unsigned int s_burst;
   unsigned int s_deferrals;
+
+  unsigned int s_spam_period[GETAP_VECTOR_PERIOD];      /* how often do we query all entries */
+  unsigned int s_announce_period[GETAP_VECTOR_PERIOD];  /* interval at which we announce ourselves */
+  unsigned int s_valid_period;     /* how long do we cache valid entries */
 
   struct tbs_entry *s_register;
 

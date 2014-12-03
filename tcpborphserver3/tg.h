@@ -6,6 +6,7 @@ int tap_start_cmd(struct katcp_dispatch *d, int argc);
 
 int tap_info_cmd(struct katcp_dispatch *d, int argc);
 int tap_reload_cmd(struct katcp_dispatch *d, int argc);
+int tap_config_cmd(struct katcp_dispatch *d, int argc);
 
 int tap_multicast_add_group_cmd(struct katcp_dispatch *d, int argc);
 int tap_multicast_remove_group_cmd(struct katcp_dispatch *d, int argc);
