@@ -252,7 +252,11 @@ struct katcl_parse *generate_relay_forward(struct katcp_dispatch *d, struct forw
             result = add_trailing_parse_katcl(px, flags, po, pf->p_num);
           }
         } else {
-          result = (-1);
+          if(pf->p_op == FOP_SINGLE){
+            result = add_buffer_parse_katcl(px, flags, NULL, 0);
+          } else {
+            result = (-1);
+          }
         }
         break;
       case FOP_VAR :
