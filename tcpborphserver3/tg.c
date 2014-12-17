@@ -29,15 +29,15 @@
 
 #define FRESH_VALID        50000 /* length of time to cache a valid reply - units are poll interval, approx */
 
-#define ANNOUNCE_INITIAL      13 /* how often we announce ourselves initially */
-#define ANNOUNCE_FINAL      1000 /* rate to which we decay */
-#define ANNOUNCE_STEP          1 /* amount by which we increment */
+#define ANNOUNCE_INITIAL     100 /* how often we announce ourselves initially */
+#define ANNOUNCE_FINAL       600 /* rate to which we decay */
+#define ANNOUNCE_STEP        100 /* amount by which we increment */
 
-#define SMALL_DELAY             10 /* wait this long before announcing ourselves, after arp reply */
+#define SMALL_DELAY           10 /* wait this long before announcing ourselves, after arp reply */
 
-#define SPAM_INITIAL          25 /* how often we spam an address initially */
-#define SPAM_FINAL          5000 /* rate at which we end up */
-#define SPAM_STEP             50 /* amount by which we increment */
+#define SPAM_INITIAL           1 /* how often we spam an address initially */
+#define SPAM_FINAL         12000 /* rate at which we end up */
+#define SPAM_STEP           1000 /* amount by which we increment */
 
 #if 0
 #define FRESH_ANNOUNCE_FINAL  8000 /* interval when we announce ourselves - good idea to be shorter than others */
