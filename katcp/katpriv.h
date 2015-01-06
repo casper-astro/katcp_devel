@@ -631,6 +631,11 @@ struct katcp_response_handler{
 #define KATCP_DEFER_OUTSIDE_REQUEST  0x1  /* stop handling outside requests, already have one */
 #define KATCP_DEFER_OWN_REQUEST      0x2  /* don't send further requests, other side already busy */
 
+#define KATCP_STALE_SENSOR_NAIVE     0x1  /* haven't issued a sensor-list, can't be out of date */
+#define KATCP_STALE_SENSOR_CURRENT   0x2  /* have done sensor-list recently */
+#define KATCP_STALE_SENSOR_STALE     0x3  /* things have changed since last sensor-list */
+#define KATCP_STALE_MASK_SENSOR      0x3  /* mask out sensor related data */
+
 struct katcp_flat{
   /* a client instance, intended to replace what was job and dispatch previously */
   unsigned int f_magic;
@@ -644,6 +649,8 @@ struct katcp_flat{
   int f_log_level;       /* log level currently set */
 
   int f_scope;           /* how much we see */
+
+  unsigned int f_stale;          /* what is out of date */
 
   unsigned int f_deferring;      /* status flags for requests outstanding */
   struct katcl_gueue *f_defer;   /* deferred requests */
@@ -742,6 +749,8 @@ struct katcp_shared{
   struct katcp_flat **s_this;
   int s_level;
   int s_stories;
+
+  unsigned int s_changes;
 
   struct katcp_endpoint *s_endpoints;
 
@@ -1242,6 +1251,10 @@ int monitor_event_variable_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx
 int forget_event_variable_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_flat *fx);
 
 struct katcl_parse *make_sensor_katcp(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx, char *prefix);
+
+#define KATCP_NAGLE_CHANGE  500000    /* defer device-changes by this much (us) ... */
+int schedule_sensor_update_katcp(struct katcp_dispatch *d);
+
 
 /* version callback */
 

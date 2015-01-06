@@ -532,7 +532,6 @@ void destroy_flats_katcp(struct katcp_dispatch *d)
 
   for(j = 0; j < s->s_members; j++){
     gx = s->s_groups[j];
-    i = 0;
     for(i = 0; i < gx->g_count; i++){
       fx = gx->g_flats[i];
       gx->g_flats[i] = NULL;
@@ -753,6 +752,7 @@ static void deallocate_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *f
 
   f->f_log_level = (-1);
   f->f_scope = KATCP_SCOPE_INVALID;
+  f->f_stale = 0;
 
   f->f_magic = 0;
 
@@ -1614,6 +1614,7 @@ struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, unsigned 
   f->f_log_level = gx->g_log_level;
 
   f->f_scope = gx->g_scope;
+  f->f_stale = KATCP_STALE_SENSOR_NAIVE;
 
   f->f_max_defer = 0;
   f->f_deferring = 0;

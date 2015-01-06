@@ -579,4 +579,80 @@ int forget_event_variable_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx,
   return delete_subscribe_katcp(d, w, index);
 }
 
+/***************************************************************************/
+
+int perform_sensor_update_katcp(struct katcp_dispatch *d, void *data)
+{
+  struct katcp_shared *s;
+  unsigned int i, j, count;
+  struct katcp_flat *fx;
+  struct katcp_group *gx;
+  struct katcl_parse *px;
+
+  s = d->d_shared;
+  if(s == NULL){
+    return -1;
+  }
+
+  if(s->s_changes <= 0){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "logic problem: scheduled device update, but nothing requires updating");
+    return -1;
+  }
+
+  px = create_referenced_parse_katcl();
+  if(px == NULL){
+    return -1;
+  }
+
+  add_string_parse_katcl(px, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, KATCP_DEVICE_CHANGED_INFORM);
+  add_string_parse_katcl(px, KATCP_FLAG_LAST | KATCP_FLAG_STRING, "sensor-list");
+
+  count = 0;
+
+  for(j = 0; j < s->s_members; j++){
+    gx = s->s_groups[j];
+    for(i = 0; i < gx->g_count; i++){
+      fx = gx->g_flats[i];
+      if((fx->f_stale & KATCP_STALE_MASK_SENSOR) == KATCP_STALE_SENSOR_STALE){
+        fx->f_stale = KATCP_STALE_SENSOR_NAIVE;
+
+        if(fx->f_flags & KATCP_FLAT_TOCLIENT){
+          /* TODO: shouldn't we use the fancy queue infrastructure ? */
+          append_parse_katcl(fx->f_line, px);
+          count++;
+        }
+      }
+    }
+  }
+
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "notified %u clients of %u sensor %s", count, s->s_changes, (s->s_changes == 1) ? "change" : "changes");
+
+  destroy_parse_katcl(px);
+
+  s->s_changes = 0;
+
+  return 0;
+}
+
+int schedule_sensor_update_katcp(struct katcp_dispatch *d)
+{
+  struct timeval tv;
+  struct katcp_shared *s;
+
+  s = d->d_shared;
+  if(s == NULL){
+    return -1;
+  }
+
+  tv.tv_sec = 0;
+  tv.tv_usec = KATCP_NAGLE_CHANGE;
+
+  if(register_in_tv_katcp(d, &tv, &perform_sensor_update_katcp, &(s->s_changes)) < 0){
+    return -1;
+  }
+
+  s->s_changes++;
+  return 0;
+}
+
 #endif

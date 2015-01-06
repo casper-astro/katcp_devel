@@ -195,9 +195,11 @@ int startup_shared_katcp(struct katcp_dispatch *d)
 
   s->s_groups = NULL;
   s->s_fallback = NULL;
-  s->s_this = NULL;
   s->s_members = 0;
   s->s_lock = 0;
+
+  s->s_this = NULL;
+  s->s_changes = 0;
 
   s->s_endpoints = NULL;
 

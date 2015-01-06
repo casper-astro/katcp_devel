@@ -409,6 +409,21 @@ static int print_client_list_katcp(struct katcp_dispatch *d, struct katcp_flat *
     log_message_katcp(d, KATCP_LEVEL_WARN | KATCP_LEVEL_LOCAL, NULL, "client %s has invalid scope", fx->f_name);
   }
 
+  switch((fx->f_stale & KATCP_STALE_MASK_SENSOR)){
+    case KATCP_STALE_SENSOR_NAIVE :
+      log_message_katcp(d, KATCP_LEVEL_DEBUG | KATCP_LEVEL_LOCAL, NULL, "client %s has not listed sensors");
+      break;
+    case KATCP_STALE_SENSOR_CURRENT :
+      log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "client %s has up to date sensor listing");
+      break;
+    case KATCP_STALE_SENSOR_STALE :
+      log_message_katcp(d, KATCP_LEVEL_WARN | KATCP_LEVEL_LOCAL, NULL, "client %s has sensor listing which is out of date");
+      break;
+    default :
+      log_message_katcp(d, KATCP_LEVEL_FATAL | KATCP_LEVEL_LOCAL, NULL, "client %s has corrupt sensor state tracking");
+      break;
+  }
+
   log_message_katcp(d, ((fx->f_max_defer > 0) ? KATCP_LEVEL_WARN : KATCP_LEVEL_INFO) | KATCP_LEVEL_LOCAL, NULL, "client %s has had a maximum of %d requests outstanding", fx->f_name, fx->f_max_defer);
 
   if(flushing_katcl(fx->f_line)){
@@ -671,6 +686,7 @@ int sensor_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   unsigned int i, count;
   int result;
   struct katcp_vrbl *vx;
+  struct katcp_flat *fx;
 
   result = 0;
   count = 0;
@@ -694,6 +710,10 @@ int sensor_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     }
   } else {
     result = traverse_vrbl_katcp(d, (void *)&count, &sensor_list_void_callback_katcp);
+    fx = this_flat_katcp(d);
+    if(fx){
+      fx->f_stale = (fx->f_stale & (~KATCP_STALE_MASK_SENSOR)) | KATCP_STALE_SENSOR_CURRENT;
+    }
   }
 
   if(result < 0){
