@@ -634,15 +634,30 @@ int perform_sensor_update_katcp(struct katcp_dispatch *d, void *data)
   return 0;
 }
 
-int schedule_sensor_update_katcp(struct katcp_dispatch *d)
+int mark_stale_flat_katcp(struct katcp_dispatch *d, void *state, struct katcp_flat *fx)
+{
+  if(fx != NULL){
+    /* insane, init ? */
+    fx->f_stale |= KATCP_STALE_SENSOR_NAIVE;
+  }
+
+  return 0;
+}
+
+int schedule_sensor_update_katcp(struct katcp_dispatch *d, char *name)
 {
   struct timeval tv;
   struct katcp_shared *s;
+  struct katcp_flat *fx;
 
   s = d->d_shared;
   if(s == NULL){
     return -1;
   }
+
+  fx = this_flat_katcp(d);
+
+  for_all_flats_vrbl_katcp(d, fx, name, NULL, &mark_stale_flat_katcp);
 
   tv.tv_sec = 0;
   tv.tv_usec = KATCP_NAGLE_CHANGE;
@@ -650,6 +665,8 @@ int schedule_sensor_update_katcp(struct katcp_dispatch *d)
   if(register_in_tv_katcp(d, &tv, &perform_sensor_update_katcp, &(s->s_changes)) < 0){
     return -1;
   }
+
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "scheduled change notification");
 
   s->s_changes++;
   return 0;

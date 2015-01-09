@@ -250,15 +250,16 @@ int sensor_list_group_info_katcp(struct katcp_dispatch *d, int argc)
       return -1;
     }
 
-    if(strchr(name, '*')){
+    /* WARNING: this is a bit of a mess, should be made part of the vrbl API */
+    ptr = strchr(name, '*');
+    if(ptr){
+
       ptr = strdup(name);
       if(ptr == NULL){
         return -1;
       }
 
-      /* WARNING: so what scope would that be then ? decode it, then update f_stale appropriately */
-
-    } else {
+    } else { /* would be case A, but since search not supported we transform it to case D */
       len = strlen(name);
       ptr = malloc(len + 3);
       if(ptr == NULL){
@@ -268,8 +269,6 @@ int sensor_list_group_info_katcp(struct katcp_dispatch *d, int argc)
       memcpy(ptr + 1, name, len);
       ptr[len + 1] = '*';
       ptr[len + 2] = '\0';
-
-      /* TODO: group scope, update f_stale in group - utility function should schedule timer */
     }
 
     vx = find_vrbl_katcp(d, ptr);
@@ -322,7 +321,7 @@ int sensor_list_group_info_katcp(struct katcp_dispatch *d, int argc)
 
     log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "declared variable %s as %s", name, ptr);
 
-    schedule_sensor_update_katcp(d);
+    schedule_sensor_update_katcp(d, ptr);
 
     free(ptr);
 

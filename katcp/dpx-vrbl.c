@@ -31,11 +31,13 @@
 #include <avltree.h>
 
 #define MAX_DEPTH_VRBL 3
+#define MAX_COUNT_STAR 3
 
 #define DELIM_GROUP    '*'
 #define DELIM_TREE     ':'
 #define DELIM_ARRAY    '#' 
 #define DELIM_UNKNOWN  '.'
+
 
 static struct katcp_vrbl *find_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx, char *key);
 static int insert_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx, struct katcp_vrbl *vx, char *key);
@@ -1781,6 +1783,8 @@ struct katcp_vrbl *find_all_vrbl_katcp(struct katcp_dispatch *d, char *key)
 }
 #endif
 
+/* traverse the hierachy of variables regions ****************/
+
 int traverse_vrbl_katcp(struct katcp_dispatch *d, void *state, int (*callback)(struct katcp_dispatch *d, void *state, char *key, void *data))
 {
   struct katcp_region *vra[MAX_DEPTH_VRBL];
@@ -1814,8 +1818,6 @@ int traverse_vrbl_katcp(struct katcp_dispatch *d, void *state, int (*callback)(s
   return 0;
 }
 
-/* traverse the hierachy of variables regions ****************/
-
 /* 
  * exact absolute
  * C> var@root*                    (1)
@@ -1831,38 +1833,22 @@ int traverse_vrbl_katcp(struct katcp_dispatch *d, void *state, int (*callback)(s
  * B> *varinflatthengroup          (1)
  */
 
-struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, char *name, struct katcp_vrbl *vo, int clobber)
+static int tokenise_vrbl_katcp(struct katcp_dispatch *d, char *str, unsigned int *vector)
 {
-#define MAX_STAR 3
-  struct katcp_shared *s;
-  struct katcp_group *gx;
-  struct katcp_flat *fy;
-  struct katcp_vrbl *vx;
-  struct katcp_region *vra[MAX_DEPTH_VRBL], *rx;
-  int i, count, last, haspath;
-  char *copy, *var;
-  unsigned int v[MAX_STAR];
+  /* WARNING: this function needs a vector of MAX_COUNT_STAR + 1 */
+  int count, i;
 
-  copy = strdup(name);
-  if(copy == NULL){
-    return NULL;
-  }
-
-  s = d->d_shared;
-
-  haspath = 0;
   count = 0;
   i = 0;
 
-  while(copy[i] != '\0'){
-    switch(copy[i]){
+  while(str[i] != '\0'){
+    switch(str[i]){
       case DELIM_GROUP :
-        if(count >= MAX_STAR){
-          free(copy);
-          return NULL;
+        if(count >= MAX_COUNT_STAR){
+          return -1;
         }
-        v[count] = i;
-        copy[i] = '\0';
+        vector[count] = i;
+        str[i] = '\0';
         count++;
         i++;
         break;
@@ -1871,35 +1857,193 @@ struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat
 #if 0
       case DELIM_UNKNOWN :
 #endif
-        haspath = 1;
-        copy[i] = '\0';
-        break;
+        vector[count] = i;
+        str[i] = '\0';
+        return count;
       default :
         i++;
         break;
     }
   }
 
-#if 0
-  for(i = 0; copy[i] != '\0'; i++){
-    if(copy[i] == '*'){
-      if(count >= MAX_STAR){
-        free(copy);
-        return NULL;
-      }
-      v[count] = i;
-      copy[i] = '\0';
-      count++;
+  vector[count] = i;
+
+  if(i <= 0){
+    return -1;
+  }
+
+  return count;
+}
+
+int for_all_flats_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, char *name, void *state, int (*callback)(struct katcp_dispatch *d, void *state, struct katcp_flat *fx))
+{
+  /* WARNING: naive: does not check if the variable exists AND pessimistic: assumes the worst for search paths */
+  struct katcp_flat *ft;
+  struct katcp_group *gt;
+  struct katcp_shared *s;
+  int count, last, result, i, j;
+  unsigned int v[MAX_COUNT_STAR + 1];
+  char *copy;
+
+  s = d->d_shared;
+
+  copy = strdup(name);
+  if(copy == NULL){
+    return -1;
+  }
+
+  count = tokenise_vrbl_katcp(d, copy, v);
+  if(count < 0){
+    free(copy);
+    return -1;
+  }
+
+  if(v[count] <= 0){
+    return -1;
+  }
+
+  last = v[count] - 1;
+
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(fx){
+    if(fx->f_group == NULL){
+      fprintf(stderr, "major logic problem: duplex instance %p (%s) not a member of any group\n", fx, fx->f_name);
+      abort();
     }
+  }
+  if(s == NULL){
+    fprintf(stderr, "major logic problem: no global state available\n");
+    abort();
   }
 #endif
 
-  if(i <= 0){
+  ft = NULL;
+  gt = NULL;
+
+  switch(count){
+    case 0 : /* A> search in current flat, then current group, then root */
+      /* assume the worst ... make it the entire space ... */
+      break;
+    case 1 :
+      if(v[0] == 0){ /* B> search in current flat, then current group */
+        if(fx == NULL){
+          free(copy);
+          return -1;
+        }
+        gt = fx->f_group;
+      } else if(v[0] == last){ /* C> search in root */
+        /* entire space */
+      } else {
+        free(copy);
+        return -1;
+      }
+      break;
+    case 2 : 
+      if(v[1] != last){
+        free(copy);
+        return -1;
+      }
+      if(v[0] == 0){ /* D> search in current group only */
+        if(fx == NULL){
+          free(copy);
+          return -1;
+        }
+        gt = fx->f_group;
+      } else { /* E> search in named group */
+        gt = find_group_katcp(d, copy);
+        if(gt == NULL){
+#ifdef DEBUG
+          fprintf(stderr, "variable update: no group %s found while searching for %s\n", copy, name);
+#endif
+          free(copy);
+          return -1;
+        }
+      }
+      break;
+    case 3 : 
+      if(v[0] == 0){ /* F> search in current flat */
+        if(v[1] != 1){
+          free(copy);
+          return -1;
+        }
+        ft = fx;
+      } else { /* G> search in named flat */
+
+        ft = find_name_flat_katcp(d, copy + 1, copy + v[0] + 1, 1);
+        if(ft == NULL){
+          free(copy);
+          return -1;
+        }
+      }
+      break;
+    default :
+      free(copy);
+      return -1;
+  }
+
+  /* TODO: shouldn't we show the variable to the callback function ? */
+  free(copy);
+
+  if(ft){
+    return (*(callback))(d, state, ft);
+  }
+
+  result = 0;
+
+  if(gt){
+    for(i = 0; i < gt->g_count; i++){
+      ft = gt->g_flats[i];
+      if((*(callback))(d, state, ft) < 0){
+        result = (-1);
+      }
+    }
+    return result;
+  }
+
+  for(j = 0; j < s->s_members; j++){
+    gt = s->s_groups[j];
+    if(gt){
+      for(i = 0; i < gt->g_count; i++){
+        ft = gt->g_flats[i];
+        if((*(callback))(d, state, ft) < 0){
+          result = (-1);
+        }
+      }
+    }
+  }
+
+  return result;
+}
+
+struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, char *name, struct katcp_vrbl *vo, int clobber)
+{
+  struct katcp_shared *s;
+  struct katcp_group *gx;
+  struct katcp_flat *fy;
+  struct katcp_vrbl *vx;
+  struct katcp_region *vra[MAX_DEPTH_VRBL], *rx;
+  int i, count, last;
+  char *copy, *var;
+  unsigned int v[MAX_COUNT_STAR + 1];
+
+  s = d->d_shared;
+
+  copy = strdup(name);
+  if(copy == NULL){
+    return NULL;
+  }
+
+  count = tokenise_vrbl_katcp(d, copy, v);
+  if(count < 0){
     free(copy);
     return NULL;
   }
 
-  last = i - 1;
+  if(v[count] <= 0){
+    return NULL;
+  }
+
+  last = v[count] - 1;
 
 #ifdef KATCP_CONSISTENCY_CHECKS
   if(fx){
@@ -2083,7 +2227,6 @@ struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat
     return vx;
   }
 
-#undef MAX_STAR
 }
 
 /* setup logic ***********************************************/
@@ -2281,13 +2424,17 @@ int var_declare_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     type = KATCP_VRT_STRING;
   }
 
+  path = path_suffix_vrbl_katcp(d, name);
+
   if(argc > 3){
+    if(path != NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unwilling to declare variable %s with external path", path);
+      return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
+    }
     path = arg_string_katcp(d, 3);
     if(path == NULL){
       return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
     }
-  } else {
-    path = NULL;
   }
 
   fx = this_flat_katcp(d);
@@ -2519,13 +2666,17 @@ int var_set_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     type = KATCP_VRT_STRING;
   }
 
+  path = path_suffix_vrbl_katcp(d, key);
+
   if(argc > 4){
+    if(path != NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unwilling to set variable %s with external path", path);
+      return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
+    }
     path = arg_string_katcp(d, 4);
     if(path == NULL){
       return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
     }
-  } else {
-    path = NULL;
   }
 
   if(scan_vrbl_katcp(d, vx, value, path, 1, type) < 0){

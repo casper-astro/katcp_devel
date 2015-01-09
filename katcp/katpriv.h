@@ -1216,6 +1216,7 @@ char *path_suffix_vrbl_katcp(struct katcp_dispatch *d, char *path);
 struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, char *name, struct katcp_vrbl *vo, int clobber);
 
 int traverse_vrbl_katcp(struct katcp_dispatch *d, void *state, int (*callback)(struct katcp_dispatch *d, void *state, char *key, void *data));
+int for_all_flats_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, char *name, void *state, int (*callback)(struct katcp_dispatch *d, void *state, struct katcp_flat *fx));
 
 int hide_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx);
 int show_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx);
@@ -1253,7 +1254,7 @@ int forget_event_variable_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx,
 struct katcl_parse *make_sensor_katcp(struct katcp_dispatch *d, char *name, struct katcp_vrbl *vx, char *prefix);
 
 #define KATCP_NAGLE_CHANGE  500000    /* defer device-changes by this much (us) ... */
-int schedule_sensor_update_katcp(struct katcp_dispatch *d);
+int schedule_sensor_update_katcp(struct katcp_dispatch *d, char *name);
 
 
 /* version callback */
