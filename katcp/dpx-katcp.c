@@ -535,7 +535,7 @@ int restart_group_cmd_katcp(struct katcp_dispatch *d, int argc)
       }
       return KATCP_RESULT_OK;
     case KATCP_SCOPE_GROUP :
-      gx = this_group_katcp(d);
+      gx = fx->f_group; 
       if(gx){
         if(terminate_group_katcp(d, gx, 0) == 0){
           return KATCP_RESULT_OK;
@@ -571,7 +571,7 @@ int halt_group_cmd_katcp(struct katcp_dispatch *d, int argc)
       }
       return KATCP_RESULT_OK;
     case KATCP_SCOPE_GROUP :
-      gx = this_group_katcp(d);
+      gx = fx->f_group;
       if(gx){
         if(terminate_group_katcp(d, gx, 1) == 0){
           return KATCP_RESULT_OK;

@@ -316,7 +316,9 @@ struct katcp_group *this_group_katcp(struct katcp_dispatch *d)
 #if 0  /* used to be ifdef KATCP_CONSISTENCY_CHECKS, but verbose cause of group stuff */
     fprintf(stderr, "flat: level is %d, negative\n", s->s_level);
 #endif
-    return NULL;
+
+    /* now fall back on default group - that means everything happens within the context of a group ... even "system" level activity */
+    return s->s_fallback;
   }
 
   f = s->s_this[s->s_level];
