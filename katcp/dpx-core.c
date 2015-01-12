@@ -313,7 +313,7 @@ struct katcp_group *this_group_katcp(struct katcp_dispatch *d)
 #endif
 
   if(s->s_level < 0){
-#ifdef KATCP_CONSISTENCY_CHECKS
+#if 0  /* used to be ifdef KATCP_CONSISTENCY_CHECKS, but verbose cause of group stuff */
     fprintf(stderr, "flat: level is %d, negative\n", s->s_level);
 #endif
     return NULL;
