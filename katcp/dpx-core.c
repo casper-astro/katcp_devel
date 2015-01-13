@@ -2666,7 +2666,7 @@ int callback_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoint *issuer,
   }
 
   if(slot >= KATCP_SIZE_REPLY){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "resource problem: no free reply handler slots (%u in use)", slot);
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "resource problem: no free reply handler slots (%u in use) in client %s", slot, fx->f_name);
 #ifdef KATCP_CONSISTENCY_CHECKS
     fprintf(stderr, "problem: no free callback slots\n");
 #endif
