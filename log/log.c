@@ -23,6 +23,7 @@
 static volatile int log_level = KATCP_LEVEL_INFO;
 static volatile int log_changed = 0;
 static volatile int log_reload = 0;
+static volatile int log_finished = 0;
 
 void usage(char *app)
 {
@@ -63,6 +64,11 @@ static void handle_signal(int signal)
 
     case SIGHUP : 
       log_reload = 1;
+      break;
+
+    case SIGTERM : 
+    case SIGINT : 
+      log_finished = signal;
       break;
 
     default :
@@ -214,6 +220,8 @@ int main(int argc, char **argv)
   sigaction(SIGHUP, &sa, NULL);
   sigaction(SIGUSR1, &sa, NULL);
   sigaction(SIGUSR2, &sa, NULL);
+  sigaction(SIGINT, &sa, NULL);
+  sigaction(SIGTERM, &sa, NULL);
 
   if(server == NULL){
     server = "localhost:7147";
@@ -333,6 +341,13 @@ int main(int argc, char **argv)
       }
 
       log_changed = 0;
+    }
+
+    if(log_finished > 0){
+      if(log_level <= KATCP_LEVEL_WARN){
+        sync_message_katcl(lo, KATCP_LEVEL_WARN, module, "logger killed by signal %d", log_finished);
+      }
+      return EX_OK;
     }
 
     result = read_katcl(ls);
