@@ -40,6 +40,7 @@ void usage(char *app)
   printf(" HUP            re-open the logfile (if -o is given)\n");
   printf(" USR1           change log level one level more detailed (eg from DEBUG to TRACE)\n");
   printf(" USR2           change log level one level less detailed (eg from INFO to WARN)\n");
+
 }
 
 static void handle_signal(int signal)
@@ -267,11 +268,13 @@ int main(int argc, char **argv)
     fclose(stderr);
   }
 
-  time(&now);
-  local = localtime(&now);
-  strftime(buffer, BUFFER - 1, "%Y-%m-%dT%H:%M:%S", local);
 
-  sync_message_katcl(lo, KATCP_LEVEL_INFO, NAME, "monitor start for %s at %s", server, buffer);
+  if(log_level <= KATCP_LEVEL_INFO){
+    time(&now);
+    local = localtime(&now);
+    strftime(buffer, BUFFER - 1, "%Y-%m-%dT%H:%M:%S", local);
+    sync_message_katcl(lo, KATCP_LEVEL_INFO, NAME, "logger start for %s at %s", server, buffer);
+  }
 
   for(run = 1; run > 0;){
 
@@ -280,6 +283,13 @@ int main(int argc, char **argv)
         fd = open(output, flags, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
         if(fd >= 0){
           exchange_katcl(lo, fd);
+        }
+        if(log_level <= KATCP_LEVEL_INFO){
+          time(&now);
+          local = localtime(&now);
+          strftime(buffer, BUFFER - 1, "%Y-%m-%dT%H:%M:%S", local);
+          sync_message_katcl(lo, KATCP_LEVEL_INFO, NAME, "logger reopen for %s at %s", server, buffer);
+
         }
       }
 
@@ -319,11 +329,20 @@ int main(int argc, char **argv)
 
     result = read_katcl(ls);
     if(result < 0){
-      sync_message_katcl(lo, KATCP_LEVEL_FATAL, NAME, "read from network failed: %s", strerror(errno));
+      if(log_level <= KATCP_LEVEL_ERROR){
+        sync_message_katcl(lo, KATCP_LEVEL_ERROR, NAME, "read from network failed: %s", strerror(errno));
+      }
       return EX_OSERR;
     }
 
     if(result == 1){
+      if(log_level <= KATCP_LEVEL_INFO){
+        time(&now);
+        local = localtime(&now);
+        strftime(buffer, BUFFER - 1, "%Y-%m-%dT%H:%M:%S", local);
+        sync_message_katcl(lo, KATCP_LEVEL_INFO, NAME, "logger ended for %s at %s", server, buffer);
+
+      }
       run = 0;
     }
 
