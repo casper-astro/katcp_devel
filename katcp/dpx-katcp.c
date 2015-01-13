@@ -411,16 +411,16 @@ static int print_client_list_katcp(struct katcp_dispatch *d, struct katcp_flat *
 
   switch((fx->f_stale & KATCP_STALE_MASK_SENSOR)){
     case KATCP_STALE_SENSOR_NAIVE :
-      log_message_katcp(d, KATCP_LEVEL_DEBUG | KATCP_LEVEL_LOCAL, NULL, "client %s has not listed sensors");
+      log_message_katcp(d, KATCP_LEVEL_DEBUG | KATCP_LEVEL_LOCAL, NULL, "client %s has not listed sensors", fx->f_name);
       break;
     case KATCP_STALE_SENSOR_CURRENT :
-      log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "client %s has up to date sensor listing");
+      log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "client %s has up to date sensor listing", fx->f_name);
       break;
     case KATCP_STALE_SENSOR_STALE :
-      log_message_katcp(d, KATCP_LEVEL_WARN | KATCP_LEVEL_LOCAL, NULL, "client %s has sensor listing which is out of date");
+      log_message_katcp(d, KATCP_LEVEL_WARN | KATCP_LEVEL_LOCAL, NULL, "client %s has sensor listing which is out of date", fx->f_name);
       break;
     default :
-      log_message_katcp(d, KATCP_LEVEL_FATAL | KATCP_LEVEL_LOCAL, NULL, "client %s has corrupt sensor state tracking");
+      log_message_katcp(d, KATCP_LEVEL_FATAL | KATCP_LEVEL_LOCAL, NULL, "client %s has corrupt sensor state tracking", fx->f_name);
       break;
   }
 
