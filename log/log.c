@@ -34,6 +34,7 @@ void usage(char *app)
   printf("-d              run in the background\n");
   printf("-f              run in the foreground\n");
   printf("-t              truncate the logfile when opening it\n");
+  printf("-m name         report internal messages under this module field\n");
   printf("-s server:port  connect to the specified server rather than localhost:7147\n");
   printf("-a attempts     make the given number attempts to connect to the server before giving up\n");
   printf("signals: HUP USR1 USR2\n");
@@ -81,6 +82,7 @@ int main(int argc, char **argv)
   struct sigaction sa;
   time_t now;
   struct tm *local;
+  char *module;
 
   i = j = 1;
   app = argv[0];
@@ -94,6 +96,8 @@ int main(int argc, char **argv)
   if(server == NULL){
     server = "localhost";
   }
+
+  module = NAME;
 
   output = NULL;
   level = NULL;
@@ -137,6 +141,7 @@ int main(int argc, char **argv)
         case 'l' :
         case 'o' :
         case 'a' :
+        case 'm' :
         case 's' :
 
           j++;
@@ -158,6 +163,9 @@ int main(int argc, char **argv)
               break;
             case 'a' : 
               attempts = atoi(argv[i] + j);
+              break;
+            case 'm' :
+              module = argv[i] + j;
               break;
             case 's' : 
               server = argv[i] + j;
@@ -254,13 +262,13 @@ int main(int argc, char **argv)
   }
 
   if(attempts <= 0){
-    sync_message_katcl(lo, KATCP_LEVEL_FATAL, NAME, "unable to connect to %s", server);
+    sync_message_katcl(lo, KATCP_LEVEL_FATAL, module, "unable to connect to %s", server);
     return EX_UNAVAILABLE;
   }
 
   ls = create_katcl(fd);
   if(ls == NULL){
-    sync_message_katcl(lo, KATCP_LEVEL_FATAL, NAME, "unable to allocate parser state");
+    sync_message_katcl(lo, KATCP_LEVEL_FATAL, module, "unable to allocate parser state");
     return EX_OSERR;
   }
 
@@ -273,7 +281,7 @@ int main(int argc, char **argv)
     time(&now);
     local = localtime(&now);
     strftime(buffer, BUFFER - 1, "%Y-%m-%dT%H:%M:%S", local);
-    sync_message_katcl(lo, KATCP_LEVEL_INFO, NAME, "logger start for %s at %s", server, buffer);
+    sync_message_katcl(lo, KATCP_LEVEL_INFO, module, "logger start for %s at %s", server, buffer);
   }
 
   for(run = 1; run > 0;){
@@ -288,7 +296,7 @@ int main(int argc, char **argv)
           time(&now);
           local = localtime(&now);
           strftime(buffer, BUFFER - 1, "%Y-%m-%dT%H:%M:%S", local);
-          sync_message_katcl(lo, KATCP_LEVEL_INFO, NAME, "logger reopen for %s at %s", server, buffer);
+          sync_message_katcl(lo, KATCP_LEVEL_INFO, module, "logger reopen for %s at %s", server, buffer);
 
         }
       }
@@ -321,7 +329,7 @@ int main(int argc, char **argv)
 
         }
       } else {
-        sync_message_katcl(lo, KATCP_LEVEL_ERROR, NAME, "invalid log priority number %d", level);
+        sync_message_katcl(lo, KATCP_LEVEL_ERROR, module, "invalid log priority number %d", level);
       }
 
       log_changed = 0;
@@ -330,7 +338,7 @@ int main(int argc, char **argv)
     result = read_katcl(ls);
     if(result < 0){
       if(log_level <= KATCP_LEVEL_ERROR){
-        sync_message_katcl(lo, KATCP_LEVEL_ERROR, NAME, "read from network failed: %s", strerror(errno));
+        sync_message_katcl(lo, KATCP_LEVEL_ERROR, module, "read from network failed: %s", strerror(errno));
       }
       return EX_OSERR;
     }
@@ -340,7 +348,7 @@ int main(int argc, char **argv)
         time(&now);
         local = localtime(&now);
         strftime(buffer, BUFFER - 1, "%Y-%m-%dT%H:%M:%S", local);
-        sync_message_katcl(lo, KATCP_LEVEL_INFO, NAME, "logger ended for %s at %s", server, buffer);
+        sync_message_katcl(lo, KATCP_LEVEL_INFO, module, "logger ended for %s at %s", server, buffer);
 
       }
       run = 0;
