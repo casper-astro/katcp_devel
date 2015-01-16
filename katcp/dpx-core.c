@@ -3092,6 +3092,27 @@ int append_payload_vrbl_flat_katcp(struct katcp_dispatch *d, int flags, struct k
   return finish_append_flat_katcp(d, flags, result);
 }
 
+int append_timestamp_flat_katcp(struct katcp_dispatch *d, int flags, struct timeval *tv)
+{
+  struct katcl_parse *px;
+  struct katcp_flat *fx;
+  int result;
+
+  fx = require_flat_katcp(d);
+  if(fx == NULL){
+    return -1;
+  }
+
+  px = prepare_append_flat_katcp(fx, flags);
+  if(px == NULL){
+    return -1;
+  }
+
+  result = add_timestamp_parse_katcl(px, flags, tv);
+
+  return finish_append_flat_katcp(d, flags, result);
+}
+
 int append_parameter_flat_katcp(struct katcp_dispatch *d, int flags, struct katcl_parse *p, unsigned int index)
 {
   struct katcl_parse *px;

@@ -664,6 +664,24 @@ int append_buffer_katcl(struct katcl_line *l, int flags, void *buffer, int len)
   return after_append_katcl(l, flags, result);
 }
 
+int append_timestamp_katcl(struct katcl_line *l, int flags, struct timeval *tv)
+{
+  struct katcl_parse *p;
+  int result;
+
+  p = before_append_katcl(l, flags);
+  if(p == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "append: before_append failed\n");
+#endif
+    return -1;
+  }
+
+  result = add_timestamp_parse_katcl(p, flags, tv);
+
+  return after_append_katcl(l, flags, result);
+}
+
 int append_parameter_katcl(struct katcl_line *l, int flags, struct katcl_parse *px, unsigned int index)
 {
   struct katcl_parse *p;

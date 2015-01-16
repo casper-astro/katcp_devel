@@ -4,6 +4,7 @@
 /******************* lower level functions *******/
 
 #include <stdarg.h>
+#include <sys/time.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -56,6 +57,7 @@ int append_args_katcl(struct katcl_line *l, int flags, char *fmt, ...);
 int append_double_katcl(struct katcl_line *l, int flags, double v);
 #endif
 int append_buffer_katcl(struct katcl_line *l, int flags, void *buffer, int len);
+int append_timestamp_katcl(struct katcl_line *l, int flags, struct timeval *tv);
 int append_parameter_katcl(struct katcl_line *l, int flags, struct katcl_parse *px, unsigned int index); /* single field */
 int append_trailing_katcl(struct katcl_line *l, int flags, struct katcl_parse *px, unsigned int start); /* all further fields */
 int append_parse_katcl(struct katcl_line *l, struct katcl_parse *p); /* the whole line */

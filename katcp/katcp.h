@@ -257,6 +257,7 @@ int append_args_katcp(struct katcp_dispatch *d, int flags, char *fmt, ...);
 #ifdef KATCP_USE_FLOATS
 int append_double_katcp(struct katcp_dispatch *d, int flags, double v);
 #endif
+int append_timestamp_katcp(struct katcp_dispatch *d, int flags, struct timeval *tv);
 int append_parameter_katcp(struct katcp_dispatch *d, int flags, struct katcl_parse *p, unsigned int index);
 int append_trailing_katcp(struct katcp_dispatch *d, int flags, struct katcl_parse *p, unsigned int start);
 int append_parse_katcp(struct katcp_dispatch *d, struct katcl_parse *p);
@@ -721,6 +722,7 @@ int append_hex_long_flat_katcp(struct katcp_dispatch *d, int flags, unsigned lon
 #ifdef KATCP_USE_FLOATS
 int append_double_flat_katcp(struct katcp_dispatch *d, int flags, double v);
 #endif
+int append_timestamp_flat_katcp(struct katcp_dispatch *d, int flags, struct timeval *tv);
 int append_buffer_flat_katcp(struct katcp_dispatch *d, int flags, void *buffer, int len);
 int append_payload_vrbl_flat_katcp(struct katcp_dispatch *d, int flags, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
 int append_parameter_flat_katcp(struct katcp_dispatch *d, int flags, struct katcl_parse *p, unsigned int index);
