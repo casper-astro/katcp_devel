@@ -770,11 +770,11 @@ int main(int argc, char **argv)
     }
 
     if(current != previous){
-      append_string_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#sensor-status");
-      append_args_katcp  (d,                    KATCP_FLAG_STRING, "%ld%03u", now.tv_sec, now.tv_usec / 1000);
-      append_string_katcp(d,                    KATCP_FLAG_STRING, "1");
-      append_string_katcp(d,                    KATCP_FLAG_STRING, TMON_SENSOR_NAME);
-      append_string_katcp(d,                    KATCP_FLAG_STRING, current ? "nominal" : "error");
+      append_string_katcp   (d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#sensor-status");
+      append_timestamp_katcp(d,                                    0, &now);
+      append_string_katcp   (d,                    KATCP_FLAG_STRING, "1");
+      append_string_katcp   (d,                    KATCP_FLAG_STRING, TMON_SENSOR_NAME);
+      append_string_katcp   (d,                    KATCP_FLAG_STRING, current ? "nominal" : "error");
       append_unsigned_long_katcp(d, KATCP_FLAG_LAST  | KATCP_FLAG_ULONG, current);
       previous = current;
     }
