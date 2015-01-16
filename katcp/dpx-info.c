@@ -262,7 +262,7 @@ int sensor_list_group_info_katcp(struct katcp_dispatch *d, int argc)
     } else { /* would be case A, but since search not supported we transform it to case D */
 
       /* TODO: still work out how to use k7 relative/absolute variable names, noting that client renames can happen ... */
-      if(name[0] = '.'){
+      if(name[0] == '.'){
         strip = name + 1;
       } else {
         strip = name;
