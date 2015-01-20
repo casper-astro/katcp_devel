@@ -415,6 +415,9 @@ int run_state(struct mpx_state *ms)
           fprintf(stderr, "doing relay of %s to %d\n", cmd, ms->s_select);
 #endif
           if(relay_katcl(mi->i_line, ni->i_line) < 0){
+#ifdef DEBUG
+            fprintf(stderr, "relay from master of %s failed\n", cmd);
+#endif
             send_disconnect(ms, "relay failure");
             run = (-1);
           }
@@ -430,6 +433,9 @@ int run_state(struct mpx_state *ms)
       }
 #endif
       if(relay_katcl(ni->i_line, mi->i_line) < 0){
+#ifdef DEBUG
+        fprintf(stderr, "relay from selected of %s failed\n", cmd);
+#endif
         run = (-1);
       }
     }
@@ -646,6 +652,10 @@ int main(int argc, char **argv)
   }
 
   result = run_state(ms);
+
+#ifdef DEBUG
+  fprintf(stderr, "%s: run ended with code %d\n", app, result);
+#endif
 
   if(result < 0){
     return EX_SOFTWARE;
