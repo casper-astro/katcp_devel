@@ -2629,6 +2629,27 @@ int callback_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoint *issuer,
   }
 #endif
 
+  /* WARNING: loads of helpful magic here ... */
+  switch(string[0]){
+    case KATCP_REQUEST   :
+      ptr = string + 1;
+      actual = flags ? flags : (KATCP_REPLY_HANDLE_REPLIES | KATCP_REPLY_HANDLE_INFORMS);
+      break;
+    case KATCP_REPLY :
+      ptr = string + 1;
+      actual = flags ? flags : KATCP_REPLY_HANDLE_REPLIES;
+      break;
+    case KATCP_INFORM  :
+      ptr = string + 1;
+      actual = flags ? flags : KATCP_REPLY_HANDLE_INFORMS;
+      break;
+    default :
+      actual = flags;
+      ptr = string;
+      break;
+  }
+
+
   fx = require_flat_katcp(d);
 
   if(fx == NULL){
@@ -2666,7 +2687,7 @@ int callback_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoint *issuer,
   }
 
   if(slot >= KATCP_SIZE_REPLY){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "resource problem: no free reply handler slots (%u in use) in client %s", slot, fx->f_name);
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "resource problem: no free reply handler slots (%u in use) in client %s for callback %s", slot, fx->f_name, ptr);
 #ifdef KATCP_CONSISTENCY_CHECKS
     fprintf(stderr, "problem: no free callback slots\n");
 #endif
@@ -2688,26 +2709,6 @@ int callback_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoint *issuer,
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "allocation error, unable to duplicate message");
       return -1;
     }
-  }
-
-  /* WARNING: loads of helpful magic here ... */
-  switch(string[0]){
-    case KATCP_REQUEST   :
-      ptr = string + 1;
-      actual = flags ? flags : (KATCP_REPLY_HANDLE_REPLIES | KATCP_REPLY_HANDLE_INFORMS);
-      break;
-    case KATCP_REPLY :
-      ptr = string + 1;
-      actual = flags ? flags : KATCP_REPLY_HANDLE_REPLIES;
-      break;
-    case KATCP_INFORM  :
-      ptr = string + 1;
-      actual = flags ? flags : KATCP_REPLY_HANDLE_INFORMS;
-      break;
-    default :
-      actual = flags;
-      ptr = string;
-      break;
   }
 
   if(actual == 0){
@@ -3441,6 +3442,7 @@ int run_flat_katcp(struct katcp_dispatch *d)
   struct katcp_group *gx;
   unsigned int i, j, len, size, limit;
   int fd, result, code, reply, request;
+  char *name, *ptr;
 
   s = d->d_shared;
 
@@ -3512,11 +3514,17 @@ int run_flat_katcp(struct katcp_dispatch *d)
 
             request = is_request_parse_katcl(px);
             reply   = is_reply_parse_katcl(px);
+            name    = get_string_parse_katcl(px, 0);
+            if(name){
+              ptr  = name + 1;
+            } else {
+              ptr = "<null>";
+            }
 
             if(reply > 0){
 #ifdef KATCP_CONSISTENCY_CHECKS
               if((fx->f_deferring & KATCP_DEFER_OWN_REQUEST) == 0){
-                log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "saw a reply from %s where no request was outstanding", fx->f_name);
+                log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "saw a reply %s from %s where no request was outstanding", ptr, fx->f_name);
               }
 #endif
               /* presume to have serviced out our own request - might not be the case if it is a nonmatching reply ... */
@@ -3539,9 +3547,9 @@ int run_flat_katcp(struct katcp_dispatch *d)
                     if(size > fx->f_max_defer){
                       limit = fx->f_group ? fx->f_group->g_flushdefer : KATCP_FLUSH_DEFER;
                       if(size > limit){
-                        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "client %s has exceeded pipeline limit %u with a new record of %u requests without waiting for a reply", fx->f_name, limit, size);
+                        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "client %s has exceeded pipeline limit %u with a new record of %u requests without waiting for a reply while issuing %s", fx->f_name, limit, size, ptr);
                       } else {
-                        log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "iffy client behaviour from %s which is issuing a new record of %u requests without waiting for a reply", fx->f_name, size);
+                        log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "iffy client behaviour from %s which is issuing %s request which is a new record of %u requests without waiting for a reply", fx->f_name, ptr, size);
                       }
                       fx->f_max_defer = size;
                     }
