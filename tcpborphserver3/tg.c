@@ -212,8 +212,12 @@ static unsigned int compute_spam_rate(unsigned int *array, unsigned int index, u
     third = 1;
   }
 
+#if 0
   value = (2 + (((index + array[GETAP_PERIOD_CURRENT]) * COPRIME_C) % 3) ? 1 : 0) * third;
+#endif
 
+  value = (2 + (((index * index * COPRIME_A) + (index * COPRIME_B) + (self * array[GETAP_PERIOD_CURRENT])) % 3) ? 1 : 0) * third;
+  
   return value;
 }
 
