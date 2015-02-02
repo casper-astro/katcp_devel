@@ -35,9 +35,9 @@
 
 #define SMALL_DELAY           10 /* wait this long before announcing ourselves, after arp reply */
 
-#define SPAM_INITIAL           1 /* how often we spam an address initially */
+#define SPAM_INITIAL           5 /* how often we spam an address initially */
 #define SPAM_FINAL         12000 /* rate at which we end up */
-#define SPAM_STEP           1000 /* amount by which we increment */
+#define SPAM_STEP            700 /* amount by which we increment */
 
 #if 0
 #define FRESH_ANNOUNCE_FINAL  8000 /* interval when we announce ourselves - good idea to be shorter than others */
@@ -192,7 +192,32 @@ int text_to_mac(uint8_t *binary, const char *text)
   return 0;
 }
 
-static unsigned int compute_rate(unsigned int *array, int increment)
+static unsigned int compute_spam_rate(unsigned int *array, unsigned int index, unsigned int self)
+{
+  /* WARNING: better make sure this array is actually the correct size */
+  unsigned int third, value;
+
+  if(array[GETAP_PERIOD_CURRENT] >= array[GETAP_PERIOD_STOP]){
+    return array[GETAP_PERIOD_STOP];
+  }
+
+  if(index <= 2){
+    if(index == ((self == 1) ? 2 : 1)){
+      array[GETAP_PERIOD_CURRENT] += array[GETAP_PERIOD_INCREMENT];
+    }
+  }
+
+  third = array[GETAP_PERIOD_CURRENT] / 3;
+  if(third <= 0){
+    third = 1;
+  }
+
+  value = (2 + (((index + array[GETAP_PERIOD_CURRENT]) * COPRIME_C) % 3) ? 1 : 0) * third;
+
+  return value;
+}
+
+static unsigned int compute_announce_rate(unsigned int *array)
 {
   /* WARNING: better make sure this array is actually the correct size */
 
@@ -200,9 +225,7 @@ static unsigned int compute_rate(unsigned int *array, int increment)
     return array[GETAP_PERIOD_STOP];
   }
 
-  if(increment > 0){
-    array[GETAP_PERIOD_CURRENT] += array[GETAP_PERIOD_INCREMENT];
-  }
+  array[GETAP_PERIOD_CURRENT] += array[GETAP_PERIOD_INCREMENT];
 
   return array[GETAP_PERIOD_CURRENT];
 }
@@ -310,7 +333,7 @@ void announce_arp(struct getap_state *gs)
   }
 #endif
 
-  gs->s_arp_fresh[gs->s_self] = gs->s_iteration + compute_rate(gs->s_announce_period, 1);
+  gs->s_arp_fresh[gs->s_self] = gs->s_iteration + compute_announce_rate(gs->s_announce_period);
 }
 
 static void request_arp(struct getap_state *gs, int index)
@@ -370,7 +393,7 @@ static void request_arp(struct getap_state *gs, int index)
   gs->s_arp_fresh[index] = mine;
 #endif
 
-  gs->s_arp_fresh[index] = gs->s_iteration + compute_rate(gs->s_spam_period, (index > 1) ? 0 : 1);
+  gs->s_arp_fresh[index] = gs->s_iteration + compute_spam_rate(gs->s_spam_period, index, gs->s_self);
 
   gs->s_arp_len = 42;
 #ifdef DEBUG
@@ -1581,7 +1604,7 @@ void tap_reload_arp(struct katcp_dispatch *d, struct getap_state *gs)
 #if 0
     gs->s_arp_fresh[i] = gs->s_iteration + (i * COPRIME_A) + 1;
 #endif
-    gs->s_arp_fresh[i] = 2 + ((gs->s_self + (i * COPRIME_C)) % (GETAP_ARP_CACHE / CACHE_DIVISOR));
+    gs->s_arp_fresh[i] = gs->s_iteration + (2 + ((gs->s_self + (i * COPRIME_C)) % (GETAP_ARP_CACHE / CACHE_DIVISOR)));
   }
   gs->s_arp_fresh[gs->s_self] = gs->s_iteration;
 
