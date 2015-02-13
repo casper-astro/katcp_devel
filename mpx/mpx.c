@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,14 +11,21 @@
 #include <katcl.h>
 #include <netc.h>
 
-#define DEBUG
+#define DEBUG 0
 
 #define DEFAULT_SWITCH "switch" 
+
+#define FLAG_DISCARD    0x1
+#define FLAG_RELAX      0x2
+#define FLAG_FALLBACK   0x4
+#define FLAG_MASTER     0x8
+
+#define FLAG_DEAD       0x80
 
 struct mpx_input
 {
   struct katcl_line *i_line;
-  unsigned int i_discard;
+  unsigned int i_flags;
   char *i_name;
 };
 
@@ -33,6 +39,7 @@ struct mpx_state
 
   int s_this;
   int s_select;
+  int s_fall;
 };
 
 /***********************************************************/
@@ -41,7 +48,7 @@ void destroy_input(struct mpx_state *s, struct mpx_input *mi);
 void destroy_state(struct mpx_state *s);
 
 struct mpx_state *create_state();
-int add_input(struct mpx_state *s, int fd, int discard, char *label);
+int add_input(struct mpx_state *s, int fd, unsigned int flags, char *label);
 
 /***********************************************************/
 
@@ -67,6 +74,7 @@ void destroy_state(struct mpx_state *s)
 
   s->s_this = (-1);
   s->s_select = (-1);
+  s->s_fall = (-1);
 
   if(s->s_switch){
     free(s->s_switch);
@@ -91,6 +99,7 @@ struct mpx_state *create_state()
 
   s->s_this = (-1);
   s->s_select = (-1);
+  s->s_fall = (-1);
 
   s->s_switch = NULL;
   s->s_symbolic = 1;
@@ -144,7 +153,7 @@ void destroy_input(struct mpx_state *s, struct mpx_input *mi)
   free(mi);
 }
 
-int add_input(struct mpx_state *s, int fd, int discard, char *label)
+int add_input(struct mpx_state *s, int fd, unsigned int flags, char *label)
 {
   struct mpx_input **tmp, *mi;
   struct katcl_line *l;
@@ -155,6 +164,17 @@ int add_input(struct mpx_state *s, int fd, int discard, char *label)
 
   if(fd < 0){
     return -1;
+  }
+
+#ifdef DEBUG
+  fprintf(stderr, "%s should have flags 0x%x\n", label, flags);
+#endif
+
+  if(flags & FLAG_MASTER){
+    if(flags & (FLAG_RELAX | FLAG_FALLBACK)){
+      fprintf(stderr, "bad option permutation - the master can not set fallback or nonessential\n");
+      return -1;
+    }
   }
 
   tmp = realloc(s->s_vector, sizeof(struct mpx_input *) * (s->s_count + 1));
@@ -170,7 +190,7 @@ int add_input(struct mpx_state *s, int fd, int discard, char *label)
   }
 
   mi->i_line = NULL;
-  mi->i_discard = 0;
+  mi->i_flags = FLAG_DEAD;
   mi->i_name = NULL;
 
   l = create_katcl(fd);
@@ -188,7 +208,7 @@ int add_input(struct mpx_state *s, int fd, int discard, char *label)
   }
 
   mi->i_line = l;
-  mi->i_discard = discard;
+  mi->i_flags = flags;
 
   s->s_vector[s->s_count] = mi;
 
@@ -197,8 +217,9 @@ int add_input(struct mpx_state *s, int fd, int discard, char *label)
   return 0;
 }
 
-int change_input(struct mpx_state *ms, char *arg)
+int request_change_input(struct mpx_state *ms, char *arg)
 {
+  struct mpx_input *mt;
   int i, target;
   char *end;
 
@@ -224,6 +245,11 @@ int change_input(struct mpx_state *ms, char *arg)
 
   if(target == ms->s_this){ /* talking to ourselves again ... */
     return -1; 
+  }
+
+  mt = ms->s_vector[target];
+  if(mt->i_flags & FLAG_DEAD){
+    return -1;
   }
 
 #ifdef DEBUG
@@ -290,36 +316,146 @@ int exec_pipe(char **args)
 
 int send_disconnect(struct mpx_state *ms, char *reason)
 {
-  struct mpx_input *mi;
+  struct mpx_input *mt;
   int result;
 
-  mi = ms->s_vector[ms->s_this];
+  mt = ms->s_vector[ms->s_this];
 
+  append_string_katcl(mt->i_line, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#disconnect");
+  append_string_katcl(mt->i_line, KATCP_FLAG_LAST | KATCP_FLAG_STRING, reason);
 
-  append_string_katcl(mi->i_line, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#disconnect");
-  append_string_katcl(mi->i_line, KATCP_FLAG_LAST | KATCP_FLAG_STRING, reason);
-
-  while((result = write_katcl(mi->i_line)) == 0);
+  while((result = write_katcl(mt->i_line)) == 0);
 
   return result;
+}
+
+int handle_io_failure(struct mpx_state *ms, struct mpx_input *mi, char *reason)
+{
+  struct mpx_input *mt, *mf;
+  unsigned int flags;
+
+  mt = ms->s_vector[ms->s_this];
+  mf = ms->s_vector[ms->s_fall];
+
+  flags = mi->i_flags;
+  mi->i_flags |= FLAG_DEAD;
+
+  if(mi->i_line){
+    destroy_katcl(mi->i_line, 1);
+    mi->i_line = NULL;
+  }
+
+  if((flags & FLAG_RELAX) == 0){
+    /* this client is important, io failure here is fatal */
+    if(mt != mi){
+      send_disconnect(ms, reason);
+    }
+    return -1;
+  }
+
+  if(ms->s_fall < 0){
+    /* no fallback */
+    return -1;
+  }
+
+  if(mf->i_flags & FLAG_DEAD){
+    /* fallback dead */
+    return -1;
+  }
+
+  if(flags & FLAG_DEAD){
+    /* already dead ? */
+    return 0;
+  }
+
+  /* if we have already selected fallback, don't mention it again - bit weird ... */
+  if(ms->s_fall != ms->s_select){
+
+    ms->s_switch[0] = KATCP_INFORM;
+
+    append_string_katcl(mt->i_line, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, ms->s_switch);
+    append_string_katcl(mt->i_line, KATCP_FLAG_LAST | KATCP_FLAG_STRING, mf->i_name);
+
+    ms->s_select = ms->s_fall;
+  }
+
+  return 0;
+}
+
+int fixup_checks(struct mpx_state *ms)
+{
+  unsigned int i;
+  int relax, fallback, backup;
+  struct mpx_input *mi;
+
+  relax = 0;
+  fallback = (-1);
+  backup = (-1);
+
+  if(ms->s_count <= 1){
+    fprintf(stderr, "not enough parties to multiplex\n");
+    return -1;
+  }
+
+  for(i = 0; i < ms->s_count; i++){
+    mi = ms->s_vector[i];
+    if(mi->i_flags & FLAG_RELAX){
+      relax = i;
+    }
+    if(mi->i_flags & FLAG_FALLBACK){
+      fallback = i;
+    }
+    if(mi->i_flags & FLAG_MASTER){
+      if(ms->s_this < 0){
+        ms->s_this = i;
+      }
+    } else {
+      if((mi->i_flags & (FLAG_FALLBACK | FLAG_RELAX)) == 0){
+        if(backup < 0){
+          backup = i;
+        }
+      }
+    }
+  }
+
+  if(ms->s_this < 0){
+    if(backup < 0){
+      fprintf(stderr, "unable to guess which connection ought to be master\n");
+      return -1;
+    }
+    ms->s_this = backup;
+  }
+
+  if(ms->s_this >= ms->s_count){
+    fprintf(stderr, "controlling connection out of range\n");
+    return -1;
+  }
+
+  mi = ms->s_vector[ms->s_this];
+  mi->i_flags &= ~(FLAG_RELAX | FLAG_FALLBACK);
+
+  if(relax){
+    if(fallback < 0){
+      fallback = (ms->s_this > 0) ? 0 : 1;
+    }
+    ms->s_fall = fallback;
+  }
+
+  ms->s_select = (ms->s_this > 0) ? 0 : 1;
+
+#ifdef DEBUG
+  fprintf(stderr, "have %d parties, master at %d, fallback %d, selected %d\n", ms->s_count, ms->s_this, ms->s_fall, ms->s_select);
+#endif
+
+  return 0;
 }
 
 int run_state(struct mpx_state *ms)
 {
   int run, mfd, fd, i, result, change;
-  struct mpx_input *mi, *ni;
+  struct mpx_input *mi, *mt;
   fd_set fsr, fsw;
   char *cmd, *arg;
-
-  if(ms->s_this < 0){
-    return -1;
-  }
-
-  if(ms->s_count <= 1){
-    return -1;
-  }
-
-  ms->s_select = (ms->s_this > 0) ? 0 : 1;
 
   for(run = 1; run > 0;){
 
@@ -331,19 +467,29 @@ int run_state(struct mpx_state *ms)
     for(i = 0; i < ms->s_count; i++){
       mi = ms->s_vector[i];
 
-      fd = fileno_katcl(mi->i_line);
-      if(fd >= 0){
+#if DEBUG > 1
+      fprintf(stderr, "run[%d]: flags=0x%x\n", i, mi->i_flags);
+#endif
 
-        FD_SET(fd, &fsr);
+      if((mi->i_flags & FLAG_DEAD) == 0){ /* what if everybody is dead, huh ? */
+        fd = fileno_katcl(mi->i_line);
+#if DEBUG > 1
+        fprintf(stderr, "run[%d]: fd=%d\n", i, fd);
+#endif
+        if(fd >= 0){
 
-        if(flushing_katcl(mi->i_line)){
-          FD_SET(fd, &fsw);
-        }
+          FD_SET(fd, &fsr);
 
-        if(fd > mfd){
-          mfd = fd;
+          if(flushing_katcl(mi->i_line)){
+            FD_SET(fd, &fsw);
+          }
+
+          if(fd > mfd){
+            mfd = fd;
+          }
         }
       }
+
     }
 
     result = select(mfd + 1, &fsr, &fsw, NULL, NULL);
@@ -351,70 +497,82 @@ int run_state(struct mpx_state *ms)
     for(i = 0; i < ms->s_count; i++){
       mi = ms->s_vector[i];
 
-      fd = fileno_katcl(mi->i_line);
-      if(fd >= 0){
+      if((mi->i_flags & FLAG_DEAD) == 0){
 
-        if(FD_ISSET(fd, &fsr)){
-          result = read_katcl(mi->i_line);
+        fd = fileno_katcl(mi->i_line);
+        if(fd >= 0){
 
-          if(result){
+          if(FD_ISSET(fd, &fsr)){
+            result = read_katcl(mi->i_line);
+
+            if(result){
 #ifdef DEBUG
-            fprintf(stderr, "read[%d] returns %d\n", i, result);
+              fprintf(stderr, "read[%d] returns %d\n", i, result);
 #endif
-
-            if(ms->s_this == i){
-              run = (result < 0) ? (-1) : 0;
-            } else {
-              if(result < 0){
-                send_disconnect(ms, "read failure");
-              } else {
-                send_disconnect(ms, "end of stream");
+              if(handle_io_failure(ms, mi, (result < 0) ? "read failure" : "end of stream") < 0){
+                run = (result < 0) ? (-1) : 0;
               }
-              run = (-1);
+              /* WARNING: s_select could be changed here */
             }
           }
-        }
 
-        if(FD_ISSET(fd, &fsw)){
-          result = write_katcl(mi->i_line);
-          if(result < 0){
+          if(FD_ISSET(fd, &fsw)){
+            result = write_katcl(mi->i_line);
+            if(result < 0){
 #ifdef DEBUG
-            fprintf(stderr, "write[%d] returns %d\n", i, result);
+              fprintf(stderr, "write[%d] returns %d\n", i, result);
 #endif
-            run = (-1);
-            if(ms->s_this != i){
-              send_disconnect(ms, "write failure");
+              if(handle_io_failure(ms, mi, "write failure") < 0){
+                run = (result < 0) ? (-1) : 0;
+              }
+              /* WARNING: s_select could be changed here */
             }
           }
-        }
 
+        }
       }
     }
 
-    mi = ms->s_vector[ms->s_this];
-    ni = ms->s_vector[ms->s_select];
+#ifdef DEBUG
+#endif
 
-    while(have_katcl(mi->i_line) > 0){
-      cmd = arg_string_katcl(mi->i_line, 0);
+    mt = ms->s_vector[ms->s_this];
+    mi = ms->s_vector[ms->s_select];
+
+#ifdef DEBUG
+    fprintf(stderr, "relay from master\n");
+#endif
+
+    if((mt->i_flags & FLAG_DEAD) || (mi->i_flags & FLAG_DEAD)){
+      /* WARNING: io errors should be fixed up earlier ... */
+      break;
+    }
+
+    while(have_katcl(mt->i_line) > 0){
+      cmd = arg_string_katcl(mt->i_line, 0);
       if(cmd){
         if((cmd[0] == KATCP_REQUEST) && (strcmp(cmd + 1, ms->s_switch + 1) == 0)){
-          arg = arg_string_katcl(mi->i_line, 1);
-          change = change_input(ms, arg);
+#ifdef DEBUG
+          fprintf(stderr, "encountered switch request\n");
+#endif
+          arg = arg_string_katcl(mt->i_line, 1);
+          change = request_change_input(ms, arg);
 
-          append_string_katcl(mi->i_line, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, ms->s_switch);
+          ms->s_switch[0] = KATCP_REPLY;
+          append_string_katcl(mt->i_line, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, ms->s_switch);
 
           if(change < 0){
-            append_string_katcl(mi->i_line, KATCP_FLAG_LAST | KATCP_FLAG_STRING, KATCP_FAIL);
+            append_string_katcl(mt->i_line, KATCP_FLAG_LAST | KATCP_FLAG_STRING, KATCP_FAIL);
           } else {
             ms->s_select = change;
-            ni = ms->s_vector[ms->s_select];
-            append_string_katcl(mi->i_line, KATCP_FLAG_LAST | KATCP_FLAG_STRING, KATCP_OK);
+            mi = ms->s_vector[ms->s_select];
+            append_string_katcl(mt->i_line, KATCP_FLAG_LAST | KATCP_FLAG_STRING, KATCP_OK);
           }
         } else {
 #ifdef DEBUG
           fprintf(stderr, "doing relay of %s to %d\n", cmd, ms->s_select);
 #endif
-          if(relay_katcl(mi->i_line, ni->i_line) < 0){
+          if(relay_katcl(mt->i_line, mi->i_line) < 0){
 #ifdef DEBUG
             fprintf(stderr, "relay from master of %s failed\n", cmd);
 #endif
@@ -425,14 +583,18 @@ int run_state(struct mpx_state *ms)
       }
     }
 
-    while(have_katcl(ni->i_line) > 0){
 #ifdef DEBUG
-      cmd = arg_string_katcl(ni->i_line, 0);
+    fprintf(stderr, "relay to master\n");
+#endif
+
+    while(have_katcl(mi->i_line) > 0){
+#ifdef DEBUG
+      cmd = arg_string_katcl(mi->i_line, 0);
       if(cmd){
         fprintf(stderr, "selected said %s\n", cmd);
       }
 #endif
-      if(relay_katcl(ni->i_line, mi->i_line) < 0){
+      if(relay_katcl(mi->i_line, mt->i_line) < 0){
 #ifdef DEBUG
         fprintf(stderr, "relay from selected of %s failed\n", cmd);
 #endif
@@ -453,7 +615,13 @@ void usage(char *app)
   printf("-h                 this help\n");
   printf("-v                 increase verbosity\n");
   printf("-q                 run quietly\n");
+#if 0
+  /* not yet implemented */
   printf("-b                 buffer command\n");
+#endif
+  printf("-r                 io failure in next party is not fatal\n");
+  printf("-k                 next party is the one to switch to in case of io failure\n");
+  printf("-m                 next party is master\n");
   printf("-d                 go into background\n");
   printf("-f                 remain in foreground\n");
   printf("-i                 indexed rather than symbolic selection\n");
@@ -472,8 +640,8 @@ void usage(char *app)
 
 int main(int argc, char **argv)
 {
-  int i, j, c, verbose, detach, type, offset, discarding, fd, result, symbolic;
-
+  int i, j, c, verbose, detach, type, offset, fd, result, symbolic;
+  unsigned int flags, initial;
   char *app, *remote, *change, *label;
   struct mpx_state *ms;
 
@@ -483,10 +651,14 @@ int main(int argc, char **argv)
 
   verbose = 0;
   offset = 0;
-  discarding = 1;
   change = NULL;
   symbolic = 1;
   label = NULL;
+
+  flags = 0;
+
+  flags = FLAG_DISCARD;
+  initial = flags;
 
   type = TYPE_CLIENT;
 
@@ -506,7 +678,22 @@ int main(int argc, char **argv)
           return EX_OK;
 
         case 'b' : 
-          discarding = 0;
+          flags &= ~FLAG_DISCARD;     
+          j++;
+          break;
+
+        case 'r' : 
+          flags |= FLAG_RELAX;     
+          j++;
+          break;
+
+        case 'k' : 
+          flags |= FLAG_FALLBACK;     
+          j++;
+          break;
+
+        case 'm' : 
+          flags |= FLAG_MASTER;     
           j++;
           break;
 
@@ -574,11 +761,15 @@ int main(int argc, char **argv)
         case '\0':
           if(j == 1){
             sleep(1);
-            if(add_input(ms, STDIN_FILENO, discarding, label ? label : "-") < 0){
+
+            if(add_input(ms, STDIN_FILENO, flags, label ? label : "-") < 0){
               fprintf(stderr, "%s: unable to add standard stream\n", app);
               return EX_UNAVAILABLE;
             }
+
+            flags = initial;
             label = NULL;
+
           }
           j = 1;
           i++;
@@ -600,10 +791,12 @@ int main(int argc, char **argv)
             return EX_UNAVAILABLE;
           }
 
-          if(add_input(ms, fd, discarding, label ? label : remote) < 0){
+          if(add_input(ms, fd, flags, label ? label : remote) < 0){
             fprintf(stderr, "%s: unable to add %s\n", app, remote);
             return EX_UNAVAILABLE;
           }
+
+          flags = initial;
           label = NULL;
 
           break;
@@ -618,10 +811,12 @@ int main(int argc, char **argv)
             return EX_UNAVAILABLE;
           }
 
-          if(add_input(ms, fd, discarding, label ? label : argv[i]) < 0){
+          if(add_input(ms, fd, flags, label ? label : argv[i]) < 0){
             fprintf(stderr, "%s: unable to add %s\n", app, argv[i]);
             return EX_UNAVAILABLE;
           }
+
+          flags = initial;
           label = NULL;
 
           /* TODO: this could be changed ... */
@@ -648,6 +843,11 @@ int main(int argc, char **argv)
 
   if(set_change(ms, change, symbolic) < 0){
     fprintf(stderr, "%s: unable to configure settings\n", app);
+    return EX_SOFTWARE;
+  }
+
+  if(fixup_checks(ms) < 0){
+    fprintf(stderr, "%s: sanity checks failed\n", app);
     return EX_SOFTWARE;
   }
 
