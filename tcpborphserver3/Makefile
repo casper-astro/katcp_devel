@@ -10,7 +10,10 @@ CFLAGS += -ggdb
 #CFLAGS += -DDEBUG=2
 #CFLAGS += -DDEBUG
 #CFLAGS += -DPROFILE
+# crash rather than limp on 
 #CFLAGS += -DFAILFAST
+# use internal hardware monitor
+#CFLAGS += -DINTERNAL_HWMON
 
 SERVER = tcpborphserver3
 SRC = main.c raw.c loadbof.c tg.c tapper.c hwmon.c upload.c subprocess.c ev.c
