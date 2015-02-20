@@ -1,3 +1,5 @@
+#ifdef INTERNAL_HWMON
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -681,3 +683,4 @@ int setup_hwmon_tbs(struct katcp_dispatch *d)
   return rtn;
 }
 
+#endif

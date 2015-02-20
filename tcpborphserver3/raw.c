@@ -2228,10 +2228,12 @@ void destroy_raw_tbs(struct katcp_dispatch *d, struct tbs_raw *tr)
 
   /**********************/
 
+#ifdef INTERNAL_HWMON
   if (tr->r_hwmon){
     destroy_avltree(tr->r_hwmon, &destroy_hwsensor_tbs);
     tr->r_hwmon = NULL;
   }
+#endif
 
   if(tr->r_chassis){
     unlink_arb_katcp(d, tr->r_chassis);
@@ -2313,7 +2315,9 @@ int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir, int argc, char **argv)
   }
 
   tr->r_registers = NULL;
+#ifdef INTERNAL_HWMON
   tr->r_hwmon = NULL;
+#endif
   tr->r_fpga = TBS_FPGA_DOWN;
 
   tr->r_map = NULL;
@@ -2348,11 +2352,13 @@ int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir, int argc, char **argv)
     return -1;
   }
 
+#ifdef INTERNAL_HWMON
   tr->r_hwmon = create_avltree();
   if(tr->r_hwmon == NULL){
     destroy_raw_tbs(d, tr);
     return -1;
   }
+#endif
 
   if(make_bofdir_tbs(d, tr, bofdir) < 0){
     destroy_raw_tbs(d, tr);
@@ -2363,11 +2369,13 @@ int setup_raw_tbs(struct katcp_dispatch *d, char *bofdir, int argc, char **argv)
     return -1;
   }
 
+#ifdef INTERNAL_HWMON
   if ((result = setup_hwmon_tbs(d)) < 0){
 #ifdef DEBUG
     fprintf(stderr, "hwmon: setup returns %d\n", result);
 #endif
   }
+#endif
 
 #if 0
   sa.sa_handler = handle_bus_error;

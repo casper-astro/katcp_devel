@@ -132,7 +132,7 @@ struct getap_state{
 struct tbs_raw
 {
   struct avl_tree *r_registers;
-  struct avl_tree *r_hwmon;
+  struct avl_tree *r_hwmon; /* only used if INTERNAL_HWMON set */
   int r_fpga;
 
   void *r_map;
