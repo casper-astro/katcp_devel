@@ -332,6 +332,14 @@ int handle_io_failure(struct mpx_state *ms, struct mpx_input *mi, char *reason)
   struct mpx_input *mt, *mf;
   unsigned int flags;
 
+  if(ms->s_fall < 0){
+    /* no fallback */
+#ifdef DEBUG
+    fprintf(stderr, "no fallback defined, giving up\n");
+#endif
+    return -1;
+  }
+
   mt = ms->s_vector[ms->s_this];
   mf = ms->s_vector[ms->s_fall];
 
@@ -348,16 +356,17 @@ int handle_io_failure(struct mpx_state *ms, struct mpx_input *mi, char *reason)
     if(mt != mi){
       send_disconnect(ms, reason);
     }
-    return -1;
-  }
-
-  if(ms->s_fall < 0){
-    /* no fallback */
+#ifdef DEBUG
+    fprintf(stderr, "client failure not survivable, failing\n");
+#endif
     return -1;
   }
 
   if(mf->i_flags & FLAG_DEAD){
     /* fallback dead */
+#ifdef DEBUG
+    fprintf(stderr, "fallback client also gone, giving up\n");
+#endif
     return -1;
   }
 
@@ -386,7 +395,7 @@ int fixup_checks(struct mpx_state *ms)
   int relax, fallback, backup;
   struct mpx_input *mi;
 
-  relax = 0;
+  relax = (-1);
   fallback = (-1);
   backup = (-1);
 
@@ -432,11 +441,14 @@ int fixup_checks(struct mpx_state *ms)
   mi = ms->s_vector[ms->s_this];
   mi->i_flags &= ~(FLAG_RELAX | FLAG_FALLBACK);
 
-  if(relax){
+  if(relax >= 0){
     if(fallback < 0){
       fallback = (ms->s_this > 0) ? 0 : 1;
     }
     ms->s_fall = fallback;
+#ifdef DEBUG
+    fprintf(stderr, "fallback client is at index %d\n", ms->s_fall);
+#endif
   }
 
   ms->s_select = (ms->s_this > 0) ? 0 : 1;
