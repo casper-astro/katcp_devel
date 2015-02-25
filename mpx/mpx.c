@@ -11,8 +11,6 @@
 #include <katcl.h>
 #include <netc.h>
 
-#define DEBUG 0
-
 #define DEFAULT_SWITCH "switch" 
 
 #define FLAG_DISCARD    0x1
