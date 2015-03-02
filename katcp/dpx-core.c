@@ -103,6 +103,10 @@ static int deallocate_group_katcp(struct katcp_dispatch *d, struct katcp_group *
     g->g_name = NULL;
   }
 
+#if 0
+  g->g_flags = 0;
+#endif
+
   for(i = 0; i < KATCP_SIZE_MAP; i++){
     destroy_cmd_map_katcp(g->g_maps[i]);
     g->g_maps[i] = NULL;
@@ -195,6 +199,9 @@ struct katcp_group *create_group_katcp(struct katcp_dispatch *d, char *name)
   }
 
   g->g_name = NULL;
+#if 0
+  g->g_flags = KATCP_FLAT_PREFIXED; /* by default clients in this group acquire its name as sensor prefix, but this isn't used - client creation has its own flags */
+#endif
 
   for(i = 0; i < KATCP_SIZE_MAP; i++){
     g->g_maps[i] = NULL;
@@ -262,6 +269,9 @@ struct katcp_group *duplicate_group_katcp(struct katcp_dispatch *d, struct katcp
     return NULL;
   }
 
+#if 0
+  gx->g_flags = go->g_flags;
+#endif
   gx->g_log_level = go->g_log_level;
   gx->g_scope = go->g_scope;
   gx->g_flushdefer = go->g_flushdefer;
@@ -1569,7 +1579,7 @@ int reconfigure_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, unsi
     trigger_connect_flat(d, fx);
   }
 
-  fx->f_flags = flags & (KATCP_FLAT_TOSERVER | KATCP_FLAT_TOCLIENT | KATCP_FLAT_HIDDEN);
+  fx->f_flags = flags & (KATCP_FLAT_TOSERVER | KATCP_FLAT_TOCLIENT | KATCP_FLAT_HIDDEN | KATCP_FLAT_PREFIXED);
 
   return 0;
 }
@@ -1606,6 +1616,9 @@ struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, unsigned 
   f->f_magic = FLAT_MAGIC;
   f->f_name = NULL;
 
+#if 0
+  f->f_flags = gx->g_flags;
+#endif
   f->f_flags = 0;
 
   /* for cases where connect() still has to succeed */

@@ -468,6 +468,9 @@ struct katcp_arb{
 #define KATCP_VRC_SENSOR_TYPE     ":type"
 #define KATCP_VRC_SENSOR_RANGE    ":range"
 #define KATCP_VRC_SENSOR_TIME     ":time"
+#if 0 /* unused - causes unexpected namespace collisions */
+#define KATCP_VRC_SENSOR_PREFIX   ":prefix"
+#endif
 
 struct katcp_vrbl_payload;
 
@@ -584,6 +587,9 @@ struct katcp_cmd_map{
 struct katcp_group{
   /* a set of flats which belong together, probably spawned off the same listener, probably same set of commands, probably same "mode" */
   char *g_name;
+#if 0
+  unsigned int g_flags;
+#endif
   struct katcp_cmd_map *g_maps[KATCP_SIZE_MAP];
 
   struct katcp_flat **g_flats;
@@ -641,7 +647,7 @@ struct katcp_flat{
   unsigned int f_magic;
   char *f_name;          /* locate the thing by name */
 
-  int f_flags;           /* which directions can we do */
+  unsigned int f_flags;           /* which directions can we do */
 
   int f_state;           /* up, shutting down, etc */
   int f_exit_code;       /* reported exit status */
@@ -1000,11 +1006,14 @@ void shutdown_duplex_katcp(struct katcp_dispatch *d);
 int switch_group_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, struct katcp_group *gx);
 
 
-#define KATCP_FLAT_CONNECTING   0x01
-#define KATCP_FLAT_TOSERVER     0x02
-#define KATCP_FLAT_TOCLIENT     0x04
-#define KATCP_FLAT_HIDDEN       0x08
-#define KATCP_FLAT_SEECHANGES   0x10
+#define KATCP_FLAT_CONNECTING   0x01   /* wait for connect to complete */
+#define KATCP_FLAT_TOSERVER     0x02   /* direction */
+#define KATCP_FLAT_TOCLIENT     0x04   /* direction */
+#define KATCP_FLAT_HIDDEN       0x08   /* do not show up in client list */
+#if 0
+#define KATCP_FLAT_SEECHANGES   0x10   /* unused */
+#endif
+#define KATCP_FLAT_PREFIXED     0x20   /* sensors have prefix fields to them */
 
 struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, unsigned int flags, char *name, struct katcp_group *g);
 struct katcp_flat *create_exec_flat_katcp(struct katcp_dispatch *d, unsigned int flags, char *name, struct katcp_group *gx, char **vector);
@@ -1203,6 +1212,11 @@ int fixup_timestamp_katcp(char *src, char *dst, int size);
 
 /* internal variable use ******************/
 
+#define KATCP_VRBL_DELIM_GROUP    '*'
+#define KATCP_VRBL_DELIM_TREE     ':'
+#define KATCP_VRBL_DELIM_ARRAY    '#' 
+#define KATCP_VRBL_DELIM_LOGIC    '.'
+
 struct katcp_region *create_region_katcp(struct katcp_dispatch *d);
 void destroy_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx);
 
@@ -1224,7 +1238,10 @@ int show_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx);
 /* variable payload manipulation */
 
 struct katcp_vrbl *scan_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, char *text, char *path, int create, unsigned int type);
+#if 0
 struct katcp_vrbl_payload *find_payload_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, char *path);
+#endif
+
 int add_payload_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int flags, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
 int configure_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, unsigned int flags, void *state, int (*refresh)(struct katcp_dispatch *d, void *state, char *name, struct katcp_vrbl *vx), int (*change)(struct katcp_dispatch *d, void *state, char *name, struct katcp_vrbl *vx), void (*release)(struct katcp_dispatch *d, void *state, char *name, struct katcp_vrbl *vx));
 

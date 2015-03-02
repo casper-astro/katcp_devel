@@ -33,12 +33,6 @@
 #define MAX_DEPTH_VRBL 3
 #define MAX_COUNT_STAR 3
 
-#define DELIM_GROUP    '*'
-#define DELIM_TREE     ':'
-#define DELIM_ARRAY    '#' 
-#define DELIM_UNKNOWN  '.'
-
-
 static struct katcp_vrbl *find_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx, char *key);
 static int insert_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx, struct katcp_vrbl *vx, char *key);
 static int remove_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx, struct katcp_vrbl *vx);
@@ -132,10 +126,10 @@ static int next_element_path_vrbl(char *path)
 
   for(i = 0; path[i] != '\0'; i++){
     switch(path[i]){
-      case DELIM_TREE : 
-      case DELIM_ARRAY :
+      case KATCP_VRBL_DELIM_TREE : 
+      case KATCP_VRBL_DELIM_ARRAY :
 #if 0
-      case DELIM_UNKNOWN : 
+      case KATCP_VRBL_DELIM_LOGIC : 
 #endif
         if(i > 1){
           return i;
@@ -165,12 +159,12 @@ static unsigned int infer_type_path_vrbl(char *path)
   }
 
   switch(path[0]){
-    case DELIM_TREE : 
+    case KATCP_VRBL_DELIM_TREE : 
       return KATCP_VRT_TREE;
-    case DELIM_ARRAY :
+    case KATCP_VRBL_DELIM_ARRAY :
       return KATCP_VRT_ARRAY;
 #if 0
-    case DELIM_UNKNOWN : 
+    case KATCP_VRBL_DELIM_LOGIC : 
       return TODO;
 #endif
       /* case '\0' : */
@@ -552,7 +546,7 @@ int scan_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct
     }
   }
 
-  if(path[0] != DELIM_TREE){
+  if(path[0] != KATCP_VRBL_DELIM_TREE){
 #ifdef KATCP_CONSISTENCY_CHECKS
     fprintf(stderr, "tree insert: unexpected path specification %s\n", path);
 #endif
@@ -671,7 +665,7 @@ struct katcp_vrbl_payload *element_tree_vrbl_katcp(struct katcp_dispatch *d, str
 
   /* WARNING: this has a fair bit in common with the scan logic, but splitting it out is messy ... */
 
-  if(path[0] != DELIM_TREE){
+  if(path[0] != KATCP_VRBL_DELIM_TREE){
     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "invalid compound variable access path %s at tree", path);
     return NULL;
   }
@@ -989,7 +983,7 @@ int scan_array_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struc
     }
   }
 
-  if(path[0] != DELIM_ARRAY){
+  if(path[0] != KATCP_VRBL_DELIM_ARRAY){
 #ifdef KATCP_CONSISTENCY_CHECKS
     fprintf(stderr, "tree insert: unexpected path specification %s\n", path);
 #endif
@@ -1117,7 +1111,7 @@ struct katcp_vrbl_payload *element_array_vrbl_katcp(struct katcp_dispatch *d, st
 
   /* WARNING: this has a fair bit in common with the scan logic, but splitting it out is messy ... */
 
-  if(path[0] != DELIM_ARRAY){
+  if(path[0] != KATCP_VRBL_DELIM_ARRAY){
     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "invalid compound variable access path %s at array", path);
     return NULL;
   }
@@ -1843,7 +1837,7 @@ static int tokenise_vrbl_katcp(struct katcp_dispatch *d, char *str, unsigned int
 
   while(str[i] != '\0'){
     switch(str[i]){
-      case DELIM_GROUP :
+      case KATCP_VRBL_DELIM_GROUP :
         if(count >= MAX_COUNT_STAR){
           return -1;
         }
@@ -1852,10 +1846,10 @@ static int tokenise_vrbl_katcp(struct katcp_dispatch *d, char *str, unsigned int
         count++;
         i++;
         break;
-      case DELIM_TREE    :
-      case DELIM_ARRAY   :
+      case KATCP_VRBL_DELIM_TREE    :
+      case KATCP_VRBL_DELIM_ARRAY   :
 #if 0
-      case DELIM_UNKNOWN :
+      case KATCP_VRBL_DELIM_LOGIC :
 #endif
         vector[count] = i;
         str[i] = '\0';

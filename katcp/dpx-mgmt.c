@@ -73,7 +73,7 @@ int client_exec_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     vector = NULL;
   }
 
-  fx = create_exec_flat_katcp(d, KATCP_FLAT_TOSERVER | KATCP_FLAT_TOCLIENT, label, gx, vector);
+  fx = create_exec_flat_katcp(d, KATCP_FLAT_TOSERVER | KATCP_FLAT_TOCLIENT | KATCP_FLAT_PREFIXED, label, gx, vector);
   if(vector){
     free(vector);
   }
@@ -126,7 +126,7 @@ int client_connect_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
   fcntl(fd, F_SETFD, FD_CLOEXEC);
 
-  if(create_flat_katcp(d, fd, KATCP_FLAT_CONNECTING | KATCP_FLAT_TOSERVER, client, gx) == NULL){
+  if(create_flat_katcp(d, fd, KATCP_FLAT_CONNECTING | KATCP_FLAT_TOSERVER | KATCP_FLAT_PREFIXED, client, gx) == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to allocate client connection");
     close(fd);
     return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_MALLOC);
@@ -188,6 +188,10 @@ int client_config_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     set    =  KATCP_FLAT_HIDDEN;
   } else if(!strcmp(option, "visible")){
     mask   = ~KATCP_FLAT_HIDDEN;
+  } else if(!strcmp(option, "prefixed")){
+    set    = KATCP_FLAT_PREFIXED;
+  } else if(!strcmp(option, "fixed")){
+    mask   = ~KATCP_FLAT_PREFIXED;
   } else {
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "invalid configuration option %s", option);
     return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
@@ -481,7 +485,10 @@ int group_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "group %s has %d references", group, gx->g_use);
     log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "group %s has %u members", group, gx->g_count);
     log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "group %s will %s if not used", group, gx->g_autoremove ? "disappear" : "persist");
-
+#if 0
+    log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "group %s spawns clients which %s add their name as sensor prefix", group, (gx->g_flags & KATCP_FLAT_PREFIXED) ? "will" : "will not");
+#endif
+    
     ptr = log_to_string_katcl(gx->g_log_level);
     if(ptr){
       log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "group %s sets client log level to %s", group, ptr);

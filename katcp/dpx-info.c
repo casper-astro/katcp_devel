@@ -210,14 +210,91 @@ int log_group_info_katcp(struct katcp_dispatch *d, int argc)
 
 /* TODO: sensor logic: sensor-list, sensor-status ? */
 
+static char *make_child_sensor_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, char *name, int locator)
+{
+  /* WARNING: in a way this is a bit of a mess, some of this should be subsumed into the variable API, however, the client prefix doesn't belong there either ... it is complicated */
+  char *copy, *strip;
+  int suffix, prefix, size, i, j;
+
+  if(strchr(name, KATCP_VRBL_DELIM_GROUP)){
+    /* WARNING: special case - if variable name includes * we assume the child knows about or internals */
+    return strdup(name);
+  }
+
+  size = 1;
+
+  if(locator){
+    size += 2;
+  }
+
+  if((fx != NULL) && (fx->f_flags & KATCP_FLAT_PREFIXED) && (name[0] != KATCP_VRBL_DELIM_LOGIC)){ 
+    /* prefix name to things */
+    if(fx->f_name == NULL){
+      /* eh ? */
+      return NULL;
+    }
+
+    prefix = strlen(fx->f_name);
+  } else {
+    prefix = 0;
+  }
+  size += (prefix + 1);
+
+  if(name[0] == KATCP_VRBL_DELIM_LOGIC){
+    strip = name + 1;
+  } else {
+    strip = name;
+  }
+  suffix = strlen(strip);
+  if(suffix <= 0){
+    return NULL;
+  }
+  size += suffix;
+
+  copy = malloc(size);
+  if(copy == NULL){
+    return NULL;
+  }
+
+  i = 0;
+  if(locator){
+    copy[i++] = KATCP_VRBL_DELIM_GROUP;
+  }
+  if(prefix){
+    for(j = 0; fx->f_name[j] != '\0'; j++){
+      switch(fx->f_name[j]){
+        case KATCP_VRBL_DELIM_GROUP : /* should not happen ... */
+        case KATCP_VRBL_DELIM_TREE  :
+        case KATCP_VRBL_DELIM_ARRAY :
+          copy[i++] = KATCP_VRBL_DELIM_LOGIC;
+          break;
+        default :
+          copy[i++] = fx->f_name[j];
+          break;
+      }
+    }
+    copy[i++] = KATCP_VRBL_DELIM_LOGIC;
+  }
+
+  memcpy(copy + i, strip, suffix);
+  i += suffix;
+
+  if(locator){
+    copy[i++] = KATCP_VRBL_DELIM_GROUP;
+  }
+
+  copy[i++] = '\0';
+
+  return copy;
+}
+
 int sensor_list_group_info_katcp(struct katcp_dispatch *d, int argc)
 {
   struct katcp_flat *fx;
   struct katcl_parse *px;
   struct katcp_vrbl *vx;
   struct katcp_endpoint *self, *remote, *origin;
-  char *name, *description, *units, *type, *ptr, *strip;
-  int len;
+  char *name, *description, *units, *type, *ptr;
 
 #ifdef DEBUG
   fprintf(stderr, "log: encountered a log message\n");
@@ -250,33 +327,9 @@ int sensor_list_group_info_katcp(struct katcp_dispatch *d, int argc)
       return -1;
     }
 
-    /* WARNING: this is a bit of a mess, should be made part of the vrbl API */
-    ptr = strchr(name, '*');
-    if(ptr){
-
-      ptr = strdup(name);
-      if(ptr == NULL){
-        return -1;
-      }
-
-    } else { /* would be case A, but since search not supported we transform it to case D */
-
-      /* TODO: still work out how to use k7 relative/absolute variable names, noting that client renames can happen ... */
-      if(name[0] == '.'){
-        strip = name + 1;
-      } else {
-        strip = name;
-      }
-
-      len = strlen(strip);
-      ptr = malloc(len + 3);
-      if(ptr == NULL){
-        return -1;
-      }
-      ptr[0] = '*';
-      memcpy(ptr + 1, strip, len);
-      ptr[len + 1] = '*';
-      ptr[len + 2] = '\0';
+    ptr = make_child_sensor_katcp(d, fx, name, 1);
+    if(ptr == NULL){
+      return -1;
     }
 
     vx = find_vrbl_katcp(d, ptr);
@@ -358,7 +411,7 @@ int sensor_status_group_info_katcp(struct katcp_dispatch *d, int argc)
   struct katcl_parse *px;
   struct katcp_endpoint *self, *remote, *origin;
   struct katcp_vrbl *vx;
-  char *name, *stamp, *value, *status;
+  char *name, *stamp, *value, *status, *ptr;
   char buffer[TIMESTAMP_BUFFER];
   int unhide;
 
@@ -399,19 +452,24 @@ int sensor_status_group_info_katcp(struct katcp_dispatch *d, int argc)
     }
     buffer[TIMESTAMP_BUFFER - 1] = '\0';
 
-    vx = find_vrbl_katcp(d, name);
+    ptr = make_child_sensor_katcp(d, fx, name, 0);
+    if(ptr == NULL){
+      return -1;
+    }
+
+    vx = find_vrbl_katcp(d, ptr);
     if(vx){
       if(is_vrbl_sensor_katcp(d, vx)){
 
         if(vx->v_flags & KATCP_VRF_HID){
-          log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "variable %s is hidden", name);
+          log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "variable %s is hidden", ptr);
           unhide = 0;
         } else {
           hide_vrbl_katcp(d, vx);
           unhide = 1;
         }
 
-        scan_vrbl_katcp(d, vx, buffer,  KATCP_VRC_SENSOR_TIME,   1, KATCP_VRT_STRING);
+        scan_vrbl_katcp(d, vx, buffer, KATCP_VRC_SENSOR_TIME,   1, KATCP_VRT_STRING);
         scan_vrbl_katcp(d, vx, status, KATCP_VRC_SENSOR_STATUS, 1, KATCP_VRT_STRING);
 
         if(unhide){
@@ -421,11 +479,13 @@ int sensor_status_group_info_katcp(struct katcp_dispatch *d, int argc)
         scan_vrbl_katcp(d, vx, value,  KATCP_VRC_SENSOR_VALUE,  1, KATCP_VRT_STRING);
 
       } else {
-        log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "variable %s exists but not a sensor thus not propagating it", name);
+        log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "variable %s exists but not a sensor thus not propagating it", ptr);
       }
     } else {
-      log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "no declaration for sensor %s thus not propagating it", name);
+      log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "no declaration for sensor %s thus not propagating it", ptr);
     }
+
+    free(ptr);
 
   } else { /* we must have asked a sensor to send this to us, better relay it on */
 

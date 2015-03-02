@@ -402,6 +402,8 @@ static int print_client_list_katcp(struct katcp_dispatch *d, struct katcp_flat *
     log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "client %s may field requests as peer is a client", fx->f_name);
   }
 
+  log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "client %s %s prefix its name to sensor definitions", fx->f_name, (fx->f_flags & KATCP_FLAT_PREFIXED) ? "will" : "will not");
+
   ptr = string_from_scope_katcp(fx->f_scope);
   if(ptr){
     log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "client %s has %s scope", fx->f_name, ptr);
@@ -593,9 +595,14 @@ int halt_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
 int sensor_list_callback_katcp(struct katcp_dispatch *d, unsigned int *count, char *key, struct katcp_vrbl *vx)
 {
-  struct katcp_vrbl_payload *value, *help, *units, *type, *range; 
+  struct katcp_vrbl_payload *value, *help, *units, *type, *range;
   char *fallback;
   int result;
+#if 0
+  struct katcp_vrbl_payload *prefix;
+  struct katcp_flat *fx;
+  char *front;
+#endif
 
   result = is_vrbl_sensor_katcp(d, vx);
   if(result <= 0){
@@ -631,8 +638,34 @@ int sensor_list_callback_katcp(struct katcp_dispatch *d, unsigned int *count, ch
     return 0;
   }
 
+#if 0
+  prefix = find_payload_katcp(d, vx, KATCP_VRC_SENSOR_PREFIX);
+  if(prefix){
+    /* TODO: should extract the prefix, convert it to a string (no vrbl API for that yet, then store it in front */
+  }
+#endif
+
+#if 0
+  front = NULL;
+  fx = this_flat_katcp(d);
+  if(fx){
+    if(fx->f_flags & KATCP_FLAT_PREFIXED){
+      front = fx->f_name;
+    }
+  }
+#endif
+
   prepend_inform_katcp(d);
-  append_string_katcp(d, KATCP_FLAG_STRING, key);
+
+#if 0
+  if(front){
+    append_args_katcp(d, KATCP_FLAG_STRING, "%s.%s", front, key);
+  } else {
+#endif
+    append_string_katcp(d, KATCP_FLAG_STRING, key);
+#if 0
+  }
+#endif
 
   help = find_payload_katcp(d, vx, KATCP_VRC_SENSOR_HELP);
   if(help && (help->p_type == KATCP_VRT_STRING)){
