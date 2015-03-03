@@ -159,7 +159,7 @@ int client_config_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
   
   if(argc > 2){
-    client = arg_string_katcp(d, 3);
+    client = arg_string_katcp(d, 2);
     if(client == NULL){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire client name");
       return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_BUG);
@@ -210,24 +210,22 @@ int client_halt_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   char *client, *group;
   struct katcp_flat *fx;
 
-  if(argc < 2){
-    client = NULL;
-  } else {
+  client = NULL;
+  group = NULL;
+
+  if(argc > 1){
     client = arg_string_katcp(d, 1);
     if(client == NULL){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire new name");
       return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_BUG);
     }
-  }
-
-  if(argc > 2){
-    group = arg_string_katcp(d, 3);
-    if(group == NULL){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire group name");
-      return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_BUG);
-    } 
-  } else {
-    group = NULL;
+    if(argc > 2){
+      group = arg_string_katcp(d, 2);
+      if(group == NULL){
+        log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire group name");
+        return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_BUG);
+      } 
+    }
   }
 
   if(client){
@@ -272,7 +270,7 @@ int client_switch_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
 
   if(argc > 2){
-    client = arg_string_katcp(d, 3);
+    client = arg_string_katcp(d, 2);
     if(client == NULL){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire client name");
       return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_BUG);
