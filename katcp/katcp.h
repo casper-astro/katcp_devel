@@ -697,8 +697,13 @@ struct katcp_group *create_group_katcp(struct katcp_dispatch *d, char *name);
 int terminate_group_katcp(struct katcp_dispatch *d, struct katcp_group *gx, int hard);
 void destroy_group_katcp(struct katcp_dispatch *d, struct katcp_group *g);
 
+#if 0
 struct katcp_flat *scope_name_flat_katcp(struct katcp_dispatch *d, char *name, struct katcp_flat *fx);
+#endif
+struct katcp_flat *scope_name_full_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, char *group, char *name);
+#if 0
 struct katcp_flat *search_name_flat_katcp(struct katcp_dispatch *d, char *name, struct katcp_group *gx, int limit);
+#endif
 
 struct katcp_flat *find_name_flat_katcp(struct katcp_dispatch *d, char *group, char *name, int limit);
 int rename_flat_katcp(struct katcp_dispatch *d, char *group, char *was, char *should);
