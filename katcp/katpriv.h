@@ -587,9 +587,7 @@ struct katcp_cmd_map{
 struct katcp_group{
   /* a set of flats which belong together, probably spawned off the same listener, probably same set of commands, probably same "mode" */
   char *g_name;
-#if 0
   unsigned int g_flags;
-#endif
   struct katcp_cmd_map *g_maps[KATCP_SIZE_MAP];
 
   struct katcp_flat **g_flats;
@@ -1002,6 +1000,8 @@ int load_flat_katcp(struct katcp_dispatch *d);
 /* duplex (flat+group) setup */
 int startup_duplex_katcp(struct katcp_dispatch *d, unsigned int stories);
 void shutdown_duplex_katcp(struct katcp_dispatch *d);
+
+#define KATCP_GROUP_OVERRIDE_SENSOR    0x1000
 
 int switch_group_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, struct katcp_group *gx);
 

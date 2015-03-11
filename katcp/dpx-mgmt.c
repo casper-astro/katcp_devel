@@ -154,7 +154,7 @@ int client_config_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
   option = arg_string_katcp(d, 1);
   if(option == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire new name");
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire a flag");
     return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_BUG);
   }
   
@@ -173,31 +173,32 @@ int client_config_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     fx = fy;
   }
 
-  mask = ~0;
   set  = 0;
+  mask = 0;
 
   if(!strcmp(option, "duplex")){
     set   = KATCP_FLAT_TOSERVER | KATCP_FLAT_TOCLIENT;
   } else if(!strcmp(option, "server")){
-    mask   = ~KATCP_FLAT_TOSERVER;
-    set    =  KATCP_FLAT_TOCLIENT;
+    mask   = KATCP_FLAT_TOSERVER;
+    set    = KATCP_FLAT_TOCLIENT;
   } else if(!strcmp(option, "client")){
-    mask   = ~KATCP_FLAT_TOCLIENT;
-    set    =  KATCP_FLAT_TOSERVER;
+    mask   = KATCP_FLAT_TOCLIENT;
+    set    = KATCP_FLAT_TOSERVER;
   } else if(!strcmp(option, "hidden")){
-    set    =  KATCP_FLAT_HIDDEN;
+    set    = KATCP_FLAT_HIDDEN;
   } else if(!strcmp(option, "visible")){
-    mask   = ~KATCP_FLAT_HIDDEN;
+    mask   = KATCP_FLAT_HIDDEN;
   } else if(!strcmp(option, "prefixed")){
     set    = KATCP_FLAT_PREFIXED;
   } else if(!strcmp(option, "fixed")){
-    mask   = ~KATCP_FLAT_PREFIXED;
+    mask   = KATCP_FLAT_PREFIXED;
   } else {
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "invalid configuration option %s", option);
-    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
+    /* WARNING: does not error out in an effort to be forward compatible */
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unknown configuration option %s", option);
+    return KATCP_RESULT_OK;
   }
 
-  if(reconfigure_flat_katcp(d, fx, (fx->f_flags & mask) | set) < 0){
+  if(reconfigure_flat_katcp(d, fx, (fx->f_flags & (~mask)) | set) < 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to change flags on client %s", fx->f_name);
     return KATCP_RESULT_FAIL;
   }
@@ -483,10 +484,13 @@ int group_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "group %s has %d references", group, gx->g_use);
     log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "group %s has %u members", group, gx->g_count);
     log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "group %s will %s if not used", group, gx->g_autoremove ? "disappear" : "persist");
-#if 0
-    log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "group %s spawns clients which %s add their name as sensor prefix", group, (gx->g_flags & KATCP_FLAT_PREFIXED) ? "will" : "will not");
-#endif
-    
+
+    if(gx->g_flags & KATCP_GROUP_OVERRIDE_SENSOR){
+      log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "group %s forces sensor names to be %s", group, (gx->g_flags & KATCP_FLAT_PREFIXED) ? "prefixed" : "without prefix");
+    } else {
+      log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "group %s leaves sensor prefixing decision to client creation context", group);
+    }
+
     ptr = log_to_string_katcl(gx->g_log_level);
     if(ptr){
       log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "group %s sets client log level to %s", group, ptr);
@@ -520,6 +524,72 @@ int group_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
 
   return extra_response_katcp(d, KATCP_RESULT_OK, "%d", count);
+}
+
+int group_config_group_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  struct katcp_flat *fx;
+  struct katcp_group *gx;
+  struct katcp_shared *s;
+  char *option, *group;
+  unsigned int mask, set;
+
+  s = d->d_shared;
+
+  fx = this_flat_katcp(d);
+  if(fx == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no client scope available");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_BUG);
+  }
+
+  if(argc < 2){
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "prefixed option forces name prefix in sensors");
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "fixed option inhibits name prefix in sensors");
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "flexible option decides does not force sensor prefix");
+    return KATCP_RESULT_FAIL;
+  }
+
+  option = arg_string_katcp(d, 1);
+  if(option == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire a flag");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_BUG);
+  }
+  
+  if(argc > 2){
+    group = arg_string_katcp(d, 2);
+    if(group == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire group name");
+      return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_BUG);
+    } 
+    gx = scope_name_group_katcp(d, group, fx);
+  } else {
+    gx = this_group_katcp(d);
+  }
+
+  if(gx == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to locate group %s", group ? group : "of current client");
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_NOT_FOUND);
+  }
+
+  set  = 0;
+  mask = 0;
+
+  if(!strcmp(option, "prefixed")){        /* prefix sensor paths */
+    set    = (KATCP_GROUP_OVERRIDE_SENSOR | KATCP_FLAT_PREFIXED);
+  } else if(!strcmp(option, "fixed")){    /* make sensor paths absolute */
+    set    = KATCP_GROUP_OVERRIDE_SENSOR;
+    mask   = KATCP_FLAT_PREFIXED;      
+  } else if(!strcmp(option, "flexible")){ /* pick whatever the calling logic prefers */
+    mask   = (KATCP_GROUP_OVERRIDE_SENSOR | KATCP_FLAT_PREFIXED);
+  } else {
+    /* WARNING: does not error out in an effort to be forward compatible */
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unknown configuration option %s", option);
+    return KATCP_RESULT_OK;
+  }
+
+  gx->g_flags = (gx->g_flags & (~mask)) | set;
+
+  return KATCP_RESULT_OK;
 }
 
 /* listener related commands ******************************************************/

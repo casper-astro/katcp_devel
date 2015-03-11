@@ -103,9 +103,7 @@ static int deallocate_group_katcp(struct katcp_dispatch *d, struct katcp_group *
     g->g_name = NULL;
   }
 
-#if 0
   g->g_flags = 0;
-#endif
 
   for(i = 0; i < KATCP_SIZE_MAP; i++){
     destroy_cmd_map_katcp(g->g_maps[i]);
@@ -199,9 +197,7 @@ struct katcp_group *create_group_katcp(struct katcp_dispatch *d, char *name)
   }
 
   g->g_name = NULL;
-#if 0
-  g->g_flags = KATCP_FLAT_PREFIXED; /* by default clients in this group acquire its name as sensor prefix, but this isn't used - client creation has its own flags */
-#endif
+  g->g_flags = 0;
 
   for(i = 0; i < KATCP_SIZE_MAP; i++){
     g->g_maps[i] = NULL;
@@ -269,9 +265,7 @@ struct katcp_group *duplicate_group_katcp(struct katcp_dispatch *d, struct katcp
     return NULL;
   }
 
-#if 0
   gx->g_flags = go->g_flags;
-#endif
   gx->g_log_level = go->g_log_level;
   gx->g_scope = go->g_scope;
   gx->g_flushdefer = go->g_flushdefer;
@@ -1590,7 +1584,7 @@ struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, unsigned 
   struct katcp_flat *f, **tmp;
   struct katcp_shared *s;
   struct katcp_group *gx;
-  unsigned int i;
+  unsigned int i, mask, set;
 
   s = d->d_shared;
 
@@ -1616,9 +1610,6 @@ struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, unsigned 
   f->f_magic = FLAT_MAGIC;
   f->f_name = NULL;
 
-#if 0
-  f->f_flags = gx->g_flags;
-#endif
   f->f_flags = 0;
 
   /* for cases where connect() still has to succeed */
@@ -1731,7 +1722,18 @@ struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, unsigned 
 
   log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "created instance for %s", name ? name : "<anonymous");
 
-  reconfigure_flat_katcp(d, f, flags);
+  set  = 0;
+  mask = 0;
+
+  if(gx->g_flags & KATCP_GROUP_OVERRIDE_SENSOR){
+    if(gx->g_flags & KATCP_FLAT_PREFIXED){
+      set = KATCP_FLAT_PREFIXED;
+    } else {
+      mask = KATCP_FLAT_PREFIXED;
+    }
+  }
+
+  reconfigure_flat_katcp(d, f, (flags & (~mask)) | set);
 
   return f;
 }
@@ -3863,6 +3865,7 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
     add_full_cmd_map_katcp(m, "group-create", "create a new group (?group-create name [group])", 0, &group_create_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "group-list", "list groups (?group-list)", 0, &group_list_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "group-halt", "halt a group (?group-halt [group])", 0, &group_halt_group_cmd_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "group-config", "set a group option (?group-config option [group])", 0, &group_config_group_cmd_katcp, NULL, NULL);
 
     add_full_cmd_map_katcp(m, "listener-create", "create a listener (?listener-create label [port [interface [group]]])", 0, &listener_create_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "listener-halt", "stop a listener (?listener-halt port)", 0, &listener_halt_group_cmd_katcp, NULL, NULL);
