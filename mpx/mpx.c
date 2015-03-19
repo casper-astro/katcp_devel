@@ -20,11 +20,17 @@
 
 #define FLAG_DEAD       0x80
 
+#define FLAG_NET      0x1000
+#define FLAG_EXEC     0x2000
+#define FLAG_STREAM   0x4000  /* can not be re-opened ? */
+
+
 struct mpx_input
 {
   struct katcl_line *i_line;
   unsigned int i_flags;
-  char *i_name;
+  char *i_label;
+  char *i_actual;
 };
 
 struct mpx_state
@@ -46,7 +52,7 @@ void destroy_input(struct mpx_state *s, struct mpx_input *mi);
 void destroy_state(struct mpx_state *s);
 
 struct mpx_state *create_state();
-int add_input(struct mpx_state *s, int fd, unsigned int flags, char *label);
+int add_input(struct mpx_state *s, int fd, unsigned int flags, char *label, char *actual);
 
 /***********************************************************/
 
@@ -144,14 +150,60 @@ void destroy_input(struct mpx_state *s, struct mpx_input *mi)
     mi->i_line = NULL;
   }
 
-  if(mi->i_name){
-    free(mi->i_name);
+  if(mi->i_label){
+    free(mi->i_label);
+    mi->i_label = NULL;
+  }
+
+  if(mi->i_actual){
+    free(mi->i_actual);
+    mi->i_actual = NULL;
   }
 
   free(mi);
 }
 
-int add_input(struct mpx_state *s, int fd, unsigned int flags, char *label)
+int resurrect_input(struct mpx_state *s, struct mpx_input *mi)
+{
+  int fd;
+
+  if((mi->i_flags & FLAG_DEAD) == 0){ 
+    return 0;
+  }
+
+  if(mi->i_actual == NULL){
+    return -1;
+  }
+
+  if(mi->i_line){
+    destroy_katcl(mi->i_line, 1);
+    mi->i_line = NULL;
+  }
+
+  if(mi->i_flags & FLAG_NET){
+    fd = net_connect(mi->i_actual, 0, 0);
+    if(fd < 0){
+      return -1;
+    }
+
+    mi->i_line = create_katcl(fd);
+    if(mi->i_line == NULL){
+      return -1;
+    }
+
+    mi->i_flags = mi->i_flags & (~FLAG_DEAD);
+
+    return 0;
+  }
+
+  /* TODO: for FLAG_EXEC attempt to restart process - requires strexec or similar ? */
+
+  /* else for FLAG_STREAM unsupported way of restarting things */
+
+  return -1;
+}
+
+int add_input(struct mpx_state *s, int fd, unsigned int flags, char *label, char *actual)
 {
   struct mpx_input **tmp, *mi;
   struct katcl_line *l;
@@ -189,7 +241,8 @@ int add_input(struct mpx_state *s, int fd, unsigned int flags, char *label)
 
   mi->i_line = NULL;
   mi->i_flags = FLAG_DEAD;
-  mi->i_name = NULL;
+  mi->i_label = NULL;
+  mi->i_actual = NULL;
 
   l = create_katcl(fd);
   if(l == NULL){
@@ -198,8 +251,16 @@ int add_input(struct mpx_state *s, int fd, unsigned int flags, char *label)
   }
 
   if(label){
-    mi->i_name = strdup(label);
-    if(mi->i_name == NULL){
+    mi->i_label = strdup(label);
+    if(mi->i_label == NULL){
+      destroy_input(s, mi);
+      return -1;
+    }
+  }
+
+  if(actual){
+    mi->i_actual = strdup(actual);
+    if(mi->i_actual == NULL){
       destroy_input(s, mi);
       return -1;
     }
@@ -228,7 +289,7 @@ int request_change_input(struct mpx_state *ms, char *arg)
   target = (-1);
 
   if(ms->s_symbolic){
-    for(i = 0; (i < ms->s_count) && strcmp(arg, ms->s_vector[i]->i_name); i++);
+    for(i = 0; (i < ms->s_count) && strcmp(arg, ms->s_vector[i]->i_label); i++);
     target = i;
   } else {
     target = strtoul(arg, &end, 10);
@@ -246,7 +307,8 @@ int request_change_input(struct mpx_state *ms, char *arg)
   }
 
   mt = ms->s_vector[target];
-  if(mt->i_flags & FLAG_DEAD){
+
+  if(resurrect_input(ms, mt) < 0){
     return -1;
   }
 
@@ -381,7 +443,7 @@ int handle_io_failure(struct mpx_state *ms, struct mpx_input *mi, char *reason)
     ms->s_switch[0] = KATCP_INFORM;
 
     append_string_katcl(mt->i_line, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, ms->s_switch);
-    append_string_katcl(mt->i_line, KATCP_FLAG_LAST | KATCP_FLAG_STRING, mf->i_name);
+    append_string_katcl(mt->i_line, KATCP_FLAG_LAST | KATCP_FLAG_STRING, mf->i_label);
 
     ms->s_select = ms->s_fall;
   }
@@ -772,7 +834,7 @@ int main(int argc, char **argv)
           if(j == 1){
             sleep(1);
 
-            if(add_input(ms, STDIN_FILENO, flags, label ? label : "-") < 0){
+            if(add_input(ms, STDIN_FILENO, flags | FLAG_STREAM, label ? label : "-", NULL) < 0){
               fprintf(stderr, "%s: unable to add standard stream\n", app);
               return EX_UNAVAILABLE;
             }
@@ -801,7 +863,7 @@ int main(int argc, char **argv)
             return EX_UNAVAILABLE;
           }
 
-          if(add_input(ms, fd, flags, label ? label : remote) < 0){
+          if(add_input(ms, fd, flags | FLAG_NET, label ? label : remote, remote) < 0){
             fprintf(stderr, "%s: unable to add %s\n", app, remote);
             return EX_UNAVAILABLE;
           }
@@ -821,7 +883,7 @@ int main(int argc, char **argv)
             return EX_UNAVAILABLE;
           }
 
-          if(add_input(ms, fd, flags, label ? label : argv[i]) < 0){
+          if(add_input(ms, fd, flags | FLAG_EXEC, label ? label : argv[i], NULL) < 0){
             fprintf(stderr, "%s: unable to add %s\n", app, argv[i]);
             return EX_UNAVAILABLE;
           }
