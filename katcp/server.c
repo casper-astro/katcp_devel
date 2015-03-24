@@ -658,7 +658,7 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
 #endif
 
     /* delta now timespec, not timeval */
-    result = pselect(s->s_max + 1, &(s->s_read), &(s->s_write), NULL, suspend ? NULL : &delta, &(s->s_mask_current));
+    result = pselect(s->s_max + 1, &(s->s_read), &(s->s_write), NULL, suspend ? NULL : &delta, &(s->s_signal_mask));
 #ifdef DEBUG
     fprintf(stderr, "multi: select=%d, used=%d\n", result, s->s_used);
 #endif
@@ -692,6 +692,11 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
 #ifdef KATCP_SUBPROCESS
       wait_jobs_katcp(dl);
 #endif
+    }
+
+    if(term_signal_shared_katcp(s) < 0){
+      log_message_katcp(dl, KATCP_LEVEL_INFO, NULL, "server terminated by signal");
+      run = (-1);
     }
 
 #ifdef KATCP_EXPERIMENTAL

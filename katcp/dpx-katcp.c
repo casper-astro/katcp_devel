@@ -530,6 +530,8 @@ int restart_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "restart request from %s", fx->f_name ? fx->f_name : "<unknown party>");
+
   switch(fx->f_scope){
     case KATCP_SCOPE_SINGLE :
       if(terminate_flat_katcp(d, fx) < 0){
@@ -565,6 +567,8 @@ int halt_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no client data available, probably called in incorrect context");
     return KATCP_RESULT_FAIL;
   }
+
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "halt request from %s", fx->f_name ? fx->f_name : "<unknown party>");
 
   switch(fx->f_scope){
     case KATCP_SCOPE_SINGLE :

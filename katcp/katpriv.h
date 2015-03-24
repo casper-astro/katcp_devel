@@ -775,8 +775,9 @@ struct katcp_shared{
   struct katcp_version **s_versions;
   unsigned int s_amount;
 
-  sigset_t s_mask_current, s_mask_previous;
-  struct sigaction s_action_current, s_action_previous;
+  sigset_t s_signal_mask;
+  struct sigaction s_child_current, s_child_previous;
+  struct sigaction s_term_current, s_term_previous;
   int s_restore_signals;
 
   fd_set s_read, s_write;
@@ -957,6 +958,7 @@ void forget_nonsense_katcp(struct katcp_dispatch *d, unsigned int index);
 /* how long to sleep between checks in nanoseconds */
 #define KATCP_WAITPID_POLL   250000000UL
 
+int term_signal_shared_katcp(struct katcp_shared *s);
 int child_signal_shared_katcp(struct katcp_shared *s);
 
 int reap_children_shared_katcp(struct katcp_dispatch *d, pid_t pid, int force);

@@ -31,6 +31,18 @@ static void handle_child_shared(int signal)
   child_signal_shared++;
 }
 
+#ifdef KATCP_TRAP_TERM
+static volatile int halt_signal_shared = 0;
+
+static void handle_halt_shared(int signal)
+{
+#ifdef DEBUG
+  fprintf(stderr, "received halt signal %d\n", signal);
+#endif
+  halt_signal_shared++;
+}
+#endif
+
 #ifdef DEBUG
 void sane_shared_katcp(struct katcp_dispatch *d)
 {
@@ -94,26 +106,58 @@ int child_signal_shared_katcp(struct katcp_shared *s)
   return 1;
 }
 
+int term_signal_shared_katcp(struct katcp_shared *s)
+{
+#ifdef KATCP_TRAP_TERM
+  if(halt_signal_shared == 0){
+    return 0;
+  }
+  
+  /* WARNING: needed - otherwise there will be continous IO because of log message output */
+  halt_signal_shared = 0; 
+
+  return -1;
+#else
+  return 0;
+#endif
+}
+
 int init_signals_shared_katcp(struct katcp_shared *s)
 {
+  sigset_t sset;
+
   if(s->s_restore_signals){ 
     /* already set up, thanks */
     return 0;
   }
 
-  /* block child processes, and remember old settings in mp */
-  sigprocmask(SIG_SETMASK, NULL, &(s->s_mask_current));
-  sigaddset(&(s->s_mask_current), SIGCHLD);
+  sigemptyset(&sset);
+  sigaddset(&sset, SIGCHLD);
+#ifdef KATCP_TRAP_TERM
+  sigaddset(&sset, SIGTERM);
+#endif
 
+  /* add to set of block signals, keep the old one around to restore later & during pselect */
+  sigprocmask(SIG_BLOCK, &sset, &(s->s_signal_mask));
+
+#if 0
   sigprocmask(SIG_SETMASK, &(s->s_mask_current), &(s->s_mask_previous));
 
   /* mask current is now empty again, suitable for use in pselect */
   sigdelset(&(s->s_mask_current), SIGCHLD);
+#endif
 
-  s->s_action_current.sa_handler = handle_child_shared;
-  s->s_action_current.sa_flags = 0;
-  sigemptyset(&(s->s_action_current.sa_mask));
-  sigaction(SIGCHLD, &(s->s_action_current), &(s->s_action_previous));
+  s->s_child_current.sa_handler = &handle_child_shared;
+  s->s_child_current.sa_flags = 0;
+  sigemptyset(&(s->s_child_current.sa_mask));
+  sigaction(SIGCHLD, &(s->s_child_current), &(s->s_child_previous));
+
+#ifdef KATCP_TRAP_TERM
+  s->s_term_current.sa_handler = &handle_halt_shared;
+  s->s_term_current.sa_flags = 0;
+  sigemptyset(&(s->s_term_current.sa_mask));
+  sigaction(SIGTERM, &(s->s_term_current), &(s->s_term_previous));
+#endif
 
   s->s_restore_signals = 1;
 
@@ -126,8 +170,13 @@ int undo_signals_shared_katcp(struct katcp_shared *s)
     return 0;
   }
 
-  sigaction(SIGCHLD, &(s->s_action_previous), NULL);
-  sigprocmask(SIG_BLOCK, &(s->s_mask_previous), NULL);
+#ifdef KATCP_TRAP_TERM
+  sigaction(SIGTERM, &(s->s_term_previous), NULL);
+#endif
+
+  sigaction(SIGCHLD, &(s->s_child_previous), NULL);
+
+  sigprocmask(SIG_BLOCK, &(s->s_signal_mask), NULL);
 
   s->s_restore_signals = 0;
 
