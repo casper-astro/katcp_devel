@@ -22,6 +22,7 @@
 
 struct totalstate{
   int t_verbose;
+  int t_infer;
   char *t_system;
 };
 
@@ -83,9 +84,9 @@ struct iostate *create_iostate(int fd, int level)
 
 int run_iostate(struct totalstate *ts, struct iostate *io, struct katcl_line *k)
 {
-  int rr, end;
+  int rr, end, fd, sw;
   unsigned char *tmp;
-  unsigned int may, i, discard;
+  unsigned int may, i;
 
   if(io->i_have >= io->i_size){
     tmp = realloc(io->i_buffer, sizeof(unsigned char) * io->i_size * 2);
@@ -119,17 +120,29 @@ int run_iostate(struct totalstate *ts, struct iostate *io, struct katcl_line *k)
   }
 
   io->i_have += rr;
-  discard = 0;
 
   for(i = io->i_done; i < io->i_have; i++){
     switch(io->i_buffer[i]){
       case '\r' :
       case '\n' :
         io->i_buffer[i] = '\0';
-        if(discard < i){
-          log_message_katcl(k, io->i_level, ts->t_system, "%s", io->i_buffer + discard);
+        if(io->i_done < i){
+#ifdef DEBUG
+          fprintf(stderr, "considering <%s> (infer=%d)\n", io->i_buffer + io->i_done, ts->t_infer);
+#endif
+          if((ts->t_infer > 0) && (strncmp(io->i_buffer + io->i_done, KATCP_LOG_INFORM " ", 5) == 0)){
+            fd = fileno_katcl(k);
+            io->i_buffer[i] = '\n';
+            sw = i - io->i_done + 1;
+            write(fd, io->i_buffer + io->i_done, sw);
+#ifdef DEBUG
+            fprintf(stderr, "attempting raw relay to fd=%d of %d bytes\n", fd, sw);
+#endif
+          } else {
+            log_message_katcl(k, io->i_level, ts->t_system, "%s", io->i_buffer + io->i_done);
+          }
         }
-        discard = i + 1;
+        io->i_done = i + 1;
         break;
       default :
         /* do nothing ... */
@@ -137,10 +150,11 @@ int run_iostate(struct totalstate *ts, struct iostate *io, struct katcl_line *k)
     }
   }
   
-  if(discard < io->i_have){
-    if(discard > 0){
-      memmove(io->i_buffer, io->i_buffer + discard, io->i_have - discard);
-      io->i_done -= discard;
+  if(io->i_done < io->i_have){
+    if(io->i_done > 0){
+      memmove(io->i_buffer, io->i_buffer + io->i_done, io->i_have - io->i_done);
+      io->i_have -= io->i_done;
+      io->i_done = 0;
     }
   } else {
     io->i_have = 0;
@@ -161,6 +175,7 @@ void usage(char *app)
   printf("-o level           specify the level for messages from standard output\n");
   printf("-s subsystem       specify the subsystem (overrides KATCP_LABEL)\n");
   printf("-i                 inhibit termination of subprocess on eof on standard input\n");
+  printf("-r                 forward raw #log messages unchanged\n");
 }
 
 static int tweaklevel(int verbose, int level)
@@ -279,6 +294,7 @@ int main(int argc, char **argv)
 
   ts->t_system = getenv("KATCP_LABEL");
   ts->t_verbose = 1;
+  ts->t_infer = 0;
 
   if(ts->t_system == NULL){
     ts->t_system = "run";
@@ -303,6 +319,11 @@ int main(int argc, char **argv)
 
         case 'i' : 
           terminate = 0;
+          j++;
+          break;
+
+        case 'r' : 
+          ts->t_infer = 1;
           j++;
           break;
 
