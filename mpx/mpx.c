@@ -773,6 +773,10 @@ int main(int argc, char **argv)
           verbose++;
           j++;
           break;
+        case 'q' : 
+          verbose = 0;
+          j++;
+          break;
 
         case 'd' : 
           detach = 1;
