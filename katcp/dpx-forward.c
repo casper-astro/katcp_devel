@@ -422,27 +422,25 @@ int complete_relay_generic_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   }
 #endif
 
-  if(is_reply_parse_katcl(px)){
-    prepend_reply_katcp(d);
+  if(is_inform_parse_katcl(px) && (fx->f_flags & KATCP_FLAT_RETAINFO)){
+    append_parse_katcp(d, px);
   } else {
-    prepend_inform_katcp(d);
-  }
+    if(is_inform_parse_katcl(px)){
+      prepend_inform_katcp(d);
+    } else {
+      prepend_reply_katcp(d);
+    }
 
-  if(get_count_parse_katcl(px) > 1){
-    append_trailing_katcp(d, KATCP_FLAG_LAST, px, 1);
-  } else {
-    /* treat px without any parameters as a failure */
-    append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, KATCP_FAIL);
+    if(get_count_parse_katcl(px) > 1){
+      append_trailing_katcp(d, KATCP_FLAG_LAST, px, 1);
+    } else {
+      if(is_inform_parse_katcl(px)){
+        append_end_katcp(d);
+      } else {
+        append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, KATCP_FAIL);
+      }
+    }
   }
-
-#if 0
-  /* TODO relay the response payload */
-  append_parse_katcp(d, px);
-
-  if(is_reply_ok_parse_katcl(px)){
-    return KATCP_RESULT_OK;
-  }
-#endif
 
   return KATCP_RESULT_OWN;
 }

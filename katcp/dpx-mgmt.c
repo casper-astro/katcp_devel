@@ -192,6 +192,10 @@ int client_config_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     set    = KATCP_FLAT_PREFIXED;
   } else if(!strcmp(option, "fixed")){
     mask   = KATCP_FLAT_PREFIXED;
+  } else if(!strcmp(option, "translate")){
+    mask   = KATCP_FLAT_RETAINFO;
+  } else if(!strcmp(option, "native")){
+    set    = KATCP_FLAT_RETAINFO;
   } else {
     /* WARNING: does not error out in an effort to be forward compatible */
     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unknown configuration option %s", option);

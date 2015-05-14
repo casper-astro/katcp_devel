@@ -404,6 +404,8 @@ static int print_client_list_katcp(struct katcp_dispatch *d, struct katcp_flat *
 
   log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "client %s %s prefix its name to sensor definitions", fx->f_name, (fx->f_flags & KATCP_FLAT_PREFIXED) ? "will" : "will not");
 
+  log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "client %s %s translate relayed inform messages", fx->f_name, (fx->f_flags & KATCP_FLAT_RETAINFO) ? "will not" : "will");
+
   ptr = string_from_scope_katcp(fx->f_scope);
   if(ptr){
     log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "client %s has %s scope", fx->f_name, ptr);

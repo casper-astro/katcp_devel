@@ -21,6 +21,10 @@
 #include <katcl.h>
 
 #if 0
+#define DEBUG 1
+#endif
+
+#if 0
 #define MAP_UNSET               (-1)
 #define MAP_INNER                 0
 #define MAP_REMOTE                1
