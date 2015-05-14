@@ -45,6 +45,9 @@ CFLAGS += -DKATCP_EXPERIMENTAL
 # keep older code 
 CFLAGS += -DKATCP_DEPRECATED
 
+# respond to trap TERM signal in main loop
+CFLAGS += -DKATCP_TRAP_TERM
+
 # inhibit sensor-{value,list} prefix matching, unless it is on a . boundary
 #CFLAGS += -DKATCP_STRICT_SENSOR_MATCH
 
@@ -64,7 +67,7 @@ CC = $(CROSS_COMPILE)gcc
 # C++ implements more finicky type checks... so this gives loads of warnings
 #CC = g++ -fpermissive
 
-GITVER = $(shell git describe --always --tags --dirty 2> /dev/null || echo unknown)
+GITVER = $(shell git describe --always --tags --long --dirty 2> /dev/null || echo unknown)
 
 INSTALL = install
 RM = rm -f
