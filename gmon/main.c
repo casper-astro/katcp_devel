@@ -101,7 +101,7 @@ int main(int argc, char *argv[])
     }
 
     sync_message_katcl(gmon.log, KATCP_LEVEL_INFO, GMON_PROG, 
-                        "starting %s...", GMON_PROG);
+                        "starting %s on server %s", GMON_PROG, server);
 
     /* main working loop */
     while (monitor) {
@@ -109,8 +109,7 @@ int main(int argc, char *argv[])
     }
 
     /* perform clean-up */
-    sync_message_katcl(gmon.log, KATCP_LEVEL_INFO, GMON_PROG, 
-                        "shutting down %s...", GMON_PROG);
+    sync_message_katcl(gmon.log, KATCP_LEVEL_INFO, GMON_PROG, "gateware monitor shutting down");
 
     /* free gmon sensor resources */
     gmon_destroy(&gmon);
@@ -118,10 +117,12 @@ int main(int argc, char *argv[])
     /* free server and logger */
     if (gmon.server) {
         destroy_katcl(gmon.server, 1);
+        gmon.server = NULL;
     }
 
     if (gmon.log) {
         destroy_katcl(gmon.log, 1);
+        gmon.log = NULL;
     }
 
     return EXIT_SUCCESS;

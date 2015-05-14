@@ -65,7 +65,7 @@ int gmon_task(struct gmon_lib *g)
 {
     fd_set readfds, writefds;
     struct timeval timeout;
-    int retval;
+    int retval, fd, mfd;
 
     if (g->server == NULL) {
         return -1;
@@ -76,39 +76,51 @@ int gmon_task(struct gmon_lib *g)
 
     FD_ZERO(&readfds);
     FD_ZERO(&writefds);
+
     timeout.tv_sec = g->polltime;;
     timeout.tv_usec = 0;
 
+    fd = fileno_katcl(g->server);
+    mfd = fd;
+
     /* check if there is server data to process */    
-    FD_SET(fileno_katcl(g->server), &readfds);
+    FD_SET(fd, &readfds);
 
     /* check if there is server data to write out */
     if (flushing_katcl(g->server)) {
-        FD_SET(fileno_katcl(g->server), &writefds);
+        FD_SET(fd, &writefds);
     }
 
     /* check if there is log data to write out */
     if (flushing_katcl(g->log)) {
-        FD_SET(fileno_katcl(g->log), &writefds);
+        fd = fileno_katcl(g->log);
+       
+        FD_SET(fd, &writefds);
+
+        if(mfd < fd){
+            mfd = fd;
+        }
     }
 
-    /* we know (fileno_katcl(g->server) + 1) will be the highest since fileno_katcl(k) 
-       return STDOUT_FILENO */
     if (g->state == GMON_FPGA_DOWN) {
         /* sleep indefinitely if the FPGA is not ready */
-        retval = select(fileno_katcl(g->server) + 1, &readfds, &writefds, NULL, NULL);
+        retval = select(mfd + 1, &readfds, &writefds, NULL, NULL);
     } else {
-        retval = select(fileno_katcl(g->server) + 1, &readfds, &writefds, NULL, &timeout);
+        retval = select(mfd + 1, &readfds, &writefds, NULL, &timeout);
     }
 
-    if (retval == -1 && errno != EINTR) {
-        perror("select()");
-        exit(EXIT_FAILURE);
-    } else if (retval == -1 && errno == EINTR) {
-        /* due to EINTR */
-        return 1;
+    if(retval < 0){
+        switch(errno){
+            case EAGAIN :
+            case EINTR  :
+                return 1;
+            default :
+                perror("select()");
+                exit(EXIT_FAILURE);
+                return -1;
+        }
     }
-     
+
     if (retval) {
         /* server data to process */
         if (FD_ISSET(fileno_katcl(g->server), &readfds)) {
