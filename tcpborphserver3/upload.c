@@ -1064,7 +1064,7 @@ int upload_program_cmd(struct katcp_dispatch *d, int argc)
     destroy_port_data_tbs(d, pd, 1);
     return KATCP_RESULT_FAIL;
   }
-      
+
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "awaiting transfer on port %d", pd->t_port);
 
   return KATCP_RESULT_OK;
