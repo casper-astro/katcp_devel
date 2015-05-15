@@ -1216,6 +1216,8 @@ void destroy_getap(struct katcp_dispatch *d, struct getap_state *gs)
     gs->s_mcast_fd = (-1);
   }
 
+  gs->s_mcast_count = 0;
+
   /* now ensure that things are invalidated */
 
   gs->s_raw_mode = NULL;
@@ -1372,6 +1374,7 @@ struct getap_state *create_getap(struct katcp_dispatch *d, unsigned int instance
   gs->s_tap_io = NULL;
   gs->s_tap_fd = (-1);
   gs->s_mcast_fd = (-1);
+  gs->s_mcast_count = 0;
 
   gs->s_timer = 0;
 
@@ -2025,8 +2028,10 @@ int tap_multicast_add_group_cmd(struct katcp_dispatch *d, int argc)
         log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to add multicast membership to 0x%08x on %s (%s)", start + i, name, strerror(errno));
         return KATCP_RESULT_FAIL;
       }
+
       
-      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "assigned group %s", inet_ntoa(grp.imr_multiaddr));
+      gs->s_mcast_count++;
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "assigned group %s (%d in total)", inet_ntoa(grp.imr_multiaddr), gs->s_mcast_count);
     }
     
   } else if (strncmp(mode, "send", 4) == 0){
@@ -2048,6 +2053,8 @@ int tap_multicast_add_group_cmd(struct katcp_dispatch *d, int argc)
       close(gs->s_mcast_fd);
       return KATCP_RESULT_FAIL;
     }
+
+    gs->s_mcast_count++;
     
   } else {
     log_message_katcp(d, KATCP_LEVEL_ERROR , NULL, "invalid mode <%s> [send | recv]", mode);
@@ -2072,14 +2079,13 @@ int tap_multicast_remove_group_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
-  if (argc < 3){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "usage tap-name multicast-address");
+  if (argc < 2){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "usage tap-name [multicast-address]");
     return KATCP_RESULT_FAIL;
   }
   
   name  = arg_string_katcp(d, 1);
-  grpip = arg_string_katcp(d, 2);
-  
+
   a = find_arb_katcp(d, name);
   if(a == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to locate %s", name);
@@ -2092,19 +2098,30 @@ int tap_multicast_remove_group_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
-  grp.imr_multiaddr.s_addr = inet_addr(grpip);
-  grp.imr_interface.s_addr = inet_addr(gs->s_address_name);
-  if (setsockopt(gs->s_mcast_fd, IPPROTO_IP, IP_DROP_MEMBERSHIP, (char *) &grp, sizeof(grp)) < 0){
-    //close(gs->s_mcast_fd);
-    //gs->s_mcast_fd = (-1);
-    //log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to drop multicast membership to %s on %s (%s)", grpip, name, strerror(errno));
-    //return KATCP_RESULT_FAIL;
+  if(argc >= 2){
+    grpip = arg_string_katcp(d, 2);
+    if(grpid){
+      grp.imr_multiaddr.s_addr = inet_addr(grpip);
+      grp.imr_interface.s_addr = inet_addr(gs->s_address_name);
+      if (setsockopt(gs->s_mcast_fd, IPPROTO_IP, IP_DROP_MEMBERSHIP, (char *) &grp, sizeof(grp)) < 0){
+        log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to drop multicast membership to %s on %s (%s)", grpip, name, strerror(errno));
+        //close(gs->s_mcast_fd);
+        //gs->s_mcast_fd = (-1);
+        //return KATCP_RESULT_FAIL;
+      } else {
+        if(gs->s_mcast_count > 0){
+          gs->s_mcast_count--;
+        }
+      }
+    }
+  } else {
+    gs->s_mcast_count = 0;
   }
   
-  close(gs->s_mcast_fd);
-  
-  gs->s_mcast_fd = (-1);
-
+  if(gs->s_mcast_count <= 0){
+    close(gs->s_mcast_fd);
+    gs->s_mcast_fd = (-1);
+  }
   
   return KATCP_RESULT_OK;
 } 
