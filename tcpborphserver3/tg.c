@@ -1,4 +1,3 @@
-#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -2090,8 +2089,11 @@ int tap_multicast_remove_group_cmd(struct katcp_dispatch *d, int argc)
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "usage tap-name [multicast-address]");
     return KATCP_RESULT_FAIL;
   }
+
+  name = arg_string_katcp(d, 1);
+
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "attempting to remove multicast subscription from device %s", name);
   
-  name  = arg_string_katcp(d, 1);
 
   a = find_arb_katcp(d, name);
   if(a == NULL){
@@ -2105,7 +2107,7 @@ int tap_multicast_remove_group_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
-  if(argc >= 2){
+  if(argc > 2){
     grpip = arg_string_katcp(d, 2);
     if(grpip){
       grp.imr_multiaddr.s_addr = inet_addr(grpip);
@@ -2120,8 +2122,12 @@ int tap_multicast_remove_group_cmd(struct katcp_dispatch *d, int argc)
           gs->s_mcast_count--;
         }
       }
+    } else {
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unable to acquire multicast group for %s", name);
+      return KATCP_RESULT_FAIL;
     }
   } else {
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "releasing all multicast subscriptions for %s", name);
     gs->s_mcast_count = 0;
   }
   
