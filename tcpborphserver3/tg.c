@@ -619,7 +619,7 @@ static uint32_t crc32_le(uint32_t crc, unsigned char *p, unsigned int len)
 static int write_frame_fpga(struct getap_state *gs, unsigned char *data, unsigned int len)
 {
   uint32_t buffer_sizes, tmp;
-  unsigned int actual, final;
+  unsigned int final, pad;
   struct katcp_dispatch *d;
   void *base;
 
@@ -634,15 +634,16 @@ static int write_frame_fpga(struct getap_state *gs, unsigned char *data, unsigne
       /* nothing to do */
       return 1;
     }
- 
-    /* pad out short packet */
-    memset(data + len, 0, MIN_FRAME - len);
-    actual = MIN_FRAME;
+    pad = MIN_FRAME;
   } else {
-    actual = len;
+    pad = len;
   }
 
-  final = ((actual + 4 + 7) / 8) * 8;
+  final = ((pad + 4 + 7) / 8) * 8;
+
+  if(len < (final - 4)){
+    memset(data + len, 0, final - 4);
+  }
 
   if(final > GETAP_MAX_FRAME){ /* subtract checksum */
     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "frame request %u exeeds limit %u", final, GETAP_MAX_FRAME);
@@ -673,9 +674,7 @@ static int write_frame_fpga(struct getap_state *gs, unsigned char *data, unsigne
   memcpy(base + GO_TXBUFFER, data, final);
 
   buffer_sizes = (buffer_sizes & 0xffff) | (0xffff0000 & ((final / 8) << 16));
-#if 0
-  buffer_sizes = (buffer_sizes & 0xffff) | (0xffff0000 & (((actual + 7) / 8) << 16));
-#endif
+
   *((uint32_t *)(base + GO_BUFFER_SIZES)) = buffer_sizes;
 
 #ifdef DEBUG
