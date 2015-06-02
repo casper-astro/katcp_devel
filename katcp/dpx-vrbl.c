@@ -2506,7 +2506,13 @@ int var_list_callback_katcp(struct katcp_dispatch *d, void *state, char *key, st
     return 0;
   }
 
-  py = vx->v_payload;
+  py = find_payload_katcp(d, vx, key);
+  if(py == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "variable: no matching payload field found for variable %s\n", key);
+#endif
+    return -1;
+  }
 
   ptr = malloc(BUFFER);
   if(ptr == NULL){
@@ -2550,7 +2556,7 @@ int var_list_callback_katcp(struct katcp_dispatch *d, void *state, char *key, st
   prepend_inform_katcp(d);
   append_string_katcp(d, KATCP_FLAG_STRING, key);
   append_string_katcp(d, KATCP_FLAG_STRING, ptr);
-  append_payload_vrbl_katcp(d, KATCP_FLAG_PRETTY | KATCP_FLAG_LAST, vx, NULL);
+  append_payload_vrbl_katcp(d, KATCP_FLAG_PRETTY | KATCP_FLAG_LAST, vx, py);
 
   free(ptr);
 
