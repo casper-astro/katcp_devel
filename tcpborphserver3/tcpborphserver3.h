@@ -54,7 +54,7 @@ unsigned int infer_fpga_range(struct katcp_dispatch *d);
 #define GETAP_IP_BUFFER         16
 #define GETAP_MAC_BUFFER        18
 #define GETAP_MAC_SIZE           6
-#define GETAP_ARP_FRAME         72
+#define GETAP_ARP_FRAME         72 /* needs to be round8(min_frame+4) */
 #define GETAP_MAX_FRAME       4096
 
 #define GETAP_ARP_CACHE        256
