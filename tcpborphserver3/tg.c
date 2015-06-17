@@ -74,6 +74,8 @@
 
 #define MIN_FRAME         64
 
+#define MAX_SUBNET        24
+
 #define IP_SIZE            4
 
 #define NAME_BUFFER       64
@@ -1374,6 +1376,7 @@ struct getap_state *create_getap(struct katcp_dispatch *d, unsigned int instance
   struct getap_state *gs; 
   unsigned int i;
   struct tbs_raw *tr;
+  char *ptr;
 
   gs = NULL;
 
@@ -1501,6 +1504,18 @@ struct getap_state *create_getap(struct katcp_dispatch *d, unsigned int instance
 
   strncpy(gs->s_address_name, ip, GETAP_IP_BUFFER);
   gs->s_address_name[GETAP_IP_BUFFER - 1] = '\0';
+
+  ptr = strchr(gs->s_address_name, '/');
+  if(ptr != NULL){
+    ptr[0] = '\0';
+    ptr++;
+    gs->s_subnet = atoi(ptr);
+    if((gs->s_subnet < MAX_SUBNET) || (gs->s_subnet > 30)){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "size problem of subnet /%u in %s", gs->s_subnet, ip);
+      destroy_getap(d, gs);
+      return NULL;
+    }
+  }
 
   if(gateway){
     strncpy(gs->s_gateway_name, gateway, GETAP_IP_BUFFER);
