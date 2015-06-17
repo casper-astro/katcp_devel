@@ -116,8 +116,23 @@ struct getap_state{
   unsigned int s_tx_len;
   unsigned int s_arp_len;
 
+  unsigned long s_tx_arp;
+  unsigned long s_tx_user;
+  unsigned long s_tx_error;
+
+  unsigned long s_rx_arp;
+  unsigned long s_rx_user;
+  unsigned long s_rx_error;
+
   unsigned char s_rxb[GETAP_MAX_FRAME];
   unsigned char s_txb[GETAP_MAX_FRAME];
+
+  unsigned int s_rx_big;
+  unsigned int s_rx_small;
+
+  unsigned int s_tx_big;
+  unsigned int s_tx_small;
+
   unsigned char s_arp_buffer[GETAP_ARP_FRAME];
 
   uint8_t s_arp_table[GETAP_ARP_CACHE][GETAP_MAC_SIZE];
