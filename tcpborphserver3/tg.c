@@ -64,17 +64,20 @@
 #define GO_BUFFER_SIZES 0x18
 #define GO_EN_RST_PORT  0x20
 
+#define GO_LINK_STATUS  0x24
+#define GO_SUBNET       0x38
+
+#define GO_TXBUFFER   0x1000
+#define GO_RXBUFFER   0x2000
+
+#define GO_ARPTABLE   0x3000
+
 #define MIN_FRAME         64
 
 #define IP_SIZE            4
 
 #define NAME_BUFFER       64
 #define CMD_BUFFER      1024
-
-#define GO_TXBUFFER   0x1000
-#define GO_RXBUFFER   0x2000
-
-#define GO_ARPTABLE   0x3000
 
 #define FRAME_TYPE1       12
 #define FRAME_TYPE2       13
@@ -567,6 +570,20 @@ void spam_arp(struct getap_state *gs)
   gs->s_iteration++;
 #endif
 
+}
+
+/* status from gateware *************************************************/
+
+static uint32_t link_status_fpga(struct getap_state *gs)
+{
+  uint32_t value;
+  void *base;
+
+  base = gs->s_raw_mode->r_map + gs->s_register->e_pos_base;
+
+  value = *((uint32_t *)(base + GO_LINK_STATUS));
+
+  return value;
 }
 
 /* transmit to gateware *************************************************/
@@ -1161,7 +1178,7 @@ int configure_fpga(struct getap_state *gs)
   value = in.s_addr;
 
   gs->s_address_binary = value; /* in network byte order */
-  gs->s_mask_binary = htonl(0xffffff00); /* fixed mask */
+  gs->s_mask_binary = htonl((0xffffffff << (32 - gs->s_subnet))); /* fixed mask */
   gs->s_network_binary = gs->s_mask_binary & gs->s_address_binary;
 
   gs->s_self = ntohl(~(gs->s_mask_binary) & gs->s_address_binary);
@@ -1394,6 +1411,7 @@ struct getap_state *create_getap(struct katcp_dispatch *d, unsigned int instance
   gs->s_gateway_name[0] = '\0';
   gs->s_mac_name[0] = '\0';
   gs->s_port = GO_DEFAULT_PORT;
+  gs->s_subnet = 24;
 
   gs->s_self = 0;
   gs->s_index = 1;
@@ -1446,6 +1464,17 @@ struct getap_state *create_getap(struct katcp_dispatch *d, unsigned int instance
 
   gs->s_tx_big = 0;
   gs->s_tx_small = GETAP_MAX_FRAME + 1;
+
+  gs->s_table_size = 1;
+  for(i = gs->s_subnet; i < 32; i++){
+    gs->s_table_size = gs->s_table_size * 2;
+  }
+
+  if((gs->s_table_size > GETAP_ARP_CACHE) || (gs->s_table_size < 4)){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "%u-2 stations in /%u subnet is unreasonable", gs->s_table_size, gs->s_subnet);
+    destroy_getap(d, gs);
+    return NULL;
+  }
 
   /* buffers, table */
 
@@ -1861,6 +1890,9 @@ static void tap_print_period_info(struct katcp_dispatch *d, char *prefix, unsign
 void tap_print_info(struct katcp_dispatch *d, struct getap_state *gs)
 {
   unsigned int i;
+  uint32_t link;
+
+  link = link_status_fpga(gs);
 
 #ifdef CANARY
   if(memcmp(gs->s_arp_table[0], canary_const, 6)){
@@ -1881,6 +1913,7 @@ void tap_print_info(struct katcp_dispatch *d, struct getap_state *gs)
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "polling interval %ums", gs->s_timer);
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "max reads per interval %u", gs->s_burst);
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "address %s", gs->s_address_name);
+  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "subnet is /%u with %u-2 stations", gs->s_subnet, gs->s_table_size);
   if(gs->s_gateway_name[0] != '\0'){
     log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "fabric gateway %s", gs->s_gateway_name);
   }
@@ -1903,6 +1936,7 @@ void tap_print_info(struct katcp_dispatch *d, struct getap_state *gs)
 
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "RX arp=%lu user=%lu error=%lu total=%lu", gs->s_rx_arp, gs->s_rx_user, gs->s_rx_error, gs->s_rx_arp + gs->s_rx_user);
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "RX sizes smallest=%u biggest=%u", gs->s_rx_small, gs->s_rx_big);
+  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "link status word is 0x%08x", link);
 
   prepend_inform_katcp(d);
   append_string_katcp(d, KATCP_FLAG_STRING, gs->s_tap_name);

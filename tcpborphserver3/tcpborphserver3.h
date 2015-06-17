@@ -80,6 +80,7 @@ struct getap_state{
   char s_mac_name[GETAP_MAC_BUFFER];
 
   unsigned short s_port;
+  unsigned int s_subnet;
 
   unsigned int s_self;
   unsigned int s_index;
@@ -133,10 +134,13 @@ struct getap_state{
   unsigned int s_tx_big;
   unsigned int s_tx_small;
 
+  unsigned int s_table_size;
+
   unsigned char s_arp_buffer[GETAP_ARP_FRAME];
 
   uint8_t s_arp_table[GETAP_ARP_CACHE][GETAP_MAC_SIZE];
   uint32_t s_arp_fresh[GETAP_ARP_CACHE];
+
 };
 
 #define TBS_FPGA_DOWN        0
