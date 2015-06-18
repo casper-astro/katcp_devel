@@ -2095,6 +2095,14 @@ int tap_ip_config_cmd(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
+  strncpy(gs->s_address_name, ip, GETAP_IP_BUFFER);
+  gs->s_address_name[GETAP_IP_BUFFER - 1] = '\0';
+
+  if(gateway){
+    strncpy(gs->s_gateway_name, gateway, GETAP_IP_BUFFER);
+    gs->s_gateway_name[GETAP_IP_BUFFER - 1] = '\0';
+  }
+
   if(configure_ip_fpga(gs) < 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to make requested changes for %s", name);
     return KATCP_RESULT_FAIL;
