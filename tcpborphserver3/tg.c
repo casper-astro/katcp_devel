@@ -1046,18 +1046,20 @@ int run_timer_tap(struct katcp_dispatch *d, void *data)
               mode_arb_katcp(d, a, KATCP_ARB_READ | KATCP_ARB_WRITE);
               run = 0; /* don't bother getting more if we can't send it on */
             }
+            gs->s_rx_user++;
             break;
 
           case 0x06 : /* arp packet */
             
             result = process_arp(gs);
             if(result == 0){
+              gs->s_rx_arp++;
               run = 0; /* arp reply stalled, wait ... */
             } else {
               if(result < 0){
                 gs->s_rx_error++;
               } else {
-                gs->s_rx_arp = 0;
+                gs->s_rx_arp++;
               }
             }
             forget_receive(gs);
