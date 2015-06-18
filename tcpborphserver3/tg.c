@@ -35,7 +35,7 @@
 #define SMALL_DELAY           10 /* wait this long before announcing ourselves, after arp reply */
 
 #define SPAM_INITIAL           5 /* how often we spam an address initially */
-#define SPAM_FINAL         12000 /* rate at which we end up */
+#define SPAM_FINAL         21000 /* rate at which we end up */
 #define SPAM_STEP            700 /* amount by which we increment */
 
 #if 0
@@ -269,6 +269,7 @@ int set_entry_arp(struct getap_state *gs, unsigned int index, const uint8_t *mac
 void glean_arp(struct getap_state *gs, uint8_t *mac, uint8_t *ip)
 {
   uint32_t v;
+  unsigned int index;
 
   v = ((ip[0] << 24) & 0xff000000) | 
       ((ip[1] << 16) & 0xff0000) |
@@ -283,6 +284,8 @@ void glean_arp(struct getap_state *gs, uint8_t *mac, uint8_t *ip)
     return;
   }
 
+  index = ip[3];
+
   if((v & gs->s_mask_binary) != gs->s_network_binary){
 #ifdef DEBUG
     fprintf(stderr, "glean: not my network 0x%08x != 0x%08x\n", v & gs->s_mask_binary, gs->s_network_binary);
@@ -291,10 +294,10 @@ void glean_arp(struct getap_state *gs, uint8_t *mac, uint8_t *ip)
   }
 
 #ifdef DEBUG
-  fprintf(stderr, "glean: adding entry %d\n", ip[3]);
+  fprintf(stderr, "glean: adding entry %d\n", index);
 #endif
 
-  set_entry_arp(gs, ip[3], mac, gs->s_valid_period);
+  set_entry_arp(gs, ip[3], mac, gs->s_valid_period + (gs->s_table_size - ((index > gs->s_self) ? (index - gs->s_self) : (gs->s_self - index))));
 }
 
 void announce_arp(struct getap_state *gs)
