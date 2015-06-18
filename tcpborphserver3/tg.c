@@ -256,7 +256,7 @@ int set_entry_arp(struct getap_state *gs, unsigned int index, const uint8_t *mac
 #endif
 
   if(index > GETAP_ARP_CACHE){
-    log_message_katcp(gs->s_dispatch, KATCP_LEVEL_WARN, NULL, "logic failure: attempting to set entry %u/%d", index, GETAP_ARP_CACHE);
+    log_message_katcp(gs->s_dispatch, KATCP_LEVEL_WARN, NULL, "logic failure: attempting to set entry %u/%d", index, gs->s_table_size);
     return -1;
   }
 
@@ -1133,9 +1133,64 @@ int run_io_tap(struct katcp_dispatch *d, struct katcp_arb *a, unsigned int mode)
 
 /* configure fpga *******************************************************/
 
-int configure_fpga(struct getap_state *gs)
+int configure_ip_fpga(struct getap_state *gs)
 {
   struct in_addr in;
+  uint32_t value;
+  void *base;
+  struct katcp_dispatch *d;
+  char *ptr;
+
+  sane_gs(gs);
+
+  d = gs->s_dispatch;
+  base = gs->s_raw_mode->r_map + gs->s_register->e_pos_base;
+
+  /* TODO: make this atomic/transactional - only write values when happy with all of them */
+
+  ptr = strchr(gs->s_address_name, '/');
+  if(ptr != NULL){
+    ptr[0] = '\0';
+    ptr++;
+    gs->s_subnet = atoi(ptr);
+    if((gs->s_subnet < MAX_SUBNET) || (gs->s_subnet > 30)){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "size problem of subnet /%u in %s", gs->s_subnet, gs->s_address_name);
+      return -1;
+    }
+  }
+
+  if(inet_aton(gs->s_address_name, &in) == 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse %s to ip address", gs->s_address_name);
+    return -1;
+  }
+  if(sizeof(in.s_addr) != 4){
+    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "major logic problem: ip address not 4 bytes");
+    return -1;
+  }
+
+  value = in.s_addr;
+  *((uint32_t *)(base + GO_ADDRESS)) = value;
+  gs->s_address_binary = value; /* in network byte order */
+
+  gs->s_mask_binary = htonl((0xffffffff << (32 - gs->s_subnet))); 
+  gs->s_network_binary = gs->s_mask_binary & gs->s_address_binary;
+  gs->s_self = ntohl(~(gs->s_mask_binary) & gs->s_address_binary);
+
+  if(gs->s_gateway_name[0] != '\0'){
+    if(inet_aton(gs->s_gateway_name, &in) == 0){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse gateway %s to ip address", gs->s_gateway_name);
+      return -1;
+    }
+    value = (in.s_addr) & 0xff; /* WARNING: unclear why this has to be masked */
+
+    *((uint32_t *)(base + GO_GATEWAY)) = value;
+  }
+
+  return 0;
+}
+
+int configure_fpga(struct getap_state *gs)
+{
   uint32_t value;
   unsigned int i;
   void *base;
@@ -1159,14 +1214,22 @@ int configure_fpga(struct getap_state *gs)
   gs->s_txb[FRAME_TYPE1] = 0x08;
   gs->s_txb[FRAME_TYPE2] = 0x00;
 
-  if(gs->s_gateway_name[0] != '\0'){
-    if(inet_aton(gs->s_gateway_name, &in) == 0){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse gateway %s to ip address", gs->s_gateway_name);
+  /* remove later with configure ip */
+  if(configure_ip_fpga(gs) < 0){
+    return -1;
+  }
+
+#if 0
+
+  ptr = strchr(gs->s_address_name, '/');
+  if(ptr != NULL){
+    ptr[0] = '\0';
+    ptr++;
+    gs->s_subnet = atoi(ptr);
+    if((gs->s_subnet < MAX_SUBNET) || (gs->s_subnet > 30)){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "size problem of subnet /%u in %s", gs->s_subnet, ip);
       return -1;
     }
-    value = (in.s_addr) & 0xff; /* WARNING: unclear why this has to be masked */
-
-    *((uint32_t *)(base + GO_GATEWAY)) = value;
   }
 
   if(inet_aton(gs->s_address_name, &in) == 0){
@@ -1186,6 +1249,18 @@ int configure_fpga(struct getap_state *gs)
   gs->s_self = ntohl(~(gs->s_mask_binary) & gs->s_address_binary);
 
   *((uint32_t *)(base + GO_ADDRESS)) = value;
+
+  if(gs->s_gateway_name[0] != '\0'){
+    if(inet_aton(gs->s_gateway_name, &in) == 0){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse gateway %s to ip address", gs->s_gateway_name);
+      return -1;
+    }
+    value = (in.s_addr) & 0xff; /* WARNING: unclear why this has to be masked */
+
+    *((uint32_t *)(base + GO_GATEWAY)) = value;
+  }
+
+#endif
 
   /* assumes plain big endian value */
   /* Bitmask: 24   : Reset core */
@@ -1376,7 +1451,6 @@ struct getap_state *create_getap(struct katcp_dispatch *d, unsigned int instance
   struct getap_state *gs; 
   unsigned int i;
   struct tbs_raw *tr;
-  char *ptr;
 
   gs = NULL;
 
@@ -1504,18 +1578,6 @@ struct getap_state *create_getap(struct katcp_dispatch *d, unsigned int instance
 
   strncpy(gs->s_address_name, ip, GETAP_IP_BUFFER);
   gs->s_address_name[GETAP_IP_BUFFER - 1] = '\0';
-
-  ptr = strchr(gs->s_address_name, '/');
-  if(ptr != NULL){
-    ptr[0] = '\0';
-    ptr++;
-    gs->s_subnet = atoi(ptr);
-    if((gs->s_subnet < MAX_SUBNET) || (gs->s_subnet > 30)){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "size problem of subnet /%u in %s", gs->s_subnet, ip);
-      destroy_getap(d, gs);
-      return NULL;
-    }
-  }
 
   if(gateway){
     strncpy(gs->s_gateway_name, gateway, GETAP_IP_BUFFER);
@@ -1722,7 +1784,8 @@ void tap_reload_arp(struct katcp_dispatch *d, struct getap_state *gs)
 #endif
     gs->s_arp_fresh[i] = gs->s_iteration + (2 + ((gs->s_self + (i * COPRIME_C)) % (GETAP_ARP_CACHE / CACHE_DIVISOR)));
   }
-  gs->s_arp_fresh[gs->s_self] = gs->s_iteration;
+
+  set_entry_arp(gs, gs->s_self, gs->s_mac_binary, 1);
 
   /* WARNING: probably bad form - should clear everything or nothing */
   gs->s_rx_arp = 0;
@@ -1994,6 +2057,52 @@ int tap_info_cmd(struct katcp_dispatch *d, int argc)
   log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no active tap instance %s found", name);
 
   return KATCP_RESULT_FAIL;
+}
+
+int tap_ip_config_cmd(struct katcp_dispatch *d, int argc)
+{
+  struct katcp_arb *a;
+  char *name, *ip, *gateway;
+  struct getap_state *gs;
+
+  gateway = NULL;
+  ip = NULL;
+  name = NULL;
+
+  if(argc < 2){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need at least a device name and ip address");
+    return KATCP_RESULT_INVALID;
+  }
+
+  name = arg_string_katcp(d, 1);
+  ip = arg_string_katcp(d, 2);
+  gateway = arg_string_katcp(d, 3);
+
+  if((name == NULL) || (ip == NULL)){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire essential parameters");
+    return KATCP_RESULT_INVALID;
+  }
+
+  a = find_arb_katcp(d, name);
+  if(a == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to locate %s", name);
+    return KATCP_RESULT_FAIL;
+  }
+
+  gs = data_arb_katcp(d, a);
+  if(gs == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no user state found for %s", name);
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(configure_ip_fpga(gs) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to make requested changes for %s", name);
+    return KATCP_RESULT_FAIL;
+  }
+
+  tap_reload_arp(d, gs);
+
+  return KATCP_RESULT_OK;
 }
 
 int is_power_of_two(unsigned int value)
