@@ -204,13 +204,15 @@ int text_to_mac(uint8_t *binary, const char *text)
 static unsigned int compute_spam_rate(struct getap_state *gs, unsigned int index)
 {
   /* WARNING: better make sure this array is actually the correct size */
-  unsigned int third, value;
+  unsigned int third, extra, value;
 
   if(gs->s_spam_period[GETAP_PERIOD_CURRENT] >= gs->s_spam_period[GETAP_PERIOD_STOP]){
-    return gs->s_spam_period[GETAP_PERIOD_STOP];
+    gs->s_spam_period[GETAP_PERIOD_CURRENT] = gs->s_spam_period[GETAP_PERIOD_STOP];
   }
 
-  third = gs->s_spam_period[GETAP_PERIOD_CURRENT] / 3;
+  third = (gs->s_spam_period[GETAP_PERIOD_CURRENT] / 3);
+  extra = (third / gs->s_table_size) * index;
+
   if(third <= 0){
     third = 1;
   }
@@ -219,7 +221,7 @@ static unsigned int compute_spam_rate(struct getap_state *gs, unsigned int index
   value = (2 + (((index + array[GETAP_PERIOD_CURRENT]) * COPRIME_C) % 3) ? 1 : 0) * third;
 #endif
 
-  value = (2 + (((index * index * COPRIME_A) + (index * COPRIME_B) + (gs->s_self * gs->s_spam_period[GETAP_PERIOD_CURRENT])) % 3) ? 1 : 0) * third;
+  value = (2 * third) + ((((index * COPRIME_A) + (gs->s_iteration * COPRIME_B) + (gs->s_self * gs->s_spam_period[GETAP_PERIOD_CURRENT])) % 3) ? extra : third);
   
   return value;
 }
@@ -502,13 +504,14 @@ int process_arp(struct getap_state *gs)
 #ifdef DEBUG
       fprintf(stderr, "arp: saw request\n");
 #endif
-      glean_arp(gs, gs->s_rxb + SIZE_FRAME_HEADER + ARP_SHA_BASE, gs->s_rxb + SIZE_FRAME_HEADER + ARP_SIP_BASE);
       if(!memcmp(gs->s_rxb + SIZE_FRAME_HEADER + ARP_TIP_BASE, &(gs->s_address_binary), 4)){
 #ifdef DEBUG
         fprintf(stderr, "arp: somebody is looking for me\n");
 #endif
         return reply_arp(gs);
       } else {
+        gs->s_x_glean++;
+        glean_arp(gs, gs->s_rxb + SIZE_FRAME_HEADER + ARP_SHA_BASE, gs->s_rxb + SIZE_FRAME_HEADER + ARP_SIP_BASE);
         return 1;
       }
     default :
@@ -1388,6 +1391,10 @@ void destroy_getap(struct katcp_dispatch *d, struct getap_state *gs)
 
   gs->s_magic = 0;
 
+  gs->s_x_glean = (-1);
+  gs->s_rx_error = (-1);
+  gs->s_tx_error = (-1);
+
   free(gs);
 }
 
@@ -1546,6 +1553,8 @@ struct getap_state *create_getap(struct katcp_dispatch *d, unsigned int instance
 
   gs->s_tx_big = 0;
   gs->s_tx_small = GETAP_MAX_FRAME + 1;
+
+  gs->s_x_glean = 0;
 
   gs->s_table_size = 1;
   for(i = gs->s_subnet; i < 32; i++){
@@ -2019,6 +2028,7 @@ void tap_print_info(struct katcp_dispatch *d, struct getap_state *gs)
 
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "RX arp=%lu user=%lu error=%lu total=%lu", gs->s_rx_arp, gs->s_rx_user, gs->s_rx_error, gs->s_rx_arp + gs->s_rx_user);
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "RX sizes smallest=%u biggest=%u", gs->s_rx_small, gs->s_rx_big);
+  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "arp requests used to glean stations %u", gs->s_x_glean);
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "link status word is 0x%08x", link);
 
   prepend_inform_katcp(d);

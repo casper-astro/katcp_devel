@@ -134,6 +134,8 @@ struct getap_state{
   unsigned int s_tx_big;
   unsigned int s_tx_small;
 
+  unsigned int s_x_glean;
+
   unsigned int s_table_size;
 
   unsigned char s_arp_buffer[GETAP_ARP_FRAME];
