@@ -800,24 +800,27 @@ int transmit_ip_fpga(struct getap_state *gs)
 
   } else {
 
-    memcpy(&target, &(gs->s_txb[SIZE_FRAME_HEADER + IP_DEST1]), 4);
+    memcpy(&value, &(gs->s_txb[SIZE_FRAME_HEADER + IP_DEST1]), 4);
 
-    value = ntohl(target);
-
-    if((value & gs->s_mask_binary) == (gs->s_network_binary)){ /* on same subnet */
-      index = value & (~(gs->s_mask_binary));
-    } else { /* go via gateway */
-      if(gs->s_gateway_binary){
-        index = gs->s_gateway_binary & (~(gs->s_mask_binary));
-      } else {
-        gs->s_tx_error++;
-        return -1;
+    if(gs->s_address_binary != 0){
+      if((value & gs->s_mask_binary) == (gs->s_network_binary)){ /* on same subnet */
+        index = ntohl(value & (~(gs->s_mask_binary)));
+      } else { /* go via gateway */
+        if(gs->s_gateway_binary){
+          index = ntohl(gs->s_gateway_binary & (~(gs->s_mask_binary)));
+        } else {
+          gs->s_tx_error++;
+          return -1;
+        }
       }
+      if(index > gs->s_table_size){
+        index = 0;
+      }
+      mac = gs->s_arp_table[index];
+      memcpy(gs->s_txb, mac, GETAP_MAC_SIZE);
+    } else {
+      memcpy(gs->s_txb, broadcast_const, GETAP_MAC_SIZE);
     }
-
-    mac = gs->s_arp_table[index];
-    memcpy(gs->s_txb, mac, GETAP_MAC_SIZE);
-
   }
 
 #ifdef DEBUG
