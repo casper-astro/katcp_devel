@@ -106,14 +106,8 @@
 
 #define GS_MAGIC  0x490301fc
 
-#define CANARY     
-
 static const uint8_t arp_const[] = { 0, 1, 8, 0, 6, 4, 0 }; /* disgusting */
 static const uint8_t broadcast_const[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
-
-#ifdef CANARY
-static const uint8_t canary_const[] = { 0x45, 0xee, 0xc7, 0x08, 0x01, 0xf0 };
-#endif
 
 /************************************************************************/
 
@@ -1261,11 +1255,6 @@ int configure_fpga(struct getap_state *gs)
 
   set_entry_arp(gs, gs->s_self, gs->s_mac_binary, 1);
 
-#ifdef CANARY
-  memcpy(gs->s_arp_table[0], canary_const, 6);
-  memcpy(gs->s_arp_table[GETAP_ARP_CACHE - 1], canary_const, 6);
-#endif
-
   return 0;
 }
 
@@ -1953,16 +1942,8 @@ void tap_print_info(struct katcp_dispatch *d, struct getap_state *gs)
 
   link = link_status_fpga(gs);
 
-#ifdef CANARY
-  if(memcmp(gs->s_arp_table[0], canary_const, 6)){
-    log_message_katcp(gs->s_dispatch, KATCP_LEVEL_ERROR, NULL, "bad canary at start of table %02x:%02x:%02x:%02x:%02x:%02x", gs->s_arp_table[0][0], gs->s_arp_table[0][1], gs->s_arp_table[0][2], gs->s_arp_table[0][3], gs->s_arp_table[0][4], gs->s_arp_table[0][5]);
-  }
-  if(memcmp(gs->s_arp_table[GETAP_ARP_CACHE - 1], canary_const, 6)){
-    log_message_katcp(gs->s_dispatch, KATCP_LEVEL_ERROR, NULL, "bad canary at end of table %02x:%02x:%02x:%02x:%02x:%02x", gs->s_arp_table[GETAP_ARP_CACHE - 1][0], gs->s_arp_table[GETAP_ARP_CACHE - 1][1], gs->s_arp_table[GETAP_ARP_CACHE - 1][2], gs->s_arp_table[GETAP_ARP_CACHE - 1][3], gs->s_arp_table[GETAP_ARP_CACHE - 1][4], gs->s_arp_table[GETAP_ARP_CACHE - 1][5]);
-  }
-#endif
-
-  for(i = 1; i < (GETAP_ARP_CACHE - 1); i++){
+  /* WARNING: probably abusing the subnet table entry (0) horribly to display a mac address for 0.0.0.0, normally we should always start at 1 */
+  for(i = ((gs->s_self <= 0) ? 0 : 1); i < (GETAP_ARP_CACHE - 1); i++){
     log_message_katcp(gs->s_dispatch, memcmp(gs->s_arp_table[i], broadcast_const, 6) ? KATCP_LEVEL_INFO : KATCP_LEVEL_TRACE, NULL, "%s %02x:%02x:%02x:%02x:%02x:%02x at index %u valid for %ums", (gs->s_self == i) ? "self" : "peer", gs->s_arp_table[i][0], gs->s_arp_table[i][1], gs->s_arp_table[i][2], gs->s_arp_table[i][3], gs->s_arp_table[i][4], gs->s_arp_table[i][5], i, (gs->s_arp_fresh[i] - gs->s_iteration) * POLL_INTERVAL);
   }
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "current index %u", gs->s_index);
