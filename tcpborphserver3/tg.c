@@ -800,14 +800,14 @@ int transmit_ip_fpga(struct getap_state *gs)
 
   } else {
 
-    memcpy(&target, gs->s_txb[SIZE_FRAME_HEADER + IP_DEST1]);
+    memcpy(&target, &(gs->s_txb[SIZE_FRAME_HEADER + IP_DEST1]), 4);
 
     value = ntohl(target);
 
     if((value & gs->s_mask_binary) == (gs->s_network_binary)){ /* on same subnet */
       index = value & (~(gs->s_mask_binary));
     } else { /* go via gateway */
-      if(gs->s_gateway){
+      if(gs->s_gateway_binary){
         index = gs->s_gateway_binary & (~(gs->s_mask_binary));
       } else {
         gs->s_tx_error++;
