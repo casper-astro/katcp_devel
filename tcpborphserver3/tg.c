@@ -1253,7 +1253,9 @@ int configure_fpga(struct getap_state *gs)
     set_entry_arp(gs, i, broadcast_const, 2 + ((gs->s_self + (i * COPRIME_C)) % (GETAP_ARP_CACHE / CACHE_DIVISOR)));
   }
 
-  set_entry_arp(gs, gs->s_self, gs->s_mac_binary, 1);
+  if(gs->s_self > 0){
+    set_entry_arp(gs, gs->s_self, gs->s_mac_binary, 1);
+  }
 
   return 0;
 }
@@ -1755,7 +1757,9 @@ void tap_reload_arp(struct katcp_dispatch *d, struct getap_state *gs)
     gs->s_arp_fresh[i] = gs->s_iteration + (2 + ((gs->s_self + (i * COPRIME_C)) % (GETAP_ARP_CACHE / CACHE_DIVISOR)));
   }
 
-  set_entry_arp(gs, gs->s_self, gs->s_mac_binary, 1);
+  if(gs->s_self > 0){
+    set_entry_arp(gs, gs->s_self, gs->s_mac_binary, 1);
+  }
 
   /* WARNING: probably bad form - should clear everything or nothing */
   gs->s_rx_arp = 0;
@@ -1943,9 +1947,12 @@ void tap_print_info(struct katcp_dispatch *d, struct getap_state *gs)
   link = link_status_fpga(gs);
 
   /* WARNING: probably abusing the subnet table entry (0) horribly to display a mac address for 0.0.0.0, normally we should always start at 1 */
-  for(i = ((gs->s_self <= 0) ? 0 : 1); i < (GETAP_ARP_CACHE - 1); i++){
+  for(i = 1; i < (GETAP_ARP_CACHE - 1); i++){
     log_message_katcp(gs->s_dispatch, memcmp(gs->s_arp_table[i], broadcast_const, 6) ? KATCP_LEVEL_INFO : KATCP_LEVEL_TRACE, NULL, "%s %02x:%02x:%02x:%02x:%02x:%02x at index %u valid for %ums", (gs->s_self == i) ? "self" : "peer", gs->s_arp_table[i][0], gs->s_arp_table[i][1], gs->s_arp_table[i][2], gs->s_arp_table[i][3], gs->s_arp_table[i][4], gs->s_arp_table[i][5], i, (gs->s_arp_fresh[i] - gs->s_iteration) * POLL_INTERVAL);
   }
+
+  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "mac %02x:%02x:%02x:%02x:%02x:%02x", gs->s_mac_binary[0], gs->s_mac_binary[1], gs->s_mac_binary[2], gs->s_mac_binary[3], gs->s_mac_binary[4], gs->s_mac_binary[5]);
+
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "current index %u", gs->s_index);
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_DEBUG, NULL, "own index %u", gs->s_self);
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "current iteration %u", gs->s_iteration);
