@@ -90,6 +90,7 @@ struct getap_state{
   uint32_t s_address_binary;
   uint32_t s_mask_binary;
   uint32_t s_network_binary;
+  uint32_t s_gateway_binary;
 
   unsigned int s_instance;
   uint32_t s_iteration;

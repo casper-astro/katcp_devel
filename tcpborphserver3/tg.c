@@ -768,6 +768,9 @@ int transmit_ip_fpga(struct getap_state *gs)
 {
   uint8_t prefix[3] = { 0x01, 0x00, 0x5e };
   uint8_t *mac;
+  unsigned int index;
+  uint32_t target, value;
+
 #if 0
   uint32_t temp;
 #endif
@@ -797,7 +800,22 @@ int transmit_ip_fpga(struct getap_state *gs)
 
   } else {
 
-    mac = gs->s_arp_table[gs->s_txb[SIZE_FRAME_HEADER + IP_DEST4]];
+    memcpy(&target, gs->s_txb[SIZE_FRAME_HEADER + IP_DEST1]);
+
+    value = ntohl(target);
+
+    if((value & gs->s_mask_binary) == (gs->s_network_binary)){ /* on same subnet */
+      index = value & (~(gs->s_mask_binary));
+    } else { /* go via gateway */
+      if(gs->s_gateway){
+        index = gs->s_gateway_binary & (~(gs->s_mask_binary));
+      } else {
+        gs->s_tx_error++;
+        return -1;
+      }
+    }
+
+    mac = gs->s_arp_table[index];
     memcpy(gs->s_txb, mac, GETAP_MAC_SIZE);
 
   }
@@ -1188,8 +1206,10 @@ int configure_ip_fpga(struct getap_state *gs)
       return -1;
     }
     value = (in.s_addr) & 0xff; /* WARNING: unclear why this has to be masked */
-
     *((uint32_t *)(base + GO_GATEWAY)) = value;
+    gs->s_gateway_binary = value;
+  } else {
+    gs->s_gateway_binary = 0;
   }
 
   return 0;
