@@ -1248,7 +1248,7 @@ int configure_fpga(struct getap_state *gs)
   *((uint32_t *)(base + GO_EN_RST_PORT)) = value;
 #endif
 
-  for(i = 1; i < (GETAP_ARP_CACHE - 1); i++){
+  for(i = 0; i < GETAP_ARP_CACHE; i++){
     /* heuristic to make things less bursty ... unclear if it is worth anything in large networks */
     set_entry_arp(gs, i, broadcast_const, 2 + ((gs->s_self + (i * COPRIME_C)) % (GETAP_ARP_CACHE / CACHE_DIVISOR)));
   }
