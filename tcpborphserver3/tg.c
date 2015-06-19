@@ -35,7 +35,7 @@
 #define SMALL_DELAY           10 /* wait this long before announcing ourselves, after arp reply */
 
 #define SPAM_INITIAL           5 /* how often we spam an address initially */
-#define SPAM_FINAL         21000 /* rate at which we end up */
+#define SPAM_FINAL        160000 /* rate at which we end up */
 #define SPAM_STEP            700 /* amount by which we increment */
 
 #if 0
@@ -1057,15 +1057,17 @@ int run_timer_tap(struct katcp_dispatch *d, void *data)
 
           case 0x06 : /* arp packet */
             
-            result = process_arp(gs);
-            if(result == 0){
-              gs->s_rx_arp++;
-              run = 0; /* arp reply stalled, wait ... */
-            } else {
-              if(result < 0){
-                gs->s_rx_error++;
-              } else {
+            if(gs->s_address_binary != 0){
+              result = process_arp(gs);
+              if(result == 0){
                 gs->s_rx_arp++;
+                run = 0; /* arp reply stalled, wait ... */
+              } else {
+                if(result < 0){
+                  gs->s_rx_error++;
+                } else {
+                  gs->s_rx_arp++;
+                }
               }
             }
             forget_receive(gs);
@@ -1099,11 +1101,13 @@ int run_timer_tap(struct katcp_dispatch *d, void *data)
   fprintf(stderr, "run timer loop: burst now %d\n", burst);
 #endif
 
-  if(burst < (gs->s_deferrals + 1)){ /* try to spam the network if it is reasonably quiet, but adjust our definition of quiet */
-    spam_arp(gs);
-    gs->s_deferrals = 0;
-  } else {
-    gs->s_deferrals++;
+  if(gs->s_address_binary != 0){
+    if(burst < (gs->s_deferrals + 1)){ /* try to spam the network if it is reasonably quiet, but adjust our definition of quiet */
+      spam_arp(gs);
+      gs->s_deferrals = 0;
+    } else {
+      gs->s_deferrals++;
+    }
   }
 
   return 0;
@@ -1227,49 +1231,6 @@ int configure_fpga(struct getap_state *gs)
     return -1;
   }
 
-#if 0
-
-  ptr = strchr(gs->s_address_name, '/');
-  if(ptr != NULL){
-    ptr[0] = '\0';
-    ptr++;
-    gs->s_subnet = atoi(ptr);
-    if((gs->s_subnet < MAX_SUBNET) || (gs->s_subnet > 30)){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "size problem of subnet /%u in %s", gs->s_subnet, ip);
-      return -1;
-    }
-  }
-
-  if(inet_aton(gs->s_address_name, &in) == 0){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse %s to ip address", gs->s_address_name);
-    return -1;
-  }
-  if(sizeof(in.s_addr) != 4){
-    log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "major logic problem: ip address not 4 bytes");
-    return -1;
-  }
-  value = in.s_addr;
-
-  gs->s_address_binary = value; /* in network byte order */
-  gs->s_mask_binary = htonl((0xffffffff << (32 - gs->s_subnet))); /* fixed mask */
-  gs->s_network_binary = gs->s_mask_binary & gs->s_address_binary;
-
-  gs->s_self = ntohl(~(gs->s_mask_binary) & gs->s_address_binary);
-
-  *((uint32_t *)(base + GO_ADDRESS)) = value;
-
-  if(gs->s_gateway_name[0] != '\0'){
-    if(inet_aton(gs->s_gateway_name, &in) == 0){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse gateway %s to ip address", gs->s_gateway_name);
-      return -1;
-    }
-    value = (in.s_addr) & 0xff; /* WARNING: unclear why this has to be masked */
-
-    *((uint32_t *)(base + GO_GATEWAY)) = value;
-  }
-
-#endif
-
   /* assumes plain big endian value */
   /* Bitmask: 24   : Reset core */
   /*          16   : Enable fabric interface */
@@ -1315,7 +1276,12 @@ static int configure_tap(struct getap_state *gs)
   char cmd_buffer[CMD_BUFFER];
   int len;
 
-  len = snprintf(cmd_buffer, CMD_BUFFER, "ifconfig %s %s netmask 255.255.255.0 up\n", gs->s_tap_name, gs->s_address_name);
+  if(gs->s_address_binary != 0){
+    len = snprintf(cmd_buffer, CMD_BUFFER, "ifconfig %s %s netmask 255.255.255.0 up\n", gs->s_tap_name, gs->s_address_name);
+  } else {
+    len = snprintf(cmd_buffer, CMD_BUFFER, "ifconfig %s %s up\n", gs->s_tap_name, gs->s_address_name);
+  }
+
   if((len < 0) || (len >= CMD_BUFFER)){
     return -1;
   }
@@ -1323,6 +1289,7 @@ static int configure_tap(struct getap_state *gs)
 
   /* WARNING: stalls the system, could possibly handle it via a job command */
   if(system(cmd_buffer)){
+    log_message_katcp(gs->s_dispatch, KATCP_LEVEL_WARN, NULL, "unable to configure ip address using %s", gs->s_address_name);
     return -1;
   }
 
