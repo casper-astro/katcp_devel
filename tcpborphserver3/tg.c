@@ -275,7 +275,7 @@ void glean_arp(struct getap_state *gs, uint8_t *mac, uint8_t *ip)
   memcpy(&v, ip, 4);
 
 #ifdef DEBUG
-  fprintf(stderr, "glean: considering ip %08x", ip);
+  fprintf(stderr, "glean: considering ip %08x", v);
 #endif
 
   if(v == 0){
