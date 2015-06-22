@@ -106,6 +106,11 @@
 
 #define GS_MAGIC  0x490301fc
 
+#define ARP_MODE_LOOP     -1 /* continuous */
+#define ARP_MODE_OFF       0 /* off */
+#define ARP_MODE_SINGLE    1 /* once */
+#define ARP_MODE_DEFAULT   3 /* three sweeps */
+
 static const uint8_t arp_const[] = { 0, 1, 8, 0, 6, 4, 0 }; /* disgusting */
 static const uint8_t broadcast_const[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 
@@ -251,7 +256,7 @@ int set_entry_arp(struct getap_state *gs, unsigned int index, const uint8_t *mac
   fprintf(stderr, "arp: entering at index %u\n", index);
 #endif
 
-  if(index > GETAP_ARP_CACHE){
+  if(index > gs->s_table_size){
     log_message_katcp(gs->s_dispatch, KATCP_LEVEL_WARN, NULL, "logic failure: attempting to set entry %u/%d", index, gs->s_table_size);
     return -1;
   }
@@ -267,20 +272,11 @@ void glean_arp(struct getap_state *gs, uint8_t *mac, uint8_t *ip)
   uint32_t v;
   unsigned int index;
 
-  v = ((ip[0] << 24) & 0xff000000) | 
-      ((ip[1] << 16) & 0xff0000) |
-      ((ip[2] <<  8) & 0xff00) |
-      ( ip[3]        & 0xff);
+  memcpy(&v, ip, 4);
 
   if(v == 0){
     return;
   }
-
-  if(ip[3] == 0xff){
-    return;
-  }
-
-  index = ip[3];
 
   if((v & gs->s_mask_binary) != gs->s_network_binary){
 #ifdef DEBUG
@@ -289,11 +285,22 @@ void glean_arp(struct getap_state *gs, uint8_t *mac, uint8_t *ip)
     return;
   }
 
+  if((v ^ gs->s_network_binary) == ~(gs->s_mask_binary)){
+    log_message_katcp(gs->s_dispatch, KATCP_LEVEL_ERROR, NULL, "odd arp packet for subnet broadcast %08x in subnet %08x", v, gs->s_network_binary);
+    return;
+  }
+
+  index = ntohl(v & ~(gs->s_mask_binary));
+  if((index == 0) || (index >= gs->s_table_size)){
+    log_message_katcp(gs->s_dispatch, KATCP_LEVEL_ERROR, NULL, "logic problem for ip %08x yielding index %u with a subnet of %u-2 stations", v, index, gs->s_table_size);
+    return;
+  }
+
 #ifdef DEBUG
   fprintf(stderr, "glean: adding entry %d\n", index);
 #endif
 
-  set_entry_arp(gs, ip[3], mac, gs->s_valid_period + (gs->s_table_size - ((index > gs->s_self) ? (index - gs->s_self) : (gs->s_self - index))));
+  set_entry_arp(gs, index, mac, gs->s_valid_period + (gs->s_table_size - ((index > gs->s_self) ? (index - gs->s_self) : (gs->s_self - index))));
 }
 
 void announce_arp(struct getap_state *gs)
@@ -439,6 +446,8 @@ int reply_arp(struct getap_state *gs)
 {
   int result;
 
+  /* TODO - check that we are in the correct subnet before answering */
+
   /* WARNING: attempt to get away without using the arp buffer, just turn the rx buffer around */
   memcpy(gs->s_rxb + FRAME_DST, gs->s_rxb + FRAME_SRC, 6);
   memcpy(gs->s_rxb + FRAME_SRC, gs->s_mac_binary, 6);
@@ -537,7 +546,7 @@ void spam_arp(struct getap_state *gs)
   }
 
 
-  while(gs->s_index < (GETAP_ARP_CACHE - 1)){
+  while(gs->s_index < (gs->s_table_size - 1)){
 
     consider = gs->s_arp_fresh[gs->s_index];
 
@@ -557,6 +566,9 @@ void spam_arp(struct getap_state *gs)
   }
 
   fixup_spam_rate(gs);
+  if(gs->s_arp_mode > 0){
+    gs->s_arp_mode--;
+  }
 
   gs->s_index = 1;
   gs->s_iteration++;
@@ -1126,7 +1138,7 @@ int run_timer_tap(struct katcp_dispatch *d, void *data)
   fprintf(stderr, "run timer loop: burst now %d\n", burst);
 #endif
 
-  if(gs->s_address_binary != 0){
+  if((gs->s_address_binary != 0) && (gs->s_arp_mode != ARP_MODE_OFF)){
     if(burst < (gs->s_deferrals + 1)){ /* try to spam the network if it is reasonably quiet, but adjust our definition of quiet */
       spam_arp(gs);
       gs->s_deferrals = 0;
@@ -1383,6 +1395,8 @@ void destroy_getap(struct katcp_dispatch *d, struct getap_state *gs)
   gs->s_magic = 0;
 
   gs->s_x_glean = (-1);
+  gs->s_arp_mode = ARP_MODE_OFF;
+
   gs->s_rx_error = (-1);
   gs->s_tx_error = (-1);
 
@@ -1546,6 +1560,7 @@ struct getap_state *create_getap(struct katcp_dispatch *d, unsigned int instance
   gs->s_tx_small = GETAP_MAX_FRAME + 1;
 
   gs->s_x_glean = 0;
+  gs->s_arp_mode = ARP_MODE_DEFAULT;
 
   gs->s_table_size = 1;
   for(i = gs->s_subnet; i < 32; i++){
@@ -1867,7 +1882,29 @@ int tap_runtime_configure(struct katcp_dispatch *d, struct getap_state *gs, char
     len = ptr - key;
   }
 
-  if(!strncmp(key, "valid-", len)){
+  if(!strcmp(key, "mode")){
+    if(value){
+      if(!strcmp(value, "off")){
+        gs->s_arp_mode = 0;
+      } else if(!strcmp(value, "loop")){
+        gs->s_arp_mode = (-1);
+      } else if(!strcmp(value, "once")){
+        gs->s_arp_mode = 1;
+      } else {
+        gs->s_arp_mode = v;
+      }
+    } else {
+      gs->s_arp_mode = 0;
+    }
+
+    if(gs->s_arp_mode <= 0){
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "will %s run arp queries", (gs->s_arp_mode < 0) ? "continously" : "not");
+    } else {
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "will run arp queries for %d cycles", gs->s_arp_mode);
+      gs->s_index = 1;
+    }
+
+  } else if(!strncmp(key, "valid-", len)){
     if(valid >= 0){
       if(valid > 0){
         gs->s_valid_period = v;
@@ -1986,7 +2023,6 @@ void tap_print_info(struct katcp_dispatch *d, struct getap_state *gs)
 
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "mac %02x:%02x:%02x:%02x:%02x:%02x", gs->s_mac_binary[0], gs->s_mac_binary[1], gs->s_mac_binary[2], gs->s_mac_binary[3], gs->s_mac_binary[4], gs->s_mac_binary[5]);
 
-  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "current index %u", gs->s_index);
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_DEBUG, NULL, "own index %u", gs->s_self);
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "current iteration %u", gs->s_iteration);
 
@@ -2000,13 +2036,22 @@ void tap_print_info(struct katcp_dispatch *d, struct getap_state *gs)
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "gateware port is %u", gs->s_port);
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "tap device name %s on fd %d", gs->s_tap_name, gs->s_tap_fd);
 
-
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "valid entries cached for %ums", gs->s_valid_period * POLL_INTERVAL);
 
-  tap_print_period_info(d, "announce", gs->s_announce_period);
-  tap_print_period_info(d, "query",    gs->s_spam_period);
+  if((gs->s_arp_mode != ARP_MODE_OFF) && (gs->s_address_binary != 0)){
+    if(gs->s_arp_mode > 0){
+      log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "arp will loop another %d times", gs->s_arp_mode);
+    } else {
+      log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "arp will query indefinitely");
+    }
+    tap_print_period_info(d, "announce", gs->s_announce_period);
+    tap_print_period_info(d, "query",    gs->s_spam_period);
+    log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "current arp spam deferrals %u", gs->s_deferrals);
+    log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "current index %u", gs->s_index);
+  } else {
+    log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "arp request loop is not active");
+  }
 
-  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "current arp spam deferrals %u", gs->s_deferrals);
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "current buffers arp=%u/rx=%u/tx=%u", gs->s_arp_len, gs->s_rx_len, gs->s_tx_len);
 
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "subscribed to %d groups via fd=%d", gs->s_mcast_count, gs->s_mcast_fd);

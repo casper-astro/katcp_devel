@@ -136,6 +136,7 @@ struct getap_state{
   unsigned int s_tx_small;
 
   unsigned int s_x_glean;
+  int s_arp_mode;
 
   unsigned int s_table_size;
 
