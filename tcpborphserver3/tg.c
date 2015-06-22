@@ -29,7 +29,7 @@
 #define FRESH_VALID        50000 /* length of time to cache a valid reply - units are poll interval, approx */
 
 #define ANNOUNCE_INITIAL     100 /* how often we announce ourselves initially */
-#define ANNOUNCE_FINAL       600 /* rate to which we decay */
+#define ANNOUNCE_FINAL      1600 /* rate to which we decay */
 #define ANNOUNCE_STEP        100 /* amount by which we increment */
 
 #define SMALL_DELAY           10 /* wait this long before announcing ourselves, after arp reply */
@@ -328,7 +328,7 @@ void announce_arp(struct getap_state *gs)
   gs->s_arp_len = 42;
 
 #ifdef DEBUG
-  if(gs->s_arp_len + 4 < GETAP_ARP_FRAME){ /* test should be more sophisticated ... */
+  if((gs->s_arp_len + 4) > GETAP_ARP_FRAME){ /* test should be more sophisticated ... */
     fprintf(stderr, "arp: critical problem: arp packet of %u bytes exceeds buffer\n", gs->s_arp_len);
   }
 #endif
@@ -529,6 +529,14 @@ void spam_arp(struct getap_state *gs)
     return;
   }
 
+  if(gs->s_table_size > GETAP_ARP_CACHE){
+#ifdef DEBUG
+    fprintf(stderr, "major logic issue, table size=%d exceeds space\n", gs->s_table_size);
+#endif
+    gs->s_table_size = GETAP_ARP_CACHE;
+  }
+
+
   while(gs->s_index < (GETAP_ARP_CACHE - 1)){
 
     consider = gs->s_arp_fresh[gs->s_index];
@@ -720,7 +728,7 @@ static int write_frame_fpga(struct getap_state *gs, unsigned char *data, unsigne
   *((uint32_t *)(base + GO_BUFFER_SIZES)) = buffer_sizes;
 
 #ifdef DEBUG
-  fprintf(stderr, "txf: wrote date to %p (bytes=%d, gateware register=0x%08x)\n", base + GO_TXBUFFER, final, buffer_sizes);
+  fprintf(stderr, "txf: wrote data to %p (bytes=%d, gateware register=0x%08x)\n", base + GO_TXBUFFER, final, buffer_sizes);
 #endif
 
 #ifdef DEBUG
@@ -769,62 +777,64 @@ int transmit_ip_fpga(struct getap_state *gs)
   uint8_t prefix[3] = { 0x01, 0x00, 0x5e };
   uint8_t *mac;
   unsigned int index;
-  uint32_t target, value;
+  uint32_t value;
 
-#if 0
-  uint32_t temp;
-#endif
-
-  if((gs->s_txb[SIZE_FRAME_HEADER + IP_DEST1] & 0xf0) == 0xe0){
+  memcpy(&value, &(gs->s_txb[SIZE_FRAME_HEADER + IP_DEST1]), 4);
 
 #ifdef DEBUG
-    fprintf(stderr, "txf: calculating multicast mac\n");
+  fprintf(stderr, "ip->0x%08x ", value);
 #endif
 
-#if 0
-    temp = 0x7FFFFF & ( gs->s_txb[SIZE_FRAME_HEADER + IP_DEST1] << 24 
-                      | gs->s_txb[SIZE_FRAME_HEADER + IP_DEST2] << 16 
-                      | gs->s_txb[SIZE_FRAME_HEADER + IP_DEST3] << 8 
-                      | gs->s_txb[SIZE_FRAME_HEADER + IP_DEST4] );
-
-    mcast_mac[3] = temp & 0xFF0000;
-    mcast_mac[4] = temp & 0xFF00;
-    mcast_mac[5] = temp & 0xFF;
+  if(value == htonl(0xffffffff)){ /* global broadcast */
+    memcpy(gs->s_txb, broadcast_const, 6);
+#ifdef DEBUG
+    fprintf(stderr, "big broadcast ");
 #endif
 
+  } else if((value & (htonl(0xf0000000))) == htonl(0xe0000000)){ /* multicast */
     memcpy(gs->s_txb, prefix, 3);
 
     gs->s_txb[3] = 0x7f & gs->s_txb[SIZE_FRAME_HEADER + IP_DEST2];
     gs->s_txb[4] =        gs->s_txb[SIZE_FRAME_HEADER + IP_DEST3];
     gs->s_txb[5] =        gs->s_txb[SIZE_FRAME_HEADER + IP_DEST4];
+#ifdef DEBUG
+    fprintf(stderr, "multicast ");
+#endif
 
   } else {
+    if((value & gs->s_mask_binary) == (gs->s_network_binary)){ /* on same subnet */
+      index = ntohl(value & (~(gs->s_mask_binary)));
 
-    memcpy(&value, &(gs->s_txb[SIZE_FRAME_HEADER + IP_DEST1]), 4);
+#ifdef DEBUG
+      fprintf(stderr, "direct link at %u ", index);
+#endif
 
-    if(gs->s_address_binary != 0){
-      if((value & gs->s_mask_binary) == (gs->s_network_binary)){ /* on same subnet */
-        index = ntohl(value & (~(gs->s_mask_binary)));
-      } else { /* go via gateway */
-        if(gs->s_gateway_binary){
-          index = ntohl(gs->s_gateway_binary & (~(gs->s_mask_binary)));
-        } else {
-          gs->s_tx_error++;
-          return -1;
-        }
-      }
-      if(index > gs->s_table_size){
-        index = 0;
-      }
-      mac = gs->s_arp_table[index];
-      memcpy(gs->s_txb, mac, GETAP_MAC_SIZE);
+    } else if(gs->s_gateway_binary){ /* not in subnet */
+      index = ntohl(gs->s_gateway_binary & (~(gs->s_mask_binary)));
+#ifdef DEBUG
+      fprintf(stderr, "via gateway 0x%08x (%u) ", gs->s_gateway_binary, index);
+#endif
     } else {
-      memcpy(gs->s_txb, broadcast_const, GETAP_MAC_SIZE);
+#ifdef DEBUG
+      fprintf(stderr, "no gateway set, dropping to floor\n");
+#endif
+      gs->s_tx_len = 0;
+      gs->s_tx_error++;
+      return -1;
     }
+
+    if(index >= gs->s_table_size){
+#ifdef DEBUG
+      fprintf(stderr, "[unreasonable index %u] ", index);
+#endif
+      index = gs->s_table_size - 1;
+    }
+    mac = gs->s_arp_table[index];
+    memcpy(gs->s_txb, mac, GETAP_MAC_SIZE);
   }
 
 #ifdef DEBUG
-  fprintf(stderr, "txf: looked up dst gs->s_txb: %x:%x:%x:%x:%x:%x\n", gs->s_txb[0], gs->s_txb[1], gs->s_txb[2], gs->s_txb[3], gs->s_txb[4], gs->s_txb[5]);
+  fprintf(stderr, "-> %x:%x:%x:%x:%x:%x\n", gs->s_txb[0], gs->s_txb[1], gs->s_txb[2], gs->s_txb[3], gs->s_txb[4], gs->s_txb[5]);
 #endif
   
   return transmit_frame_fpga(gs);
