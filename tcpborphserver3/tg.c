@@ -430,7 +430,7 @@ static void request_arp(struct getap_state *gs, int index)
 
   gs->s_arp_len = 42;
 #ifdef DEBUG
-  if(gs->s_arp_len + 4 < GETAP_ARP_FRAME){ /* test should be more sophisticated ... */
+  if((gs->s_arp_len + 4) > GETAP_ARP_FRAME){ /* test should be more sophisticated ... */
     fprintf(stderr, "arp: critical problem: arp packet of %u bytes exceeds buffer\n", gs->s_arp_len);
   }
 #endif
