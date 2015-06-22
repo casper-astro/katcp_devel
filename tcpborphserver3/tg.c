@@ -2064,6 +2064,8 @@ void tap_print_info(struct katcp_dispatch *d, struct getap_state *gs)
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "arp requests used to glean stations %u", gs->s_x_glean);
   log_message_katcp(gs->s_dispatch, KATCP_LEVEL_INFO, NULL, "link status word is 0x%08x", link);
 
+  log_message_katcp(gs->s_dispatch, KATCP_LEVEL_DEBUG, NULL, "binary: ip=%08x, netmask=%08x, subnet=%08x", gs->s_address, gs->s_mask_binary, gs->s_network_binary)
+
   prepend_inform_katcp(d);
   append_string_katcp(d, KATCP_FLAG_STRING, gs->s_tap_name);
   append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, gs->s_address_name);
