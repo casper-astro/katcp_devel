@@ -51,7 +51,7 @@ int map_raw_tbs(struct katcp_dispatch *d);
 unsigned int infer_fpga_range(struct katcp_dispatch *d);
 
 
-#define GETAP_IP_BUFFER         16
+#define GETAP_IP_BUFFER         20
 #define GETAP_MAC_BUFFER        18
 #define GETAP_MAC_SIZE           6
 #define GETAP_ARP_FRAME         72 /* needs to be round8(min_frame+4) */
