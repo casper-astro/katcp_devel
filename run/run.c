@@ -176,6 +176,7 @@ void usage(char *app)
   printf("-s subsystem       specify the subsystem (overrides KATCP_LABEL)\n");
   printf("-i                 inhibit termination of subprocess on eof on standard input\n");
   printf("-r                 forward raw #log messages unchanged\n");
+  printf("-x                 relay child exit codes\n");
 }
 
 static int tweaklevel(int verbose, int level)
@@ -202,7 +203,7 @@ static int collect_child(struct katcl_line *k, char *task, char *system, int ver
   if(result == 0){
     /* child still running */
     log_message_katcl(k, tweaklevel(verbose, KATCP_LEVEL_DEBUG), system, "task %s still running", task);
-    return 1;
+    return -1;
   }
 
   if(result < 0){
@@ -214,13 +215,13 @@ static int collect_child(struct katcl_line *k, char *task, char *system, int ver
       default :
         /* other problem */
         log_message_katcl(k, tweaklevel(verbose, KATCP_LEVEL_WARN), system, "unable to collect task %s: %s", task, strerror(errno));
-        return -1;
+        return 1;
     }
   }
 
   if(result != pid){
     log_message_katcl(k, tweaklevel(verbose, KATCP_LEVEL_ERROR), system, "major logic problem: expected pid %u but received %u", pid, result);
-    return -1;
+    return 1;
   }
 
   /* now result == pid */
@@ -234,9 +235,7 @@ static int collect_child(struct katcl_line *k, char *task, char *system, int ver
       log_message_katcl(k, tweaklevel(verbose, KATCP_LEVEL_INFO), system, "task %s exited normally", task);
     }
   
-
-    /* TODO: would be nice to relay the return code to parent somehow */
-    return 0;
+    return (code > 0) ? code: 0;
   } 
   
   if(WIFSIGNALED(status)){
@@ -255,20 +254,20 @@ static int collect_child(struct katcl_line *k, char *task, char *system, int ver
     }
     log_message_katcl(k, tweaklevel(verbose, level), system, "task %s exited with signal %d", task, sig);
 
-    return 0;
+    return 1;
   } 
   
   
   /* process stopped ? continued ? other weirdness */
 
   log_message_katcl(k, tweaklevel(verbose, KATCP_LEVEL_WARN), system, "task %s in rather unusual status 0x%x", task, status);
-  return -1;
+  return 1;
 }
 
 int main(int argc, char **argv)
 {
 #define BUFFER 128
-  int terminate, code, childgone, parentgone;
+  int terminate, code, childgone, parentgone, exitrelay;
   int levels[2], index, efds[2], ofds[2];
   int i, j, c, offset, result, rr;
   struct katcl_line *k;
@@ -286,6 +285,7 @@ int main(int argc, char **argv)
 
   terminate = 1;
   offset = (-1);
+  exitrelay = 0;
 
   levels[0] = KATCP_LEVEL_INFO;
   levels[1] = KATCP_LEVEL_ERROR;
@@ -316,6 +316,11 @@ int main(int argc, char **argv)
         case 'h' :
           usage(app);
           return 0;
+
+        case 'x' : 
+          exitrelay = 1;
+          j++;
+          break;
 
         case 'i' : 
           terminate = 0;
@@ -564,9 +569,9 @@ int main(int argc, char **argv)
 
   } while(result >= 0);
 
-  code = 0;
+  code = collect_child(k, argv[offset], ts->t_system, ts->t_verbose, pid);
 
-  if(collect_child(k, argv[offset], ts->t_system, ts->t_verbose, pid) > 0){
+  if(code < 0){
     if(terminate){
       log_message_katcl(k, tweaklevel(ts->t_verbose, KATCP_LEVEL_INFO), ts->t_system, "terminating task %s", argv[offset]);
       if(kill(pid, SIGTERM) < 0){
@@ -580,7 +585,7 @@ int main(int argc, char **argv)
         }
       } else {
         sleep(1);
-        if(collect_child(k, argv[offset], ts->t_system, ts->t_verbose, pid) > 0){
+        if(collect_child(k, argv[offset], ts->t_system, ts->t_verbose, pid) < 0){
           log_message_katcl(k, tweaklevel(ts->t_verbose, KATCP_LEVEL_INFO), ts->t_system, "killing task %s", argv[offset]);
           if(kill(pid, SIGKILL) < 0){
             switch(errno){
@@ -599,6 +604,10 @@ int main(int argc, char **argv)
       }
     }
   }
+
+  if(exitrelay == 0){
+    code = 0;
+  } 
 
   while((result = write_katcl(k)) == 0);
 
