@@ -35,6 +35,7 @@ void usage(char *app)
   printf("-d              run in the background\n");
   printf("-f              run in the foreground\n");
   printf("-t              truncate the logfile when opening it\n");
+  printf("-k              use tcp keepalives\n");
   printf("-m name         report internal messages under this module field\n");
   printf("-s server:port  connect to the specified server rather than localhost:7147\n");
   printf("-a attempts     make the given number attempts to connect to the server before giving up\n");
@@ -82,7 +83,7 @@ int main(int argc, char **argv)
 #define BUFFER 64
   char buffer[BUFFER];
   char *level, *app, *server, *output;
-  int run, fd, i, j, c, verbose, attempts, detach, result, truncate, flags;
+  int run, fd, i, j, c, verbose, attempts, detach, result, truncate, flags, keep;
   struct katcl_parse *p;
   struct katcl_line *ls, *lo;
   struct sigaction sa;
@@ -97,6 +98,7 @@ int main(int argc, char **argv)
   attempts = 2;
   detach = 0;
   truncate = 0;
+  keep = 0;
 
   server = getenv("KATCP_SERVER");
   if(server == NULL){
@@ -121,6 +123,11 @@ int main(int argc, char **argv)
 
         case 'v' : 
           verbose++;
+          j++;
+          break;
+
+        case 'k' : 
+          keep = 1;
           j++;
           break;
 
@@ -265,7 +272,7 @@ int main(int argc, char **argv)
 
   /**********************/
 
-  while((attempts-- > 0) && ((fd = net_connect(server, 0, 0)) < 0)){
+  while((attempts-- > 0) && ((fd = net_connect(server, 0, (keep > 0) ? NETC_TCP_KEEP_ALIVE : 0)) < 0)){
     sleep(1);
   }
 
