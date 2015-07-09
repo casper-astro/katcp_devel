@@ -12,6 +12,7 @@
 #include <netc.h>
 
 #define DEFAULT_SWITCH "switch" 
+#define MAX_BUFFER      1000000 /* how many bytes we buffer of other party ... */
 
 #define FLAG_DISCARD    0x1
 #define FLAG_RELAX      0x2
@@ -23,7 +24,6 @@
 #define FLAG_NET      0x1000
 #define FLAG_EXEC     0x2000
 #define FLAG_STREAM   0x4000  /* can not be re-opened ? */
-
 
 struct mpx_input
 {
@@ -524,7 +524,7 @@ int fixup_checks(struct mpx_state *ms)
 
 int run_state(struct mpx_state *ms)
 {
-  int run, mfd, fd, i, result, change;
+  int run, mfd, fd, i, result, change, size;
   struct mpx_input *mi, *mt;
   fd_set fsr, fsw;
   char *cmd, *arg;
@@ -552,7 +552,8 @@ int run_state(struct mpx_state *ms)
 
           FD_SET(fd, &fsr);
 
-          if(flushing_katcl(mi->i_line)){
+          size = flushing_katcl(mi->i_line);
+          if(size > 0){
             FD_SET(fd, &fsw);
           }
 
@@ -585,6 +586,10 @@ int run_state(struct mpx_state *ms)
                 run = (result < 0) ? (-1) : 0;
               }
               /* WARNING: s_select could be changed here */
+            } else {
+              if(awaiting_katcl(mi->i_line) > MAX_BUFFER){
+                discard_katcl(mi->i_line);
+              }
             }
           }
 
