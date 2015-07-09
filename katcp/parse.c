@@ -1166,6 +1166,22 @@ int deparse_katcl(struct katcl_parse *p)
 }
 #endif
 
+int awaiting_katcl(struct katcl_line *l)
+{
+  struct katcl_parse *p;
+
+  p = l->l_next;
+  if(p == NULL){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "logic failure: expected a valid next entry in parse\n");
+    abort();
+#endif
+    return 0;
+  }
+
+  return p->p_have;
+}
+
 int parse_katcl(struct katcl_line *l) /* transform buffer -> args */
 {
   int increment;

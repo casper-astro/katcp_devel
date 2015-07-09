@@ -184,6 +184,15 @@ void exchange_katcl(struct katcl_line *l, int fd)
   l->l_sendable = 1;
 }
 
+void discard_katcl(struct katcl_line *l)
+{
+  sane_line_katcl(l);
+
+  if(l->l_next){
+    l->l_next = reuse_parse_katcl(l->l_next);
+  }
+}
+
 int fileno_katcl(struct katcl_line *l)
 {
   return l ? l->l_fd : (-1);
