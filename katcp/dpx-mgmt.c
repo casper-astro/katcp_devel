@@ -568,6 +568,7 @@ int group_config_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     gx = scope_name_group_katcp(d, group, fx);
   } else {
     gx = this_group_katcp(d);
+    group = NULL;
   }
 
   if(gx == NULL){
@@ -750,7 +751,11 @@ int listener_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
       return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_NOT_FOUND);
     }
 
-    count = print_listener_katcp(d, a, NULL);
+    if(print_listener_katcp(d, a, NULL) < 0){
+      count = (-1);
+    } else {
+      count = 0;
+    }
   } else {
     count = foreach_arb_katcp(d, KATCP_ARB_TYPE_LISTENER, &print_listener_katcp, NULL);
   }
@@ -992,10 +997,12 @@ int broadcast_group_cmd_katcp(struct katcp_dispatch *d, int argc)
         gx = this_group_katcp(d);
         break;
       case KATCP_SCOPE_GLOBAL : 
+        gx = NULL;
         break;
       /* case KATCP_SCOPE_SINGLE :  */
       default :
         /* TODO: should spam ourselves ... in order not to give away that we are restricted */
+        gx = NULL;
         return KATCP_RESULT_OK;
     }
   }

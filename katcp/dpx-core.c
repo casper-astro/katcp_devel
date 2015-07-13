@@ -1914,6 +1914,8 @@ struct katcp_flat *scope_name_full_katcp(struct katcp_dispatch *d, struct katcp_
     if(fy == NULL){
       return NULL;
     }
+  } else {
+    fy = fx;
   }
 
   switch(fy->f_scope){

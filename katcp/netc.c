@@ -32,9 +32,7 @@ int net_address(struct sockaddr *sa, char *name, int port, int flags)
 
   sai = (struct sockaddr_in *) sa;
 
-  if(port){
-    p = port;
-  }
+  p = port;
 
   if(name == NULL){
     return -1;
