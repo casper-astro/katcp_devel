@@ -620,12 +620,12 @@ int sensor_list_callback_katcp(struct katcp_dispatch *d, unsigned int *count, ch
       abort();
     }
 #endif
-    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "subpressing listing of variable %s", key);
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "suppressing listing of variable %s", key);
     return result;
   }
 
   if(vx->v_flags & KATCP_VRF_HID){
-    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "subpressing listing of hidden sensor %s", key);
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "suppressing listing of hidden sensor %s", key);
     return 0;
   }
 

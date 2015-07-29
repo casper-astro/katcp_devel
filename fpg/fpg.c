@@ -818,9 +818,9 @@ int main(int argc, char **argv)
       destroy_ipr(ipr);
       return 4;
     }
+    sync_message_katcl(ipr->i_print, KATCP_LEVEL_DEBUG, ipr->i_label, "finalise command sent successfully");
   }
 
-  sync_message_katcl(ipr->i_print, KATCP_LEVEL_DEBUG, ipr->i_label, "finalise command sent successfully");
   destroy_ipr(ipr);
 
   return 0;
