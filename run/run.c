@@ -131,6 +131,11 @@ int run_iostate(struct totalstate *ts, struct iostate *io, struct katcl_line *k)
           fprintf(stderr, "considering <%s> (infer=%d)\n", io->i_buffer + io->i_done, ts->t_infer);
 #endif
           if((ts->t_infer > 0) && (strncmp(io->i_buffer + io->i_done, KATCP_LOG_INFORM " ", 5) == 0)){
+
+            if(flushing_katcl(k)){
+              while(write_katcl(k) == 0);
+            }
+
             fd = fileno_katcl(k);
             io->i_buffer[i] = '\n';
             sw = i - io->i_done + 1;
