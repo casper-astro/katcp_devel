@@ -54,8 +54,8 @@ CFLAGS += -DKATCP_TRAP_TERM
 # pick a protocol reversion from the list. Making up
 # your own major values doesn't work unless you also implement what 
 # the protocol requires
-#CFLAGS += -DKATCP_PROTOCOL_MAJOR_VERSION=5 -DKATCP_PROTOCOL_MINOR_VERSION=0
-CFLAGS += -DKATCP_PROTOCOL_MAJOR_VERSION=4 -DKATCP_PROTOCOL_MINOR_VERSION=9
+CFLAGS += -DKATCP_PROTOCOL_MAJOR_VERSION=5 -DKATCP_PROTOCOL_MINOR_VERSION=0
+#CFLAGS += -DKATCP_PROTOCOL_MAJOR_VERSION=4 -DKATCP_PROTOCOL_MINOR_VERSION=9
 
 # amount of debugging logic to enable 
 #CFLAGS += -DDEBUG=4
