@@ -38,16 +38,14 @@ Installation
 
 If you are only interested in the library (and maybe kcpcmd
 or kcplog), enter the respective subdirectories and run make
-install from there, eg
+install from there, or type 
 
   make -C katcp install
   make -C cmd install
 
-Only if you want to run the full KAT7 correlator run make
-install at the top level, eg
-
-  make install 
-
+Installing the KAT7 correlator startup logic will no
+longer be installed by a global make install, you will
+have to do a make install in the scripts and misc directories.
 For this to be useful, you also require a configured corr
 package, nfs server, dnsmasq, bof files, an exported ppc
 filesystem not to mention 16 roach boards.

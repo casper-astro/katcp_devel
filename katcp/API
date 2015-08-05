@@ -1,6 +1,9 @@
 
-To use the api include <katcp.h> and link against -lkatcp. You
-may need to set the include search path with -I and library
+To use higher-level api include <katcp.h> and link against -lkatcp. 
+You might also need to include <katcl.h>, particularly for lower
+layer work.
+
+You may need to set the include search path with -I and library
 search path with -L
 
 The makefile only generates a static library (.a), but shared
@@ -11,7 +14,7 @@ The katcp API has several "layers"
 
  - A top level where the service main loop is implemented 
    inside an API function. An example which uses this
-   API can be found in examples/server-example.c code. 
+   API can be found in ../examples/server-example.c code. 
    The tcpborphserver and kcs source tree also use this
    api.
 
@@ -55,10 +58,19 @@ The katcp API has several "layers"
    may be helpful as a starting point for a users own 
    main loop.
 
+   This layer is likely to be the least stable.
+
  - A lower level where only the protocol parsing logic of
    the library is used. Here the programmer implements
    his or her own main loop and dispatch logic. The functions
-   used to parse the protocol are defined in line.c and
+   used to parse the protocol are defined in line.c and parse and
    are distinguished by a *_katcl (*not* a *_katcp) suffix. Thus
-   it is sufficient to include only katcl.h
+   it is probably sufficient to include only katcl.h. kcpcmd 
+   and the much simpler kcpmsg use this layer. 
 
+In addition, there is work underway to develop a duplex
+routine, where clients can issue and respond to katcp requests, 
+this is still incomplete and makes reasonably large changes
+to the library internals. The lowest layer and the command 
+registration of the top layer should remain reasonably consistent,
+but sensor handling may end up changing. 

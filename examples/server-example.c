@@ -1,4 +1,7 @@
-/* a simple server example which registers a couple of sensors and commands */
+/* a simple server example which registers a couple of sensors and commands, most
+ * of the functions defined here are callbacks which are registered in the main()
+ * function and called by the mainloop when needed
+ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,7 +34,17 @@ int simple_integer_check_sensor(struct katcp_dispatch *d, struct katcp_acquire *
   return ((((int)time(NULL)) / 10) % 7) - 3;
 }
 
-/* check command 1: generates its own reply, with binary and integer output */
+/* Several command functions to service a particular katcp request **********/
+/* check command 1: has the infrastructure generate its reply */
+
+int ok_check_cmd(struct katcp_dispatch *d, int argc)
+{
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "saw ok check with %d arguments", argc);
+
+  return KATCP_RESULT_OK; /* have the system send a status message for us */
+}
+
+/* check command 2: generates its own reply, with binary and integer output */
 
 int own_check_cmd(struct katcp_dispatch *d, int argc)
 {
@@ -42,15 +55,6 @@ int own_check_cmd(struct katcp_dispatch *d, int argc)
   send_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "!check-own", KATCP_FLAG_BUFFER, "\0\n\r ", 4, KATCP_FLAG_LAST | KATCP_FLAG_ULONG, 42UL);
 
   return KATCP_RESULT_OWN; /* we send our own return codes */
-}
-
-/* check command 2: has the infrastructure generate its reply */
-
-int ok_check_cmd(struct katcp_dispatch *d, int argc)
-{
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "saw ok check with %d arguments", argc);
-
-  return KATCP_RESULT_OK; /* have the system send a status message for us */
 }
 
 #ifdef KATCP_USE_FLOATS
@@ -165,8 +169,8 @@ int main(int argc, char **argv)
 
   result = 0;
 
-  result += register_katcp(d, "?check-own",   "return self generated code", &own_check_cmd);
   result += register_katcp(d, "?check-ok",    "return ok", &ok_check_cmd);
+  result += register_katcp(d, "?check-own",   "return self generated code", &own_check_cmd);
   result += register_katcp(d, "?check-fail",  "return fail", &fail_check_cmd);
   result += register_katcp(d, "?check-pause", "pauses", &pause_check_cmd);
 #ifdef KATCP_SUBPROCESS
