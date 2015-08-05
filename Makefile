@@ -8,7 +8,8 @@ ifeq ($(findstring KATCP_DEPRECATED,$(CFLAGS)),KATCP_DEPRECATED)
 APPS += modules
 endif
 
-MISC = scripts misc 
+# MISC = scripts misc 
+MISC = 
 
 EVERYTHING = $(LIBRARY) $(APPS) $(MISC)
 
