@@ -834,7 +834,7 @@ void usage(char *app)
 {
   printf("usage: %s [flags] xport\n", app);
   printf("-h                 this help\n");
-  printf("-t seconds         length of time to retry executing command in case of failure");
+  printf("-t seconds         length of time to retry executing command in case of failure\n");
 
 #if 0
   printf("-v                 increase verbosity\n");
