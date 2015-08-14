@@ -82,9 +82,9 @@ int net_address(struct sockaddr *sa, char *name, int port, int flags)
           fprintf(stderr, "address: unable to resolve %s to ipv4 address\n", host);
         }
         result = (-1);
+      } else {
+        sai->sin_addr = *(struct in_addr *) he->h_addr;
       }
-
-      sai->sin_addr = *(struct in_addr *) he->h_addr;
     }
   } else {
     result = 1;
