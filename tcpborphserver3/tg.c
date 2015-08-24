@@ -1573,7 +1573,7 @@ struct getap_state *create_getap(struct katcp_dispatch *d, unsigned int instance
 
   gs->s_magic = GS_MAGIC;
 
-  gs->s_dispatch = d;
+  gs->s_dispatch = template_shared_katcp(d);
   gs->s_raw_mode = NULL;
 
   gs->s_tap_name = NULL;
