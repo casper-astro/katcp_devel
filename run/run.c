@@ -178,6 +178,7 @@ void usage(char *app)
   printf("-v                 increase verbosity\n");
   printf("-e level           specify the level for messages from standard error\n");
   printf("-o level           specify the level for messages from standard output\n");
+  printf("-n label[=value]   modify environment\n");
   printf("-s subsystem       specify the subsystem (overrides KATCP_LABEL)\n");
   printf("-i                 inhibit termination of subprocess on eof on standard input\n");
   printf("-r                 forward raw #log messages unchanged\n");
@@ -277,7 +278,7 @@ int main(int argc, char **argv)
   int i, j, c, offset, result, rr;
   struct katcl_line *k;
   char *app;
-  char *tmp;
+  char *tmp, *value;
   pid_t pid;
   struct totalstate total, *ts;
   struct iostate *erp, *orp;
@@ -348,6 +349,7 @@ int main(int argc, char **argv)
           break;
 
         case 'e' :
+        case 'n' :
         case 'o' :
         case 's' :
 
@@ -384,6 +386,25 @@ int main(int argc, char **argv)
               break;
             case 's' :
               ts->t_system = argv[i] + j;
+              break;
+            case 'n' :
+              tmp = strdup(argv[i] + j);
+              if(tmp){
+                value = strchr(tmp, '=');
+                if(value){
+                  value[0] = '\0';
+                  value++;
+                  result = setenv(tmp, value, 1);
+                } else {
+                  result = unsetenv(tmp);
+                }
+                if(result){
+                  sync_message_katcl(k, KATCP_LEVEL_ERROR, ts->t_system, "unable to to modify environment: %s\n", strerror(errno));
+                }
+                free(tmp);
+              } else {
+                sync_message_katcl(k, KATCP_LEVEL_ERROR, ts->t_system, "unable to retrieve environment variable");
+              }
               break;
           }
 
