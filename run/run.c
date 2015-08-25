@@ -178,8 +178,8 @@ void usage(char *app)
   printf("-v                 increase verbosity\n");
   printf("-e level           specify the level for messages from standard error\n");
   printf("-o level           specify the level for messages from standard output\n");
-  printf("-n label[=value]   modify environment\n");
   printf("-s subsystem       specify the subsystem (overrides KATCP_LABEL)\n");
+  printf("-n label[=value]   modify the child process environment\n");
   printf("-i                 inhibit termination of subprocess on eof on standard input\n");
   printf("-r                 forward raw #log messages unchanged\n");
   printf("-x                 relay child exit codes\n");
