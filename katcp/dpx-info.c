@@ -297,7 +297,7 @@ int sensor_list_group_info_katcp(struct katcp_dispatch *d, int argc)
   char *name, *description, *units, *type, *ptr;
 
 #ifdef DEBUG
-  fprintf(stderr, "log: encountered a log message\n");
+  fprintf(stderr, "log: encountered a sensor-list message\n");
 #endif
 
   fx = this_flat_katcp(d);
@@ -314,8 +314,10 @@ int sensor_list_group_info_katcp(struct katcp_dispatch *d, int argc)
   remote = remote_of_flat_katcp(d, fx);
   self = handler_of_flat_katcp(d, fx);
 
+  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "saw a sensor list message (origin=%p, remote=%p, self=%p)", origin, remote, self);
+
   if(origin == remote){ /* ... remote party is sending us a status update ... */
-    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "saw a sensor list from remote party, attempting to it");
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "saw a sensor list from remote party, attempting to load it");
 
     name = get_string_parse_katcl(px, 1);
     description = get_string_parse_katcl(px, 2);
@@ -419,8 +421,6 @@ int sensor_status_group_info_katcp(struct katcp_dispatch *d, int argc)
   fprintf(stderr, "log: encountered a sensor-status message\n");
 #endif
 
-  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "saw a sensor status message");
-
   fx = this_flat_katcp(d);
   if(fx == NULL){
     return -1;
@@ -434,6 +434,8 @@ int sensor_status_group_info_katcp(struct katcp_dispatch *d, int argc)
   origin = sender_to_flat_katcp(d, fx);
   remote = remote_of_flat_katcp(d, fx);
   self = handler_of_flat_katcp(d, fx);
+
+  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "saw a sensor status message (origin=%p, remote=%p, self=%p)", origin, remote, self);
 
   if(origin == remote){ /* ... remote party is sending us a status update ... */
 
