@@ -143,6 +143,7 @@ void destroy_group_katcp(struct katcp_dispatch *d, struct katcp_group *g)
   fprintf(stderr, "group[%p]: destroying %s\n", g, g->g_name);
 #endif
 
+  /* WARNING: check needed, refcount might not have dropped */
   if(deallocate_group_katcp(d, g)){
     return;
   }
@@ -159,8 +160,10 @@ void destroy_group_katcp(struct katcp_dispatch *d, struct katcp_group *g)
       abort();
 #endif
       s->s_members++;
+      return;
     }
   }
+  s->s_groups[s->s_members] = NULL;
 }
 
 void destroy_groups_katcp(struct katcp_dispatch *d)
@@ -793,13 +796,20 @@ static void destroy_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *f)
 
     if(i < gx->g_count){
       gx->g_flats[i] = gx->g_flats[gx->g_count];
+      gx->g_flats[gx->g_count] = NULL;
 #if 0
       /* have a destroy_group_call here if we decide to increment hold count for group on flat creation */
 #endif
     } else {
-      if(i > gx->g_count){
+      if(i > gx->g_count){ 
+#ifdef KATCP_CONSISTENCY_CHECKS
+        fprintf(stderr, "dpx: logic problem: flat %p not found it group %p despite listing it as parent\n", f, gx);
+        abort();
+#endif
         /* undo, we are in not found case */
         gx->g_count++;
+      } else {
+        gx->g_flats[gx->g_count] = NULL;
       }
     }
   }
@@ -3480,6 +3490,7 @@ int load_flat_katcp(struct katcp_dispatch *d)
             gx->g_flats[i] = gx->g_flats[gx->g_count];
           }
           deallocate_flat_katcp(d, fx);
+          gx->g_flats[gx->g_count] = NULL;
 
           inc = 0;
           break;
@@ -3511,10 +3522,17 @@ int load_flat_katcp(struct katcp_dispatch *d)
       fprintf(stderr, "group[%p]: %s about to be removed\n", gx, gx->g_name);
 #endif
 
+      /* WARNING: instead of calling destroy_group like good little api citizens, we reach in deeper, just to save us another traversal */
+
       deallocate_group_katcp(d, gx);
-      jnc  = 0;
 
       s->s_members--;
+      if(j < s->s_members){
+        s->s_groups[j] = s->s_groups[s->s_members];
+      }
+      s->s_groups[s->s_members] = NULL;
+
+      jnc = 0;
 
 #ifdef DEBUG 
       fprintf(stderr, "dpx[*]: reduced to %u groups\n", s->s_members);
@@ -3924,7 +3942,7 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
 
     add_full_cmd_map_katcp(m, "log", "collect log messages (#log priority timestamp module text)", 0, &log_group_info_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "sensor-status", "handle sensor updates (#sensor-status timestamp 1 name status value)", 0, &sensor_status_group_info_katcp, NULL, NULL);
-    add_full_cmd_map_katcp(m, "sensor-list", "handle sensor definitions (#sensor-list name description units type [range])", 0, &sensor_list_group_info_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "sensor-list", "handle sensor definitions (#sensor-list name description units type [range])", KATCP_MAP_FLAG_GREEDY, &sensor_list_group_info_katcp, NULL, NULL);
   }
 
   if(gx->g_maps[KATCP_MAP_INNER_INFORM] == NULL){

@@ -108,7 +108,7 @@ int log_parse_katcp(struct katcp_dispatch *d, int level, struct katcl_parse *px)
   /* WARNING: ft and gt may be NULL if outside flat context */
   /* WARNING: won't echo a negative level back to its sender */
 
-  if(mask & KATCP_LEVEL_LOCAL){ /* message never visible to outside same connection */
+  if(mask & KATCP_LEVEL_LOCAL){ /* message never visible outside current connection */
     fx = ft;
     if(fx && (level >= 0)){
       count = each_log_parse_katcp(fx->f_line, count, fx->f_log_level, limit, px);
