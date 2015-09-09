@@ -338,6 +338,7 @@ int sensor_list_group_info_katcp(struct katcp_dispatch *d, int argc)
 
   ptr = make_child_sensor_katcp(d, fx, name, 1);
   if(ptr == NULL){
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "unable fixup sensor name %s", name);
     return KATCP_RESULT_FAIL;
   }
 
@@ -443,12 +444,14 @@ int sensor_status_group_info_katcp(struct katcp_dispatch *d, int argc)
     }
 
     if(fixup_timestamp_katcp(stamp, buffer, TIMESTAMP_BUFFER) < 0){
+      log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "timestamp %s not reasonable", stamp);
       return -1;
     }
     buffer[TIMESTAMP_BUFFER - 1] = '\0';
 
     ptr = make_child_sensor_katcp(d, fx, name, 0);
     if(ptr == NULL){
+      log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "unable fixup sensor name %s", name);
       return -1;
     }
 
