@@ -402,7 +402,7 @@ int sensor_list_group_info_katcp(struct katcp_dispatch *d, int argc)
 
 int sensor_status_group_info_katcp(struct katcp_dispatch *d, int argc)
 {
-#define TIMESTAMP_BUFFER 16
+#define TIMESTAMP_BUFFER 20
   struct katcp_flat *fx;
   struct katcl_parse *px;
   struct katcp_endpoint *self, *remote, *origin;
