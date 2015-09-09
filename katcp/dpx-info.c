@@ -316,93 +316,86 @@ int sensor_list_group_info_katcp(struct katcp_dispatch *d, int argc)
 
   log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "saw a sensor list message (origin=%p, remote=%p, self=%p)", origin, remote, self);
 
-  if(origin == remote){ /* ... remote party is sending us a status update ... */
-    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "saw a sensor list from remote party, attempting to load it");
-
-    name = get_string_parse_katcl(px, 1);
-    description = get_string_parse_katcl(px, 2);
-    units = get_string_parse_katcl(px, 3);
-    type = get_string_parse_katcl(px, 4);
-
-    if((name == NULL) || (description == NULL) || (type == NULL)){
-      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "deficient sensor declaration encountered");
-      return -1;
-    }
-
-    ptr = make_child_sensor_katcp(d, fx, name, 1);
-    if(ptr == NULL){
-      return -1;
-    }
-
-    vx = find_vrbl_katcp(d, ptr);
-    if(vx != NULL){
-      if(is_vrbl_sensor_katcp(d, vx)){
-#if 0
-      if(vx->v_flags & KATCP_VRF_SEN){ /* might be better choice: the extra checks in is_vrbl might be too fussy during set up ? */
-#endif
-        /* WARNING: unclear - maybe clobber the sensor entirely ... */
-        log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "leaving old sensor definition unchanged");
-      } else {
-        /* unreasonable condition, up the severity */
-        log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unwilling to transform existing variable %s into a sensor", ptr);
-      }
-      free(ptr);
-      return 1; /* WARNING: is this a reasonable exit code ? */
-    }
-
-    /* here we can assume vx is a new variable */
-    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "defining new sensor %s as %s", name, ptr);
-
-    vx = scan_vrbl_katcp(d, NULL, NULL, KATCP_VRC_SENSOR_VALUE, 1, KATCP_VRT_STRING);
-    if(vx == NULL){
-      log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "unable to declare sensor variable %s for %s", ptr, fx->f_name);
-      free(ptr);
-      return -1;
-    }
-
-    /* TODO: notice errors */
-    scan_vrbl_katcp(d, vx, description, KATCP_VRC_SENSOR_HELP, 1, KATCP_VRT_STRING);
-    scan_vrbl_katcp(d, vx, type, KATCP_VRC_SENSOR_TYPE, 1, KATCP_VRT_STRING);
-
-    if(units){
-      scan_vrbl_katcp(d, vx, units, KATCP_VRC_SENSOR_UNITS, 1, KATCP_VRT_STRING);
-    }
-
-    if(configure_vrbl_katcp(d, vx, KATCP_VRF_SEN, NULL, NULL, NULL, NULL) < 0){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to configure new variable %s as sensor", ptr);
-      destroy_vrbl_katcp(d, ptr, vx);
-      free(ptr);
-      return -1;
-    }
-
-    if(update_vrbl_katcp(d, fx, ptr, vx, 0) == NULL){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to store new sensor variable %s for client %s", ptr, fx->f_name);
-      destroy_vrbl_katcp(d, name, vx);
-      free(ptr);
-      return KATCP_RESULT_FAIL;
-    }
-
-    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "declared variable %s as %s", name, ptr);
-
-    schedule_sensor_update_katcp(d, ptr);
-
-    free(ptr);
-
-    return 0;
-
-
-  } else { /* we must have asked a sensor to send this to us, better relay it on */
-
-    if(remote == NULL){
+  if(origin != remote){ /* ... remote party is sending us a status update ... */
+    if(remote){ /* better relay it on, if somebody requested it */
+      send_message_endpoint_katcp(d, self, remote, px, 0);
+    } else {
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "internal problem, saw a sensor status but have nowhere to send it to");
-      return -1;
     }
-
-    send_message_endpoint_katcp(d, self, remote, px, 0);
-
-    return 0;
-
   }
+
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "saw a sensor list - attempting to load it");
+
+  name = get_string_parse_katcl(px, 1);
+  description = get_string_parse_katcl(px, 2);
+  units = get_string_parse_katcl(px, 3);
+  type = get_string_parse_katcl(px, 4);
+
+  if((name == NULL) || (description == NULL) || (type == NULL)){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "deficient sensor declaration encountered");
+    return KATCP_RESULT_FAIL;
+  }
+
+  ptr = make_child_sensor_katcp(d, fx, name, 1);
+  if(ptr == NULL){
+    return KATCP_RESULT_FAIL;
+  }
+
+  vx = find_vrbl_katcp(d, ptr);
+  if(vx != NULL){
+    if(is_vrbl_sensor_katcp(d, vx)){
+#if 0
+    if(vx->v_flags & KATCP_VRF_SEN){ /* might be better choice: the extra checks in is_vrbl might be too fussy during set up ? */
+#endif
+      /* WARNING: unclear - maybe clobber the sensor entirely ... */
+      log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "leaving old sensor definition unchanged");
+    } else {
+      /* unreasonable condition, up the severity */
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unwilling to transform existing variable %s into a sensor", ptr);
+    }
+    free(ptr);
+    return KATCP_RESULT_OWN; /* WARNING: is this a reasonable exit code ? */
+  }
+
+  /* here we can assume vx is a new variable */
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "defining new sensor %s as %s", name, ptr);
+
+  vx = scan_vrbl_katcp(d, NULL, NULL, KATCP_VRC_SENSOR_VALUE, 1, KATCP_VRT_STRING);
+  if(vx == NULL){
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "unable to declare sensor variable %s for %s", ptr, fx->f_name);
+    free(ptr);
+    return KATCP_RESULT_FAIL;
+  }
+
+  /* TODO: notice errors */
+  scan_vrbl_katcp(d, vx, description, KATCP_VRC_SENSOR_HELP, 1, KATCP_VRT_STRING);
+  scan_vrbl_katcp(d, vx, type, KATCP_VRC_SENSOR_TYPE, 1, KATCP_VRT_STRING);
+
+  if(units){
+    scan_vrbl_katcp(d, vx, units, KATCP_VRC_SENSOR_UNITS, 1, KATCP_VRT_STRING);
+  }
+
+  if(configure_vrbl_katcp(d, vx, KATCP_VRF_SEN, NULL, NULL, NULL, NULL) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to configure new variable %s as sensor", ptr);
+    destroy_vrbl_katcp(d, ptr, vx);
+    free(ptr);
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(update_vrbl_katcp(d, fx, ptr, vx, 0) == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to store new sensor variable %s for client %s", ptr, fx->f_name);
+    destroy_vrbl_katcp(d, name, vx);
+    free(ptr);
+    return KATCP_RESULT_FAIL;
+  }
+
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "declared variable %s as %s", name, ptr);
+
+  schedule_sensor_update_katcp(d, ptr);
+
+  free(ptr);
+
+  return KATCP_RESULT_OK;
 
 }
 
