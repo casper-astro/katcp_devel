@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <ctype.h>
 
 #include <unistd.h>
 #include <errno.h>
@@ -210,14 +211,80 @@ int log_group_info_katcp(struct katcp_dispatch *d, int argc)
 
 /* TODO: sensor logic: sensor-list, sensor-status ? */
 
+#define FIXUP_TABLE 256 /* has to be size of char ... */
+
+static unsigned char fixup_remap_table[FIXUP_TABLE];
+static unsigned int fixup_remap_ready = 0;
+
+static void fixup_remap_init()
+{
+  unsigned int i;
+
+  for(i = 0; i < FIXUP_TABLE; i++){
+    fixup_remap_table[i] = i;
+    if(isupper(fixup_remap_table[i])){
+      fixup_remap_table[i] = tolower(fixup_remap_table[i]);
+    }
+    if(!isprint(fixup_remap_table[i])){
+      fixup_remap_table[i] = KATCP_VRBL_DELIM_SPACER;
+    }
+  }
+
+  /* strip out things that trigger variable substitution */
+  fixup_remap_table[KATCP_VRBL_DELIM_GROUP] = KATCP_VRBL_DELIM_LOGIC;
+  fixup_remap_table[KATCP_VRBL_DELIM_TREE ] = KATCP_VRBL_DELIM_LOGIC;
+  fixup_remap_table[KATCP_VRBL_DELIM_ARRAY] = KATCP_VRBL_DELIM_LOGIC;
+
+  /* and clean up things */
+  fixup_remap_table[KATCP_VRBL_DELIM_FORBID] = KATCP_VRBL_DELIM_SPACER;
+}
+
+#if 0
+static void fixup_remap_size(unsigned char *dst, unsigned char *src, unsigned int len)
+{
+  unsigned int i;
+
+  if(fixup_remap_ready == 0){
+    fixup_remap_init();
+    fixup_remap_ready = 1;
+  }
+
+  for(i = 0; i < len; i++){
+    dst[i] = fixup_remap_table[src[i]];
+  }
+}
+
+static void fixup_remap_string(unsigned char *dst, unsigned char *src)
+{
+  unsigned int i;
+
+  if(fixup_remap_ready == 0){
+    fixup_remap_init();
+    fixup_remap_ready = 1;
+  }
+
+  for(i = 0; i < len; i++){
+    dst[i] = fixup_remap_table[src[i]];
+    if(src[i] == '\0'){
+      return
+    }
+  }
+}
+#endif
+
 static char *make_child_sensor_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, char *name, int locator)
 {
   /* WARNING: in a way this is a bit of a mess, some of this should be subsumed into the variable API, however, the client prefix doesn't belong there either ... it is complicated */
   char *copy, *strip;
   int suffix, prefix, size, i, j;
 
+  if(fixup_remap_ready == 0){
+    fixup_remap_init();
+    fixup_remap_ready = 1;
+  }
+
   if(strchr(name, KATCP_VRBL_DELIM_GROUP)){
-    /* WARNING: special case - if variable name includes * we assume the child knows about or internals */
+    /* WARNING: special case - if variable name includes * we assume the child knows about our internals */
     return strdup(name);
   }
 
@@ -262,22 +329,14 @@ static char *make_child_sensor_katcp(struct katcp_dispatch *d, struct katcp_flat
   }
   if(prefix){
     for(j = 0; fx->f_name[j] != '\0'; j++){
-      switch(fx->f_name[j]){
-        case KATCP_VRBL_DELIM_GROUP : /* should not happen ... */
-        case KATCP_VRBL_DELIM_TREE  :
-        case KATCP_VRBL_DELIM_ARRAY :
-          copy[i++] = KATCP_VRBL_DELIM_LOGIC;
-          break;
-        default :
-          copy[i++] = fx->f_name[j];
-          break;
-      }
+      copy[i++] = fixup_remap_table[((unsigned char *)fx->f_name)[j]];
     }
     copy[i++] = KATCP_VRBL_DELIM_LOGIC;
   }
 
-  memcpy(copy + i, strip, suffix);
-  i += suffix;
+  for(j = 0; j < suffix; j++){
+    copy[i++] = fixup_remap_table[((unsigned char *)strip)[j]];
+  }
 
   if(locator){
     copy[i++] = KATCP_VRBL_DELIM_GROUP;
@@ -287,6 +346,7 @@ static char *make_child_sensor_katcp(struct katcp_dispatch *d, struct katcp_flat
 
   return copy;
 }
+#undef FIXUP_TABLE
 
 int sensor_list_group_info_katcp(struct katcp_dispatch *d, int argc)
 {

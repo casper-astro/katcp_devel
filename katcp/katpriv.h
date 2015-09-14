@@ -1220,6 +1220,9 @@ int fixup_timestamp_katcp(char *src, char *dst, int size);
 #define KATCP_VRBL_DELIM_ARRAY    '#' 
 #define KATCP_VRBL_DELIM_LOGIC    '.'
 
+#define KATCP_VRBL_DELIM_FORBID   '_'
+#define KATCP_VRBL_DELIM_SPACER   '-'
+
 struct katcp_region *create_region_katcp(struct katcp_dispatch *d);
 void destroy_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx);
 

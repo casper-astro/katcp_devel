@@ -55,12 +55,18 @@ int fixup_timestamp_katcp(char *src, char *dst, int size)
     }
 
     suffix = strlen(dot);
+    prefix = dot - src;
 
-    total = (dot - src) + suffix;
+    total = prefix + suffix;
 
     if(suffix >= 4){ /* all ok, no fixup */
       if(total >= size){
-        return -1;
+        if((prefix + 4) >= size){
+          return -1;
+        } else {
+          memcpy(dst, src, size - 1);
+          dst[size - 1] = '\0';
+        }
       }
 
       memcpy(dst, src, total + 1);
