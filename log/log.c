@@ -36,6 +36,7 @@ void usage(char *app)
   printf("-f              run in the foreground\n");
   printf("-t              truncate the logfile when opening it\n");
   printf("-k              use tcp keepalives\n");
+  printf("-p              persist - reconnect when the connection fails\n");
   printf("-m name         report internal messages under this module field\n");
   printf("-s server:port  connect to the specified server rather than localhost:7147\n");
   printf("-a attempts     make the given number attempts to connect to the server before giving up\n");
@@ -83,7 +84,7 @@ int main(int argc, char **argv)
 #define BUFFER 64
   char buffer[BUFFER];
   char *level, *app, *server, *output;
-  int run, fd, i, j, c, verbose, attempts, detach, result, truncate, flags, keep;
+  int run, fd, i, j, c, verbose, attempts, detach, result, truncate, flags, keep, persist;
   struct katcl_parse *p;
   struct katcl_line *ls, *lo;
   struct sigaction sa;
@@ -99,6 +100,7 @@ int main(int argc, char **argv)
   detach = 0;
   truncate = 0;
   keep = 0;
+  persist = 0;
 
   server = getenv("KATCP_SERVER");
   if(server == NULL){
@@ -143,6 +145,11 @@ int main(int argc, char **argv)
 
         case 't' : 
           truncate = 1;
+          j++;
+          break;
+
+        case 'p' : 
+          persist = 1;
           j++;
           break;
 
@@ -358,22 +365,50 @@ int main(int argc, char **argv)
     }
 
     result = read_katcl(ls);
-    if(result < 0){
-      if(log_level <= KATCP_LEVEL_ERROR){
-        sync_message_katcl(lo, KATCP_LEVEL_ERROR, module, "read from network failed: %s", strerror(errno));
-      }
-      return EX_OSERR;
-    }
+    if(result != 0){
 
-    if(result == 1){
-      if(log_level <= KATCP_LEVEL_INFO){
-        time(&now);
-        local = localtime(&now);
-        strftime(buffer, BUFFER - 1, "%Y-%m-%dT%H:%M:%S", local);
-        sync_message_katcl(lo, KATCP_LEVEL_INFO, module, "logger ended for %s at %s", server, buffer);
-
+      if(result < 0){
+        if(log_level <= KATCP_LEVEL_ERROR){
+          sync_message_katcl(lo, KATCP_LEVEL_ERROR, module, "read from network failed: %s", strerror(errno));
+        }
+      } else {
+        if(log_level <= KATCP_LEVEL_WARN){
+          sync_message_katcl(lo, KATCP_LEVEL_WARN, module, "received end of stream from %s", server);
+        }
       }
-      run = 0;
+
+      if(persist == 0){
+        if(log_level <= KATCP_LEVEL_INFO){
+          time(&now);
+          local = localtime(&now);
+          strftime(buffer, BUFFER - 1, "%Y-%m-%dT%H:%M:%S", local);
+          sync_message_katcl(lo, KATCP_LEVEL_INFO, module, "logger ended for %s at %s", server, buffer);
+
+        }
+        if(result < 0){
+          return EX_OSERR;
+        } else {
+          run = 0;
+        }
+      } else {
+
+        log_changed = 1;
+        destroy_katcl(ls, 1);
+
+        while((fd = net_connect(server, 0, (keep > 0) ? NETC_TCP_KEEP_ALIVE : 0)) < 0){
+          sleep(5);
+        }
+
+        if(log_level <= KATCP_LEVEL_INFO){
+          sync_message_katcl(lo, KATCP_LEVEL_INFO, module, "reconnected to %s", server);
+        }
+
+        ls = create_katcl(fd);
+        if(ls == NULL){
+          sync_message_katcl(lo, KATCP_LEVEL_FATAL, module, "unable to re-allocate parser state");
+          return EX_OSERR;
+        }
+      }
     }
 
     while(have_katcl(ls)){
