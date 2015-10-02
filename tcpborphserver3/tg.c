@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <time.h>
+#include <ctype.h>
 
 #include <sys/stat.h>
 #include <sys/socket.h>
@@ -146,29 +147,33 @@ static void sane_gs(struct getap_state *gs)
 void generate_text_mac(char *text, unsigned int index)
 {
   struct utsname un;
-  char tmp[GETAP_MAC_SIZE];
-  pid_t pid;
-  int i, j;
-
-  memset(tmp, 0, GETAP_MAC_SIZE);
+  int i, k, end;
 
   /* generate the mac address somehow */
-  tmp[0] = 0x02; 
-  tmp[1] = 0x40 - index;
+
+  snprintf(text, GETAP_MAC_BUFFER, "02:44:00:00:00:%02x", (index & 0xff));
+  k = 6;
+
   if((uname(&un) >= 0) && un.nodename){
-    strncpy(tmp + 2, un.nodename, GETAP_MAC_SIZE - 2);
-  } else {
-    pid = getpid();
-    memcpy(tmp + 2, &pid, GETAP_MAC_SIZE - 2);
+    if(strncmp(un.nodename, "roach", 5)){ /* special dispensation */
+      i = 0;
+    } else {
+      i = 5;
+    }
+    end = 0;
+    while((un.nodename[i] != '\0') && (k < GETAP_MAC_BUFFER)){
+      if(isxdigit(un.nodename[i])){ /* WARNING: long serial numbers clobber the index */
+        text[k++] = tolower(un.nodename[i]);
+        if(end){
+          text[k++] = ':';
+        }
+        end = 1 - end;
+      }
+      i++;
+    }
   }
 
-  snprintf(text, GETAP_MAC_BUFFER, "%02x", tmp[0]);
-  j = 2;
-
-  for(i = 1; i < GETAP_MAC_SIZE; i++){
-    snprintf(text + j, GETAP_MAC_BUFFER - j, ":%02x", tmp[i]);
-    j += 3;
-  }
+  text[GETAP_MAC_BUFFER - 1] = '\0';
 }
 
 int text_to_mac(uint8_t *binary, const char *text)
