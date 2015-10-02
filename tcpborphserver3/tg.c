@@ -151,7 +151,7 @@ void generate_text_mac(char *text, unsigned int index)
 
   /* generate the mac address somehow */
 
-  snprintf(text, GETAP_MAC_BUFFER, "02:44:00:00:00:%02x", (index & 0xff));
+  snprintf(text, GETAP_MAC_BUFFER, "02:44:00:00:00:%02x", ((index + 1) & 0xff));
   k = 6;
 
   if((uname(&un) >= 0) && un.nodename){
