@@ -1594,7 +1594,7 @@ int log_message_katcp(struct katcp_dispatch *d, unsigned int priority, char *nam
   va_start(args, fmt);
 
   if(sum > 0){
-    count = log_parse_katcp(d, level, px);
+    count = log_parse_katcp(d, priority, px);
     if(count < 0){
       sum = (-1);
     } else {
