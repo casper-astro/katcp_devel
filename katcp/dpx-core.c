@@ -1651,6 +1651,8 @@ struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, unsigned 
 #if 0
   f->f_backlog = NULL;
 #endif
+  f->f_orx = NULL;
+
   f->f_rx = NULL;
 
   f->f_tx = NULL;
