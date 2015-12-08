@@ -491,6 +491,7 @@ int terminate_group_katcp(struct katcp_dispatch *d, struct katcp_group *gx, int 
   int result;
 
   if(gx == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "group group specified, nothing to terminate");
     return -1;
   }
 
@@ -2315,6 +2316,7 @@ int rename_flat_katcp(struct katcp_dispatch *d, char *group, char *was, char *sh
 int terminate_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx)
 {
   if(fx == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "null client can not be terminated");
     return -1;
   }
 
@@ -2334,7 +2336,7 @@ int terminate_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx)
       return 0;
     default :
       /* already terminating */
-      return -1;
+      return 1;
   }
 }
 
