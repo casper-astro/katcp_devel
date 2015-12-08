@@ -209,6 +209,64 @@ int log_group_info_katcp(struct katcp_dispatch *d, int argc)
   return 0;
 }
 
+int version_group_info_katcp(struct katcp_dispatch *d, int argc)
+{
+  struct katcp_flat *fx;
+  struct katcl_parse *px;
+  struct katcp_endpoint *self, *remote, *origin;
+  char *name, *version, *build;
+  unsigned int count;
+
+#ifdef DEBUG
+  fprintf(stderr, "version: encountered peer version message\n");
+#endif
+
+  fx = this_flat_katcp(d);
+  if(fx == NULL){
+    return -1;
+  }
+
+  px = arg_parse_katcp(d);
+  if(px == NULL){
+    return -1;
+  }
+
+  origin = sender_to_flat_katcp(d, fx);
+  remote = remote_of_flat_katcp(d, fx);
+  self = handler_of_flat_katcp(d, fx);
+
+  log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "saw a version message (origin=%p, remote=%p, self=%p)", origin, remote, self);
+
+  if(origin != remote){ /* version information must have originated internally ... */
+    if(remote){ /* ... better relay it on, if somebody requested it */
+      send_message_endpoint_katcp(d, self, remote, px, 0);
+    } else {
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "internal problem, saw a version message but have nowhere to send it to");
+    }
+
+    return 0;
+  }
+
+  count = get_count_parse_katcl(px);
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "saw a version field with %u args - attempting to process it", count);
+
+  if(count < 2){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "insufficient parameters for usable version report - only got %u", count);
+    return 0;
+  }
+
+  name = get_string_parse_katcl(px, 1);
+  version = get_string_parse_katcl(px, 2);
+
+  if(count > 2){
+    build = get_string_parse_katcl(px, 3);
+  } else {
+    build = NULL;
+  }
+
+  return 0;
+}
+
 /* TODO: sensor logic: sensor-list, sensor-status ? */
 
 #define FIXUP_TABLE 256 /* has to be size of char ... */
@@ -376,11 +434,11 @@ int sensor_list_group_info_katcp(struct katcp_dispatch *d, int argc)
 
   log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "saw a sensor list message (origin=%p, remote=%p, self=%p)", origin, remote, self);
 
-  if(origin != remote){ /* ... remote party is sending us a status update ... */
-    if(remote){ /* better relay it on, if somebody requested it */
+  if(origin != remote){ /* request must have originated internally, so ... */
+    if(remote){ /* ... better relay it on, if somebody requested it */
       send_message_endpoint_katcp(d, self, remote, px, 0);
     } else {
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "internal problem, saw a sensor status but have nowhere to send it to");
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "internal problem, saw a sensor list but have nowhere to send it to");
     }
   }
 

@@ -61,6 +61,8 @@ void release_listener_katcp(struct katcp_dispatch *d, struct katcp_listener *kl)
 {
   sane_listener_katcl(kl);
 
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "releasing listener on port %u for group %s", kl->l_port, kl->l_group ? (kl->l_group->g_name ? kl->l_group->g_name : "<unnamed>") : "<none>");
+
   if(kl->l_address){
     free(kl->l_address);
     kl->l_address = NULL;
@@ -140,7 +142,6 @@ int accept_flat_katcp(struct katcp_dispatch *d, struct katcp_arb *a, unsigned in
     sane_listener_katcl(kl);
 
     release_listener_katcp(d, kl);
-
   }
   
   if(mode & KATCP_ARB_WRITE){

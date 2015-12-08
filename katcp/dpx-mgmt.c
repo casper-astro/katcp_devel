@@ -374,8 +374,9 @@ int group_create_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
-  if(find_group_katcp(d, name)){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "group %s already exists", name);
+  gx = find_group_katcp(d, name);
+  if(gx != NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "group %s already exists (%u members, %u users, autoremove=%u)", name, gx->g_count, gx->g_use, gx->g_autoremove);
     return KATCP_RESULT_FAIL;
   }
 
