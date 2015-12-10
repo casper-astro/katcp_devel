@@ -509,6 +509,8 @@ int terminate_group_katcp(struct katcp_dispatch *d, struct katcp_group *gx, int 
     gx->g_autoremove = 1;
   }
 
+  mark_busy_katcp(d);
+
   return result;
 }
 
@@ -2333,6 +2335,7 @@ int terminate_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx)
       return 0;
     case FLAT_STATE_UP : 
       fx->f_state = FLAT_STATE_FINISHING;
+      mark_busy_katcp(d);
       return 0;
     default :
       /* already terminating */
