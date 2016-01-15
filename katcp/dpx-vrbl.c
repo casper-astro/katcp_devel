@@ -58,6 +58,8 @@ struct katcp_vrbl_type_ops{
   /* WARNING unclear semantics: how do we build up a composite structure ..., add and scan should be complementary ?  */
   int (*t_scan)(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *text, char *path, int create, unsigned int type);
 
+  int (*t_excise)(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *path, int relax);
+
   /* retrieve a particular element ... */
   struct katcp_vrbl_payload *(*t_element)(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *path);
 
@@ -72,18 +74,21 @@ struct katcp_vrbl_type_ops{
 int init_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
 void clear_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
 int scan_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *text, char *path, int create, unsigned int type);
+int excise_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *path, int relax);
 struct katcp_vrbl_payload *element_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *path);
 int add_string_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int flags, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
 
 int init_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
 void clear_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
 int scan_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *text, char *path, int create, unsigned int type);
+int excise_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *path, int relax);
 struct katcp_vrbl_payload *element_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *path);
 int add_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int flags, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
 
 int init_array_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
 void clear_array_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
 int scan_array_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *text, char *path, int create, unsigned int type);
+int excise_array_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *path, int relax);
 struct katcp_vrbl_payload *element_array_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *path);
 int add_array_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int flags, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
 
@@ -93,6 +98,7 @@ struct katcp_vrbl_type_ops ops_type_vrbl[KATCP_MAX_VRT] = {
     &init_string_vrbl_katcp,
     &clear_string_vrbl_katcp,
     &scan_string_vrbl_katcp,
+    &excise_string_vrbl_katcp,
     &element_string_vrbl_katcp,
     &add_string_vrbl_katcp
   }, 
@@ -101,6 +107,7 @@ struct katcp_vrbl_type_ops ops_type_vrbl[KATCP_MAX_VRT] = {
     &init_tree_vrbl_katcp,
     &clear_tree_vrbl_katcp,
     &scan_tree_vrbl_katcp,
+    &excise_tree_vrbl_katcp,
     &element_tree_vrbl_katcp,
     &add_tree_vrbl_katcp
   },
@@ -109,6 +116,7 @@ struct katcp_vrbl_type_ops ops_type_vrbl[KATCP_MAX_VRT] = {
     &init_array_vrbl_katcp,
     &clear_array_vrbl_katcp,
     &scan_array_vrbl_katcp,
+    &excise_array_vrbl_katcp,
     &element_array_vrbl_katcp,
     &add_array_vrbl_katcp
   }
@@ -354,6 +362,23 @@ int scan_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, stru
 
   /* special case, as scan uses a string as input too, other types not so easy */
   return set_string_vrbl_katcp(d, vx, py, text);
+}
+
+int excise_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *path, int relax)
+{
+  if(path){
+    if(relax){
+      return 0;
+    }
+
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "encountered terminal string while processing path %s", path);
+
+    return -1;
+  }
+
+  log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "possible logic problem during deletion - encountered terminal with null path which should have been excised earlier");
+
+  return -1;
 }
 
 struct katcp_vrbl_payload *element_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *path)
@@ -645,6 +670,114 @@ int scan_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct
 #endif
 
   return result;
+}
+
+int excise_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *path, int relax)
+{
+  int next, len, result;
+  unsigned int infer;
+  char *ptr, *copy, *rest;
+  struct katcp_vrbl_payload *ty;
+  struct avl_node *n;
+  struct avl_tree *tree;
+
+  if(path == NULL){
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "unable to excise something from tree without valid path");
+  }
+
+  if(fixup_type_vrbl_katcp(d, vx, py, KATCP_VRT_TREE) < 0){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "variable tree consistency rule");
+    return -1;
+  }
+
+  tree = py->p_union.u_tree;
+
+  if(path[0] != KATCP_VRBL_DELIM_TREE){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "tree insert: unexpected path specification %s\n", path);
+#endif
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "invalid tree variable access path %s", path);
+    return -1;
+  }
+
+  next = next_element_path_vrbl(path);
+  if(next < 0){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "invalid path specification %s", path);
+    return -1;
+  }
+
+  if(next == 0){
+    ptr = path + 1;
+    copy = NULL;
+    rest = NULL;
+  } else {
+    if(next == 1){
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "compound variable access path has a null member");
+      return -1;
+    }
+    len = next;
+    
+    copy = malloc(len + 1);
+    if(copy == NULL){
+      return -1;
+    }
+    memcpy(copy, path + 1, len);
+    copy[len - 1] = '\0';
+
+    ptr = copy;
+    rest = path + next;
+  }
+
+  n = find_name_node_avltree(tree, ptr);
+
+  if(copy){
+    free(copy);
+  }
+
+  if(n == NULL){
+    if(relax){
+      return 0;
+    }
+
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "tried to retrive tree path %s but nothing found", path);
+    return -1;
+  }
+
+  ty = get_node_data_avltree(n);
+  if(ty == NULL){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "no data associated with %p in tree", path);
+    return -1;
+  }
+
+  if(rest){
+    infer = ty->p_type;
+#ifdef KATCP_CONSISTENCY_CHECKS
+    if(infer >= KATCP_MAX_VRT){
+      fprintf(stderr, "tree insert: operating on bad type %u\n", infer);
+    }
+#endif
+
+    /* go deeper down the wabbit hole */
+    result = (*(ops_type_vrbl[infer].t_excise))(d, vx, ty, rest, relax);
+
+    if(result < 0){
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "traversal to using path %s of %s failed", rest, path);
+    }
+
+    return result;
+  }
+
+  release_vrbl_katcp(d, vx, ty);
+
+  if(del_node_avltree(tree, n, NULL) < 0){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "major logic problem: avl delete should not fail after node has been found (working on %s)\n", path);
+    abort();
+#endif
+    return -1;
+  }
+
+  return 0;
 }
 
 struct katcp_vrbl_payload *element_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *path)
@@ -1089,6 +1222,108 @@ int scan_array_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struc
     /* WARNING: change API update happens at top level, assuming type_specific scans are only called at proper entry points */
   }
 #endif
+
+  return result;
+}
+
+int excise_array_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *path, int relax)
+{
+  struct katcp_vrbl_array *va;
+  unsigned int index;
+  int next, result;
+  unsigned int infer;
+  char *rest, *end;
+  struct katcp_vrbl_payload *ty;
+
+  if(path == NULL){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "can not remove an element from array without a name");
+    return -1;
+  }
+
+  if(fixup_type_vrbl_katcp(d, vx, py, KATCP_VRT_ARRAY) < 0){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "variable fails type consistency rule");
+    return -1;
+  }
+
+  va = &(py->p_union.u_array);
+
+  if(path[0] != KATCP_VRBL_DELIM_ARRAY){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "tree excise: unexpected path specification %s\n", path);
+#endif
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "invalid array variable access path %s", path);
+    return -1;
+  }
+
+  next = next_element_path_vrbl(path);
+  if(next < 0){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "invalid path specification %s", path);
+    return -1;
+  }
+
+  index = strtoul(path + 1, &end, 10);
+  if(end == (path + 1)){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "no index available in path specification %s", path);
+    return -1;
+  }
+
+  if(isalpha(end[0])){
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "incorrect suffix %s while scaning path specification %s", end, path);
+    return -1;
+  }
+
+  if(next == 0){
+    rest = NULL;
+  } else {
+    rest = path + next;
+  }
+
+  if(index >= va->a_size){
+    if(relax){
+      return 0;
+    }
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "array index %u exceeds array size", index);
+    return -1;
+  }
+
+  if(va->a_elements[index] == NULL){
+    if(relax){
+      return 0;
+    }
+    log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "array index %u not populated", index);
+    return -1;
+  }
+
+  ty = va->a_elements[index];
+
+
+  if(rest == NULL){
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "reached last path specifier, deleting variable subunit from here on");
+
+    release_vrbl_katcp(d, vx, ty);
+
+    va->a_elements[index] = NULL;
+
+    return 0;
+
+  } else {
+
+    infer = ty->p_type;
+#ifdef KATCP_CONSISTENCY_CHECKS
+    if(infer >= KATCP_MAX_VRT){
+      fprintf(stderr, "tree insert: operating on bad type %u\n", infer);
+    }
+#endif
+
+    /* go deeper down the wabbit hole */
+    result = (*(ops_type_vrbl[infer].t_excise))(d, vx, ty, rest, relax);
+
+    if(result < 0){
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "child excise at array path %s failed", rest);
+    }
+
+    return result;
+  }
 
   return result;
 }
@@ -2223,6 +2458,45 @@ struct katcp_vrbl *update_vrbl_katcp(struct katcp_dispatch *d, struct katcp_flat
 
 }
 
+int excise_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, char *path, int relax)
+{
+  unsigned int type;
+  struct katcp_vrbl_payload *py;
+  int result;
+
+  if(path == NULL){
+    if(relax){
+      return 0;
+    }
+
+    return -1;
+  }
+
+  py = vx->v_payload;
+  if(py == NULL){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "logic failure: variable has a null payload\n");
+    abort();
+#endif
+    return -1;
+  }
+
+  type = py->p_type;
+  if(type >= KATCP_MAX_VRT){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "logic failure: variable has payload has invalid type\n");
+    abort();
+#endif
+    return -1;
+  }
+
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "attempting excision on variable type %u with path %s\n", type, path);
+
+  result = (*(ops_type_vrbl[type].t_excise))(d, vx, py, path, relax);
+
+  return result;
+}
+
 /* setup logic ***********************************************/
 
 void destroy_vrbl_for_region_katcp(void *global, char *key, void *payload)
@@ -2691,6 +2965,7 @@ int var_delete_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   char *key;
   struct katcp_vrbl *vx;
   struct katcp_flat *fx;
+  int next;
 
   fx = this_flat_katcp(d);
   if(fx == NULL){
@@ -2706,7 +2981,7 @@ int var_delete_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
   }
 
-  log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "attempting to locate %s for deletion", key);
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "attempting to locate %s for deletion", key);
 
   vx = find_vrbl_katcp(d, key);
   if(vx == NULL){
@@ -2714,9 +2989,18 @@ int var_delete_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_NOT_FOUND);
   }
 
-  if(update_vrbl_katcp(d, fx, key, NULL, 1)){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to remove variable %s", key);
-    return KATCP_RESULT_FAIL;
+  next = next_element_path_vrbl(key);
+
+  if(next > 0){
+   if(excise_vrbl_katcp(d, vx, key + next, 1) < 0){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to perform removal of %s from variable %s", key + next, key);
+      return KATCP_RESULT_FAIL;
+   }
+  } else {
+    if(update_vrbl_katcp(d, fx, key, NULL, 1)){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to remove variable %s", key);
+      return KATCP_RESULT_FAIL;
+    }
   }
 
   return KATCP_RESULT_OK;
