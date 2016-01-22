@@ -2111,7 +2111,7 @@ static int run_acquire_katcp(struct katcp_dispatch *d, struct katcp_acquire *a, 
 #ifdef KATCP_USE_FLOATS
   struct katcp_double_acquire *doa;
 #endif
-  struct katcp_double_acquire *dsa;
+  struct katcp_discrete_acquire *dsa;
   struct timeval now, legal;
 #if 0
   struct katcp_shared *s;
