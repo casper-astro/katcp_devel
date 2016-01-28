@@ -1941,6 +1941,9 @@ int tap_runtime_configure(struct katcp_dispatch *d, struct getap_state *gs, char
   int valid, len;
   unsigned int *array, index;
 
+  index = 0;  /* pacify compiler warnings */
+  v = 1; 
+
   if(key == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no key given");
     return -1;

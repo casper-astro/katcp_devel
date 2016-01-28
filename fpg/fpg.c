@@ -524,15 +524,13 @@ int program_bin(struct ipr_state *ipr, char *server, int port)
     if(ipr->i_used > 0){
       wr = write(ipr->i_ufd, ipr->i_buffer, ipr->i_used);
       if(wr < 0){
-        if(rr < 0){
-          switch(errno){
-            case EAGAIN :
-            case EINTR  :
-              break;
-            default :
-              log_message_katcl(ipr->i_print, KATCP_LEVEL_ERROR, ipr->i_label, "upload of bitstream failed after %u bytes: %s", ipr->i_seen, strerror(errno));
-              return -1;
-          }
+        switch(errno){
+          case EAGAIN :
+          case EINTR  :
+            break;
+          default :
+            log_message_katcl(ipr->i_print, KATCP_LEVEL_ERROR, ipr->i_label, "upload of bitstream failed after %u bytes: %s", ipr->i_seen, strerror(errno));
+            return -1;
         }
       } else {
         if(wr < ipr->i_used){

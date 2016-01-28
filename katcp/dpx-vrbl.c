@@ -2962,7 +2962,7 @@ int var_set_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
 int var_delete_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
-  char *key;
+  char *key, *path;
   struct katcp_vrbl *vx;
   struct katcp_flat *fx;
   int next;
@@ -2976,12 +2976,22 @@ int var_delete_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
   }
 
+  /* TODO: accept another parameter - optional path */
+
   key = arg_string_katcp(d, 1);
   if(key == NULL){
     return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
   }
+  
+  path = NULL;
+  if(argc > 2){
+    path = arg_string_katcp(d, 2);
+    if(path == NULL){
+      return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
+    }
+  }
 
-  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "attempting to locate %s for deletion", key);
+  log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "attempting to locate %s for deletion with %s path", key, path ? path : "no additional" );
 
   vx = find_vrbl_katcp(d, key);
   if(vx == NULL){
@@ -2991,16 +3001,24 @@ int var_delete_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
   next = next_element_path_vrbl(key);
 
-  if(next > 0){
-   if(excise_vrbl_katcp(d, vx, key + next, 1) < 0){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to perform removal of %s from variable %s", key + next, key);
-      return KATCP_RESULT_FAIL;
-   }
-  } else {
+  if(path && (next > 0)){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to process both %s and %s as path while deleting %s", path, key + next, key);
+    return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
+  }
+
+  if((next <= 0) && (path == NULL)){
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "will perform complete deletion of %s", key);
+    /* complete deletion */
     if(update_vrbl_katcp(d, fx, key, NULL, 1)){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to remove variable %s", key);
       return KATCP_RESULT_FAIL;
     }
+    return KATCP_RESULT_OK;
+  }
+
+  if(excise_vrbl_katcp(d, vx, path ? path : key + next, 1) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to perform removal of %s from variable %s", path ? path : key + next, key);
+    return KATCP_RESULT_FAIL;
   }
 
   return KATCP_RESULT_OK;
