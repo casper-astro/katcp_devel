@@ -877,6 +877,61 @@ int help_cmd_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   return configure_cmd_group_katcp(d, argc, CMD_OP_HELP, 0);
 }
 
+int alias_cmd_group_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  char *source, *target;
+  struct katcp_cmd_map *mx;
+  struct katcp_cmd_item *ix;
+  struct katcp_flat *fx;
+
+  if(argc <= 2){
+    return extra_response_katcp(d, KATCP_RESULT_INVALID, KATCP_FAIL_USAGE);
+  }
+
+  target = arg_string_katcp(d, 1);
+  source = arg_string_katcp(d, 2);
+  if((source == NULL) || (target == NULL)){
+    return extra_response_katcp(d, KATCP_RESULT_INVALID, KATCP_FAIL_BUG);
+  }
+
+  fx = this_flat_katcp(d);
+  if(fx == NULL){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "interesting failure: not called within a valid duplex context\n");
+    abort();
+#endif
+    return KATCP_RESULT_FAIL;
+  }
+
+  mx = map_of_flat_katcp(fx);
+  if(mx == NULL){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "interesting failure: no map available\n");
+    abort();
+#endif
+    return KATCP_RESULT_FAIL;
+  }
+
+  ix = find_cmd_map_katcp(mx, source);
+  if(ix == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "no command %s found", source);
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(ix->i_data){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "command %s has local state which makes it unsafe to clone", source);
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(add_full_cmd_map_katcp(mx, target, ix->i_help, ix->i_flags, ix->i_call, NULL, ix->i_clear) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to setup an alias for %s as %s", source, target);
+    return KATCP_RESULT_FAIL;
+  }
+
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "set up an alias for %s as %s", source, target);
+  return KATCP_RESULT_OK;
+
+}
 /* scope commands ***/
 
 int scope_group_cmd_katcp(struct katcp_dispatch *d, int argc)
