@@ -312,9 +312,10 @@ static int before_add_parse_katcl(struct katcl_parse *p, unsigned int flags)
 
 static int after_add_parse_katcl(struct katcl_parse *p, unsigned int data, unsigned int escape, unsigned int flags)
 {
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
   if(p->p_size < p->p_kept + data + 1){
     fprintf(stderr, "add parse: over allocated parse (size=%u, added=%u+%u+1)\n", p->p_size, p->p_kept, data);
+    abort();
   }
 #endif
 
@@ -443,6 +444,11 @@ int add_buffer_parse_katcl(struct katcl_parse *p, int flags, void *buffer, unsig
   fprintf(stderr, "adding %u bytes to parse %p\n", len, p);
 #endif
 
+  dst = request_space_parse_katcl(p, len + 1);
+  if(dst == NULL){
+    return -1;
+  }
+
   if(len > 0){
     if(buffer == NULL){
 #ifdef KATCP_CONSISTENCY_CHECKS
@@ -451,12 +457,15 @@ int add_buffer_parse_katcl(struct katcl_parse *p, int flags, void *buffer, unsig
 #endif
       return -1;
     }
-    dst = request_space_parse_katcl(p, len + 1);
-    if(dst == NULL){
-      return -1;
-    }
     memcpy(dst, buffer, len);
-  } /* else single \@ case */
+  } else {
+    /* single \@ case */
+#ifdef KATCP_CONSISTENCY_CHECKS
+    if(buffer){
+      fprintf(stderr, "add buffer: warning: zero buffer length, yet given a buffer %p", buffer);
+    }
+#endif
+  } 
 
   return after_add_parse_katcl(p, len, 1, flags);
 }
@@ -492,11 +501,12 @@ int add_parameter_parse_katcl(struct katcl_parse *pd, int flags, struct katcl_pa
   fprintf(stderr, "adding %u bytes to parse %p\n", len, pd);
 #endif
 
+  dst = request_space_parse_katcl(pd, len + 1);
+  if(dst == NULL){
+    return -1;
+  }
+
   if(src){
-    dst = request_space_parse_katcl(pd, len + 1);
-    if(dst == NULL){
-      return -1;
-    }
     memcpy(dst, src, len);
   } /* else single \@ case */
 

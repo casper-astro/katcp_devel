@@ -236,7 +236,7 @@ struct katcl_parse *generate_relay_forward(struct katcp_dispatch *d, struct forw
     result = 0;
 
 #ifdef DEBUG
-    fprintf(stderr, "forwarding: adding op %u with field %p\n", pf->p_op, pf->p_str);
+    fprintf(stderr, "forwarding: adding op %u with field %p (%s)\n", pf->p_op, pf->p_str, pf->p_str ? pf->p_str : "[nothing]");
 #endif
 
     switch(pf->p_op){
