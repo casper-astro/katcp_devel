@@ -969,7 +969,9 @@ int process_map_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, int 
   fprintf(stderr, "dpx[%p]: attempting to match %s to %s tree\n", fx, str + 1, (fx->f_current_endpoint == fx->f_remote) ? "remote" : "internal");
 #endif
 
+#if 0  /* dangerous - a log message of trace will be parsed here to leading to a loop */
   log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "attempting to match %s to %s tree", str + 1, (fx->f_current_endpoint == fx->f_remote) ? "remote" : "internal");
+#endif
 
   ix = find_data_avltree(mx->m_tree, str + 1);
   if((ix == NULL) || (ix->i_call == NULL)){
