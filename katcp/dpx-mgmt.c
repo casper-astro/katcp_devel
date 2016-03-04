@@ -243,8 +243,8 @@ int client_halt_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     fx = require_flat_katcp(d);
   }
 
-  if(terminate_flat_katcp(d, fx) == 0){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to terminate client");
+  if(terminate_flat_katcp(d, fx) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to terminate client %s", fx->f_name ? fx->f_name : "without a name");
     return KATCP_RESULT_FAIL;
   }
 
