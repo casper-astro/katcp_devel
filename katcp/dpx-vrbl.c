@@ -33,6 +33,10 @@
 #define MAX_DEPTH_VRBL 3
 #define MAX_COUNT_STAR 3
 
+#define HOW_NO_CREATE    0
+#define HOW_MAY_CREATE   1
+#define HOW_MUST_CREATE  2
+
 static struct katcp_vrbl *find_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx, char *key);
 static int insert_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx, struct katcp_vrbl *vx, char *key);
 static int remove_region_katcp(struct katcp_dispatch *d, struct katcp_region *rx, struct katcp_vrbl *vx);
@@ -56,7 +60,7 @@ struct katcp_vrbl_type_ops{
 
 
   /* WARNING unclear semantics: how do we build up a composite structure ..., add and scan should be complementary ?  */
-  int (*t_scan)(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *text, char *path, int create, unsigned int type);
+  int (*t_scan)(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *text, char *path, int how, unsigned int type);
 
   int (*t_excise)(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *path, int relax);
 
@@ -73,21 +77,21 @@ struct katcp_vrbl_type_ops{
 
 int init_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
 void clear_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
-int scan_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *text, char *path, int create, unsigned int type);
+int scan_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *text, char *path, int how, unsigned int type);
 int excise_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *path, int relax);
 struct katcp_vrbl_payload *element_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *path);
 int add_string_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int flags, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
 
 int init_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
 void clear_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
-int scan_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *text, char *path, int create, unsigned int type);
+int scan_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *text, char *path, int how, unsigned int type);
 int excise_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *path, int relax);
 struct katcp_vrbl_payload *element_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *path);
 int add_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int flags, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
 
 int init_array_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
 void clear_array_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
-int scan_array_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *text, char *path, int create, unsigned int type);
+int scan_array_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *text, char *path, int how, unsigned int type);
 int excise_array_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *path, int relax);
 struct katcp_vrbl_payload *element_array_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *path);
 int add_array_vrbl_katcp(struct katcp_dispatch *d, struct katcl_parse *px, int flags, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py);
@@ -295,7 +299,7 @@ void clear_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, st
   py->p_type = KATCP_VRT_GONE;
 }
 
-int set_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *value)
+static int actually_set_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *value, int refuse)
 {
   char *ptr;
   int len;
@@ -327,6 +331,13 @@ int set_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struc
     return -1;
   }
 
+  if(refuse){
+    if(ty->p_union.u_string){
+      log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "refusing to overwrite variable");
+      return -1;
+    }
+  }
+
   if(value == NULL){
     if(ty->p_union.u_string){
       free(ty->p_union.u_string);
@@ -346,7 +357,12 @@ int set_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struc
   return 0;
 }
 
-int scan_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *text, char *path, int create, unsigned int type)
+int set_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *value)
+{
+  return actually_set_string_vrbl_katcp(d, vx, py, value, 0);
+}
+
+int scan_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *text, char *path, int how, unsigned int type)
 {
 
   if(text){
@@ -361,7 +377,7 @@ int scan_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, stru
   }
 
   /* special case, as scan uses a string as input too, other types not so easy */
-  return set_string_vrbl_katcp(d, vx, py, text);
+  return actually_set_string_vrbl_katcp(d, vx, py, text, (how == HOW_MUST_CREATE) ? 1 : 0);
 }
 
 int excise_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *path, int relax)
@@ -540,7 +556,7 @@ int set_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct 
 
 #endif
 
-int scan_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *text, char *path, int create, unsigned int type)
+int scan_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *text, char *path, int how, unsigned int type)
 {
   int next, len, result;
   unsigned int infer;
@@ -612,7 +628,7 @@ int scan_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct
 
     log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "tried to locate element %s but not found", ptr);
 
-    if((create == 0) || (type >= KATCP_MAX_VRT)){
+    if((how == HOW_NO_CREATE) || (type >= KATCP_MAX_VRT)){
       log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "variable element %s would have to be created, but creation not requested", ptr);
       if(copy){
         free(copy);
@@ -657,7 +673,7 @@ int scan_tree_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct
   }
 
   /* go deeper down the wabbit hole */
-  result = (*(ops_type_vrbl[infer].t_scan))(d, vx, ty, text, rest, create, type);
+  result = (*(ops_type_vrbl[infer].t_scan))(d, vx, ty, text, rest, how, type);
   
   if(result < 0){
     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "child addition to map failed");
@@ -1083,7 +1099,7 @@ int set_array_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct
 }
 #endif
 
-int scan_array_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *text, char *path, int create, unsigned int type)
+int scan_array_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_vrbl_payload *py, char *text, char *path, int how, unsigned int type)
 {
   struct katcp_vrbl_array *va;
   unsigned int index, i;
@@ -1153,7 +1169,7 @@ int scan_array_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struc
   }
 
   if(va->a_size <= index){
-    if((create == 0) || (type >= KATCP_MAX_VRT)){
+    if((how == HOW_NO_CREATE) || (type >= KATCP_MAX_VRT)){
       log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "variable element %s would have to be created, but creation not requested", path);
       return -1;
     }
@@ -1181,7 +1197,7 @@ int scan_array_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struc
 
     log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "tried to locate element %s but not found", path);
 
-    if((create == 0) || (type >= KATCP_MAX_VRT)){
+    if((how == HOW_NO_CREATE) || (type >= KATCP_MAX_VRT)){
       log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "variable element %s would have to be created, but creation not requested", path);
       return -1;
     }
@@ -1211,7 +1227,7 @@ int scan_array_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struc
   }
 
   /* go deeper down the wabbit hole */
-  result = (*(ops_type_vrbl[infer].t_scan))(d, vx, ty, text, rest, create, type);
+  result = (*(ops_type_vrbl[infer].t_scan))(d, vx, ty, text, rest, how, type);
   
   if(result < 0){
     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "child addition to map failed");
@@ -1510,7 +1526,7 @@ char *type_to_string_vrbl_katcp(struct katcp_dispatch *d, unsigned int type)
 
 /* WARNING: order important, needs to correspond to bit position */
 
-static char *flag_lookup_vrbl[] = { "environment",  "version", "sensor", "fluid", "hidden", NULL };
+static char *flag_lookup_vrbl[] = { "environment",  "version", "sensor", "fluid", "hidden", "readonly", NULL };
 
 unsigned int flag_from_string_vrbl_katcp(struct katcp_dispatch *d, char *string)
 {
@@ -1602,7 +1618,7 @@ void release_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct 
 
 /* generic functions using type ops ***********************************************/
 
-struct katcp_vrbl *scan_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, char *text, char *path, int create, unsigned int type)
+struct katcp_vrbl *scan_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, char *text, char *path, int how, unsigned int type)
 {
   int result;
   struct katcp_vrbl_payload *py;
@@ -1620,7 +1636,7 @@ struct katcp_vrbl *scan_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *
   }
 
   if(vx == NULL){
-    if(create == 0){
+    if(how == HOW_NO_CREATE){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "requested to create a new variable without create flag being set");
       return NULL;
     } 
@@ -1642,7 +1658,7 @@ struct katcp_vrbl *scan_vrbl_katcp(struct katcp_dispatch *d, struct katcp_vrbl *
     return NULL;
   }
 
-  result = (*(ops_type_vrbl[py->p_type].t_scan))(d, vt, py, text, path, create, type);
+  result = (*(ops_type_vrbl[py->p_type].t_scan))(d, vt, py, text, path, how, type);
   if(result < 0){
 
     log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "unable to scan variable %s", text ? text : "[null]");
@@ -2728,7 +2744,7 @@ int var_declare_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     fresh = 1;
   }
 
-  vx = scan_vrbl_katcp(d, vx, NULL, path, 1, type);
+  vx = scan_vrbl_katcp(d, vx, NULL, path, HOW_MAY_CREATE, type);
   if(vx == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to initialise variable %s with null scan", name);
     return KATCP_RESULT_FAIL;
@@ -2904,6 +2920,7 @@ int var_set_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   char *key, *value, *path, *ptr;
   struct katcp_vrbl *vx;
   unsigned int type;
+  int how;
 
   if(argc <= 2){
     return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_USAGE);
@@ -2953,7 +2970,13 @@ int var_set_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     }
   }
 
-  if(scan_vrbl_katcp(d, vx, value, path, 1, type) < 0){
+  if(vx->v_flags & KATCP_VRF_ROM){
+    how = HOW_MUST_CREATE;
+  } else {
+    how = HOW_MAY_CREATE;
+  }
+
+  if(scan_vrbl_katcp(d, vx, value, path, how, type) == NULL){
     return KATCP_RESULT_FAIL;
   }
 
