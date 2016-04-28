@@ -640,7 +640,7 @@ int listener_create_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
     fixup = net_port_fixup(port);
     if(fixup != port){
-      log_message_katcp(d, KATCP_LEVEL_WARNING, NULL, "truncating unreasonable port %u to %u", port, fixup);
+      log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "truncating unreasonable port %u to %u", port, fixup);
       port = fixup;
     }
 
