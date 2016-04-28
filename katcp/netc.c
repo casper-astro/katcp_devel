@@ -21,13 +21,11 @@
 
 unsigned int net_port_fixup(unsigned int port)
 {
-  unsigned int result;
-
-  if(port > 0xffff){
-    result = (port % (0xffff - 1024)) + 1024;
-  } else {
-    return result;
+  if(port <= 0xffff){
+    return port;
   }
+
+  return (port % (0xffff - 1024)) + 1024;
 }
 
 int net_address(struct sockaddr *sa, char *name, int port, int flags)
