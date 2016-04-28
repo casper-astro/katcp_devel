@@ -19,6 +19,17 @@
 
 #include "netc.h"
 
+unsigned int net_port_fixup(unsigned int port)
+{
+  unsigned int result;
+
+  if(port > 0xffff){
+    result = (port % (0xffff - 1024)) + 1024;
+  } else {
+    return result;
+  }
+}
+
 int net_address(struct sockaddr *sa, char *name, int port, int flags)
 {
   struct hostent *he;
@@ -313,6 +324,11 @@ int net_listen(char *name, int port, int flags)
   if(port > 0){
     p = port;
   }
+#if 0
+  if(port > 0xffff){
+    port = port 
+  }
+#endif
 
   if(p == 0){
     if(!(flags & NETC_AUTO_PORT)){

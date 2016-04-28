@@ -603,7 +603,7 @@ int group_config_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 int listener_create_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 {
   char *name, *group, *address;
-  unsigned int port;
+  unsigned int port, fixup;
   struct katcp_group *gx;
   struct katcp_shared *s;
 
@@ -637,6 +637,13 @@ int listener_create_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
   if(argc > 2){
     port = arg_unsigned_long_katcp(d, 2);
+
+    fixup = net_port_fixup(port);
+    if(fixup != port){
+      log_message_katcp(d, KATCP_LEVEL_WARNING, NULL, "truncating unreasonable port %u to %u", port, fixup);
+      port = fixup;
+    }
+
     if(argc > 3){
       address = arg_string_katcp(d, 3);
       if(argc > 4){

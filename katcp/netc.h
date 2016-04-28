@@ -19,6 +19,7 @@ extern "C" {
 int net_connect(char *name, int port, int flags);
 int net_listen(char *name, int port, int flags);
 int net_address(struct sockaddr *sa, char *name, int port, int flags);
+unsigned int net_port_fixup(unsigned int port);
 
 #ifdef __cplusplus
 }
