@@ -127,6 +127,9 @@ struct katcp_vrbl_payload;
 #define KATCP_CLIENT_CONNECT           "#client-connected"
 #define KATCP_CLIENT_DISCONNECT        "#client-disconnected"
 
+#define KATCP_GROUP_CREATED_INFORM     "#group-created"
+#define KATCP_GROUP_DESTROYED_INFORM   "#group-destroyed"
+
 #define KATCP_FAIL_NOT_FOUND           "not-found"
 #define KATCP_FAIL_USAGE               "usage"
 #define KATCP_FAIL_API                 "api-usage"

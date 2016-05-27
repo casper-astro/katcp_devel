@@ -1019,6 +1019,12 @@ int switch_group_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, struct k
 #define KATCP_FLAT_PREFIXED     0x20   /* sensors have prefix fields to them */
 #define KATCP_FLAT_RETAINFO     0x40   /* do not rewrite relayed info fields */
 
+#define KATCP_FLAT_SEESKATCP   0x100   /* sees katcp-specified inform messages */
+#define KATCP_FLAT_SEESADMIN   0x200   /* sees admin messages */
+#define KATCP_FLAT_SEESUSER    0x400   /* wants to see the content of broadcast_inform */
+
+int broadcast_pair_katcp(struct katcp_dispatch *d, char *inform, char *value, unsigned int flag);
+
 struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, unsigned int flags, char *name, struct katcp_group *g);
 struct katcp_flat *create_exec_flat_katcp(struct katcp_dispatch *d, unsigned int flags, char *name, struct katcp_group *gx, char **vector);
 int reconfigure_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, unsigned int flags);

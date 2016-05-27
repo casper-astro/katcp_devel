@@ -73,7 +73,7 @@ int client_exec_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     vector = NULL;
   }
 
-  fx = create_exec_flat_katcp(d, KATCP_FLAT_TOSERVER | KATCP_FLAT_TOCLIENT | KATCP_FLAT_PREFIXED, label, gx, vector);
+  fx = create_exec_flat_katcp(d, KATCP_FLAT_TOSERVER | KATCP_FLAT_TOCLIENT | KATCP_FLAT_PREFIXED | KATCP_FLAT_SEESKATCP | KATCP_FLAT_SEESADMIN | KATCP_FLAT_SEESUSER, label, gx, vector);
   if(vector){
     free(vector);
   }
@@ -196,6 +196,19 @@ int client_config_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     mask   = KATCP_FLAT_RETAINFO;
   } else if(!strcmp(option, "native")){
     set    = KATCP_FLAT_RETAINFO;
+  } else if(!strcmp(option, "info-none")){
+    mask   = KATCP_FLAT_SEESKATCP | KATCP_FLAT_SEESADMIN | KATCP_FLAT_SEESUSER;
+  } else if(!strcmp(option, "info-katcp")){
+    set    = KATCP_FLAT_SEESKATCP;
+    mask   = KATCP_FLAT_SEESADMIN | KATCP_FLAT_SEESUSER;
+  } else if(!strcmp(option, "info-user")){
+    set    = KATCP_FLAT_SEESKATCP | KATCP_FLAT_SEESUSER;
+    mask   = KATCP_FLAT_SEESADMIN;
+  } else if(!strcmp(option, "info-admin")){
+    set    = KATCP_FLAT_SEESKATCP | KATCP_FLAT_SEESADMIN;
+    mask   = KATCP_FLAT_SEESUSER;
+  } else if(!strcmp(option, "info-all")){
+    set    = KATCP_FLAT_SEESKATCP | KATCP_FLAT_SEESADMIN | KATCP_FLAT_SEESUSER;
   } else {
     /* WARNING: does not error out in an effort to be forward compatible */
     log_message_katcp(d, KATCP_LEVEL_WARN, NULL, "unknown configuration option %s", option);
@@ -1091,6 +1104,7 @@ int broadcast_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     return extra_response_katcp(d, KATCP_RESULT_FAIL, KATCP_FAIL_MALLOC);
   }
 
+  /* WARNING: isn't this a leak, in case no clients are interested ? */
   px = create_parse_katcl();
   if(px == NULL){
     free(ptr);

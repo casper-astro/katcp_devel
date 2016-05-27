@@ -249,6 +249,10 @@ struct katcp_group *create_group_katcp(struct katcp_dispatch *d, char *name)
     return NULL;
   }
 
+  if(g->g_name){
+    broadcast_pair_katcp(d, KATCP_GROUP_CREATED_INFORM, g->g_name, KATCP_FLAT_SEESADMIN);
+  }
+
   return g;
 }
 
@@ -493,6 +497,10 @@ int terminate_group_katcp(struct katcp_dispatch *d, struct katcp_group *gx, int 
   if(gx == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "group group specified, nothing to terminate");
     return -1;
+  }
+
+  if(gx->g_name){
+    broadcast_pair_katcp(d, KATCP_GROUP_DESTROYED_INFORM, gx->g_name, KATCP_FLAT_SEESADMIN);
   }
 
   result = 0;
@@ -1594,7 +1602,7 @@ int reconfigure_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, unsi
     trigger_connect_flat(d, fx);
   }
 
-  fx->f_flags = flags & (KATCP_FLAT_TOSERVER | KATCP_FLAT_TOCLIENT | KATCP_FLAT_HIDDEN | KATCP_FLAT_PREFIXED | KATCP_FLAT_RETAINFO);
+  fx->f_flags = flags & (KATCP_FLAT_TOSERVER | KATCP_FLAT_TOCLIENT | KATCP_FLAT_HIDDEN | KATCP_FLAT_PREFIXED | KATCP_FLAT_RETAINFO | KATCP_FLAT_SEESKATCP | KATCP_FLAT_SEESADMIN | KATCP_FLAT_SEESUSER);
 
   return 0;
 }
@@ -1763,6 +1771,71 @@ struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, unsigned 
 
 /* auxillary calls **************************************************/
 
+static int test_filter_group_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, struct katcp_group *gx)
+{
+  if(fx == NULL){
+    return 0;
+  }
+
+  switch(fx->f_scope){
+    case KATCP_SCOPE_SINGLE :
+      /* WARNING: should we be smarter here ? */
+      return 0;
+    case KATCP_SCOPE_GROUP :
+      if(fx->f_group != gx){
+        return 0;
+      }
+      return 1;
+    case KATCP_SCOPE_GLOBAL :
+      return 1;
+    default :
+      return 0;
+  }
+
+}
+
+static int test_broadcast_katcp_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, void *data)
+{
+  if(fx == NULL){
+    return 0;
+  }
+  if(test_filter_group_katcp(d, fx, data) == 0){
+    return 0;
+  }
+  if(fx->f_flags & KATCP_FLAT_SEESKATCP){
+    return 1;
+  }
+  return 0;
+}
+
+static int test_broadcast_admin_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, void *data)
+{
+  if(fx == NULL){
+    return 0;
+  }
+  if(test_filter_group_katcp(d, fx, data) == 0){
+    return 0;
+  }
+  if(fx->f_flags & KATCP_FLAT_SEESADMIN){
+    return 1;
+  }
+  return 0;
+}
+
+static int test_broadcast_user_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, void *data)
+{
+  if(fx == NULL){
+    return 0;
+  }
+  if(test_filter_group_katcp(d, fx, data) == 0){
+    return 0;
+  }
+  if(fx->f_flags & KATCP_FLAT_SEESUSER){
+    return 1;
+  }
+  return 0;
+}
+
 static int broadcast_group_katcp(struct katcp_dispatch *d, struct katcp_group *gx, struct katcl_parse *px, int (*check)(struct katcp_dispatch *d, struct katcp_flat *fx, void *data), void *data)
 {
   int i, sum;
@@ -1783,13 +1856,15 @@ static int broadcast_group_katcp(struct katcp_dispatch *d, struct katcp_group *g
 
   for(i = 0; i < gx->g_count; i++){
     fx = gx->g_flats[i];
-    if((check == NULL) || ((*(check))(d, fx, data) == 0)){
-      /* ... eh, dis be horrible - reaching directly into fx - shouldn't we use the endpoints to queue messages, ... or is that just needlessly inefficient ? log_message uses a the same approach as here ... */
-      if(append_parse_katcl(fx->f_line, px) < 0){
-        sum = (-1);
-      } else {
-        if(sum >= 0){
-          sum++;
+    if(fx && (fx->f_state == FLAT_STATE_UP)){
+      if((check == NULL) || ((*(check))(d, fx, data) > 0)){
+        /* ... eh, dis be horrible - reaching directly into fx - shouldn't we use the endpoints to queue messages, ... or is that just needlessly inefficient ? log_message uses a the same approach as here ... - maybe at least check if we are not in the shutdown phase ? */
+        if(append_parse_katcl(fx->f_line, px) < 0){
+          sum = (-1);
+        } else {
+          if(sum >= 0){
+            sum++;
+          }
         }
       }
     }
@@ -1798,6 +1873,77 @@ static int broadcast_group_katcp(struct katcp_dispatch *d, struct katcp_group *g
   return sum;
 }
 
+int broadcast_parse_katcp(struct katcp_dispatch *d, struct katcl_parse *px, unsigned int flag)
+{
+  int i, sum, result;
+  struct katcp_shared *s;
+  struct katcp_group *gx;
+  int (*check)(struct katcp_dispatch *d, struct katcp_flat *fx, void *data);
+
+  s = d->d_shared;
+  gx = this_group_katcp(d);
+
+  switch(flag){
+    case KATCP_FLAT_SEESKATCP :
+      check = &test_broadcast_katcp_katcp;
+      break;
+    case KATCP_FLAT_SEESADMIN :
+      check = &test_broadcast_admin_katcp;
+      break;
+    case KATCP_FLAT_SEESUSER  :
+      check = &test_broadcast_user_katcp;
+      break;
+    default :
+      return -1;
+  }
+
+  sum = 0;
+
+  if(sum >= 0){
+    for(i = 0; i < s->s_members; i++){
+      result = broadcast_group_katcp(d, s->s_groups[i], px, check, gx);
+      if(result >= 0){
+        if(sum >= 0){
+          sum += result;
+        }
+      } else {
+        sum = (-1);
+      }
+    }
+  }
+
+  return sum;
+}
+
+int broadcast_pair_katcp(struct katcp_dispatch *d, char *inform, char *value, unsigned int flag)
+{
+  int sum;
+  struct katcl_parse *px;
+
+  px = create_referenced_parse_katcl();
+  if(px == NULL){
+    return -1;
+  }
+
+  sum = 0; /* assume things went ok */
+
+  if(add_string_parse_katcl(px, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, inform) < 0){
+    sum = (-1);
+  }
+  if(add_string_parse_katcl(px, KATCP_FLAG_LAST  | KATCP_FLAG_STRING, value) < 0){
+    sum = (-1);
+  }
+
+  if(sum >= 0){
+    sum = broadcast_parse_katcp(d, px, flag);
+  }
+
+  destroy_parse_katcl(px);
+
+  return (sum >= 0) ? 0 : (-1);
+}
+
+/* TODO and WARNING: superceeded by broadcast_parse_katcp ? */
 int broadcast_flat_katcp(struct katcp_dispatch *d, struct katcp_group *gx, struct katcl_parse *px, int (*check)(struct katcp_dispatch *d, struct katcp_flat *fx, void *data), void *data)
 {
   int i, sum, result;
@@ -1824,6 +1970,8 @@ int broadcast_flat_katcp(struct katcp_dispatch *d, struct katcp_group *gx, struc
 
   return sum;
 }
+
+/*********************************************************************/
 
 static struct katcp_flat *search_name_flat_katcp(struct katcp_dispatch *d, char *name, struct katcp_group *gx, int limit)
 {
@@ -2337,6 +2485,10 @@ int terminate_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx)
       return 0;
     case FLAT_STATE_UP : 
       fx->f_state = FLAT_STATE_FINISHING;
+      /* WARNING: at the moment, the terminated client doesn't see it, and it is marked admin, as the specs don't mention it, even though it is symetrical with #client-connected */
+      if(fx->f_name){
+        broadcast_pair_katcp(d, KATCP_CLIENT_DISCONNECT, fx->f_name, KATCP_FLAT_SEESADMIN);
+      }
       mark_busy_katcp(d);
       return 0;
     default :

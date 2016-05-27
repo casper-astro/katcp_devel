@@ -613,13 +613,15 @@ int perform_sensor_update_katcp(struct katcp_dispatch *d, void *data)
     gx = s->s_groups[j];
     for(i = 0; i < gx->g_count; i++){
       fx = gx->g_flats[i];
-      if((fx->f_stale & KATCP_STALE_MASK_SENSOR) == KATCP_STALE_SENSOR_STALE){
-        fx->f_stale = KATCP_STALE_SENSOR_NAIVE;
+      if(fx && (fx->f_state == FLAT_STATE_UP)){
+        if((fx->f_stale & KATCP_STALE_MASK_SENSOR) == KATCP_STALE_SENSOR_STALE){
+          fx->f_stale = KATCP_STALE_SENSOR_NAIVE;
 
-        if(fx->f_flags & KATCP_FLAT_TOCLIENT){
-          /* TODO: shouldn't we use the fancy queue infrastructure ? */
-          append_parse_katcl(fx->f_line, px);
-          count++;
+          if((fx->f_flags & KATCP_FLAT_TOCLIENT) && (fx->f_flags & KATCP_FLAT_SEESKATCP)){
+            /* TODO: shouldn't we use the fancy queue infrastructure ? */
+            append_parse_katcl(fx->f_line, px);
+            count++;
+          }
         }
       }
     }
