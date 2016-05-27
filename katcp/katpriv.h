@@ -693,6 +693,7 @@ struct katcp_flat{
   /* a sensor could probably be a special type of notice */
 
   struct katcp_region *f_region;
+  time_t f_start;
 };
 #endif
 
@@ -946,6 +947,8 @@ char **copy_vector_katcm(char **vector, unsigned int size);
 void delete_vector_katcm(char **vector, unsigned int size);
 char *default_message_type_katcm(char *string, int type);
 
+int print_time_delta_katcm(char *buffer, unsigned int len, time_t delta);
+
 /* timing support */
 int empty_timers_katcp(struct katcp_dispatch *d);
 int run_timers_katcp(struct katcp_dispatch *d, struct timespec *interval);
@@ -1028,6 +1031,7 @@ int broadcast_pair_katcp(struct katcp_dispatch *d, char *inform, char *value, un
 struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, unsigned int flags, char *name, struct katcp_group *g);
 struct katcp_flat *create_exec_flat_katcp(struct katcp_dispatch *d, unsigned int flags, char *name, struct katcp_group *gx, char **vector);
 int reconfigure_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, unsigned int flags);
+struct katcp_flat *is_ready_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx);
 
 int trigger_connect_flat(struct katcp_dispatch *d, struct katcp_flat *fx);
 

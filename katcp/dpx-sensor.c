@@ -612,8 +612,8 @@ int perform_sensor_update_katcp(struct katcp_dispatch *d, void *data)
   for(j = 0; j < s->s_members; j++){
     gx = s->s_groups[j];
     for(i = 0; i < gx->g_count; i++){
-      fx = gx->g_flats[i];
-      if(fx && (fx->f_state == FLAT_STATE_UP)){
+      fx = is_ready_flat_katcp(d, gx->g_flats[i]);
+      if(fx){
         if((fx->f_stale & KATCP_STALE_MASK_SENSOR) == KATCP_STALE_SENSOR_STALE){
           fx->f_stale = KATCP_STALE_SENSOR_NAIVE;
 

@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <time.h>
 
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -1127,6 +1128,35 @@ int broadcast_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
+  return KATCP_RESULT_OK;
+}
+
+/* system information *************************************************************/
+
+int system_info_group_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+#define BUFFER 64
+  struct katcp_shared *s;
+  time_t now;
+  char buffer[BUFFER];
+
+  s = d->d_shared;
+  if(s == NULL){
+    return KATCP_RESULT_FAIL;
+  }
+
+  time(&now);
+  print_time_delta_katcm(buffer, BUFFER, now - s->s_start);
+
+  log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "server has %u groups", s->s_members);
+#if KATCP_PROTOCOL_MAJOR_VERSION >= 5
+  log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "server was launched at %lu", s->s_start); 
+#else
+  log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "server was launched at %lu000", s->s_start); 
+#endif  
+  log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "server has been running for %s", buffer);
+
+#undef BUFFER
   return KATCP_RESULT_OK;
 }
 

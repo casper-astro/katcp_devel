@@ -349,9 +349,21 @@ int watchdog_group_cmd_katcp(struct katcp_dispatch *d, int argc)
 
 static int print_client_list_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, char *name)
 {
+#define BUFFER 64
   int result, r, pending;
   char *ptr;
   struct katcp_group *gx;
+  struct katcp_shared *s;
+  time_t now;
+  char buffer[BUFFER];
+
+  s = d->d_shared;
+  if(s == NULL){
+    return KATCP_RESULT_FAIL;
+  }
+
+  time(&now);
+  print_time_delta_katcm(buffer, BUFFER, now - s->s_start);
 
   if(fx->f_name == NULL){
     return 0;
@@ -452,7 +464,19 @@ static int print_client_list_katcp(struct katcp_dispatch *d, struct katcp_flat *
     log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "client %s has output pending", fx->f_name);
   }
 
+  time(&now);
+  print_time_delta_katcm(buffer, BUFFER, now - s->s_start);
+
+#if KATCP_PROTOCOL_MAJOR_VERSION >= 5
+  log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "client %s was started at %lu", fx->f_name, s->s_start); 
+#else
+  log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "client %s was started at %lu000", fx->f_name, s->s_start); 
+#endif  
+  log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "client %s has been running for %s", fx->f_name, buffer);
+
+
   return result;
+#undef BUFFER
 }
 
 int client_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)

@@ -1731,6 +1731,8 @@ struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, unsigned 
     return NULL;
   }
 
+  time(&(f->f_start));
+
 #if 0
   f->f_backlog = create_queue_katcl();
   if(f->f_backlog == NULL){
@@ -1767,6 +1769,19 @@ struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, unsigned 
   reconfigure_flat_katcp(d, f, (flags & (~mask)) | set);
 
   return f;
+}
+
+struct katcp_flat *is_ready_flat_katcp(struct katcp_dispatch *d, struct katcp_flat *fx)
+{
+  if(fx == NULL){
+    return NULL;
+  }
+
+  if(fx->f_state != FLAT_STATE_UP){
+    return NULL;
+  }
+
+  return fx;
 }
 
 /* auxillary calls **************************************************/
@@ -4060,6 +4075,8 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
 
     add_full_cmd_map_katcp(m, "restart", "restart (?restart)", 0, &restart_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "halt", "halt (?halt)", 0, &halt_group_cmd_katcp, NULL, NULL);
+
+    add_full_cmd_map_katcp(m, "system-info", "global system information (?system-info)", 0, &system_info_group_cmd_katcp, NULL, NULL);
 
     add_full_cmd_map_katcp(m, "cmd-hide", "hide a command (?cmd-hide command)", 0, &hide_cmd_group_cmd_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "cmd-uncover", "reveal a hidden command (?cmd-uncover command)", 0, &uncover_cmd_group_cmd_katcp, NULL, NULL);

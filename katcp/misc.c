@@ -8,6 +8,55 @@
 #include "katcp.h"
 #include "katpriv.h"
 
+int print_time_delta_katcm(char *buffer, unsigned int len, time_t delta)
+{
+  unsigned long a, r;
+  char *unit, *minor;
+  int result;
+
+  if(buffer == NULL){
+    return -1;
+  }
+  if(len <= 0){
+    return -1;
+  }
+
+  minor = NULL;
+
+  a = delta;
+  unit = "second";
+  minor = NULL;
+
+  if(a > 60){
+    r = a % 60;
+    a = a / 60;
+    minor = r ? unit : NULL;
+    unit = "minute";
+    if(a > 60){
+      r = a % 60;
+      a = a / 60;
+      minor = r ? unit : NULL;
+      unit = "hour";
+      if(a > 24){
+        r = a % 24;
+        a = a / 24;
+        minor = r ? unit : NULL;
+        unit = "day";
+      }
+    }
+  }
+
+  if(minor){
+    result = snprintf(buffer, len, "%lu %s%s and %lu %s%s", a, unit, (a == 1) ? "" : "s", r, minor, (r == 1) ? "" : "s");
+  } else {
+    result = snprintf(buffer, len, "%lu %s%s", a, unit, (a == 1) ? "" : "s");
+  }
+
+  buffer[len - 1] = '\0';
+
+  return result;
+}
+
 static char *misc_result_table[] = { KATCP_OK, KATCP_FAIL, KATCP_INVALID, KATCP_PARTIAL, NULL };
 
 char *code_to_name_katcm(int code)

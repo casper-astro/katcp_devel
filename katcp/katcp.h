@@ -780,6 +780,8 @@ int listener_list_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 int restart_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 int halt_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 
+int system_info_group_cmd_katcp(struct katcp_dispatch *d, int argc);
+
 int hide_cmd_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 int uncover_cmd_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 int delete_cmd_group_cmd_katcp(struct katcp_dispatch *d, int argc);
