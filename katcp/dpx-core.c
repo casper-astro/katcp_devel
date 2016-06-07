@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include <time.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -2961,7 +2962,7 @@ int callback_flat_katcp(struct katcp_dispatch *d, struct katcp_endpoint *issuer,
       if(rh->r_recipient && (rh->r_recipient == recipient)){
         /* is it the same sender ? */
         if(rh->r_issuer == issuer){
-          fprintf(stderr, "logic problem: issuer %p has already a callback in flight to %p, should not pipeline another one\n", issuer, recipient);
+          fprintf(stderr, "logic problem in client %s: issuer %p has already a callback in flight to %p, should not pipeline another one\n", fx->f_name ? fx->f_name : "<unknown>", issuer, recipient);
           abort();
         }
       }

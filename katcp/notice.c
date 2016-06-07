@@ -828,6 +828,10 @@ int set_parse_notice_katcp(struct katcp_dispatch *d, struct katcp_notice *n, str
 
   sane_notice_katcp(n);
 
+#ifdef DEBUG
+  fprintf(stderr, "notice: adding parse %p to notice %p\n", p, n);
+#endif
+
   if(n->n_parse){
     log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "notice: setting parse %p in notice callback for %p", p, n);
   } else {

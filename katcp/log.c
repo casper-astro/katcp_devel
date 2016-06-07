@@ -129,7 +129,7 @@ int vlog_parse_katcl(struct katcl_parse *px, int level, char *name, char *fmt, v
   result[3] = add_string_parse_katcl(px, 0, subsystem);
 
 #if DEBUG > 1
-  fprintf(stderr, "log: my fmt string is <%s>, milli=%u\n", fmt, milli);
+  fprintf(stderr, "log: my fmt string is <%s>\n", fmt);
 #endif
 
   result[4] = add_vargs_parse_katcl(px, KATCP_FLAG_LAST, fmt, args);
