@@ -503,6 +503,12 @@ int main(int argc, char **argv)
       FD_SET(fd, &fsw);
     }
 
+    if(k){
+      if(flushing_katcl(k)){ /* only write data if we have some */
+        FD_SET(STDOUT_FILENO, &fsw);
+      }
+    }
+
     result = select(fd + 1, &fsr, &fsw, NULL, &tv);
     switch(result){
       case -1 :
@@ -548,6 +554,12 @@ int main(int argc, char **argv)
       }
       if((result > 0) && (match == NULL)){ /* if we finished writing and don't expect a match then quit */
       	run = 0;
+      }
+    }
+
+    if(k){
+      if(FD_ISSET(STDOUT_FILENO, &fsw)){
+        write_katcl(k);
       }
     }
 
