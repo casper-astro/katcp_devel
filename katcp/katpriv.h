@@ -1007,7 +1007,9 @@ int load_flat_katcp(struct katcp_dispatch *d);
 int startup_duplex_katcp(struct katcp_dispatch *d, unsigned int stories);
 void shutdown_duplex_katcp(struct katcp_dispatch *d);
 
-#define KATCP_GROUP_OVERRIDE_SENSOR    0x1000
+#define KATCP_GROUP_OVERRIDE_SENSOR    0x10000
+#define KATCP_GROUP_OVERRIDE_BROADCAST 0x20000
+#define KATCP_GROUP_OVERRIDE_RELAYINFO 0x40000
 
 int switch_group_katcp(struct katcp_dispatch *d, struct katcp_flat *fx, struct katcp_group *gx);
 
@@ -1278,6 +1280,7 @@ int make_string_vrbl_katcp(struct katcp_dispatch *d, struct katcp_group *gx, cha
 unsigned int current_strategy_sensor_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, struct katcp_flat *fx);
 
 int is_vrbl_sensor_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx);
+int is_ver_sensor_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx);
 
 char *strategy_to_string_sensor_katcp(struct katcp_dispatch *d, unsigned int strategy);
 int strategy_from_string_sensor_katcp(struct katcp_dispatch *d, char *name);

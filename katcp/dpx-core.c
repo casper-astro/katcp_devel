@@ -1760,11 +1760,18 @@ struct katcp_flat *create_flat_katcp(struct katcp_dispatch *d, int fd, unsigned 
   mask = 0;
 
   if(gx->g_flags & KATCP_GROUP_OVERRIDE_SENSOR){
-    if(gx->g_flags & KATCP_FLAT_PREFIXED){
-      set = KATCP_FLAT_PREFIXED;
-    } else {
-      mask = KATCP_FLAT_PREFIXED;
-    }
+    set  |=   (gx->g_flags)  & KATCP_FLAT_PREFIXED;
+    mask |= (~(gx->g_flags)) & KATCP_FLAT_PREFIXED;
+  }
+
+  if(gx->g_flags & KATCP_GROUP_OVERRIDE_BROADCAST){
+    set  |=   (gx->g_flags)  & (KATCP_FLAT_SEESKATCP | KATCP_FLAT_SEESADMIN | KATCP_FLAT_SEESUSER);
+    mask |= (~(gx->g_flags)) & (KATCP_FLAT_SEESKATCP | KATCP_FLAT_SEESADMIN | KATCP_FLAT_SEESUSER);
+  }
+
+  if(gx->g_flags & KATCP_GROUP_OVERRIDE_RELAYINFO){
+    set  |=   (gx->g_flags)  & KATCP_FLAT_RETAINFO;
+    mask |= (~(gx->g_flags)) & KATCP_FLAT_RETAINFO;
   }
 
   reconfigure_flat_katcp(d, f, (flags & (~mask)) | set);
@@ -4125,6 +4132,7 @@ int setup_default_group(struct katcp_dispatch *d, char *name)
     add_full_cmd_map_katcp(m, "log", "collect log messages (#log priority timestamp module text)", 0, &log_group_info_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "sensor-status", "handle sensor updates (#sensor-status timestamp 1 name status value)", 0, &sensor_status_group_info_katcp, NULL, NULL);
     add_full_cmd_map_katcp(m, "sensor-list", "handle sensor definitions (#sensor-list name description units type [range])", KATCP_MAP_FLAG_GREEDY, &sensor_list_group_info_katcp, NULL, NULL);
+    add_full_cmd_map_katcp(m, "version-connect", "handle version definitions (#version-connect name version build)", KATCP_MAP_FLAG_GREEDY, &version_group_info_katcp, NULL, NULL);
   }
 
   if(gx->g_maps[KATCP_MAP_INNER_INFORM] == NULL){

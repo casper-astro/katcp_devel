@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <time.h>
 
 #include <sys/socket.h>
 #include <sys/stat.h>

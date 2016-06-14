@@ -809,6 +809,7 @@ int broadcast_group_cmd_katcp(struct katcp_dispatch *d, int argc);
 int log_group_info_katcp(struct katcp_dispatch *d, int argc);
 int sensor_status_group_info_katcp(struct katcp_dispatch *d, int argc);
 int sensor_list_group_info_katcp(struct katcp_dispatch *d, int argc);
+int version_group_info_katcp(struct katcp_dispatch *d, int argc);
 
 /* endpoints */
 

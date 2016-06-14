@@ -169,6 +169,26 @@ int fixup_timestamp_katcp(char *src, char *dst, int size)
 
 }
 
+int is_ver_sensor_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx)
+{
+  struct katcp_vrbl_payload *py;
+
+  if(vx == NULL){
+    return -1;
+  }
+
+  if((vx->v_flags & KATCP_VRF_VER) == 0){
+    return 0;
+  }
+
+  py = find_payload_katcp(d, vx, KATCP_VRC_VERSION_VERSION);
+  if(py == NULL){
+    return 0;
+  }
+
+  return 1;
+}
+
 #endif
 
 #ifdef UNIT_TEST_DPX_MISC 

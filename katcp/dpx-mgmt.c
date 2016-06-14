@@ -505,9 +505,15 @@ int group_list_group_cmd_katcp(struct katcp_dispatch *d, int argc)
     log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "group %s will %s if not used", group, gx->g_autoremove ? "disappear" : "persist");
 
     if(gx->g_flags & KATCP_GROUP_OVERRIDE_SENSOR){
-      log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "group %s forces sensor names to be %s", group, (gx->g_flags & KATCP_FLAT_PREFIXED) ? "prefixed" : "without prefix");
+      log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "group %s forces names to be %s", group, (gx->g_flags & KATCP_FLAT_PREFIXED) ? "prefixed" : "without prefix");
     } else {
-      log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "group %s leaves sensor prefixing decision to client creation context", group);
+      log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "group %s leaves prefixing decision to client creation context", group);
+    }
+
+    if(gx->g_flags & KATCP_GROUP_OVERRIDE_RELAYINFO){
+      log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "group %s forces relayed informs to be %s", group, (gx->g_flags & KATCP_FLAT_RETAINFO) ? "retained" : "rewritten");
+    } else {
+      log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "group %s leaves relay rewriting decision to client creation context", group);
     }
 
     ptr = log_to_string_katcl(gx->g_log_level);
@@ -594,14 +600,14 @@ int group_config_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   set  = 0;
   mask = 0;
 
-  if(!strcmp(option, "prefixed")){        /* prefix sensor paths */
+  if(!strcmp(option, "prefixed")){        /* prefix names */
     set    = (KATCP_GROUP_OVERRIDE_SENSOR | KATCP_FLAT_PREFIXED);
-  } else if(!strcmp(option, "fixed")){    /* make sensor paths absolute */
+  } else if(!strcmp(option, "fixed")){    /* make names absolute */
     set    = KATCP_GROUP_OVERRIDE_SENSOR;
     mask   = KATCP_FLAT_PREFIXED;      
   } else if(!strcmp(option, "flexible")){ /* pick whatever the calling logic prefers */
     mask   = (KATCP_GROUP_OVERRIDE_SENSOR | KATCP_FLAT_PREFIXED);
-  } else {
+  } else { /* TODO: broadcast and relayinfo overrides */
     /* WARNING: does not error out in an effort to be forward compatible */
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unknown configuration option %s", option);
     return KATCP_RESULT_OK;
