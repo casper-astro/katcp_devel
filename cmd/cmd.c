@@ -33,6 +33,7 @@ void usage(char *app)
   printf("usage: %s [options] command [args]\n", app);
   printf("-h                 this help\n");
   printf("-v                 increase verbosity\n");
+  printf("-V                 print version information\n");
   printf("-q                 run quietly\n");
   printf("-x                 print output in hex\n");
   printf("-a                 autodetect mode, only print nonprintable fields as hex\n");
@@ -291,6 +292,22 @@ int main(int argc, char **argv)
 
         case 'h' :
           usage(app);
+          return 0;
+        case 'V' :
+          
+#ifdef VERSION
+          printf("%s version %s\n", app, VERSION);
+#else
+          printf("%s version is unknown\n", app);
+#endif
+#ifdef __DATE__
+          printf("%s compiled on %s\n", app, __DATE__);
+#endif
+#ifdef KATCP_PROTOCOL_MAJOR_VERSION
+#ifdef KATCP_PROTOCOL_MINOR_VERSION
+          printf("%s built for katcp %d.%d\n", app, KATCP_PROTOCOL_MAJOR_VERSION, KATCP_PROTOCOL_MINOR_VERSION);
+#endif
+#endif
           return 0;
 
         case 'v' : 
