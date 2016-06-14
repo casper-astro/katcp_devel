@@ -1155,6 +1155,9 @@ int system_info_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "server was launched at %lu000", s->s_start); 
 #endif  
   log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "server has been running for %s", buffer);
+#ifdef __DATE__
+  log_message_katcp(d, KATCP_LEVEL_INFO | KATCP_LEVEL_LOCAL, NULL, "server was built on %s at %s", __DATE__, __TIME__);
+#endif
 
 #undef BUFFER
   return KATCP_RESULT_OK;
