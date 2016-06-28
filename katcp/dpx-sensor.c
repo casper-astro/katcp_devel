@@ -284,6 +284,7 @@ int broadcast_subscribe_katcp(struct katcp_dispatch *d, struct katcp_wit *w, str
         /* other end could have gone away, notice it ... */
         delete_subscribe_katcp(d, w, i); /* implies a w_size-- */
         inc = 0;
+      }
 #ifdef KATCP_CONSISTENCY_CHECKS
     } else {
       fprintf(stderr, "major logic problem: unimplemented sensor strategy %u\n", sub->s_strategy);
@@ -708,6 +709,7 @@ int schedule_sensor_update_katcp(struct katcp_dispatch *d, char *name)
   log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "scheduled change notification");
 
   s->s_changes++;
+
   return 0;
 }
 
