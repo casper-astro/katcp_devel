@@ -609,7 +609,7 @@ void dump_variable_sensor_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx,
   for(i = 0; i < w->w_size; i++){
     log_message_katcp(d, level, NULL, "subscriber[%u] uses strategy %d with endpoint %p", i, w->w_vector[i]->s_strategy, w->w_vector[i]->s_endpoint);
     if(w->w_vector[i]->s_variable != vx){
-      log_message_katcp(d, (vx == NULL) ? level : KATCP_LEVEL_FATAL, NULL, "subscriber[%u] variable mismatch: cached value %p does not match top-level %p", i, w->w_vector[i]->s_variable, vx);
+      log_message_katcp(d, (w->w_vector[i]->s_variable == NULL) ? level : KATCP_LEVEL_FATAL, NULL, "subscriber[%u] variable mismatch: cached value %p does not match top-level %p", i, w->w_vector[i]->s_variable, vx);
 
     }
   }
