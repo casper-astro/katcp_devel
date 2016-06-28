@@ -584,7 +584,7 @@ void dump_variable_sensor_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx,
   unsigned int i;
   struct katcp_wit *w;
 
-  if(is_vrbl_sensor_katcp(d, vx) != 0){
+  if(is_vrbl_sensor_katcp(d, vx) <= 0){
     log_message_katcp(d, level, NULL, "variable at %p does not appear to be a reasonable sensor", vx);
     return;
   }
