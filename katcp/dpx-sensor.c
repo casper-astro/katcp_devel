@@ -579,6 +579,36 @@ int forget_event_variable_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx,
   return delete_subscribe_katcp(d, w, index);
 }
 
+void dump_variable_sensor_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, int level)
+{
+  int index;
+  struct katcp_wit *w;
+
+  if(is_vrbl_sensor_katcp(d, vx) != 0){
+    log_message_katcp(d, level, NULL, "variable at %p does not appear to be a reasonable sensor", vx);
+    return;
+  }
+
+  if(vx->v_extra == NULL){
+    log_message_katcp(d, level, NULL, "no extra variable state found for %p", vx->v_extra);
+    return;
+  }
+ 
+  w = vx->v_extra;
+
+  sane_wit(w);
+
+  for(i = 0; i < w->w_size; i++){
+    log_message_katcp(d, level, NULL, "subscriber[%u] uses strategy %d with endpoint %p", i, w->w_vector[i]->s_strategy, w->w_vector[i]->s_endpoint);
+    if(w->w_vector[i]->s_variable != vx){
+      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "subscriber[%u] variable mismatch: cacached value %p does not match top-level %p", i, w->w_vector[i]->s_variable, vx);
+
+    }
+  }
+
+  log_message_katcp(d, level, NULL, "variable %p has %u subscribers", vx, w->w_size);
+}
+
 /***************************************************************************/
 
 int perform_sensor_update_katcp(struct katcp_dispatch *d, void *data)

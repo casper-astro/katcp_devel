@@ -899,6 +899,8 @@ int sensor_sampling_group_cmd_katcp(struct katcp_dispatch *d, int argc)
   append_string_katcp(d, KATCP_FLAG_STRING, key);
   append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, strategy);
 
+  dump_variable_sensor_katcp(d, vx, KATCP_LEVEL_DEBUG);
+
   return KATCP_RESULT_OWN;
 }
 

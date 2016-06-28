@@ -1293,6 +1293,8 @@ struct katcl_parse *make_sensor_katcp(struct katcp_dispatch *d, char *name, stru
 #define KATCP_NAGLE_CHANGE  500000    /* defer device-changes by this much (us) ... */
 int schedule_sensor_update_katcp(struct katcp_dispatch *d, char *name);
 
+void dump_variable_sensor_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, int level);
+
 
 /* version callback */
 
