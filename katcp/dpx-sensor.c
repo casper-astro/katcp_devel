@@ -581,7 +581,7 @@ int forget_event_variable_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx,
 
 void dump_variable_sensor_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx, int level)
 {
-  int index;
+  unsigned int i;
   struct katcp_wit *w;
 
   if(is_vrbl_sensor_katcp(d, vx) != 0){
