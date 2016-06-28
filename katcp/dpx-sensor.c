@@ -200,6 +200,7 @@ void destroy_subscribe_katcp(struct katcp_dispatch *d, struct katcp_subscribe *s
 
 int delete_subscribe_katcp(struct katcp_dispatch *d, struct katcp_wit *w, unsigned int index)
 {
+  /* WARNING: delete *has* to decrement size, otherwise the loop relying on it never terminates */
   struct katcp_subscribe *sub;
 
   sane_wit(w);
@@ -252,7 +253,7 @@ struct katcp_subscribe *locate_subscribe_katcp(struct katcp_dispatch *d, struct 
 
 int broadcast_subscribe_katcp(struct katcp_dispatch *d, struct katcp_wit *w, struct katcl_parse *px)
 {
-  unsigned int i;
+  unsigned int i, inc;
   struct katcp_subscribe *sub;
 
   sane_wit(w);
@@ -261,8 +262,10 @@ int broadcast_subscribe_katcp(struct katcp_dispatch *d, struct katcp_wit *w, str
   fprintf(stderr, "sensor: broadcasting sensor update to %u interested parties\n", w->w_size);
 #endif
 
-  for(i = 0; i < w->w_size; i++){
+  i = 0; 
+  while(i < w->w_size){
     sub = w->w_vector[i];
+    inc = 1;
 
 #ifdef KATCP_CONSISTENCY_CHECKS
     if(sub == NULL){
@@ -275,9 +278,12 @@ int broadcast_subscribe_katcp(struct katcp_dispatch *d, struct katcp_wit *w, str
 
     if(sub->s_strategy == KATCP_STRATEGY_EVENT){
       if(send_message_endpoint_katcp(d, w->w_endpoint, sub->s_endpoint, px, 0) < 0){
+#if 0
+        log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "subscriber %u/%u unreachable at enpoint %p, retiring it", i, w->w_size, sub->s_endpoint);
+#endif
         /* other end could have gone away, notice it ... */
-        delete_subscribe_katcp(d, w, i);
-      }
+        delete_subscribe_katcp(d, w, i); /* implies a w_size-- */
+        inc = 0;
 #ifdef KATCP_CONSISTENCY_CHECKS
     } else {
       fprintf(stderr, "major logic problem: unimplemented sensor strategy %u\n", sub->s_strategy);
@@ -285,6 +291,7 @@ int broadcast_subscribe_katcp(struct katcp_dispatch *d, struct katcp_wit *w, str
 #endif
     }
 
+    i += inc;
   }
 
   return w->w_size;
@@ -601,7 +608,7 @@ void dump_variable_sensor_katcp(struct katcp_dispatch *d, struct katcp_vrbl *vx,
   for(i = 0; i < w->w_size; i++){
     log_message_katcp(d, level, NULL, "subscriber[%u] uses strategy %d with endpoint %p", i, w->w_vector[i]->s_strategy, w->w_vector[i]->s_endpoint);
     if(w->w_vector[i]->s_variable != vx){
-      log_message_katcp(d, KATCP_LEVEL_FATAL, NULL, "subscriber[%u] variable mismatch: cacached value %p does not match top-level %p", i, w->w_vector[i]->s_variable, vx);
+      log_message_katcp(d, (vx == NULL) ? level : KATCP_LEVEL_FATAL, NULL, "subscriber[%u] variable mismatch: cached value %p does not match top-level %p", i, w->w_vector[i]->s_variable, vx);
 
     }
   }
