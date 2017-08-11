@@ -17,13 +17,8 @@
 #define TBS_LOGFILE        "/var/log/tcpborphserver3.log"
 #endif
 
-#ifdef __PPC__
-#define TBS_FPGA_CONFIG    "/dev/roach/config"
-#define TBS_FPGA_MEM       "/dev/roach/mem"
-#else
-#define TBS_FPGA_CONFIG    "dev-roach-config"
-#define TBS_FPGA_MEM       "dev-roach-mem"
-#endif
+#define TBS_FPGA_CONFIG    "/tmp/fpga-config"
+#define TBS_FPGA_MEM       "/dev/spidev0.0"
 
 #define TBS_KCPFPG_PATH    "/bin/kcpfpg"
 #define TBS_RAMFILE_PATH   "/dev/shm/gateware"
@@ -96,7 +91,6 @@ struct getap_state{
   uint32_t s_iteration;
   unsigned int s_burst;
   unsigned int s_deferrals;
-
   unsigned int s_spam_period[GETAP_VECTOR_PERIOD];      /* how often do we query all entries */
   unsigned int s_announce_period[GETAP_VECTOR_PERIOD];  /* interval at which we announce ourselves */
   unsigned int s_valid_period;     /* how long do we cache valid entries */
@@ -161,6 +155,7 @@ struct tbs_raw
 
   void *r_map;
   unsigned int r_map_size;
+  int r_file; // Store the file handle for the SPI
 
   char *r_image;
   char *r_bof_dir;

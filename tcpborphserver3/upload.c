@@ -26,6 +26,10 @@
 #include "loadbof.h"
 #include "tg.h"
 
+#include "rpjtag_io.h"
+#include "rpjtag_stateMachine.h"
+#include "rpjtag_bit_reader.h"
+
 #define MTU               1024*64
 
 #define UPLOAD_LABEL      "upload"
@@ -217,11 +221,35 @@ int subprocess_upload_tbs(struct katcl_line *l, void *data)
 #if 0
     sync_message_katcl(l, KATCP_LEVEL_INFO, NULL, "uploaded %d bytes", pd->t_rsize);
 #endif
+    
 
     alarm(UPLOAD_TIMEOUT);
   }
-
+ 
   gzclose(gfd);
+  if (!strcmp(pd->t_name, TBS_FPGA_CONFIG)) {
+    close(pd->t_fd);
+    // PROGRAM THE FPGA HERE!!
+
+    fprintf(stderr, "setting up RPI io\n");
+    setup_io();
+
+    fprintf(stderr, "syncing jtag\n");
+    syncJTAGs();
+
+    fprintf(stderr, "creating buffer\n");
+    unsigned char *buffer;
+    buffer = (unsigned char *)malloc(FPGA_BIN_SIZE);
+
+    int fd = open("/tmp/fpga-config", O_RDONLY);
+    read(fd, buffer, FPGA_BIN_SIZE);
+
+    int rv = ProgramDevice(6, buffer, FPGA_BIN_SIZE);
+    if (rv != 0){
+      fprintf(stderr, "Programming failed with return code %d\n", rv);
+      //log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "Programming Failed!");
+    }
+  }
 
   sync_message_katcl(l, KATCP_LEVEL_DEBUG, UPLOAD_LABEL, "received file data of %u bytes", count);
 
