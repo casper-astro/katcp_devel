@@ -458,9 +458,6 @@ int word_write_cmd(struct katcp_dispatch *d, int argc)
       return KATCP_RESULT_FAIL;
     }
 
-    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "writing 0x%x to position 0x%x", update, j);
-    fprintf(stderr, "writing 0x%x to position 0x%x", update, j);
-    
     if(j > tr->r_map_size){
       fprintf(stderr, "panic\n");
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, 
@@ -1597,7 +1594,7 @@ int unmap_raw_tbs(struct katcp_dispatch *d)
       return 0;
   }
 
-  munmap(tr->r_map, tr->r_map_size);
+  // A ROACH would unmap it's memory here, but we don't need to do anything
   status_fpga_tbs(d, TBS_FPGA_PROGRAMMED);
 
   tr->r_map_size = 0;
