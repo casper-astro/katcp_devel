@@ -17,7 +17,7 @@
 #define TBS_LOGFILE        "/var/log/tcpborphserver3.log"
 #endif
 
-#define TBS_FPGA_CONFIG    "/tmp/fpga-config"
+#define TBS_FPGA_CONFIG    "/dev/shm/fpga-config"
 #define TBS_FPGA_MEM       "/dev/spidev0.0"
 
 #define TBS_KCPFPG_PATH    "/bin/kcpfpg"
