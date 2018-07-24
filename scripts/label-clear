@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# TODO: should update files atomically
+
+set -e
+source functions.sh
+source mappings.sh
+
+if [ ! -s ${MAIN_MAPPING} -o $# -lt 1 ] ; then
+  kcs_info "generating new mapping"
+  make_mapping 2
+fi
+
+if [ $# -ge 1 ] ; then
+  inp=${1}
+  alias=${1}
+
+  kcs_debug "setting label for ${inp} to ${alias}"
+
+  sed -i -e "s/^.*:${inp}:\(.*\)$/${alias}:${inp}:\1/" ${MAIN_MAPPING}
+fi
+
+update_aliases
+
+exit 0
+

@@ -2,7 +2,7 @@
 
 ### BEGIN INIT INFO
 # Provides:          kcs
-# Required-Start:    $network $local_fs corr
+# Required-Start:    $network $local_fs
 # Required-Stop:     $network $local_fs
 # Default-Start:     S 2 3 4 5
 # Default-Stop:      0 1 6
@@ -16,7 +16,7 @@ export PATH=/usr/local/sbin:/usr/local/bin:$PATH
 case "$1" in
   start)
     kcs -i /usr/local/lib/kcs/init.katcp
-    kcplog -a 5 -d -o /var/log/kcplog -s localhost:7147 
+    kcplog -a 5 -d -o /var/log/kcs.kcplog -s localhost:7147 
     ;;
   stop)
     #kcpcmd -s localhost:7147 halt

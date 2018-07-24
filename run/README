@@ -1,0 +1,13 @@
+
+kcprun is a wrapper for an arbitrary executable which will, by
+default, 
+
+  - rewrite messages to stdout as katcp info messages
+  - rewrite messages to stderr as katcp error messages
+  - terminate the process on encountering an eof on stdin
+
+example use:
+
+  $ kcprun ls 
+
+  $ kcprun ls something-nonexistant

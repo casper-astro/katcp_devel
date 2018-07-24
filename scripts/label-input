@@ -1,61 +1,54 @@
 #!/bin/bash
 
+# TODO: should update files atomically
+
 set -e
 source functions.sh
+source mappings.sh
+
+if [ ! -s ${MAIN_MAPPING} ] ; then
+  kcs_info "generating initial mapping"
+  make_mapping 2
+  update_aliases
+fi
 
 if [ $# -lt 1 ] ; then
 
-  if [ ! -s ${CORR_MAPPING} ] ; then
+  if [ ! -s ${MAIN_MAPPING} ] ; then
     kcs_error "no correlator mapping found"
   fi
 
-  antennas=($(cat ${CORR_MAPPING} | tr -s ',' ' '))
-  roaches=($(grep '^ *servers_f' ${CORR_CONFIG} | cut -f2 -d= |  tr ',' ' '))
-  i=0
-  while [ ${i} -lt 16 ] ; do
-    echo "#label-input ${antennas[i]} $(kcs_index_to_input ${i}) ${roaches[i/2]}"
-    i=$[i+1]
-  done
+  if [ ! -s ${CORR_MAPPING}.${KATCP_MODE} ] ; then
+    if [ -f ${CORR_CONFIG}/${KATCP_MODE} ] ; then
+      update_aliases
+    fi 
+  fi 
+
+  if kcs_is_beamformer ${KATCP_MODE} ; then
+    cat ${MAIN_MAPPING} | sed -e 's/\(:.x:.*\)/& bf0/' -e 's/\(:.y:.*\)/& bf1/' | tr -s : ' ' | sed -s 's/^/#label-input /'
+  else 
+    cat ${MAIN_MAPPING} | tr -s : ' ' | sed -s 's/^/#label-input /'
+  fi 
 
   exit 0
 fi
 
-index=$(kcs_input_to_index $1)
-result=1
+inp=${1}
 
-if [ -z "${index}" ] ; then
-  kcs_error "unable to parse input label ${index}"
+if [ $# -eq 1 ] ; then
+  cat ${MAIN_MAPPING} | grep ${inp} | cut -f1 -d: | sed -s 's/^/#return ok /'
+  exit 0
 fi
 
-if [ ${index} -ge 16 ] ; then
-  kcs_error "input label ${index} unexpectedly large"
-fi
+alias=${2}
 
-if [ $# -gt 1 ] ; then
-  kcs_debug "request to map $1 to $2"
-  if kcpcmd -k -r label-input $(kcs_input_to_index $1) $2 ; then
-    result=0
-  fi
-  kcs_corr_log
-  synonym=${2}
-else 
-  result=0
-  if [ -s  ${CORR_MAPPING} ] ; then
-    synonym=$(cut -f$[index + 1] -d, ${CORR_MAPPING})
-    if [ -z "${synonym}" ] ; then
-      kcs_error "unable to extract item ${index} from ${CORR_MAPPING}"
-      result=1
-    fi
-  else 
-    kcs_warn "assuming no aliases as no corr state present"
-    synonym=${1}
-  fi
-fi
+kcs_debug "setting label for ${inp} to ${alias}"
 
-if [ "${result}" != "0" ] ; then
-  exit 1
-fi
+sed -i -e "s/^.*:${inp}:\(.*\)$/${alias}:${inp}:\1/" ${MAIN_MAPPING}
 
-echo "#return ok ${synonym}"
+update_aliases
+
+echo "#return ok $(grep ${inp} ${MAIN_MAPPING} | cut -f1 -d:)"
+
 exit 0
 

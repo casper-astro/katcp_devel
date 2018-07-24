@@ -6,7 +6,12 @@
 #include <string.h>
 #include <errno.h>
 
+#include <unistd.h>
+
+#include <sys/time.h>
+
 #include "katpriv.h"
+#include "katcl.h"
 #include "katcp.h"
 
 #define PARSE_MAGIC 0xff7f1273
@@ -17,7 +22,7 @@ static int check_array_parse_katcl(struct katcl_parse *p);
 
 /****************************************************************/
 
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
 static void sane_parse_katcl(struct katcl_parse *p)
 {
   if(p == NULL){
@@ -101,7 +106,7 @@ static void clear_parse_katcl(struct katcl_parse *p)
 {
   sane_parse_katcl(p);
 
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
   if(p->p_refs != 1){
     fprintf(stderr, "logic problem: clearing parse used in multiple places\n");
     abort();
@@ -140,14 +145,14 @@ void destroy_parse_katcl(struct katcl_parse *p)
 {
   sane_parse_katcl(p);
 
-#ifdef DEBUG
+#if DEBUG > 1
   fprintf(stderr, "destroy parse: %p with refs %d\n", p, p->p_refs);
 #endif
 
   p->p_refs--;
 
   if(p->p_refs <= 0){
-#ifdef DEBUG
+#if DEBUG > 1
     fprintf(stderr, "destroyed parse: %p: no more references\n", p);
 #endif
     p->p_magic = 0xdead;
@@ -178,6 +183,80 @@ void destroy_parse_katcl(struct katcl_parse *p)
 }
 
 /******************************************************************/
+
+int buffer_from_parse_katcl(struct katcl_parse *p, char *buffer, unsigned int len)
+{
+  struct katcl_larg *la;
+  unsigned int i;
+  int offset, size, space;
+
+  sane_parse_katcl(p);
+
+  switch(p->p_state){
+    case KATCL_PARSE_FAKE :
+    case KATCL_PARSE_DONE :
+      break;
+    default :
+      return -1;
+  }
+
+  if((buffer == NULL) || (len == 0)){
+    return -1;
+  }
+
+  offset = (-1); /* WARNING, trickery */
+  space = len;
+
+  if(p->p_got == 0){
+    offset++;
+  }
+
+  for(i = 0; i < p->p_got; i++){
+
+    offset++;
+
+    la = &(p->p_args[i]);
+
+    size = la->a_end - la->a_begin;
+#ifdef KATCP_CONSISTENCY_CHECKS
+    if(size < 0){
+      fprintf(stderr, "buffer from parse: bad element size %d for item %u of %p", size, i, p);
+      abort();
+    }
+#endif
+
+    if(size >= space){
+
+      if(len < 4){
+        buffer[0] = '\0';
+        return -1;
+      }
+
+      memcpy(buffer + offset, p->p_buffer + la->a_begin, space);
+      memcpy(buffer + len - 4, "...", 4);
+
+      return len; /* indicate overflow, primitively */
+
+    } else {
+
+      memcpy(buffer + offset, p->p_buffer + la->a_begin, size);
+
+      offset += size;
+      space -= size;
+
+      buffer[offset] = ' ';
+      space--;
+
+      /* WARNING: offset gets updated unconventionally */
+    }
+  }
+
+  buffer[offset] = '\0';
+
+  return offset;
+}
+
+/******************************************************************/
 /* logic to populate the parse ************************************/
 
 static int before_add_parse_katcl(struct katcl_parse *p, unsigned int flags)
@@ -185,7 +264,7 @@ static int before_add_parse_katcl(struct katcl_parse *p, unsigned int flags)
   sane_parse_katcl(p);
 
   if(flags & KATCP_FLAG_FIRST){
-#ifdef PARANOID
+#ifdef KATCP_CONSISTENCY_CHECKS
     if(p->p_got > 0){
       fprintf(stderr, "usage problem: can not add first field to one which already has %u fields\n", p->p_got);
       abort();
@@ -197,7 +276,7 @@ static int before_add_parse_katcl(struct katcl_parse *p, unsigned int flags)
 #endif
     p->p_state = KATCL_PARSE_FAKE; /* not really parsed, inserted manually */
   } else {
-#ifdef PARANOID
+#ifdef KATCP_CONSISTENCY_CHECKS
     if(p->p_got == 0){
       fprintf(stderr, "first field should be flagged as first\n");
       abort();
@@ -205,7 +284,7 @@ static int before_add_parse_katcl(struct katcl_parse *p, unsigned int flags)
 #endif
   }
 
-#ifdef PARANOID
+#ifdef KATCP_CONSISTENCY_CHECKS
   if(p->p_state != KATCL_PARSE_FAKE){
     fprintf(stderr, "usage problem: parse structure in state %u, wanted state %u\n", p->p_state, KATCL_PARSE_FAKE);
     abort();
@@ -220,21 +299,29 @@ static int before_add_parse_katcl(struct katcl_parse *p, unsigned int flags)
   p->p_current->a_end = p->p_kept;
   p->p_current->a_escape = 0;
 
+#if 0
+  /* now done in after_add - to resist failures */
   if(flags & KATCP_FLAG_LAST){
     /* WARNING: risky: if request_space fails, we are still marked as good */
     p->p_state = KATCL_PARSE_DONE;
   }
+#endif
 
   return 0;
 }
 
-static int after_add_parse_katcl(struct katcl_parse *p, unsigned int data, unsigned int escape)
+static int after_add_parse_katcl(struct katcl_parse *p, unsigned int data, unsigned int escape, unsigned int flags)
 {
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
   if(p->p_size < p->p_kept + data + 1){
     fprintf(stderr, "add parse: over allocated parse (size=%u, added=%u+%u+1)\n", p->p_size, p->p_kept, data);
+    abort();
   }
 #endif
+
+  if(flags & KATCP_FLAG_LAST){
+    p->p_state = KATCL_PARSE_DONE;
+  }
 
   p->p_current->a_end = p->p_kept + data;
   p->p_current->a_escape = escape;
@@ -289,6 +376,40 @@ static char *request_space_parse_katcl(struct katcl_parse *p, unsigned int amoun
 
 /*********************************************************************/
 
+int finalize_parse_katcl(struct katcl_parse *p)
+{
+  return add_end_parse_katcl(p);
+}
+
+int add_end_parse_katcl(struct katcl_parse *p)
+{
+  if(p == NULL){
+    return -1;
+  }
+
+  if(p->p_state != KATCL_PARSE_FAKE){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "usage problem: while adding end parse structure was state %u, wanted state %u\n", p->p_state, KATCL_PARSE_FAKE);
+    abort();
+#endif
+    return -1;
+  }
+
+  if(p->p_got <= 0){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "usage problem: can not end a parse structure which is empty\n");
+    abort();
+#endif
+    return -1;
+  }
+
+  p->p_state = KATCL_PARSE_DONE;
+  
+  return 0;
+}
+
+/*********************************************************************/
+
 static int add_unsafe_parse_katcl(struct katcl_parse *p, int flags, char *string)
 {
   unsigned int len;
@@ -306,16 +427,14 @@ static int add_unsafe_parse_katcl(struct katcl_parse *p, int flags, char *string
   }
   memcpy(ptr, string, len);
 
-  return after_add_parse_katcl(p, len, 0);
+  return after_add_parse_katcl(p, len, 0, flags);
 }
 
 /*********************************************************************/
 
 int add_buffer_parse_katcl(struct katcl_parse *p, int flags, void *buffer, unsigned int len)
 {
-  char *src, *dst;
-
-  src = buffer;
+  char *dst;
 
   if(before_add_parse_katcl(p, flags) < 0){
     return -1;
@@ -325,15 +444,30 @@ int add_buffer_parse_katcl(struct katcl_parse *p, int flags, void *buffer, unsig
   fprintf(stderr, "adding %u bytes to parse %p\n", len, p);
 #endif
 
+  dst = request_space_parse_katcl(p, len + 1);
+  if(dst == NULL){
+    return -1;
+  }
+
   if(len > 0){
-    dst = request_space_parse_katcl(p, len + 1);
-    if(dst == NULL){
+    if(buffer == NULL){
+#ifdef KATCP_CONSISTENCY_CHECKS
+      fprintf(stderr, "add buffer: given a buffer length of %u, but buffer is NULL\n", len);
+      abort();
+#endif
       return -1;
     }
-    memcpy(dst, src, len);
-  } /* else single \@ case */
+    memcpy(dst, buffer, len);
+  } else {
+    /* single \@ case */
+#ifdef KATCP_CONSISTENCY_CHECKS
+    if(buffer){
+      fprintf(stderr, "add buffer: warning: zero buffer length, yet given a buffer %p", buffer);
+    }
+#endif
+  } 
 
-  return after_add_parse_katcl(p, len, 1);
+  return after_add_parse_katcl(p, len, 1, flags);
 }
 
 int add_parameter_parse_katcl(struct katcl_parse *pd, int flags, struct katcl_parse *ps, unsigned int index)
@@ -341,7 +475,7 @@ int add_parameter_parse_katcl(struct katcl_parse *pd, int flags, struct katcl_pa
   char *src, *dst;
   unsigned int len;
 
-#ifdef PARANOID
+#ifdef KATCP_CONSISTENCY_CHECKS
   if(ps->p_state != KATCL_PARSE_DONE){
     fprintf(stderr, "warning: copy argument %u from incomplete parse (state=%u)\n", index, ps->p_state);
   }
@@ -367,18 +501,103 @@ int add_parameter_parse_katcl(struct katcl_parse *pd, int flags, struct katcl_pa
   fprintf(stderr, "adding %u bytes to parse %p\n", len, pd);
 #endif
 
+  dst = request_space_parse_katcl(pd, len + 1);
+  if(dst == NULL){
+    return -1;
+  }
+
   if(src){
-    dst = request_space_parse_katcl(pd, len + 1);
-    if(dst == NULL){
-      return -1;
-    }
     memcpy(dst, src, len);
   } /* else single \@ case */
 
-  return after_add_parse_katcl(pd, len, 1);
+  return after_add_parse_katcl(pd, len, 1, flags);
+}
+
+int add_trailing_parse_katcl(struct katcl_parse *pd, int flags, struct katcl_parse *ps, unsigned int start)
+{
+  unsigned int i, penulti, f;
+  int result, r;
+
+  sane_parse_katcl(pd);
+  sane_parse_katcl(ps);
+
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(ps->p_state != KATCL_PARSE_DONE){
+    fprintf(stderr, "warning: copy argument %u from incomplete parse (state=%u)\n", start, ps->p_state);
+  }
+#endif
+
+  if(ps->p_got <= 0){
+    return -1;
+  }
+
+  if(start >= ps->p_got){
+    return -1;
+  }
+
+  penulti = ps->p_got - 1;
+
+  f = flags;
+  result = 0;
+
+  for(i = start; i < penulti; i++){
+#ifdef DEBUG
+    fprintf(stderr, "parse trailing: adding position %u (0x%x:%s)\n", i, f & KATCP_FLAG_FIRST, (f & KATCP_FLAG_FIRST) ? "first" : "middle");
+#endif
+    r = add_parameter_parse_katcl(pd, f & KATCP_FLAG_FIRST, ps, i); 
+
+    if(r < 0){
+      return -1;
+    }
+
+    result += r;
+    f = 0;
+  }
+
+#ifdef DEBUG
+    fprintf(stderr, "parse trailing: adding position %u (0x%x:%s)\n", i, f | (flags & KATCP_FLAG_LAST), (flags & KATCP_FLAG_LAST) ? "last" : "middle");
+#endif
+
+  r = add_parameter_parse_katcl(pd, f | (flags & KATCP_FLAG_LAST), ps, i); 
+  if(r < 0){
+    return -1;
+  }
+
+  result += r;
+
+  return result;
 }
 
 /*********************************************************************/
+
+int add_timestamp_parse_katcl(struct katcl_parse *p, int flags, struct timeval *tv)
+{
+#define TIMESTAMP_BUFFER 16
+  struct timeval *tvp, tva;
+  unsigned int milli;
+  char buffer[TIMESTAMP_BUFFER];
+
+  if(tv == NULL){
+    tvp = &tva;
+    if(gettimeofday(tvp, NULL) < 0){
+      return -1;
+    }
+  } else {
+    tvp = tv;
+  }
+
+  milli = tvp->tv_usec / 1000;
+
+#if KATCP_PROTOCOL_MAJOR_VERSION >= 5   
+  snprintf(buffer, TIMESTAMP_BUFFER, "%lu.%03u", tvp->tv_sec, milli);
+#else
+  snprintf(buffer, TIMESTAMP_BUFFER, "%lu%03u", tvp->tv_sec, milli);
+#endif
+  buffer[TIMESTAMP_BUFFER - 1] = '\0';
+
+  return add_unsafe_parse_katcl(p, flags | KATCP_FLAG_STRING, buffer);
+#undef TIMESTAMP_BUFFER
+}
 
 int add_plain_parse_katcl(struct katcl_parse *p, int flags, char *string)
 {
@@ -414,7 +633,7 @@ int add_unsigned_long_parse_katcl(struct katcl_parse *p, int flags, unsigned lon
     return -1;
   }
 
-  return after_add_parse_katcl(p, result, 0);
+  return after_add_parse_katcl(p, result, 0, flags);
 #undef TMP_BUFFER
 }
 
@@ -438,7 +657,7 @@ int add_signed_long_parse_katcl(struct katcl_parse *p, int flags, unsigned long 
     return -1;
   }
 
-  return after_add_parse_katcl(p, result, 0);
+  return after_add_parse_katcl(p, result, 0, flags);
 #undef TMP_BUFFER
 }
 
@@ -462,7 +681,7 @@ int add_hex_long_parse_katcl(struct katcl_parse *p, int flags, unsigned long v)
     return -1;
   }
 
-  return after_add_parse_katcl(p, result, 0);
+  return after_add_parse_katcl(p, result, 0, flags);
 #undef TMP_BUFFER
 }
 
@@ -482,12 +701,15 @@ int add_double_parse_katcl(struct katcl_parse *p, int flags, double v)
     return -1;
   }
 
+#if 0
+  result = snprintf(ptr, TMP_BUFFER, "%f", v);
+#endif
   result = snprintf(ptr, TMP_BUFFER, "%g", v);
   if((result <= 0) || (result >= TMP_BUFFER)){
     return -1;
   }
 
-  return after_add_parse_katcl(p, result, 0);
+  return after_add_parse_katcl(p, result, 0, flags);
 #undef TMP_BUFFER
 }
 #endif
@@ -530,7 +752,7 @@ int add_vargs_parse_katcl(struct katcl_parse *p, int flags, char *fmt, va_list a
 #endif
 
     if((want >= 0) && ( want < got)){
-      return after_add_parse_katcl(p, want, 1);
+      return after_add_parse_katcl(p, want, 1, flags);
     }
 
     if(want >= got){
@@ -541,7 +763,7 @@ int add_vargs_parse_katcl(struct katcl_parse *p, int flags, char *fmt, va_list a
     }
   }
 
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
   fprintf(stderr, "add vargs: sanity failure with %d bytes\n", got);
   abort();
 #endif
@@ -567,8 +789,11 @@ struct katcl_parse *vturnaround_extra_parse_katcl(struct katcl_parse *p, int cod
 {
   char *string;
   struct katcl_parse *px;
+#ifdef KATCP_ENABLE_TAGS
+  int tag;
+#endif
 
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
   if(p->p_state != KATCL_PARSE_DONE){
     fprintf(stderr, "logic problem: attempting to turn around incomplete parse\n");
     abort();
@@ -580,11 +805,15 @@ struct katcl_parse *vturnaround_extra_parse_katcl(struct katcl_parse *p, int cod
     return NULL;
   }
 
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
   if(string[0] != KATCP_REQUEST){
     fprintf(stderr, "logic problem: attempting to turn around <%s>\n", string);
     abort();
   }
+#endif
+
+#ifdef KATCP_ENABLE_TAGS
+  tag = get_tag_parse_katcl(p);
 #endif
 
   px = reuse_parse_katcl(p);
@@ -594,7 +823,16 @@ struct katcl_parse *vturnaround_extra_parse_katcl(struct katcl_parse *p, int cod
   }
 
   string[0] = KATCP_REPLY;
-  add_string_parse_katcl(px, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, string);
+#ifdef KATCP_ENABLE_TAGS
+  if(tag >= 0){
+    add_args_parse_katcl(px, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "%s[%d]", string, tag);
+  } else {
+#endif   
+    add_string_parse_katcl(px, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, string);
+#ifdef KATCP_ENABLE_TAGS
+  }
+#endif   
+
   free(string);
 
   string = code_to_name_katcm(code);
@@ -636,7 +874,7 @@ struct katcl_parse *turnaround_parse_katcl(struct katcl_parse *p, int code)
 
 unsigned int get_count_parse_katcl(struct katcl_parse *p)
 {
-#ifdef PARANOID
+#ifdef KATCP_CONSISTENCY_CHECKS
   if(p->p_state != KATCL_PARSE_DONE){
     fprintf(stderr, "warning: extracting argument count from incomplete parse (state=%u)\n", p->p_state);
   }
@@ -646,16 +884,20 @@ unsigned int get_count_parse_katcl(struct katcl_parse *p)
 
 int get_tag_parse_katcl(struct katcl_parse *p)
 {
+  sane_parse_katcl(p);
+
   return p->p_tag;
 }
 
-int is_type_parse_katcl(struct katcl_parse *p, char mode)
+int is_type_parse_katcl(struct katcl_parse *p, char type)
 {
+  sane_parse_katcl(p);
+
   if(p->p_got <= 0){
     return 0;
   }
 
-  if(p->p_buffer[p->p_args[0].a_begin] == mode){
+  if(p->p_buffer[p->p_args[0].a_begin] == type){
     return 1;
   }
 
@@ -677,6 +919,32 @@ int is_inform_parse_katcl(struct katcl_parse *p)
   return is_type_parse_katcl(p, KATCP_INFORM);
 }
 
+int is_reply_ok_parse_katcl(struct katcl_parse *p)
+{
+  char *str;
+
+  /* WARNING: this function presents an interface not symmetrical with the 
+   * various KATCP_RESULT_* codes used by a sending side. However, usage is 
+   * different too - this function is a convenience wrapper to quickly tell
+   * us if a request worked out. Fancy decoding should be done by hand ? 
+   * Furthermore the sending side API has virtual codes (eg KATCP_RESULT_OWN)
+   * which can't show up here at all ... 
+   */
+
+  if(is_type_parse_katcl(p, KATCP_REPLY)){
+    str = get_string_parse_katcl(p, 1);
+    if(str){
+      if(!strcmp(str, KATCP_OK)){
+        return 1;
+      } else {
+        return 0;
+      }
+    }
+  }
+
+  return -1;
+}
+
 int is_null_parse_katcl(struct katcl_parse *p, unsigned int index)
 {
   if(index >= p->p_got){
@@ -692,7 +960,7 @@ int is_null_parse_katcl(struct katcl_parse *p, unsigned int index)
 
 char *get_string_parse_katcl(struct katcl_parse *p, unsigned int index)
 {
-#ifdef PARANOID
+#ifdef KATCP_CONSISTENCY_CHECKS
   if(p->p_state != KATCL_PARSE_DONE){
     fprintf(stderr, "warning: extracting string argument %u from incomplete parse (state=%u)\n", index, p->p_state);
   }
@@ -745,6 +1013,38 @@ long get_signed_long_parse_katcl(struct katcl_parse *p, unsigned int index)
   value = strtol(p->p_buffer + p->p_args[index].a_begin, NULL, 0);
 
   return value;
+}
+
+int get_bb_parse_katcl(struct katcl_parse *p, unsigned int index, struct katcl_byte_bit *b)
+{
+  char *string, *end;
+  unsigned long byte, bit; 
+
+  if(b == NULL){
+    return -1;
+  }
+
+  string = get_string_parse_katcl(p, index);
+  if(string == NULL){
+    return -1;
+  }
+
+  if(string[0] != ':'){
+    byte = strtoul(string, &end, 0);
+    if(end[0] == ':'){
+      string = end;
+    }
+  } else {
+    byte = 0;
+  }
+
+  if(string[0] == ':'){
+    bit = strtoul(string + 1, NULL, 0);
+  } else {
+    bit = 0;
+  }
+
+  return make_bb_katcl(b, byte, bit);
 }
 
 #ifdef KATCP_USE_FLOATS
@@ -815,7 +1115,7 @@ static int stash_remainder_parse_katcl(struct katcl_parse *p, char *buffer, unsi
 
   sane_parse_katcl(p);
 
-#ifdef DEBUG
+#if DEBUG>2
   fprintf(stderr, "stashing %u bytes starting with <%c...> for next line\n", len, buffer[0]);
 #endif
   
@@ -876,18 +1176,36 @@ int deparse_katcl(struct katcl_parse *p)
 }
 #endif
 
+int awaiting_katcl(struct katcl_line *l)
+{
+  struct katcl_parse *p;
+
+  p = l->l_next;
+  if(p == NULL){
+#ifdef KATCP_CONSISTENCY_CHECKS
+    fprintf(stderr, "logic failure: expected a valid next entry in parse\n");
+    abort();
+#endif
+    return 0;
+  }
+
+  return p->p_have;
+}
+
 int parse_katcl(struct katcl_line *l) /* transform buffer -> args */
 {
   int increment;
   struct katcl_parse *p;
 
   p = l->l_next;
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
   if(p == NULL){
     fprintf(stderr, "logic failure: expected a valid next entry in parse\n");
     abort();
   }
+#endif
 
+#if DEBUG>2
   fprintf(stderr, "invoking parse (state=%d, have=%d, used=%d, kept=%d)\n", p->p_state, p->p_have, p->p_used, p->p_kept);
 #endif
 
@@ -904,7 +1222,7 @@ int parse_katcl(struct katcl_line *l) /* transform buffer -> args */
     switch(p->p_state){
 
       case KATCL_PARSE_FAKE :
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
         fprintf(stderr, "major logic problem: attempting to parse a locally generated message\n");
         abort();
 #endif
@@ -1185,8 +1503,10 @@ int dump_parse_katcl(struct katcl_parse *p, char *prefix, FILE *fp)
 
 int main()
 {
+#define BUFFER 32
   struct katcl_parse *p, *pc;
   char *ptr;
+  char buffer[BUFFER];
 
   p = create_referenced_parse_katcl();
   if(p == NULL){
@@ -1196,6 +1516,7 @@ int main()
 
   dump_parse_katcl(p, "empty", stderr);
   add_plain_parse_katcl(p, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, "?foobar");
+  add_string_parse_katcl(p, KATCP_FLAG_STRING, "froz\nbozz");
   add_string_parse_katcl(p, KATCP_FLAG_STRING, "froz\nbozz");
 
   add_unsigned_long_parse_katcl(p, KATCP_FLAG_ULONG | KATCP_FLAG_LAST, 42UL);
@@ -1221,12 +1542,16 @@ int main()
 
   dump_parse_katcl(pc, "copy", stderr);
 
+  buffer_from_parse_katcl(p, buffer, BUFFER);
+  fprintf(stderr, "buffer of parse: <%s>\n", buffer);
+
   destroy_parse_katcl(p);
   destroy_parse_katcl(pc);
 
   printf("parse test: ok\n");
 
   return 0;
+#undef BUFFER
 }
   
 #endif

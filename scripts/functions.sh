@@ -1,14 +1,24 @@
-export CORR_CONFIG=/etc/corr/config
+export CORR_CONFIG=/etc/corr/
 export CORR_INIT_SCRIPT=/etc/init.d/corr
 export KATCP_SERVER=localhost:1235
 export CORR_MAPPING=/var/run/corr/antenna_mapping
+export MAIN_MAPPING=/var/lib/kcs/mapping
 
 kcs_check_timeout()
 {
   if [ $(date +%s) -gt $1 ] ; then
-    echo "#log error $(date +%s)000 script request\_to\_corr\_timed\_out"
+    kcpmsg -l error -s script "request to corr timed out"
     return 1
   fi
+}
+
+kcs_set_frequency () {
+#  kcpcmd -i -k nb-set-cf $1 | ( while read cmd stat first rest ; do if [ "$cmd" = "!nb-set-cf" -a "${stat}" = "ok" ] ; then echo "#sensor-list .centerfrequency current\_selected\_center\_frequency Hz integer 0 1000000000" ; echo "#sensor-status $(date +%s)000 1 .centerfrequency nominal ${first}" ; fi ; done)
+  kcpcmd -i -k nb-set-cf $1 | ( while read cmd stat first rest ; do if [ "$cmd" = "!nb-set-cf" ] ; then if [ "${stat}" = "ok" ] ; then echo "#sensor-status $(date +%s)000 1 .centerfrequency nominal ${first}" ; else kcpmsg -l error -s frequency "center frequency update ${stat} ${first}" ; exit 1 ; fi ; else echo ${cmd} ${stat} ${first} ${rest} ; fi ; done)
+}
+
+kcs_set_passband () {
+  kcpcmd -i -k beam-passband $1 $2 $3 | ( while read cmd stat bw cf rest ; do if [ "$cmd" = "!beam-passband" ] ; then if [ "${stat}" = "ok" ] ; then echo "#sensor-status $(date +%s)000 1 .${1}.bandwidth nominal ${bw}" ; echo "#sensor-status $(date +%s)000 1 .${1}.centerfrequency nominal ${cf}" ; else kcpmsg -l error -s passband "passband update $stat $bw" ; exit 1 ; fi ; else echo ${cmd} ${stat} ${bw} ${cf} ${rest} ; fi ; done)
 }
 
 kcs_input_to_index () {
@@ -20,31 +30,20 @@ kcs_index_to_input () {
 }
 
 kcs_debug () {
-  echo "#log debug $(date +%s)000 script $(echo $1 | sed -e 's/ /\\_/g')"
+  kcpmsg -l debug -s script "$1"
 }
 
 kcs_warn () {
-  echo "#log warn $(date +%s)000 script $(echo $1 | sed -e 's/ /\\_/g')"
+  kcpmsg -l warn -s script "$1"
 }
 
 kcs_error () {
-  echo "#log error $(date +%s)000 script $(echo $1 | sed -e 's/ /\\_/g')"
+  kcpmsg -l error -s script "$1"
   return 1
 }
 
 kcs_info () {
-  echo "#log info $(date +%s)000 script $(echo $1 | sed -e 's/ /\\_/g')"
-}
-
-kcs_config_numeric () {
-  value=$(grep ^${1} ${CORR_CONFIG} 2> /dev/null | cut -f2 -d= | tr -d ' ' )
-  if [ -z "${value}" ] ; then
-    kcs_error "unable to locate ${1} in ${CORR_CONFIG}"
-  fi
-
-  kcs_debug "${1} maps to ${value}"
-
-  export $1=${value}
+  kcpmsg -l info -s script "$1"
 }
 
 kcs_change_corr()
@@ -60,15 +59,8 @@ kcs_change_corr()
 
     kcs_debug "attempting to set config file"
 
-    if [ -e ${CORR_CONFIG}-${1} ] ; then
-      if [ -h ${CORR_CONFIG} ] ; then
-        kcs_debug "unlinking old configuration"
-        rm -f ${CORR_CONFIG}
-      fi
-      kcs_debug "updating configuration to ${CORR_CONFIG}-${1}"
-      ln -s ${CORR_CONFIG}-${1} ${CORR_CONFIG}
-    else 
-      kcs_error "no $1 configuration for corr at $${CORR_CONFIG}-${1}"
+    if [ ! -e ${CORR_CONFIG}/${1} ] ; then
+      kcs_error "no $1 configuration for corr at ${CORR_CONFIG}/${1}"
       return 1
     fi
 
@@ -87,18 +79,6 @@ kcs_arg_check () {
   fi
 }
 
-kcs_report_sensor () {
-
-  # name description type units value 
-  if [ $# -lt 5 ] ; then 
-    kcs_error "sensor report needs more values [status]"
-    return 1
-  fi
-
-  echo "#sensor-list $1 $(echo $2 | sed -e 's/ /\\_/g') $4 $3"
-  echo "#sensor-status $(date +%s)000 1 $1 ${6:-unknown} ${5}"
-}
-
 kcs_corr_log () {
   kcs_debug "retrieving correlator logs"
   if kcpcmd -k -m get-log ; then
@@ -107,3 +87,77 @@ kcs_corr_log () {
   kcs_debug "finished getting correlator logs"
   return 0
 }
+
+kcs_config_numeric () {
+  value=$(grep ^${1} ${CORR_CONFIG}/${KATCP_MODE} 2> /dev/null | cut -f2 -d= | tr -d ' ' )
+  if [ -z "${value}" ] ; then
+    kcs_error "unable to locate ${1} in ${CORR_CONFIG}/${KATCP_MODE}"
+  fi
+
+  kcs_debug "${1} maps to ${value}"
+
+  export $1=${value}
+}
+
+kcs_load_config () {
+  if [ $# -lt 1 ] ; then
+    config_file=${CORR_CONFIG}/${KATCP_MODE}
+  else
+    config_file=${CORR_CONFIG}/$1
+  fi
+
+  eval $(grep -v '^ *#' ${config_file} | grep \=  | sed -e 's/=/ = /' | (while read label sep value ; do echo var_${label}=${value}\; ; done) ; echo echo )
+}
+
+
+kcs_is_wideband () {
+  if [ $# -lt 1 ] ; then
+    return 1
+  fi
+
+  case "${KATCP_MODE}" in
+    c16n400M1k|c16n400M8k|bwbc4a|twbc4a|bc16n400M1k|bc8n400M1k_bottom|bc8n400M1k_top)
+      return 0
+    ;;
+    *)
+      return 1
+    ;;
+  esac
+
+  return 1
+}
+
+kcs_is_beamformer () {
+  if [ $# -lt 1 ] ; then
+    return 1
+  fi
+
+  case "${KATCP_MODE}" in
+    bc16n400M1k|bc8n400M1k_bottom|bc8n400M1k_top)
+      return 0
+    ;;
+    *)
+      return 1
+    ;;
+  esac
+
+  return 1
+}
+
+kcs_is_narrowband () {
+  if [ $# -lt 1 ] ; then
+    return 1
+  fi
+
+  case "${KATCP_MODE}" in
+    c16n13M4k|c16n25M4k|c16n2M4k|c16n3M8k|c16n7M4k|c8n25M4k_bottom|c8n25M4k_top|c8n7M4k_bottom|c8n7M4k_top)
+      return 0
+    ;;
+    *)
+      return 1
+    ;;
+  esac
+
+  return 1
+}
+

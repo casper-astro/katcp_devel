@@ -2,17 +2,83 @@
 
 source functions.sh
 
-rxip=$(grep ^rx_udp_ip ${CORR_CONFIG} | cut -f2 -d= | tr -d ' ' )
-rxport=$(grep ^rx_udp_port ${CORR_CONFIG} | cut -f2 -d= | tr -d ' ' )
+list_source()
+{
+  source=$1
+  host=${2%:*}
+  port=${2##*:}
 
-if [ -z "${rxip}" ] ; then
-  rxip=unknown
+  if [ -z "${host}" ] ; then
+    host=unknown
+  fi
+
+  if [ -z "${port}" ] ; then
+    port=unknown
+  fi
+
+  echo -n "#capture-list ${source} ${host} ${port}"
+
+  if [ -n "$3" ] ; then
+    host=${3%:*}
+    port=${3##*:}
+
+    if [ -z "${host}" ] ; then
+      host=unknown
+    fi
+
+    if [ -z "${port}" ] ; then
+      port=unknown
+    fi
+
+    echo " ${host} ${port}"
+  else 
+    echo
+  fi
+
+}
+
+if [ -n "${KCS_CORR_RX}" ] ; then
+  list_source k7 ${KCS_CORR_RX} 
+else
+  if [ ! -f ${CORR_CONFIG}/${KATCP_MODE} ] ; then
+    kcs_warn "no configuration for ${KATCP_MODE}"
+  else
+    rxip=$(grep ^rx_udp_ip ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
+    rxport=$(grep ^rx_udp_port ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
+  fi
+  list_source k7 ${rxip}:${rxport} 
 fi
 
-if [ -z "${rxport}" ] ; then
-  rxport=unknown
-fi
+if kcs_is_beamformer ${KATCP_MODE} ; then
+  i=0
+  while [ "${i}" -lt "2" ] ; do
 
-echo "#capture-list k7 ${rxip} ${rxport}"
+    bf_rx=KCS_BF${i}DATA_RX
+    if [ -n "${!bf_rx}" ]; then
+      data=${!bf_rx}
+    else
+      rxip=$(grep ^bf_rx_udp_ip_str_beam${i} ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
+      rxport=$(grep ^bf_rx_udp_port_beam${i} ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
+      data=${rxip}:${rxport}
+    fi 
+
+    bf_rx=KCS_BF${i}META_RX
+    if [ -n "${!bf_rx}" ]; then
+      meta=${!bf_rx}
+    else
+      rxip=$(grep ^bf_rx_meta_ip_str_beam${i} ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
+      rxport=$(grep ^bf_rx_meta_port_beam${i} ${CORR_CONFIG}/${KATCP_MODE} | cut -f2 -d= | tr -d ' ' )
+      meta=${rxip}:${rxport}
+    fi 
+
+    if [ -z "${meta}" ] ; then
+      meta=${data}
+    fi
+
+    list_source bf${i} ${data} ${meta}
+
+    i=$[i+1]
+  done
+fi
 
 exit 0

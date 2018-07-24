@@ -2,36 +2,51 @@ include ../Makefile.inc
 
 INC = -I.
 
-TESTS = test-parse test-map test-line test-rpc test-job test-queue test-kurl test-ktype test-avl
+
+CFLAGS += -DDEBUG
+
+TESTS = test-netc test-generic-queue test-parse test-map test-line test-rpc test-job test-queue test-kurl test-ktype test-avl test-bytebit test-dpx-misc
 
 all: $(TESTS)
 
-test-queue: misc.c queue.c parse.c line.c 
+test-generic-queue: generic-queue.c
+	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_GENERIC_QUEUE -o $@ $^
+
+test-queue: misc.c queue.c parse.c line.c bytebit.c
 	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_QUEUE -o $@ $^
 
-test-map: misc.c parse.c line.c time.c netc.c dispatch.c shared.c ts.c log.c notice.c nonsense.c job.c queue.c map.c kurl.c version.c
+test-map: misc.c parse.c line.c time.c netc.c dispatch.c shared.c ts.c log.c notice.c nonsense.c job.c queue.c map.c kurl.c version.c bytebit.c dbase.c stack.c ktype.c avltree.c dpx.c event.c spointer.c arb.c
 	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_MAP -o $@ $^
 
 test-kurl: kurl.c
 	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_KURL -o $@ $^
 
-test-avl: misc.c parse.c line.c time.c netc.c dispatch.c shared.c ts.c log.c notice.c nonsense.c job.c queue.c map.c kurl.c version.c avltree.c ktype.c stack.c dbase.c services.c
+test-avl: misc.c parse.c line.c time.c netc.c dispatch.c shared.c ts.c log.c notice.c nonsense.c job.c queue.c map.c kurl.c version.c avltree.c ktype.c stack.c dbase.c services.c dpx-cmds.c dpx-core.c dpx-forward.c dpx-katcp.c dpx-listen.c dpx-mgmt.c dpx-misc.c arb.c endpoint.c generic-queue.c bytebit.c server.c
 	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_AVL -o $@ $^
 
 test-ktype: misc.c parse.c line.c time.c netc.c dispatch.c shared.c ts.c log.c notice.c nonsense.c job.c queue.c map.c kurl.c version.c avltree.c ktype.c
 	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_KTYPE -o $@ $^
 
-test-parse: misc.c parse.c
+test-parse: misc.c parse.c bytebit.c
 	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_PARSE -o $@ $^
 
-test-line: misc.c parse.c line.c queue.c
+test-line: misc.c parse.c line.c queue.c bytebit.c
 	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_LINE -o $@ $^
 
-test-rpc: misc.c parse.c line.c time.c netc.c rpc.c queue.c
+test-rpc: misc.c parse.c line.c time.c netc.c rpc.c queue.c bytebit.c
 	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_RPC -o $@ $^
+
+test-bytebit: bytebit.c
+	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_BYTE_BIT -o $@ $^
 
 test-job: misc.c parse.c line.c time.c netc.c dispatch.c shared.c ts.c log.c notice.c nonsense.c job.c queue.c map.c kurl.c version.c
 	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_JOB -o $@ $^
+
+test-netc: netc.c
+	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_NETC -o $@ $^
+
+test-dpx-misc: dpx-misc.c
+	$(CC) $(CFLAGS) $(INC) -DUNIT_TEST_DPX_MISC -o $@ $^
 
 
 clean: 

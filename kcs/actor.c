@@ -22,6 +22,7 @@
 
 #include "kcs.h"
 
+/*********************************[actor]****************************************/
 
 struct katcp_actor *create_actor_type_katcp(struct katcp_dispatch *d, char *str, struct katcp_job *j, struct katcp_notice *n, void *data, char *datatype)
 {
@@ -119,7 +120,7 @@ void walk_actor_tags(const void *nodep, const VISIT which, const int depth)
 }
 #endif
 
-void print_actor_type_katcp(struct katcp_dispatch *d, void *data)
+void print_actor_type_katcp(struct katcp_dispatch *d, char *key, void *data)
 {
   struct katcp_actor *a;
   a = data;
@@ -193,49 +194,9 @@ char *getkey_actor_katcp(void *data)
   return a->a_key;
 }
 
-struct katcp_tag *create_tag_katcp(char *name, int level)
-{
-  struct katcp_tag *t;
-  
-  t = malloc(sizeof(struct katcp_tag));
-  if (t == NULL)
-    return NULL;
 
-  t->t_name = strdup(name);
-  if (t->t_name == NULL){
-    free(t);
-    return NULL;
-  }
+/*********************************[tag]******************************************/
 
-  t->t_level = level;
-  t->t_tobject_root = NULL;
-  t->t_tobject_count = 0;
-
-#if 0
-  t->t_memb = NULL;
-  t->t_memb_count = 0;
-#endif
-
-  return t;
-}
-
-/*Unsafe*/
-void destroy_tag_katcp(void *data)
-{
-  struct katcp_tag *t;
-  t = data;
-  if (t == NULL)
-    return;
-  
-  if (t->t_name != NULL) free(t->t_name);
-#if 0
-  if (t->t_memb != NULL) free(t->t_memb);
-#endif
-  if (t->t_tobject_root != NULL) 
-    tdestroy(t->t_tobject_root, &destroy_tobject_katcp);
-
-  free(t);
-}
 
 #if 0
 void walk_tag_tobjects(const void *nodep, const VISIT which, const int depth)
@@ -263,83 +224,6 @@ void walk_tag_tobjects(const void *nodep, const VISIT which, const int depth)
 }
 #endif
 
-void print_tag_katcp(struct katcp_dispatch *d, void *data)
-{
-  struct katcp_tag *t;
-  t = data;
-  if (t == NULL)
-    return;
-
-  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, "#tag type:");
-  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, t->t_name);
-  //append_args_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, "%s", t->t_memb_count);
-  
-#if 0 
-  def DEBUG
-  fprintf(stderr, "tag: %s has %d tobjects:\n", t->t_name, t->t_tobject_count);
-  if (t->t_tobject_root)
-    twalk(t->t_tobject_root, &walk_tag_tobjects);
-  fprintf(stderr, "tag: end\n");
-#endif
-}
-
-void *parse_tag_katcp(struct katcp_dispatch *d, char **str)
-{
-  struct katcp_tag *t;
-  int level;
-
-  level = 0;
-
-  if (str == NULL || str[0] == NULL || str[1] == NULL)
-    return NULL;
-
-  level = atoi(str[1]);
-
-  t = create_tag_katcp(str[0], level);
-  
-  return t;
-}
-
-char *getkey_tag_katcp(void *data)
-{
-  struct katcp_tag *t;
-  t = data;
-  if (t == NULL)
-    return NULL;
-  return t->t_name;
-}
-
-int compare_tag_katcp(const void *m1, const void *m2)
-{
-  const struct katcp_tag *a, *b;
-
-  a = m1;
-  b = m2;
-  if (a == NULL || b == NULL)
-    return 2;
-
-  return strcmp(a->t_name, b->t_name);
-}
-
-
-int register_tag_katcp(struct katcp_dispatch *d, char *name, int level)
-{
-  struct katcp_tag *t;
-
-  t = create_tag_katcp(name, level);
-  if (t == NULL)
-    return -1;
-
-  if (store_data_type_katcp(d, KATCP_TYPE_TAG, KATCP_DEP_BASE, name, t, &print_tag_katcp, &destroy_tag_katcp, NULL, NULL, &parse_tag_katcp, &getkey_tag_katcp) < 0){
-    destroy_tag_katcp(d);
-    return -1;
-  }
-
-#ifdef DEBUG
-  fprintf(stderr, "tag: register tag <%s>\n", name);
-#endif
-  return 0;
-}
 
 struct katcp_tobject **__tobjs;
 int __tcount;
@@ -427,7 +311,7 @@ int deregister_tag_katcp(struct katcp_dispatch *d, char *name)
   return del_data_type_katcp(d, KATCP_TYPE_TAG, name);
 }
 
-void dump_tag_katcp(struct katcp_dispatch *d, void *data)
+void dump_tag_katcp(struct katcp_dispatch *d, char *key, void *data)
 {
   struct katcp_tag *t;
   struct katcp_tobject *to;
@@ -438,7 +322,7 @@ void dump_tag_katcp(struct katcp_dispatch *d, void *data)
   if (t == NULL)
     return;
 
-  print_tag_katcp(d, data);
+  print_tag_katcp(d, "unnamed_tag", data);
   
   if (populate_tobjs_katcp(t) < 0)
     return;
@@ -446,7 +330,7 @@ void dump_tag_katcp(struct katcp_dispatch *d, void *data)
   for (i=0; i<__tcount; i++){
     to = __tobjs[i];
     if (to != NULL || to->o_type != NULL || to->o_type->t_print != NULL) {
-      (*(to->o_type->t_print))(d, to->o_data);
+      (*(to->o_type->t_print))(d, "unnamed_tag", to->o_data);
     }
   }
 
@@ -466,6 +350,8 @@ int dump_tagsets_katcp(struct katcp_dispatch *d)
 
   return 0;
 }
+
+/**********************************[mixed tag & actor]***************************************/
 
 struct katcp_tag **__tags;
 
@@ -820,9 +706,18 @@ int relay_reply_kcs(struct katcp_dispatch *d, struct katcp_notice *n, void *data
 #ifdef DEBUG
     fprintf(stderr, "resume: parameter %d is %s\n", 1, ptr);
 #endif
+    log_message_katcp(d, KATCP_LEVEL_DEBUG, NULL, "relay katcp reply: %s", ptr);
+    
+    if (strcmp(ptr, "fail") == 0){
+      release_sm_notice_actor_katcp(d, a, p);
+      return -1;
+    }
+
   } else {
     ptr = NULL;
   }
+
+
 
 /*
   prepend_reply_katcp(d);
@@ -843,7 +738,9 @@ int relay_katcp_statemachine_kcs(struct katcp_dispatch *d, struct katcp_notice *
   char *str, *buffer;
   int count, i, len, flags;
   
+#if 0
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "edge relaykatcp START");
+#endif
 
   stack = data;
   if (stack == NULL)
@@ -930,8 +827,10 @@ int relay_katcp_statemachine_kcs(struct katcp_dispatch *d, struct katcp_notice *
   destroy_stack_katcp(argstack);
   
   push_named_stack_katcp(d, stack, a, KATCP_TYPE_ACTOR);
-  
+
+#if 0 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "edge relaykatcp command down stream and pushed actor back onto the stack");
+#endif
   
   return EDGE_WAIT; 
 }
@@ -946,8 +845,6 @@ int init_actor_tag_katcp(struct katcp_dispatch *d)
   int rtn;
   
   rtn  = register_name_type_katcp(d, KATCP_TYPE_ACTOR, KATCP_DEP_BASE, &print_actor_type_katcp, &destroy_actor_type_katcp, &copy_actor_type_katcp, &compare_actor_type_katcp, &parse_actor_type_katcp, &getkey_actor_katcp);
-  
-  rtn += register_name_type_katcp(d, KATCP_TYPE_TAG, KATCP_DEP_BASE, &print_tag_katcp, &destroy_tag_katcp, NULL, &compare_tag_katcp, &parse_tag_katcp, &getkey_tag_katcp);
 
   rtn += store_data_type_katcp(d, KATCP_TYPE_OPERATION, KATCP_DEP_BASE, KATCP_OPERATION_TAG_ACTOR, &tag_actor_sm_setup_katcp, NULL, NULL, NULL, NULL, NULL, NULL);
 
@@ -1002,15 +899,15 @@ int main(int argc, char *argv[])
   rtn += tag_named_actor_katcp(d, a4, "tag3");
   rtn += tag_named_actor_katcp(d, a4, "tag4");
   
-  print_actor_type_katcp(d, a1);
+  //print_actor_type_katcp(d, a1);
   rtn += unlink_tags_actor_katcp(d, a1); 
   destroy_actor_type_katcp(a1);
   a1 = NULL;
 
-  print_actor_type_katcp(d, a1);
-  print_actor_type_katcp(d, a2);
-  print_actor_type_katcp(d, a3);
-  print_actor_type_katcp(d, a4);
+  //print_actor_type_katcp(d, a1);
+  //print_actor_type_katcp(d, a2);
+  //print_actor_type_katcp(d, a3);
+  //print_actor_type_katcp(d, a4);
   
 #if 0 
   rtn += deregister_tag_katcp(d, "tag1");

@@ -1,3 +1,4 @@
+
 /*
   A Stack implementation
   push, pop, peek
@@ -27,7 +28,10 @@ struct katcp_tobject *create_tobject_katcp(void *data, struct katcp_type *type, 
 {
   struct katcp_tobject *o;
 
+#if 0
   if (data == NULL && type == NULL)
+#endif
+  if (data == NULL)
     return NULL;
   
   o =  malloc(sizeof(struct katcp_tobject));
@@ -41,6 +45,7 @@ struct katcp_tobject *create_tobject_katcp(void *data, struct katcp_type *type, 
   return o;
 }
 
+#ifdef KATCP_DEPRECATED
 struct katcp_tobject *create_named_tobject_katcp(struct katcp_dispatch *d, void *data, char *type, int flagman)
 {
   struct katcp_type *t;
@@ -54,6 +59,8 @@ struct katcp_tobject *create_named_tobject_katcp(struct katcp_dispatch *d, void 
 
   return create_tobject_katcp(data, t, flagman);
 }
+#endif
+
 #if 1
 struct katcp_tobject *copy_tobject_katcp(struct katcp_tobject *o)
 {
@@ -216,6 +223,7 @@ int push_stack_katcp(struct katcp_stack *s, void *data, struct katcp_type *type)
   return push_tobject_katcp(s, o);
 }
 
+#ifdef KATCP_DEPRECATED
 int push_named_stack_katcp(struct katcp_dispatch *d, struct katcp_stack *s, void *data, char *type)
 {
   struct katcp_tobject *o;
@@ -231,6 +239,7 @@ int push_named_stack_katcp(struct katcp_dispatch *d, struct katcp_stack *s, void
 #endif
   return push_tobject_katcp(s, o);
 }
+#endif
 
 struct katcp_tobject *pop_stack_katcp(struct katcp_stack *s)
 {
@@ -285,6 +294,7 @@ void *pop_data_type_stack_katcp(struct katcp_stack *s, struct katcp_type *t)
   return NULL;
 }
 
+#ifdef KATCP_DEPRECATED
 void *pop_data_expecting_stack_katcp(struct katcp_dispatch *d, struct katcp_stack *s, char *type)
 {
   struct katcp_type *t;
@@ -295,6 +305,7 @@ void *pop_data_expecting_stack_katcp(struct katcp_dispatch *d, struct katcp_stac
   
   return pop_data_type_stack_katcp(s, t);
 }
+#endif
 
 struct katcp_tobject *peek_stack_katcp(struct katcp_stack *s)
 {
@@ -329,18 +340,18 @@ void print_tobject_katcp(struct katcp_dispatch *d, struct katcp_tobject *o)
 {
   struct katcp_type *t;
   if (o == NULL){
-#ifdef debug
+#ifdef DEBUG
     fprintf(stderr,"stack: null stack obj encountered ending\n");
 #endif
     return;
   }
   t = o->o_type;
-#ifdef DEBUG
+#if DEBUG >1
   fprintf(stderr, "stack: type: %p data (%p) managed flag: %d\n", o->o_type, o->o_data, o->o_man);
   //fprintf(stderr, "stack obj: %s %p %p\n",t->t_name, t, t->t_print);
 #endif
   if ((t != NULL) && (t->t_print != NULL))
-    (*t->t_print)(d, o->o_data);
+    (*t->t_print)(d, "unnamed_tobject", o->o_data);
 }
 
 void print_stack_katcp(struct katcp_dispatch *d, struct katcp_stack *s)
@@ -353,7 +364,7 @@ void print_stack_katcp(struct katcp_dispatch *d, struct katcp_stack *s)
   
   for (i=s->s_count-1; i>=0; i--){
     o = s->s_objs[i];
-#ifdef DEBUG
+#if DEBUG >1
     fprintf(stderr,"stack: [%2d] ",i);
 #endif
     print_tobject_katcp(d, o);

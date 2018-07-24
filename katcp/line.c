@@ -21,7 +21,7 @@
 
 /****************************************************************/
 
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
 static void sane_line_katcl(struct katcl_line *l)
 {
   struct katcl_parse *p;
@@ -68,7 +68,7 @@ struct katcl_line *create_katcl(int fd)
 {
   struct katcl_line *l;
 
-  l = malloc(sizeof(struct katcl_line));
+  l = (struct katcl_line *)malloc(sizeof(struct katcl_line));
   if(l == NULL){
     return NULL;
   }
@@ -88,7 +88,7 @@ struct katcl_line *create_katcl(int fd)
   l->l_error = 0;
   l->l_sendable = 1;
 
-  l->l_next = create_referenced_parse_katcl(l); /* we require that next is always valid */
+  l->l_next = create_referenced_parse_katcl(); /* we require that next is always valid */
   if(l->l_next == NULL){
     destroy_katcl(l, 0);
     return NULL;
@@ -103,7 +103,7 @@ struct katcl_line *create_katcl(int fd)
   return l;
 }
 
-void destroy_katcl(struct katcl_line *l, int mode)
+void destroy_katcl(struct katcl_line *l, int end)
 {
   if(l == NULL){
     return;
@@ -136,7 +136,7 @@ void destroy_katcl(struct katcl_line *l, int mode)
     l->l_queue = NULL;
   }
 
-  if(mode){
+  if(end){
     if(l->l_fd >= 0){
       close(l->l_fd);
       l->l_fd = (-1);
@@ -184,6 +184,15 @@ void exchange_katcl(struct katcl_line *l, int fd)
   l->l_sendable = 1;
 }
 
+void discard_katcl(struct katcl_line *l)
+{
+  sane_line_katcl(l);
+
+  if(l->l_next){
+    l->l_next = reuse_parse_katcl(l->l_next);
+  }
+}
+
 int fileno_katcl(struct katcl_line *l)
 {
   return l ? l->l_fd : (-1);
@@ -206,6 +215,47 @@ int error_katcl(struct katcl_line *l)
 
 /***********************************************************************************/
 
+int load_katcl(struct katcl_line *l, char *buffer, unsigned int size)
+{
+  char *ptr;
+  struct katcl_parse *p;
+
+  sane_line_katcl(l);
+
+#if DEBUG > 1
+  fprintf(stderr, "line: invoking read on line %p\n", l);
+#endif
+
+#ifdef KATCP_CONSISTENCY_CHECKS
+  if(l->l_next == NULL){
+    fprintf(stderr, "line: logic failure, l_next should always be valid\n");
+    abort();
+  }
+#endif
+
+  p = l->l_next;
+
+  if(p->p_size <= (p->p_have + size)){
+    ptr = (char *)realloc(p->p_buffer, p->p_have + size + 1);
+    if(ptr == NULL){
+#ifdef DEBUG 
+      fprintf(stderr, "read: realloc to %d failed\n", p->p_size + KATCL_BUFFER_INC);
+#endif
+      l->l_error = ENOMEM;
+      return -1;
+    }
+
+    p->p_buffer = ptr;
+    p->p_size = p->p_have + size + 1;
+  }
+
+  memcpy(p->p_buffer + p->p_have, buffer, size);
+
+  p->p_have += size;
+
+  return 0;
+}
+
 int read_katcl(struct katcl_line *l)
 {
   int rr;
@@ -218,7 +268,7 @@ int read_katcl(struct katcl_line *l)
   fprintf(stderr, "line: invoking read on line %p\n", l);
 #endif
 
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
   if(l->l_next == NULL){
     fprintf(stderr, "line: logic failure, l_next should always be valid\n");
     abort();
@@ -228,7 +278,7 @@ int read_katcl(struct katcl_line *l)
   p = l->l_next;
 
   if(p->p_size <= p->p_have){
-    ptr = realloc(p->p_buffer, p->p_size + KATCL_BUFFER_INC);
+    ptr = (char  *)realloc(p->p_buffer, p->p_size + KATCL_BUFFER_INC);
     if(ptr == NULL){
 #ifdef DEBUG 
       fprintf(stderr, "read: realloc to %d failed\n", p->p_size + KATCL_BUFFER_INC);
@@ -293,7 +343,7 @@ void clear_katcl(struct katcl_line *l) /* discard a full line */
 int have_katcl(struct katcl_line *l)
 {
   if(ready_katcl(l)){
-#ifdef DEBUG
+#if DEBUG>2
     fprintf(stderr, "clearing data buffer\n");
 #endif
     clear_katcl(l);
@@ -322,28 +372,42 @@ int arg_tag_katcl(struct katcl_line *l)
   return get_tag_parse_katcl(l->l_ready);
 }
 
-static int arg_type_katcl(struct katcl_line *l, char mode)
+#if 0
+static int arg_type_katcl(struct katcl_line *l, char type)
 {
   if(l->l_ready == NULL){
     return -1;
   }
 
-  return is_type_parse_katcl(l->l_ready, mode);
+  return is_type_parse_katcl(l->l_ready, type);
 }
+#endif
 
 int arg_request_katcl(struct katcl_line *l)
 {
-  return arg_type_katcl(l, KATCP_REQUEST);
+  if(l->l_ready == NULL){
+    return -1;
+  }
+
+  return is_request_parse_katcl(l->l_ready);
 }
 
 int arg_reply_katcl(struct katcl_line *l)
 {
-  return arg_type_katcl(l, KATCP_REPLY);
+  if(l->l_ready == NULL){
+    return -1;
+  }
+
+  return is_reply_parse_katcl(l->l_ready);
 }
 
 int arg_inform_katcl(struct katcl_line *l)
 {
-  return arg_type_katcl(l, KATCP_INFORM);
+  if(l->l_ready == NULL){
+    return -1;
+  }
+
+  return is_inform_parse_katcl(l->l_ready);
 }
 
 int arg_null_katcl(struct katcl_line *l, unsigned int index)
@@ -380,6 +444,15 @@ unsigned long arg_unsigned_long_katcl(struct katcl_line *l, unsigned int index)
   }
 
   return get_unsigned_long_parse_katcl(l->l_ready, index);
+}
+
+int arg_bb_katcl(struct katcl_line *l, unsigned int index, struct katcl_byte_bit *b)
+{
+  if(l->l_ready == NULL){
+    return 0;
+  }
+
+  return get_bb_parse_katcl(l->l_ready, index, b);
 }
 
 #ifdef KATCP_USE_FLOATS
@@ -456,8 +529,16 @@ static int after_append_katcl(struct katcl_line *l, int flags, int result)
   }
 
   add_tail_queue_katcl(l->l_queue, l->l_stage);
+  
   destroy_parse_katcl(l->l_stage);
   l->l_stage = NULL;
+
+#ifdef KATCP_FLUSH_THRESHOLD
+  if(size_queue_katcl(l->l_queue) > KATCP_FLUSH_THRESHOLD){
+    /* WARNING: ignores return code */
+    write_katcl(l);
+  }
+#endif
 
   return result;
 }
@@ -592,6 +673,24 @@ int append_buffer_katcl(struct katcl_line *l, int flags, void *buffer, int len)
   return after_append_katcl(l, flags, result);
 }
 
+int append_timestamp_katcl(struct katcl_line *l, int flags, struct timeval *tv)
+{
+  struct katcl_parse *p;
+  int result;
+
+  p = before_append_katcl(l, flags);
+  if(p == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "append: before_append failed\n");
+#endif
+    return -1;
+  }
+
+  result = add_timestamp_parse_katcl(p, flags, tv);
+
+  return after_append_katcl(l, flags, result);
+}
+
 int append_parameter_katcl(struct katcl_line *l, int flags, struct katcl_parse *px, unsigned int index)
 {
   struct katcl_parse *p;
@@ -610,11 +709,29 @@ int append_parameter_katcl(struct katcl_line *l, int flags, struct katcl_parse *
   return after_append_katcl(l, flags, result);
 }
 
+int append_trailing_katcl(struct katcl_line *l, int flags, struct katcl_parse *px, unsigned int start)
+{
+  struct katcl_parse *p;
+  int result;
+
+  p = before_append_katcl(l, flags);
+  if(p == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "append: before_append failed\n");
+#endif
+    return -1;
+  }
+
+  result = add_trailing_parse_katcl(p, flags, px, start);
+
+  return after_append_katcl(l, flags, result);
+}
+
 int append_parse_katcl(struct katcl_line *l, struct katcl_parse *p)
 {
   int result;
 
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
 
   if(p->p_magic != KATCL_PARSE_MAGIC){
     fprintf(stderr, "problem: attempting to append parse %p with bad magic %x to line\n", p, p->p_magic);
@@ -635,6 +752,24 @@ int append_parse_katcl(struct katcl_line *l, struct katcl_parse *p)
   result = add_tail_queue_katcl(l->l_queue, p);	
 
   return result;
+}
+
+int append_end_katcl(struct katcl_line *l)
+{
+  struct katcl_parse *p;
+  int result;
+
+  p = before_append_katcl(l, KATCP_FLAG_LAST);
+  if(p == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "append: before_append failed at end\n");
+#endif
+    return -1;
+  }
+
+  result = add_end_parse_katcl(p);
+
+  return after_append_katcl(l, KATCP_FLAG_LAST, result);
 }
 
 /**************************************************************/
@@ -804,7 +939,7 @@ int write_katcl(struct katcl_line *l)
           continue; /* WARNING */
         } 
 
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
         if(p->p_magic != KATCL_PARSE_MAGIC){
           fprintf(stderr, "write: bad magic returned from get_head (%x, expected %x)\n", p->p_magic, KATCL_PARSE_MAGIC);
           abort();
@@ -816,7 +951,7 @@ int write_katcl(struct katcl_line *l)
           continue; /* WARNING */
         }
 
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
         if(l->l_arg >= p->p_got){
           fprintf(stderr, "write: logic problem: arg=%u >= got=%u\n", l->l_arg, p->p_got);
           abort();
@@ -825,7 +960,7 @@ int write_katcl(struct katcl_line *l)
 
         la = &(p->p_args[l->l_arg]);
 
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
         if((la->a_begin + l->l_offset) > la->a_end){
           fprintf(stderr, "write: logic problem: offset=%u extends beyond argument %u (%u-%u)\n", l->l_offset, l->l_arg, la->a_begin, la->a_end);
           abort();
@@ -834,7 +969,7 @@ int write_katcl(struct katcl_line *l)
 
         if((la->a_begin + l->l_offset) >= la->a_end){ /* done ? */
           if(l->l_offset == 0){ /* special case - null arg */
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
             if(l->l_arg == 0){
               fprintf(stderr, "write: problem - arg0 is null\n");
               abort();
@@ -857,7 +992,7 @@ int write_katcl(struct katcl_line *l)
         want = la->a_end - (la->a_begin + l->l_offset);
         space = KATCL_IO_SIZE - (l->l_pending + 1);
 
-#ifdef DEBUG
+#if DEBUG>1
         fprintf(stderr, "write: arg[%u] has %u more, space is %u\n", l->l_arg, want, space);
 #endif
 
@@ -888,7 +1023,7 @@ int write_katcl(struct katcl_line *l)
           continue;
         }
 
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
         if(p->p_magic != KATCL_PARSE_MAGIC){
           fprintf(stderr, "write: bad magic returned from get_head (%x, expected %x)\n", p->p_magic, KATCL_PARSE_MAGIC);
           abort();
@@ -912,7 +1047,7 @@ int write_katcl(struct katcl_line *l)
         l->l_arg = 0;
         l->l_buffer[l->l_pending++] = '\n';
 
-#ifdef DEBUG
+#if DEBUG > 1
         fprintf(stderr, "write: wrote out parse %p (refs %d)\n", p, p->p_refs);
 #endif
 
@@ -931,7 +1066,11 @@ int write_katcl(struct katcl_line *l)
         }
 
         if(l->l_sendable){
+#ifdef MSG_NOSIGNAL
           wr = send(l->l_fd, l->l_buffer, l->l_pending, MSG_DONTWAIT | MSG_NOSIGNAL);
+#else
+          wr = send(l->l_fd, l->l_buffer, l->l_pending, MSG_DONTWAIT);
+#endif
         } else {
           wr = write(l->l_fd, l->l_buffer, l->l_pending);
         }
@@ -977,11 +1116,15 @@ int flushing_katcl(struct katcl_line *l)
 
   result = size_queue_katcl(l->l_queue);
 
-#if DEBUG
-  fprintf(stderr, "flushing: is empty returns %d\n", result);
-#endif
+  if(result > 0){
+    return 1;
+  }
 
-  return (result > 0) ? 1 : 0;
+  if(l->l_pending > 0){
+    return 1;
+  }
+
+  return 0;
 }
 
 /***************************/

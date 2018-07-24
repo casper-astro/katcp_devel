@@ -149,7 +149,7 @@ void destroy_sm_state_kcs(void *data)
     free(s);
   }
 }
-void print_sm_state_kcs(struct katcp_dispatch *d, void *data)
+void print_sm_state_kcs(struct katcp_dispatch *d, char *key, void *data)
 {
   struct kcs_sm_state *s;
   int i;
@@ -325,7 +325,7 @@ int create_named_op_kcs(struct katcp_dispatch *d, char *state, char *op)
 
 
 /*Modules*****************************************************************************************************/
-void print_sm_mod_kcs(struct katcp_dispatch *d, void *data)
+void print_sm_mod_kcs(struct katcp_dispatch *d, char *key, void *data)
 {
   struct katcp_module *m;
   m = data;
@@ -372,6 +372,20 @@ struct katcp_module *create_module_katcp()
   m->m_handle = NULL;
 
   return m;
+}
+
+int statemachine_loadkcl_kcs(struct katcp_dispatch *d)
+{
+  char *file;
+
+  file = arg_string_katcp(d, 2);
+  if (file == NULL)
+    return KATCP_RESULT_FAIL;
+  
+  if (load_from_file_katcp(d, file) < 0)
+    return KATCP_RESULT_FAIL;
+  
+  return KATCP_RESULT_OK;
 }
 
 int statemachine_loadmod_kcs(struct katcp_dispatch *d)
@@ -658,8 +672,9 @@ int statemachine_process_kcs(struct katcp_dispatch *d, struct katcp_notice *n, v
   struct kcs_sched_task *t;
   struct katcl_parse *p;
   int rtn;
-  char *ptr;
+  char *ptr, *name;
   
+  rtn = 0;
   t = data;
   if (t == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "cannot run sched with null task");
@@ -668,6 +683,9 @@ int statemachine_process_kcs(struct katcp_dispatch *d, struct katcp_notice *n, v
 #if 0
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "running sched notice with task state: %d", t->t_state);
 #endif 
+
+  name = (n->n_name == NULL) ? "<anonymous>" : n->n_name;
+
   switch (t->t_state){
     case TASK_STATE_RUN_OPS:
 #ifdef DEBUG
@@ -729,29 +747,30 @@ int statemachine_process_kcs(struct katcp_dispatch *d, struct katcp_notice *n, v
 
     case TASK_STATE_CLEAN_UP:
 #ifdef DEBUG
-      fprintf(stderr, "statemachine: process about to cleanup\n");
+      fprintf(stderr, "statemachine: process about to cleanup %s\n", name);
 #endif
-      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "printing task stack and cleaning up");
+      log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "printing task stack and cleaning up %s", name);
       print_task_stack_kcs(d, t);
      
       if (t->t_flags & PROCESS_MASTER){
-        log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "statemachine master process ending");
+        log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "statemachine master process ending %s", name);
         prepend_reply_katcp(d);
         if (t->t_rtn < 0){
           append_string_katcp(d, KATCP_FLAG_STRING, "fail");  
-          append_signed_long_katcp(d, KATCP_FLAG_SLONG | KATCP_FLAG_LAST, t->t_rtn);  
+          append_string_katcp(d, KATCP_FLAG_STRING, name);
+          append_signed_long_katcp(d, KATCP_FLAG_SLONG | KATCP_FLAG_LAST, t->t_rtn);
         } else {
           append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, "ok");  
         }
         resume_katcp(d);
       } else if (t->t_flags & PROCESS_SLAVE){
-        log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "statemachine slave process ending");
+        log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "statemachine slave process ending %s", name);
       }
 
       destroy_sched_task_kcs(t);
 
 #ifdef DEBUG
-      fprintf(stderr, "**********[end statemachine run]**********\n");
+      fprintf(stderr, "**********[end statemachine (%s) run]**********\n", name);
 #endif
       return 0;
   }
@@ -852,6 +871,8 @@ int statemachine_stopall_kcs(struct katcp_dispatch *d)
   n_count = 0;
 
   n_count = find_prefix_notices_katcp(d, "sm", n_set, n_count);
+
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "stopall found: %d machines", n_count);
   
   if (n_count <= 0)
     return KATCP_RESULT_FAIL;
@@ -949,6 +970,26 @@ int statemachine_op_kcs(struct katcp_dispatch *d)
   return KATCP_RESULT_OK;
 }
 
+int statemachine_flush_kcs(struct katcp_dispatch *d)
+{
+  
+  struct katcp_type *t;
+
+  t = find_name_type_katcp(d, KATCP_TYPE_STATEMACHINE_STATE);
+
+  if (t == NULL)
+    return KATCP_RESULT_FAIL;
+
+  flush_type_katcp(t);
+  
+#if 0
+  if (dump_tagsets_katcp(d) < 0)
+    return KATCP_RESULT_FAIL;
+#endif
+  
+  return KATCP_RESULT_OK;
+}
+
 int statemachine_print_ds_kcs(struct katcp_dispatch *d)
 {
   print_types_katcp(d);
@@ -986,8 +1027,23 @@ int statemachine_print_oplist_kcs(struct katcp_dispatch *d)
   return KATCP_RESULT_OK;
 }
 
+int statemachine_print_edgelist_kcs(struct katcp_dispatch *d)
+{
+  struct katcp_type *t;
+
+  t = find_name_type_katcp(d, KATCP_TYPE_EDGE);
+  if (t == NULL)
+    return KATCP_RESULT_FAIL;
+
+  print_type_katcp(d, t, 1); 
+
+  return KATCP_RESULT_OK;
+}
+
 int statemachine_greeting_kcs(struct katcp_dispatch *d)
 {
+  prepend_inform_katcp(d);
+  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST, "loadkcl [script file]");  
   prepend_inform_katcp(d);
   append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST, "loadmod [so name]");  
   prepend_inform_katcp(d);
@@ -1003,7 +1059,11 @@ int statemachine_greeting_kcs(struct katcp_dispatch *d)
   prepend_inform_katcp(d);
   append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST, "oplist (print op list)");
   prepend_inform_katcp(d);
+  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST, "edgelist (print edge list)");
+  prepend_inform_katcp(d);
   append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST, "stopall");
+  prepend_inform_katcp(d);
+  append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST, "flush (remove defined statemachines)");
   prepend_inform_katcp(d);
   append_string_katcp(d,KATCP_FLAG_STRING | KATCP_FLAG_LAST, "tagsets");
   prepend_inform_katcp(d);
@@ -1019,10 +1079,14 @@ int statemachine_cmd(struct katcp_dispatch *d, int argc)
       
       break;
     case 2:
+      if (strcmp(arg_string_katcp(d, 1), "flush") == 0)
+        return statemachine_flush_kcs(d);
       if (strcmp(arg_string_katcp(d, 1), "ds") == 0)
         return statemachine_print_ds_kcs(d);
       if (strcmp(arg_string_katcp(d, 1), "oplist") == 0)
         return statemachine_print_oplist_kcs(d);
+      if (strcmp(arg_string_katcp(d, 1), "edgelist") == 0)
+        return statemachine_print_edgelist_kcs(d);
       if (strcmp(arg_string_katcp(d, 1), "stopall") == 0)
         return statemachine_stopall_kcs(d);
       if (strcmp(arg_string_katcp(d, 1), "tagsets") == 0)
@@ -1030,6 +1094,8 @@ int statemachine_cmd(struct katcp_dispatch *d, int argc)
       
       break;
     case 3:
+      if (strcmp(arg_string_katcp(d, 1), "loadkcl") == 0)
+        return statemachine_loadkcl_kcs(d);
       if (strcmp(arg_string_katcp(d, 1), "loadmod") == 0)
         return statemachine_loadmod_kcs(d);
       if (strcmp(arg_string_katcp(d, 1), "node") == 0)

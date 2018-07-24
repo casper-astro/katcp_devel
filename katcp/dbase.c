@@ -1,5 +1,8 @@
+#ifdef KATCP_DEPRECATED
+
 /* (c) 2010,2011 SKA SA */
 /* Released under the GNU GPLv3 - see COPYING */
+#define _GNU_SOURCE
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -12,6 +15,10 @@
 #include <sys/types.h>
 
 #include <unistd.h>
+#include <search.h>
+#if 0
+#include <ctype.h>
+#endif
 
 #include "katcp.h"
 #include "katcl.h"
@@ -20,13 +27,13 @@
 #include "avltree.h"
 
 
-void print_string_type_katcp(struct katcp_dispatch *d, void *data)
+void print_string_type_katcp(struct katcp_dispatch *d, char *key, void *data)
 {
   char *o;
   o = data;
   if (o == NULL)
     return;
-  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, "#string type:");
+  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, "#string:");
   append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, o);
 }
 
@@ -95,6 +102,21 @@ struct katcp_dict *create_dict_katcp(char *key)
   return dt;
 }
 
+int update_dict_katcp(struct katcp_dict *dt, char *key, struct katcp_tobject *to)
+{
+  struct avl_node *n;
+
+  n = find_name_node_avltree(dt->d_avl, key);
+  if (n == NULL)
+    return -1;
+
+  destroy_tobject_katcp(n->n_data);
+
+  n->n_data = to;
+
+  return 0;
+}
+
 int add_dict_katcp(struct katcp_dict *dt, char *key, struct katcp_tobject *to)
 {  
   if (dt == NULL)
@@ -112,8 +134,10 @@ int add_type_dict_katcp(struct katcp_dict *dt, char *key, struct katcp_type *t, 
     return -1;
   
   if (add_dict_katcp(dt, key, to) < 0){
-    destroy_tobject_katcp(to);
-    return -1;
+    if (update_dict_katcp(dt, key, to) < 0){
+      destroy_tobject_katcp(to);
+      return -1;
+    }
   }
 
   return 0;
@@ -144,7 +168,8 @@ int add_named_dict_katcp(struct katcp_dispatch *d, struct katcp_dict *dt, char *
   return add_type_dict_katcp(dt, key, t, data);
 }
 
-void print_dict_type_katcp(struct katcp_dispatch *d, void *data)
+
+void print_dict_type_katcp(struct katcp_dispatch *d, char *key, void *data)
 {
   struct katcp_dict *dt;
   struct katcp_tobject *to;
@@ -174,7 +199,7 @@ void print_dict_type_katcp(struct katcp_dispatch *d, void *data)
         append_string_katcp(d, KATCP_FLAG_FIRST  | KATCP_FLAG_STRING, "#key:");
         append_args_katcp  (d, KATCP_FLAG_STRING | KATCP_FLAG_LAST , "%s", n->n_key);
       
-        (*(to->o_type->t_print))(d, to->o_data);
+        (*(to->o_type->t_print))(d, n->n_key, to->o_data);
 
       }
     }
@@ -221,6 +246,7 @@ void *parse_dict_type_katcp(struct katcp_dispatch *d, char **str)
   state = STATE_START;
   c = TOKEN_START_DICT;
   ipos = 0;
+  spos = 0;
   len = 0;
   key = NULL;
   value = NULL;
@@ -278,8 +304,9 @@ void *parse_dict_type_katcp(struct katcp_dispatch *d, char **str)
                   free(value);
                 return NULL;
               }
-              
+#ifdef DEBUG            
               fprintf(stderr, "dict KEY: (%s)\n", key);
+#endif
               
               state = STATE_VALUE;
               spos = j+1;
@@ -311,8 +338,9 @@ void *parse_dict_type_katcp(struct katcp_dispatch *d, char **str)
                   free(key);
                 return NULL;
               }
-
+#ifdef DEBUG
               fprintf(stderr, "dict VALUE: (%s)\n", value);
+#endif
                
               data = search_type_katcp(d, stringtype, value, value);
               if (data != NULL){
@@ -409,7 +437,7 @@ char *getkey_dbase_type_katcp(void *data)
   return db->d_key;
 }
 
-void print_dbase_type_katcp(struct katcp_dispatch *d, void *data)
+void print_dbase_type_katcp(struct katcp_dispatch *d, char *key, void *data)
 {
   struct katcp_dbase *db;
   
@@ -546,7 +574,43 @@ int store_dbase_katcp(struct katcp_dispatch *d, char **params)
 }
 #endif
 
-int store_kv_dbase_katcp(struct katcp_dispatch *d, char *key, char *schema, struct katcp_stack *values)
+
+
+int tag_dbase_katcp(struct katcp_dispatch *d, struct katcp_dbase *db, struct katcp_stack *tags)
+{
+  struct katcp_tag *t;
+  struct katcp_type *tagtype, *dbtype;
+  
+  if (db == NULL )//|| tags == NULL)
+    return -1;
+
+  if (tags == NULL){
+#ifdef DEBUG
+    fprintf(stderr, "dbase: tags are null skipping\n");
+#endif
+    return 0;
+  }
+
+  tagtype = find_name_type_katcp(d, KATCP_TYPE_TAG);
+  dbtype  = find_name_type_katcp(d, KATCP_TYPE_DBASE); 
+  
+  if (tagtype == NULL || dbtype == NULL)
+    return -1;
+
+  while ((t = pop_data_type_stack_katcp(tags, tagtype)) != NULL){
+    
+    if (tag_data_katcp(d, t, db, dbtype) < 0){
+#if DEBUG > 1
+      fprintf(stderr, "dbase: cannot tag db:<%s> with <%s>\n", db->d_key, t->t_name);
+#endif
+    }
+
+  }
+
+  return 0;
+}
+
+int store_kv_dbase_katcp(struct katcp_dispatch *d, char *key, char *schema, struct katcp_stack *values, struct katcp_stack *tags)
 {
   struct katcp_dbase *db;
   
@@ -557,10 +621,13 @@ int store_kv_dbase_katcp(struct katcp_dispatch *d, char *key, char *schema, stru
   if (db == NULL)
     return -1;
 
-  return store_data_type_katcp(d, KATCP_TYPE_DBASE, KATCP_DEP_BASE, key, db, &print_dbase_type_katcp, &destroy_dbase_type_katcp, NULL, NULL, &parse_dbase_type_katcp, &getkey_dbase_type_katcp);
+  if (store_data_type_katcp(d, KATCP_TYPE_DBASE, KATCP_DEP_BASE, key, db, &print_dbase_type_katcp, &destroy_dbase_type_katcp, NULL, NULL, &parse_dbase_type_katcp, &getkey_dbase_type_katcp) < 0)
+    return -1;
+
+  return tag_dbase_katcp(d, db, tags);
 }
 
-int replace_dbase_values_katcp(struct katcp_dispatch *d, struct katcp_dbase *db, char *schema, struct katcp_stack *values)
+int replace_dbase_values_katcp(struct katcp_dispatch *d, struct katcp_dbase *db, char *schema, struct katcp_stack *values, struct katcp_stack *tags)
 {
   if (db == NULL || values == NULL)
     return -1;
@@ -578,7 +645,7 @@ int replace_dbase_values_katcp(struct katcp_dispatch *d, struct katcp_dbase *db,
 
   stamp_dbase_type_katcp(db);
   
-  return 0;
+  return tag_dbase_katcp(d, db, tags);
 }
 
 int set_dbase_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
@@ -586,10 +653,12 @@ int set_dbase_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
 #define STATE_PRE     0
 #define STATE_SCHEMA  1
 #define STATE_POST    2
+#define STATE_TAGS    3
 #define SCHEMA_IDENT  "schema"
+#define TAG_IDENT     "tags"
   struct katcp_dbase *db;
-  struct katcp_stack *stack;
-  struct katcp_type *stringtype;
+  struct katcp_stack *stack, *tags;
+  struct katcp_type *stringtype, *tagtype;
   int i, count, state;
   char *key, *schema, *temp;
   void *data;
@@ -602,9 +671,14 @@ int set_dbase_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
   if (stringtype == NULL)
     return -1;
 
-  stack = create_stack_katcp(); 
-  count = get_count_parse_katcl(p);
-  state = STATE_PRE;
+  tagtype = find_name_type_katcp(d, KATCP_TYPE_TAG);
+  if (tagtype == NULL)
+    return -1;
+
+  stack  = create_stack_katcp(); 
+  tags   = create_stack_katcp();
+  count  = get_count_parse_katcl(p);
+  state  = STATE_PRE;
   schema = NULL;
 
   for (i=2; i<count; i++){
@@ -620,11 +694,18 @@ int set_dbase_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
     
       case STATE_POST:
 
+        if (strcmp(temp, TAG_IDENT) == 0){
+          state = STATE_TAGS;
+          break;
+        }
+        
         data = search_type_katcp(d, stringtype, temp, strdup(temp));
         if (data != NULL && push_stack_katcp(stack, data, stringtype) < 0){
           destroy_stack_katcp(stack);
+          destroy_stack_katcp(tags);
           return -1;
         }
+
         break;
 
       case STATE_SCHEMA:
@@ -633,6 +714,18 @@ int set_dbase_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
           state = STATE_POST;
 
         break;
+
+      case STATE_TAGS:
+        
+        data = search_type_katcp(d, tagtype, temp, create_tag_katcp(temp, 0));
+        if (data != NULL && push_stack_katcp(tags, data, tagtype) < 0){
+          destroy_stack_katcp(stack);
+          destroy_stack_katcp(tags);
+          return -1;
+        }
+
+        break;
+
     }
     
   }
@@ -640,24 +733,31 @@ int set_dbase_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
   db = search_named_type_katcp(d, KATCP_TYPE_DBASE, key, NULL);
   if (db != NULL) {
     
-    if (replace_dbase_values_katcp(d, db, schema, stack) < 0){
+    if (replace_dbase_values_katcp(d, db, schema, stack, tags) < 0){
       destroy_stack_katcp(stack);
+      destroy_stack_katcp(tags);
       return -1;
     }
 
   } else {
 
-    if (store_kv_dbase_katcp(d, key, schema, stack) < 0){
+    if (store_kv_dbase_katcp(d, key, schema, stack, tags) < 0){
       destroy_stack_katcp(stack);
+      destroy_stack_katcp(tags);
       return -1;
     }
 
   }
 
+  destroy_stack_katcp(tags);
+
   return 0;
 #undef STATE_PRE
 #undef STATE_SCHEMA
 #undef STATE_POST
+#undef STATE_TAGS
+#undef SCHEMA_IDENT
+#undef TAG_IDENT
 }
 
 struct katcl_parse *get_dbase_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
@@ -764,7 +864,7 @@ int get_dbase_cmd_katcp(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
   
-  ptx = ready_katcp(d);
+  ptx = arg_parse_katcp(d);
   if (ptx == NULL)
     return KATCP_RESULT_FAIL;
 
@@ -787,7 +887,7 @@ int set_dbase_cmd_katcp(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
   
-  p = ready_katcp(d);
+  p = arg_parse_katcp(d);
   if (p == NULL)
     return KATCP_RESULT_FAIL;
 
@@ -806,7 +906,7 @@ int dict_cmd_katcp(struct katcp_dispatch *d, int argc)
     return KATCP_RESULT_FAIL;
   }
 
-  p = ready_katcp(d);
+  p = arg_parse_katcp(d);
   if (p == NULL)
     return KATCP_RESULT_FAIL;
 
@@ -815,3 +915,457 @@ int dict_cmd_katcp(struct katcp_dispatch *d, int argc)
 
   return KATCP_RESULT_OK;
 }
+
+
+/***************************[tag]*******************************/
+
+struct katcp_tag *create_tag_katcp(char *name, int level)
+{
+  struct katcp_tag *t;
+
+  t = malloc(sizeof(struct katcp_tag));
+  if (t == NULL)
+    return NULL;
+
+  t->t_name = strdup(name);
+  if (t->t_name == NULL){
+    free(t);
+    return NULL;
+  }
+
+#if 0 
+  for (i=0; t->t_name[i] != '\0'; i++){
+    t->t_name[i] = tolower(t->t_name[i]);
+  }
+#endif
+  
+  t->t_level = level;
+  t->t_tobject_root = NULL;
+  t->t_tobject_count = 0;
+
+#if 0
+  t->t_memb = NULL;
+  t->t_memb_count = 0;
+#endif
+
+  return t;
+}
+
+/*Unsafe*/
+void destroy_tag_katcp(void *data)
+{
+  struct katcp_tag *t;
+  t = data;
+  if (t == NULL)
+    return;
+  
+  if (t->t_name != NULL) free(t->t_name);
+#if 0
+  if (t->t_memb != NULL) free(t->t_memb);
+#endif
+  if (t->t_tobject_root != NULL) 
+    tdestroy(t->t_tobject_root, &destroy_tobject_katcp);
+
+  free(t);
+}
+
+int get_count_tag_katcp(struct katcp_tag *t)
+{
+  if (t == NULL)
+    return 0;
+  return t->t_tobject_count;
+}
+
+void print_tag_katcp(struct katcp_dispatch *d, char *key, void *data)
+{
+  struct katcp_tag *t;
+  t = data;
+  if (t == NULL)
+    return;
+
+  append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, "#tag:");
+  append_string_katcp(d, KATCP_FLAG_STRING, t->t_name);
+  append_args_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, "%d", t->t_tobject_count);
+  
+#if 0 
+  def DEBUG
+  fprintf(stderr, "tag: %s has %d tobjects:\n", t->t_name, t->t_tobject_count);
+  if (t->t_tobject_root)
+    twalk(t->t_tobject_root, &walk_tag_tobjects);
+  fprintf(stderr, "tag: end\n");
+#endif
+}
+
+void *parse_tag_katcp(struct katcp_dispatch *d, char **str)
+{
+  struct katcp_tag *t;
+  int level;
+
+  level = 0;
+
+  if (str == NULL || str[0] == NULL || str[1] == NULL)
+    return NULL;
+
+  level = atoi(str[1]);
+
+  t = create_tag_katcp(str[0], level);
+  
+  return t;
+}
+
+char *getkey_tag_katcp(void *data)
+{
+  struct katcp_tag *t;
+  t = data;
+  if (t == NULL)
+    return NULL;
+  return t->t_name;
+}
+
+
+int compare_tag_katcp(const void *m1, const void *m2)
+{
+  const struct katcp_tag *a, *b;
+
+  a = m1;
+  b = m2;
+  if (a == NULL || b == NULL)
+    return 2;
+
+  return strcmp(a->t_name, b->t_name);
+}
+
+
+int register_tag_katcp(struct katcp_dispatch *d, char *name, int level)
+{
+  struct katcp_tag *t;
+
+  t = create_tag_katcp(name, level);
+  if (t == NULL)
+    return -1;
+
+  if (store_data_type_katcp(d, KATCP_TYPE_TAG, KATCP_DEP_BASE, name, t, &print_tag_katcp, &destroy_tag_katcp, NULL, NULL, &parse_tag_katcp, &getkey_tag_katcp) < 0){
+    destroy_tag_katcp(d);
+    return -1;
+  }
+
+#ifdef DEBUG
+  fprintf(stderr, "tag: register tag <%s>\n", name);
+#endif
+  return 0;
+}
+
+int tag_tobject_katcp(struct katcp_dispatch *d, struct katcp_tag *t, struct katcp_tobject *to)
+{
+  void *val;
+
+  val = tsearch((void *) to, &(t->t_tobject_root), &compare_tobject_katcp);
+  if (val == NULL || (*(struct katcp_tobject **) val != to)){
+#if 0
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "tag: error with tsearch for tag:<%s>", t->t_name);
+#ifdef DEBUG
+    fprintf(stderr, "tag: error with tsearch for tag:<%s>\n", t->t_name);
+#endif
+#endif
+    return -1;
+  }
+
+  t->t_tobject_count++;
+  
+  return 0;
+}
+
+int tag_named_tobject_katcp(struct katcp_dispatch *d, char *tag, struct katcp_tobject *to)
+{
+  struct katcp_tag *t;
+
+  t = get_key_data_type_katcp(d, KATCP_TYPE_TAG, tag);
+  if (t == NULL)
+    return -1;
+
+  return tag_tobject_katcp(d, t, to);
+}
+
+int tag_data_katcp(struct katcp_dispatch *d, struct katcp_tag *t, void *data, struct katcp_type *type)
+{
+  struct katcp_tobject * to;
+
+  to = create_tobject_katcp(data, type, 0);
+  if (to == NULL)
+    return -1;
+
+  if (tag_tobject_katcp(d, t, to) < 0){
+    destroy_tobject_katcp(to);
+    return -1;
+  }
+  
+  return 0;
+}
+
+static struct katcp_tobject **__tobjs;
+static int __tcount;
+
+static void __collect_from_tag(const void *nodep, const VISIT which, const int depth)
+{
+  struct katcp_tobject *to;
+
+  to = *(struct katcp_tobject **) nodep;
+  if (to == NULL)
+    return;
+
+  switch (which){
+    case leaf:
+    case postorder:
+      if (__tobjs == NULL)
+        return;
+      __tobjs[__tcount] = to;
+      __tcount++;
+      break;
+    case preorder:
+    case endorder:
+      break;
+  }
+}
+
+int search_katcp(struct katcp_dispatch *d, struct katcl_parse *p)
+{
+  struct katcp_stack *tags, *ans; 
+  struct katcp_type *tagtype;
+  char *tag;
+  int i, j, count, *dsize, *di, run, seen;
+  struct katcp_tobject ***data, *to;
+  struct katcp_tag *t;
+  struct timeval ts, te, delta;
+  void *min;
+  
+  t = NULL;
+
+  gettimeofday(&ts, NULL);
+  
+  count = get_count_parse_katcl(p);
+  tagtype = find_name_type_katcp(d, KATCP_TYPE_TAG);
+
+  if (tagtype == NULL)
+    return -1;
+  
+  tags = create_stack_katcp();
+  if (tags == NULL)
+    return -1;
+
+  for (i=1; i<count; i++){
+   
+    tag = get_string_parse_katcl(p, i);
+    if (push_stack_katcp(tags, search_type_katcp(d, tagtype, tag, NULL), tagtype) < 0){
+#ifdef DEBUG
+      fprintf(stderr, "search: cannot find tag <%s>\n", tag);
+#endif
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "search tag %s doesn't exist", tag);
+    }
+
+  }
+
+#if 0
+  print_stack_katcp(d, tags); 
+#endif
+
+  count = sizeof_stack_katcp(tags);
+
+  if (count == 0){
+    destroy_stack_katcp(tags);
+    return -1;
+  }
+
+  ans = create_stack_katcp();
+
+  dsize = malloc(sizeof(int) * count);
+  if (dsize == NULL){
+    destroy_stack_katcp(tags);
+    destroy_stack_katcp(ans);
+    return -1;
+  }
+
+  di = malloc(sizeof(int) * count);
+  if (di == NULL){
+    if (dsize)
+      free(dsize);
+    destroy_stack_katcp(tags);
+    destroy_stack_katcp(ans);
+    return -1;
+  }
+
+  data = malloc(sizeof(struct katcp_tobject **) * count);
+  if (data == NULL){
+    if (dsize)
+      free(dsize);
+    if (di)
+      free(di);
+    destroy_stack_katcp(tags);
+    destroy_stack_katcp(ans);
+    return -1;
+  }
+
+  for (i=0; i<count; i++){
+    t = index_data_stack_katcp(tags, i);
+    if (t){
+      dsize[i] = get_count_tag_katcp(t);
+      data[i] = malloc(sizeof(struct katcp_tobject *) * dsize[i]);
+      if (data[i]){
+        
+        __tobjs   = data[i];  
+        __tcount  = 0;
+        
+        if (t->t_tobject_root != NULL)
+          twalk(t->t_tobject_root, &__collect_from_tag);
+        
+#if DEBUG >1
+        fprintf(stderr,"i:%d t:(%p) [ ", i, t);
+        for (j=0; j<dsize[i]; j++)
+          fprintf(stderr,"(%p) ", (data[i][j])->o_data);
+        fprintf(stderr,"]\n");
+#endif
+
+      }
+    }
+  }
+  
+
+  bzero(di, sizeof(int) * count);
+
+  run  = 1;
+  min  = NULL;
+  seen = 0;
+  to = NULL;
+
+  while (run) {
+    
+    for(i=0; i<count; i++){
+      
+#if DEBUG>1
+      fprintf(stderr, "i:%d ", i);
+#endif
+
+      if (di[i] < dsize[i] && data[i][di[i]] != NULL){
+       
+        if(min == NULL){
+          t = index_data_stack_katcp(tags, i);
+          min = (data[i][di[i]])->o_data;
+          to = data[i][di[i]];
+          seen = 1;
+#if DEBUG >1
+          fprintf(stderr, "NULL setting t:(%p) min:(%p) ", t, min);
+#endif
+        } else if (min == (data[i][di[i]])->o_data && t != index_data_stack_katcp(tags, i)) {
+          seen++;
+#if DEBUG >1
+          fprintf(stderr, "seen: %d ", seen);
+#endif
+        } else if (min < (data[i][di[i]])->o_data) {
+          t = index_data_stack_katcp(tags, i);
+          min = (data[i][di[i]])->o_data;
+          to = data[i][di[i]];
+          seen = 1;
+#if DEBUG >1
+          fprintf(stderr, "NEW MIN setting t:(%p) min:(%p) ", t, min);
+#endif
+        } else if (min > (data[i][di[i]])->o_data){
+          (di[i])++;
+#if DEBUG >1
+          fprintf(stderr, "di[%d] %d ", i, di[i]);
+#endif
+        } else if (t == index_data_stack_katcp(tags, i)){
+#if DEBUG >1
+          fprintf(stderr, "original ");
+#endif
+          if (seen >= count){
+#if DEBUG >1
+            fprintf(stderr, "FOUND match\n");
+#endif
+            if (push_tobject_katcp(ans, copy_tobject_katcp(to)) < 0){
+#if DEBUG >1  
+              fprintf(stderr, "search: error could not push an answer onto stack\n");
+#endif
+            }
+
+            to  = NULL;
+            min = NULL;
+            seen = 0;
+            (di[i])++;
+#if DEBUG >1
+            fprintf(stderr, "reset all and di[%d] %d ", i, di[i]);
+#endif
+          }
+
+        }
+
+
+      
+      } else {
+        run = 0;
+#if DEBUG >1
+        fprintf(stderr, "the end");
+#endif
+      }
+
+#if DEBUG >1
+      fprintf(stderr, "\n");
+#endif
+
+    }
+#if 0
+    if (seen >= count){
+      run = 0;
+
+    }
+#endif
+  }
+  
+  gettimeofday(&te, NULL);
+
+  sub_time_katcp(&delta, &te, &ts); 
+
+  print_stack_katcp(d, ans);
+
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "search took %lu%06lu\xC2\xB5s", delta.tv_sec, delta.tv_usec);
+  
+  if (dsize)
+    free(dsize);
+
+  if (di)
+    free(di);
+
+  for (i=0; i<count; i++){
+    if (data[i])
+      free(data[i]);
+  }
+  if (data)
+    free(data);
+  
+  destroy_stack_katcp(tags);
+  destroy_stack_katcp(ans);
+
+  __tobjs  = NULL;
+  __tcount = 0;
+  
+  return 0;
+}
+
+int search_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  struct katcl_parse *p;
+
+  if (argc < 2){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "usage");
+    return KATCP_RESULT_FAIL;
+  }
+  
+  p = arg_parse_katcp(d);
+  if (p == NULL)
+    return KATCP_RESULT_FAIL;
+
+  if (search_katcp(d, p) < 0)
+    return KATCP_RESULT_FAIL;
+  
+  return KATCP_RESULT_OK;
+}
+#endif
+

@@ -4,6 +4,6 @@ set -e
 source functions.sh
 
 kcs_info "initiating restart"
-shutdown -r now < /dev/console >& /dev/console
+shutdown -r -t 10 now "katcp restart from ${KATCP_CLIENT}. Use shutdown -c to cancel" < /dev/console >& /dev/console
 
 exit 0

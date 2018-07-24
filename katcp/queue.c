@@ -102,15 +102,24 @@ void clear_queue_katcl(struct katcl_queue *q)
 
   /* WARNING: clear queue *does* remove reference count of parse structures */
 
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
   if(q == NULL){
     fprintf(stderr, "queue: given null queue to clear\n");
     abort();
   }
 #endif
 
+#ifdef DEBUG
+  fprintf(stderr, "queue[%p]: planning to clear used %u entries starting at %u of total space %u {%p}\n", q, q->q_count, q->q_size, q->q_size, q->q_queue);
+#endif
+
   for(j = 0; j < q->q_count; j++){
     i = (q->q_head + j) % q->q_size;
+
+#ifdef DEBUG
+    fprintf(stderr, "queue[%p]: clearing [%u]=%p\n", q, i, q->q_queue[i]);
+#endif
+
     destroy_parse_katcl(q->q_queue[i]);
     q->q_queue[i] = NULL;
   }
@@ -131,14 +140,16 @@ int add_tail_queue_katcl(struct katcl_queue *q, struct katcl_parse *p)
     return -1;
   }
 
-#ifdef DEBUG
-  fprintf(stderr, "add queue: adding %p with ref %u to queue %p of size %d\n", p, p->p_refs, q, q->q_count);
+#if DEBUG > 1
+  fprintf(stderr, "queue[%p]: add %p with ref %u to queue %p of size %d\n", q, p, p->p_refs, q, q->q_count);
 #endif
 
   if(q->q_count >= q->q_size){
 
-#ifdef DEBUG
-    fprintf(stderr, "size=%d, count=%d - increasing parse queue\n", q->q_size, q->q_count);
+#if DEBUG > 1
+    fprintf(stderr, "queue[%p]: size=%d, count=%d - increasing parse queue\n", q, q->q_size, q->q_count);
+#endif
+#ifdef KATCP_CONSISTENCY_CHECKS
     if(q->q_size < q->q_count){
       fprintf(stderr, "add: warning: detected rapid size increase of parse queue, expect corruption\n");
       abort();
@@ -163,12 +174,13 @@ int add_tail_queue_katcl(struct katcl_queue *q, struct katcl_parse *p)
   } 
   index = (q->q_head + q->q_count) % q->q_size;
 
-#if DEBUG > 1
-  fprintf(stderr, "queue %p add[%d]=%p\n", q, index, p);
-#endif
-
   q->q_queue[index] = copy_parse_katcl(p);
   q->q_count++;
+
+#if DEBUG > 1
+  fprintf(stderr, "queue[%p/%u]: add[%d]=%p\n", q, q->q_size, index, q->q_queue[index]);
+#endif
+
 
   return 0;
 }
@@ -212,7 +224,7 @@ struct katcl_parse *remove_index_queue_katcl(struct katcl_queue *q, unsigned int
     return NULL;
   }
 
-#ifdef DEBUG
+#ifdef KATCP_CONSISTENCY_CHECKS
   if(index >= q->q_size){
     fprintf(stderr, "index %u out of range %u\n", index, q->q_size);
     abort();
@@ -224,7 +236,7 @@ struct katcl_parse *remove_index_queue_katcl(struct katcl_queue *q, unsigned int
 #endif
 
 #if DEBUG > 1
-  fprintf(stderr, "queue del[%d]=%p\n", index, q->q_queue[index]);
+  fprintf(stderr, "queue[%p/%u]: del [%d]=%p\n", q, q->q_size, index, q->q_queue[index]);
 #endif
 
   p = q->q_queue[index];
@@ -235,7 +247,7 @@ struct katcl_parse *remove_index_queue_katcl(struct katcl_queue *q, unsigned int
     q->q_head = (q->q_head + 1) % q->q_size;
     q->q_count--;
 
-#ifdef DEBUG
+#if DEBUG > 1
     fprintf(stderr, "remove queue: releasing %p with ref %u\n", p, p->p_refs);
 #endif
 
@@ -245,12 +257,12 @@ struct katcl_parse *remove_index_queue_katcl(struct katcl_queue *q, unsigned int
   if((q->q_head + q->q_count) > q->q_size){ /* wrapping case */
     if(index >= q->q_head){ /* position before wrap around, move up head */
       if(index > q->q_head){
-        memcpy(&(q->q_queue[q->q_head + 1]), &(q->q_queue[q->q_head]), (index - q->q_head) * sizeof(struct katcl_parse *));
+        memmove(&(q->q_queue[q->q_head + 1]), &(q->q_queue[q->q_head]), (index - q->q_head) * sizeof(struct katcl_parse *));
       }
       q->q_queue[q->q_head] = NULL;
       q->q_head = (q->q_head + 1) % q->q_size;
       q->q_count--;
-#ifdef DEBUG
+#if DEBUG > 1
       fprintf(stderr, "remove queue: releasing %p with ref %u\n", p, p->p_refs);
 #endif
       return p; /* WARNING: done here */
@@ -267,15 +279,17 @@ struct katcl_parse *remove_index_queue_katcl(struct katcl_queue *q, unsigned int
     return NULL;
   }
   if(index < end){
-    memcpy(&(q->q_queue[index]), &(q->q_queue[index + 1]), (end - index) * sizeof(struct katcl_parse *));
+    memmove(&(q->q_queue[index]), &(q->q_queue[index + 1]), (end - index) * sizeof(struct katcl_parse *));
   } /* else index is end, no copy needed  */
 
-  fprintf(stderr, "queue remove[%d]=%p\n", index, q->q_queue[index]);
+#if DEBUG > 1
+  fprintf(stderr, "queue[%p]: remove[%d]=%p\n", q, index, q->q_queue[index]);
+#endif
 
   q->q_queue[end] = NULL;
   q->q_count--;
 
-#ifdef DEBUG
+#if DEBUG > 1
   fprintf(stderr, "remove queue: releasing %p with ref %u\n", p, p->p_refs);
 #endif
 

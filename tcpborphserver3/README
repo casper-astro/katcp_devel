@@ -1,0 +1,182 @@
+
+This is tcpborphserver, version 3. A server designed to control
+roach2s. It speaks katcp over port 7147. You should be able to
+connect to a roach2 and type ?help to see the list of commands. 
+
+tcpborphserver links in the mainloop of the katcp library which
+can and does implement commands which are not directly relevant 
+to users who simply wish to interact with the fpga. In addition
+tcpborphserver itself may contain commands which are still under
+development, and not guaranteed to be retained. 
+
+The following commands are implemented by tcpborphserver3:
+
+  ?listbof
+
+    Lists gateware image files stored on the roach
+
+  ?delbof filename
+
+    Removes a gateware image file 
+
+  ?progdev filename
+
+    Programs a gateware image already stored on the roach in
+    the image directory (paths not permitted)
+
+  ?upload port
+
+    Upload and program a local gateware image file to the roach. Send 
+    the local image to the tcp port on the roach, as specified. No
+    escaping of the image file required as it has its own stream, 
+    which should be closed when upload has completed. Still a bit 
+    experimental and subject to revision (there was an uploadbof command 
+    which was different). 
+
+    Example
+
+      ?upload 3000
+      !upload ok 3000
+
+    Then from a local terminal type
+
+      nc -w 2 -q 2 192.168.40.57 3000 < some-image.bof
+
+    Which will give you 
+
+      #fpga loaded
+      #fpga ready
+
+  ?fpgastatus
+
+    Checks if the fpga is programmed. Will return fail in case the
+    fpga is not programmed. In earlier versions this command was 
+    called ?status
+
+  ?listdev [size]
+    
+    Lists the register names provided by the currently programmed
+    gateware image. The optional "size" keyword will include a size
+    field in the output
+
+  ?register name position bit-offset length
+
+    Assign a name to an fpga memory location explicitly, instead
+    of having it set in the bof (gateware image) file. Experimental
+
+  ?wordwrite register word-offset word
+
+    Writes a 32bit word to the given register at the word-offset. The
+    word should be given as a hexadecimal value. Example
+
+    ?wordwrite sys_scratchpad 0 0x74657374
+
+  ?wordread register word-offset [word-count]
+
+    Reads a 32bit word from the given offset in the named register. 
+    The word offset is counted in words, not bytes. The value returned
+    is given in hexadecimal. Example
+
+    ?wordread sys_scratchpad 0 
+    !wordread ok 0x74657374
+
+  ?read register byte-offset count
+
+    Reads data from the given register. Reads start at the specified
+    byte-offset and attempt to read count bytes. Data is returned
+    in binary form (with escapes as per katcp specification). Not
+    all offsets and sizes are supported, as there are alignment 
+    alignment constraints. Example
+
+    ?read sys_scratchpad 0 4
+    !read ok test
+
+  ?write register byte-offset data
+
+    Write the given binary data to the position byte-offset to the
+    named register, subject to alignment constraints
+
+  ?chassis-led led-name state
+
+    Allows you to toggle an LED on the roach chassis. Example
+
+    ?chassis-led red on
+
+    Currently the only useful led name is "red" (there is a "green"
+    too, but it gets toggled automatically). chassis-start is not
+    needed during normal operation as it should happen automatically
+
+  ?tap-info
+
+    displays some freeform information about running tap instances
+
+  ?tap-stop register-name
+
+    Stop a running tap instance
+
+  ?tap-start tap-device register-name ip-address [port [mac]]
+
+    Start a tap instance with name tap-device, which opens an fpga
+    register at register-name to loop traffic to the kernel. The kernel
+    interface is given ip-address (netmask fixed to 255.255.255.0). Port
+    is a udp port on which gateware collects data
+
+The following commands are part of the katcp library, and with the exception
+of log-record and system-info also part of the katcp specification
+
+  ?client-list
+
+    Lists current connections to the server
+
+  ?version-list
+    
+    Display some version information
+
+  ?sensor-list 
+
+    Display available sensors
+
+  ?sensor-value sensor
+
+    Retrieve a sensor value (rather use sensor-sampling if you 
+    wish to see periodic data)
+
+  ?sensor-sampling sensor strategy parameter
+   
+    Example
+
+    ?sensor-sampling raw.temp.fpga event
+  
+  ?watchdog
+
+    No-op, used as a ping
+
+  ?log-level
+   
+    Sets the log level 
+
+    Example to enable lots of debug messages
+
+    ?log-level trace
+
+  ?help
+
+    List available, nonhidden commands
+
+  ?restart
+   
+    Reboot the roach
+
+  ?halt 
+
+    Turn off the roach
+
+  ?log-record [priority] message
+
+    Write a log message, goes to all client connections 
+
+  ?system-info
+
+    Prints some unstructed information about the system. 
+    Mostly useful to debug server internals
+

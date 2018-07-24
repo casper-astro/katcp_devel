@@ -1,21 +1,54 @@
 
-This package contains a C katcp library implementation and selected applications using it. 
-Unless otherwise noted the code base is released under the terms described in COPYING
+This package contains a C katcp library implementation and selected
+applications using it. Unless otherwise noted the code base is released
+under the terms described in COPYING
 
-General purpose components
+The Makefile.inc file in this directory contains a number of options,
+edit to your needs. Then type make to build it. You probably wish to
+do a make install on a per subdirectory basis
+
+Most executables understand a -h option which provides some (terse) help
+
+General purpose components:
 
   katcp       - the katcp library itself
   cmd         - send arbitrary katcp commands to a remote server
-  examples    - simple examples (may be out of date)
-  sq          - katcp sensor query utility
   log         - a utility to monitor a remote katcp server
+  msg         - something to generate katcp log messages (glue logic)
+  par         - similar to cmd, but talk to multiple devices in parallel
+  con         - run concurrent subprocesses
+  run         - simple wrapper to "katcp-ify" output of a program
+  sq          - simple katcp sensor query utility which blocks until 
+                a sensor changes to a specified status
+  sgw         - a serial gateway to proxy katcp requests to a serial port
+  mpx         - a katcp multiplexer allowing a single executable to talk
+                to multiple servers, one at a turn 
+  examples    - simple examples 
 
-Utilities for particular tasks
+Applications for roaches:
+
+  tcpborphserver3 
+              - roach2 server using memory mapped logic. Requires a kernel
+                with a mmap driver and a roach2
 
   bulkread    - a utlity to perform a ?bulkread request
 
-  fmon        - fengine monitoring utility to poll gateware status registers (used by kcs)
-  tmon        - monitor a local ntp server via katcp (used by kcs)
+  fpg         - programming utility to load .fpg files. An .fpg file contains
+                a bitstream and meta information
 
-  scripts     - supporting logic to interface kcs to corr (used by kcs, temporary hack)
-  kcs         - a control server using katcp (incomplete)
+Project specific code, requring particular gateware and instruments:
+
+  kcs         - a control server using katcp 
+                (incomplete)
+  scripts     - supporting logic to interface kcs to corr 
+                (used by kcs, temporary hack)
+  tmon        - monitor a local ntp server via katcp 
+                (used by kcs)
+  fmon        - fengine monitoring utility to poll gateware status registers 
+                (used by kcs)
+  smon        - monitor common server statistics
+
+Disregard:
+
+  wops        - (incomplete & ignore)
+  wss         - 

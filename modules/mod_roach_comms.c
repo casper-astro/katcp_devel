@@ -21,7 +21,7 @@
 #define KATCP_TYPE_ROACH                      "roach"
 #define KATCP_TYPE_URL                        "url"
 
-void print_katcp_url_type_mod(struct katcp_dispatch *d, void *data)
+void print_katcp_url_type_mod(struct katcp_dispatch *d, char *key, void *data)
 {
   struct katcp_url *ku;
   ku = data;
@@ -60,7 +60,7 @@ char *getkey_katcp_url_type_mod(void *data)
 int url_construct_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_tobject *o)
 {
   char *str;
-  int port, i, *count;
+  int port, i;//, *count;
   struct katcp_url *url;
   //struct katcp_actor *a;
   
@@ -82,19 +82,25 @@ int url_construct_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struc
 
   str = NULL;
 
+#if 0
   count = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_INTEGER);
   if (count == NULL)
     return -1;
-  
+#endif
+
   tempstack = create_stack_katcp();
 
+#if 0
   for (i=0; i<*count; i++){
-    str = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_STRING);
+#endif
+  for (i=0; (str = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_STRING)) != NULL ; i++){
+    #if 0
     if (str == NULL){
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "url construct encounted a null param");
       destroy_stack_katcp(tempstack);
       return -1;
     }
+    #endif
 
     url = create_kurl_katcp("katcp", str, port, NULL);
     if (url == NULL){
@@ -107,16 +113,17 @@ int url_construct_mod(struct katcp_dispatch *d, struct katcp_stack *stack, struc
 #if 0
     a = create_actor_type_katcp(d, url->u_str, NULL, NULL, NULL, NULL);
     search_named_type_katcp(d, KATCP_TYPE_ACTOR, url->u_str, a);
-#endif
-
     str = NULL;
+#endif
   }
   
   while (!is_empty_stack_katcp(tempstack)){
     push_tobject_katcp(stack, pop_stack_katcp(tempstack));
   }
-  
+
+#if 0
   push_named_stack_katcp(d, stack, count, KATCP_TYPE_INTEGER);
+#endif
 
   destroy_stack_katcp(tempstack);
 

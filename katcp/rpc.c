@@ -17,11 +17,16 @@
 
 struct katcl_line *create_name_rpc_katcl(char *name)
 {
+  return create_extended_rpc_katcl(name, 0);
+}
+
+struct katcl_line *create_extended_rpc_katcl(char *name, int flags)
+{
   int fd;
   struct katcl_line *l;
 
   if(name){
-    fd = net_connect(name, 0, 0);
+    fd = net_connect(name, 0, flags);
     if(fd < 0){
 #if 0
       fprintf(stderr, "connect: unable to contact %s: %s\n", name, strerror(errno));
@@ -48,6 +53,37 @@ void destroy_rpc_katcl(struct katcl_line *l)
 {
   /* can close things regardless, we dup STDIN in the create case */
   destroy_katcl(l, 1);
+}
+
+int await_reply_rpc_katcl(struct katcl_line *l, unsigned int timeout)
+{
+  int result; 
+  struct timeval now, until, delta;
+  char *ptr;
+
+  delta.tv_sec = timeout / 1000;
+  delta.tv_usec = (timeout % 1000) * 1000;
+
+  gettimeofday(&now, NULL);
+  add_time_katcp(&until, &now, &delta);
+
+  while((result = complete_rpc_katcl(l, 0, &until)) == 0);
+
+  if(result < 0){
+    /* TODO: end connection, request/replies potentially out of sync */
+    return -1;
+  }
+
+  ptr = arg_string_katcl(l, 1);
+  if(ptr == NULL){
+    return -1;
+  }
+
+  if(strcmp(ptr, KATCP_OK)){
+    return 1;
+  }
+
+  return 0;
 }
 
 int complete_rpc_katcl(struct katcl_line *l, unsigned int flags, struct timeval *until)
@@ -141,8 +177,10 @@ int send_rpc_katcl(struct katcl_line *l, unsigned int timeout, ...)
 {
   int result;
   va_list args;
+#if 0
   struct timeval until, delta, now;
   char *ptr;
+#endif
 
   va_start(args, timeout);
   result = vsend_katcl(l, args);
@@ -155,6 +193,9 @@ int send_rpc_katcl(struct katcl_line *l, unsigned int timeout, ...)
     return -1;
   }
 
+  return await_reply_rpc_katcl(l, timeout);
+
+#if 0
   delta.tv_sec = timeout / 1000;
   delta.tv_usec = (timeout - delta.tv_sec * 1000) * 1000;
   gettimeofday(&now, NULL);
@@ -181,6 +222,7 @@ int send_rpc_katcl(struct katcl_line *l, unsigned int timeout, ...)
   }
 
   return 0;
+#endif
 }
 
 #ifdef UNIT_TEST_RPC

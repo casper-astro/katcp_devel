@@ -1,0 +1,17 @@
+#!/bin/bash
+
+set -e 
+source functions.sh
+
+kcs_arg_check $# 1
+
+if kcs_is_narrowband ${KATCP_MODE} ; then
+  if kcs_set_frequency $* ; then
+    exit 0
+  fi
+else
+  echo "#return fail unavailable"
+  kcs_error "frequency selection not available in ${KATCP_MODE} mode"
+fi  
+
+exit 1

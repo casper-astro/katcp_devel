@@ -13,6 +13,29 @@
 #include <kcs.h>
 
 
+
+
+
+int init_mod(struct katcp_dispatch *d)
+{
+  int rtn;
+
+  if (check_code_version_katcp(d) != 0){
+#ifdef DEBUG
+    fprintf(stderr, "mod: ERROR was build against an incompatible katcp lib\n");
+#endif
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "cannot load module katcp version mismatch");
+    return -1;
+  }
+  
+
+
+  return rtn;
+}
+
+
+#if 0
+
 #define MEDIAMAN_OPERATION_SUBPROCESS "subprocess"
 #define MEDIAMAN_OPERATION_SEARCH     "search"
 #define MEDIAMAN_TYPE_MEDIA_ITEM      "media_item"
@@ -662,3 +685,6 @@ int init_mod(struct katcp_dispatch *d)
 
   return rtn;
 }
+#endif
+
+

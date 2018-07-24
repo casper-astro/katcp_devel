@@ -1,0 +1,50 @@
+#!/bin/bash
+
+set -e
+source functions.sh
+source sensors.sh
+source beamformer.sh
+
+TARGET_MODE=bc8n400M1k_top
+
+now=$(date +%s)
+timeout=150
+
+limit=$[now+timeout]
+
+kcs_debug "changing mode to wideband"
+
+await_mode_sensors
+
+kcs_change_corr ${TARGET_MODE}
+
+kcs_debug "running connect"
+
+while ! kcpcmd -k -m -t 120 connect ${CORR_CONFIG}/${TARGET_MODE} ; do
+  kcs_check_timeout ${limit}
+  kcs_corr_log
+  sleep 1
+  kcs_info "still trying to get corr to connect"
+done
+
+kcs_info "running correlator initialise"
+if ! kcpcmd -k -m -t 300 initialise 2 ; then
+  kcs_corr_log
+  kcs_error "correlator initialise failed"
+  exit 1
+fi
+
+kcs_corr_log
+
+for name in bf0 bf1 ; do
+  kcs_set_passband ${name} 400000000 200000000
+done
+
+# 
+# if ! detect_bf_count $(grep ^servers_x.*roach ${CORR_CONFIG}/${TARGET_MODE} | cut -f2 -d=  ) ; then
+#   kcs_error "beamformer detection logic failed"
+#   exit 1
+# fi
+
+change_mode_sensors ${KATCP_MODE} ${TARGET_MODE}
+exit 0

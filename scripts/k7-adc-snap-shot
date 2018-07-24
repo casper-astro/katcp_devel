@@ -34,4 +34,13 @@ fi
 
 shift 2
 
-kcpcmd -r -k get-adc-snapshots ${pps} ${level} $* | sed -e 's/^\#get-adc-snapshots/#k7-adc-snap-shot/'
+if kcs_is_narrowband ${KATCP_MODE} ; then
+  if [ "${level}" -gt 0  ] ; then
+    kcs_error "threshold triggering not currently supported in narrowband mode"
+    exit 1 
+  fi
+  pps=1
+  level=-1
+fi
+
+kcpcmd -t 10 -r -k get-adc-snapshots ${pps} ${level} $* | sed -e 's/^\#get-adc-snapshots/#k7-adc-snap-shot/'

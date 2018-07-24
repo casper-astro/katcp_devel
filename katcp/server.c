@@ -28,7 +28,7 @@
 #define KATCP_HALT_WAIT       1
 #define KATCP_BRIEF_WAIT  10000   /* 10 ms */
 
-static int inform_client_connect_katcp(struct katcp_dispatch *d)
+int inform_client_connections_katcp(struct katcp_dispatch *d, char *type)
 {
   int i;
   struct katcp_shared *s;
@@ -51,7 +51,7 @@ static int inform_client_connect_katcp(struct katcp_dispatch *d)
       fprintf(stderr, "multi[%d]: informing %p of new connection\n", i, d);
 #endif
 
-      send_katcp(dx, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#client-connected", KATCP_FLAG_LAST | KATCP_FLAG_STRING, d->d_name);
+      send_katcp(dx, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, type, KATCP_FLAG_LAST | KATCP_FLAG_STRING, d->d_name);
     }
   }
 
@@ -225,43 +225,6 @@ static int pipe_from_file_katcp(struct katcp_dispatch *dl, char *file)
       }
     }
 
-#if 0 
-    /* this logic to be replaced with something which actually parses
-     * requests, and only sends out one request at a time, waiting for replies to
-     * arrive */
-    rr = read(fd, buffer, READ_BUFFER);
-    if(rr <= 0){
-      if(rr < 0){
-        switch(errno){
-          case EAGAIN :
-          case EINTR  :
-            break;
-          default :
-            exit(EX_OSERR);
-            break;
-        }
-      } else {
-        exit(EX_OK);
-      }
-    } else {
-      hw = 0;
-      do{
-        wr = write(fds[0], buffer + hw, rr - hw);
-        if(wr < 0){
-          switch(errno){
-            case EAGAIN :
-            case EINTR  :
-              break;
-            default :
-              exit(EX_OSERR);
-              break;
-          }
-        } else {
-          hw += wr;
-        }
-      } while(hw < rr);
-    }
-#endif
   }
 
   exit(EX_OK);
@@ -285,6 +248,8 @@ void add_client_server_katcp(struct katcp_dispatch *dl, int fd, char *label)
   }
 #endif
 
+  log_message_katcp(dl, KATCP_LEVEL_INFO, NULL, "new client connection %s", label);
+
   fcntl(fd, F_SETFD, FD_CLOEXEC);
 
   dx = s->s_clients[s->s_used];
@@ -293,8 +258,12 @@ void add_client_server_katcp(struct katcp_dispatch *dl, int fd, char *label)
   reset_katcp(dx, fd);
   name_katcp(dx, "%s", label);
 
-  inform_client_connect_katcp(dx); /* do before creation to avoid seeing own creation message */
+  inform_client_connections_katcp(dx, KATCP_CLIENT_CONNECT); /* will not send to itself */
+
+  print_versions_katcp(dx, KATCP_PRINT_VERSION_CONNECT);
+#if 0
   on_connect_katcp(dx);
+#endif
 }
 
 void perforate_client_server_katcp(struct katcp_dispatch *dl)
@@ -308,9 +277,141 @@ void perforate_client_server_katcp(struct katcp_dispatch *dl)
 
     dx = s->s_clients[(unsigned int)rand() % s->s_count];
 
+    basic_inform_katcp(dx, KATCP_CLIENT_DISCONNECT, "overloaded");
+
     terminate_katcp(dx, KATCP_EXIT_QUIT);
+#if 0
     on_disconnect_katcp(dx, "displaced by new client connection");
+#endif
   }
+}
+
+static int update_flags_katcp(struct katcp_dispatch *d, int argc, int flags)
+{
+  char *match;
+  int i;
+
+  if(d->d_shared == NULL){
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(argc < 2){
+    return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
+  }
+
+  for(i = 1; i < argc; i++){
+    match = arg_string_katcp(d, i);
+    if(match == NULL){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire parameter %d", i);
+      return KATCP_RESULT_FAIL;
+    }
+
+    log_message_katcp(d, KATCP_LEVEL_TRACE, NULL, "about to update command %s", match);
+
+    if(update_command_katcp(d, match, flags) < 0){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to hide or expose command %s", match);
+      return KATCP_RESULT_FAIL;
+    }
+  }
+
+  return KATCP_RESULT_OK;
+}
+
+int expose_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  return update_flags_katcp(d, argc, 0);
+}
+
+int hide_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  return update_flags_katcp(d, argc, KATCP_CMD_HIDDEN);
+}
+
+int forget_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  char *match;
+
+  if(d->d_shared == NULL){
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(argc < 2){
+    return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
+  }
+
+  match = arg_string_katcp(d, 1);
+  if(match == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "need a command to forget");
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(deregister_command_katcp(d, match) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to deregister command");
+    return KATCP_RESULT_FAIL;
+  }
+
+  return KATCP_RESULT_OK;
+}
+
+int chdir_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  char *dir;
+
+  if(d->d_shared == NULL){
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(argc < 2){
+    return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
+  }
+
+  dir = arg_string_katcp(d, 1);
+  if(dir == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to retrive directory argument");
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(chdir(dir) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to change to %s %s", dir, strerror(errno));
+    return KATCP_RESULT_FAIL;
+  }
+
+  return KATCP_RESULT_OK;
+}
+
+int setenv_cmd_katcp(struct katcp_dispatch *d, int argc)
+{
+  char *label, *value;
+
+  if(d->d_shared == NULL){
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(argc < 2){
+    return extra_response_katcp(d, KATCP_RESULT_INVALID, "usage");
+  }
+
+  label = arg_string_katcp(d, 1);
+  if(argc == 2){
+    if(unsetenv(label) < 0){
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to clear variable %s : %s", label, strerror(errno));
+      return KATCP_RESULT_FAIL;
+    }
+    return KATCP_RESULT_OK;
+  }
+
+  value = arg_string_katcp(d, 2);
+  if(value == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire value for variable %s", label);
+    return KATCP_RESULT_FAIL;
+  }
+
+  if(setenv(label, value, 1) < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to set variable %s : %s", label, strerror(errno));
+    return KATCP_RESULT_FAIL;
+  }
+
+  return KATCP_RESULT_OK;
 }
 
 int system_info_cmd_katcp(struct katcp_dispatch *d, int argc)
@@ -336,20 +437,22 @@ int system_info_cmd_katcp(struct katcp_dispatch *d, int argc)
 
   hours   = (delta / 3600);
   minutes = (delta / 60)     - (hours * 60);
-  seconds = (delta)          - (minutes * 60);
+  seconds = (delta)          - (((hours * 60) + minutes) * 60);
 
   strftime(buffer, BUFFER - 1, "%Y-%m-%dT%H:%M:%S", when);
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "server started at %s localtime which is T%lu:%02u:%02u ago", buffer, hours, minutes, seconds);
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%d active client %s", s->s_used, (s->s_used == 1) ? "connection" : "connections");
+#ifdef KATCP_SUBPROCESS
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%d subordinate %s", s->s_number, (s->s_number == 1) ? "job" : "jobs");
+#endif
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%d %s", s->s_tally, (s->s_tally == 1) ? "sensor" : "sensors");
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%d %s", s->s_size, (s->s_size == 1) ? "mode" : "modes");
   if(s->s_size > 1){
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%d (%s) is current mode", s->s_mode,  s->s_vector[s->s_mode].e_name ? s->s_vector[s->s_mode].e_name : "UNKNOWN");
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%d (%s) is current %s mode", s->s_mode,  s->s_vector[s->s_mode].e_name ? s->s_vector[s->s_mode].e_name : "UNKNOWN", s->s_flaky ? "failed" : "ok");
   }
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "%d %s", s->s_pending, (s->s_pending == 1) ? "notice" : "notices");
@@ -419,17 +522,33 @@ int prepare_core_loop_katcp(struct katcp_dispatch *dl)
   add_kernel_version_katcp(dl);
 
   /* extra commands, not really part of the standard */
-  register_flag_mode_katcp(dl, "?system-info",  "report server information (?system-info)", &system_info_cmd_katcp, 0, 0);
+  register_flag_mode_katcp(dl, "?setenv",  "sets/clears an enviroment variable (?setenv [label [value]]", &setenv_cmd_katcp, KATCP_CMD_HIDDEN, 0);
+  register_flag_mode_katcp(dl, "?chdir",   "change directory (?chdir directory)", &chdir_cmd_katcp, KATCP_CMD_HIDDEN, 0);
+
+  register_flag_mode_katcp(dl, "?forget",  "deregister a command (?forget command)", &forget_cmd_katcp, KATCP_CMD_HIDDEN, 0);
+  register_flag_mode_katcp(dl, "?hide",    "hide a command (?hide command ...)", &hide_cmd_katcp, KATCP_CMD_HIDDEN, 0);
+  register_flag_mode_katcp(dl, "?expose",  "unhide a command (?expose command ...)", &expose_cmd_katcp, KATCP_CMD_HIDDEN, 0);
 
   register_flag_mode_katcp(dl, "?dispatch","dispatch operations (?dispatch [list])", &dispatch_cmd_katcp, 0, 0);
   register_flag_mode_katcp(dl, "?notice",  "notice operations (?notice [list|watch|wake])", &notice_cmd_katcp, 0, 0);
-  register_flag_mode_katcp(dl, "?job",     "job operations (?job [list|process notice-name exec://executable-file|network notice-name katcp://net-host:remote-port|watchdog job-name|match job-name inform-message|stop job-name])", &job_cmd_katcp, 0, 0);
   register_flag_mode_katcp(dl, "?define",  "runtime definitions (?define [mode name]", &define_cmd_katcp, 0, 0);
+  register_flag_mode_katcp(dl, "?arb",     "arbitrary callback manipulation (?arb [list]", &arb_cmd_katcp, 0, 0);
 
+#ifdef KATCP_SUBPROCESS
+  register_flag_mode_katcp(dl, "?job",     "job operations (?job [list|process notice-name exec://executable-file|network notice-name katcp://net-host:remote-port|watchdog job-name|match job-name inform-message|stop job-name])", &job_cmd_katcp, 0, 0);
   register_flag_mode_katcp(dl, "?process", "register a process command (?process executable help-string [mode]", &register_subprocess_cmd_katcp, 0, 0);
   register_flag_mode_katcp(dl, "?sensor",  "sensor operations (?sensor [list|create|relay job-name])", &sensor_cmd_katcp, 0, 0);
+#else
+  register_flag_mode_katcp(dl, "?sensor",  "sensor operations (?sensor [list|create])", &sensor_cmd_katcp, 0, 0);
+#endif
   register_flag_mode_katcp(dl, "?version", "version operations (?sensor [add module version [mode]|remove module])", &version_cmd_katcp, 0, 0);
-  register_flag_mode_katcp(dl, "?version-list", "list versions (?version-list)", &version_list_cmd_katcp, 0, 0);
+
+  register_flag_mode_katcp(dl, "?system-info",  "report server information (?system-info)", &system_info_cmd_katcp, 0, 0);
+
+#ifdef KATCP_EXPERIMENTAL
+  register_flag_mode_katcp(dl, "?listener-create", "accept new duplex connections on given interface (?listen-duplex [interface:]port)", &listener_create_group_cmd_katcp, 0, 0);
+  register_flag_mode_katcp(dl, "?list-duplex",  "report duplex information (?list-duplex)", &list_duplex_cmd_katcp, 0, 0);
+#endif
 
   time(&(s->s_start));
 
@@ -448,6 +567,7 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
   struct timespec delta;
   struct katcp_shared *s;
   char label[LABEL_BUFFER];
+  long opts;
 
   s = dl->d_shared;
 
@@ -484,11 +604,23 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
 
     }
 
+#ifdef KATCP_SUBPROCESS
     load_jobs_katcp(dl);
+#endif
+    load_arb_katcp(dl);
 
     if(load_shared_katcp(dl) < 0){ /* want to shut down */
       run = (-1);
     }
+
+#ifdef KATCP_EXPERIMENTAL
+    /* WARNING: new code */
+    if(load_flat_katcp(dl) < 0){
+      run = (-1);
+    }
+    load_endpoints_katcp(dl);
+#endif
+
 
     if(run < 0){
 
@@ -497,9 +629,12 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
       if(ended_shared_katcp(dl) <= 0){
         run = (-1);
       }
+
+#ifdef KATCP_SUBPROCESS
       if(ended_jobs_katcp(dl) <= 0){
         run = (-1);
       }
+#endif
 
       delta.tv_sec = KATCP_HALT_WAIT;
       delta.tv_nsec = 0;
@@ -508,7 +643,7 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
       FD_ZERO(&(s->s_read));
     }
     
-    if(s->s_woken > 0){
+    if(s->s_busy > 0){
       suspend = 0;
       delta.tv_sec = 0;
       delta.tv_nsec = KATCP_BRIEF_WAIT;
@@ -523,10 +658,12 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
 #endif
 
     /* delta now timespec, not timeval */
-    result = pselect(s->s_max + 1, &(s->s_read), &(s->s_write), NULL, suspend ? NULL : &delta, &(s->s_mask_current));
+    result = pselect(s->s_max + 1, &(s->s_read), &(s->s_write), NULL, suspend ? NULL : &delta, &(s->s_signal_mask));
 #ifdef DEBUG
     fprintf(stderr, "multi: select=%d, used=%d\n", result, s->s_used);
 #endif
+
+    s->s_busy = 0;
 
     if(result < 0){
 
@@ -552,12 +689,28 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
 #ifdef DEBUG
       fprintf(stderr, "multi: saw child signal\n");
 #endif
+#ifdef KATCP_SUBPROCESS
       wait_jobs_katcp(dl);
+#endif
     }
 
+    if(term_signal_shared_katcp(s) < 0){
+      log_message_katcp(dl, KATCP_LEVEL_INFO, NULL, "server terminated by signal");
+      run = (-1);
+    }
+
+#ifdef KATCP_EXPERIMENTAL
+    run_flat_katcp(dl);
+    /* order between flat and endpoint now important */
+    run_endpoints_katcp(dl);
+#endif
+
     run_shared_katcp(dl);
+#ifdef KATCP_SUBPROCESS
     run_jobs_katcp(dl);
+#endif
     run_notices_katcp(dl);
+    run_arb_katcp(dl);
 
     if(FD_ISSET(s->s_lfd, &(s->s_read))){
       if(s->s_used < s->s_count){
@@ -571,6 +724,13 @@ int run_core_loop_katcp(struct katcp_dispatch *dl)
 
           add_client_server_katcp(dl, nfd, label);
         }
+
+#if 1
+        opts = fcntl(nfd, F_GETFL, NULL);
+        if(opts >= 0){
+          opts = fcntl(nfd, F_SETFL, opts | O_NONBLOCK);
+        }
+#endif
 
       } else {
         /* WARNING: will run a busy loop, terminating one entry each cycle until space becomes available. We expect an exit to happen quickly, otherwise this could empty out all clients (though there is a backoff, since we pick a slot randomly) */
@@ -600,16 +760,16 @@ int run_pipe_server_katcp(struct katcp_dispatch *dl, char *file, int pfd)
     return terminate_katcp(dl, KATCP_EXIT_ABORT);
   }
 
+  /* in case we are given a script file, we need two slots */
+  need = file ? 2 : 1;
+  if(allocate_clients_shared_katcp(dl, need) < need){
+    return terminate_katcp(dl, KATCP_EXIT_ABORT);
+  }
+
   if(prepare_core_loop_katcp(dl) < 0){
     return terminate_katcp(dl, KATCP_EXIT_ABORT);
   }
   
-  /* in case we are given a script file, we need two slots */
-  need = file ? 2 : 1;
-  if(allocate_shared_katcp(dl, need) < need){
-    return terminate_katcp(dl, KATCP_EXIT_ABORT);
-  }
-
   if(file){
     fd = pipe_from_file_katcp(dl, file);
     if(fd < 0){
@@ -638,6 +798,13 @@ int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, ch
     return terminate_katcp(dl, KATCP_EXIT_ABORT);
   }
 
+  if(allocate_clients_shared_katcp(dl, count) <= 0){
+#ifdef DEBUG
+    fprintf(stderr, "allocation of %d clients failed\n", count);
+#endif
+    return terminate_katcp(dl, KATCP_EXIT_ABORT);
+  }
+
   if(prepare_core_loop_katcp(dl) < 0){
 #ifdef DEBUG
     fprintf(stderr, "server: need a natural number of clients, not %d\n", count);
@@ -650,13 +817,6 @@ int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, ch
     fprintf(stderr, "multi: more than one client, registering client list\n");
 #endif
     register_katcp(dl, "?client-list", "displays client list (?client-list)", &client_list_cmd_katcp);
-  }
-
-  if(allocate_shared_katcp(dl, count) <= 0){
-#ifdef DEBUG
-    fprintf(stderr, "allocation of %d clients failed\n", count);
-#endif
-    return terminate_katcp(dl, KATCP_EXIT_ABORT);
   }
 
   if(file){
@@ -679,5 +839,24 @@ int run_config_server_katcp(struct katcp_dispatch *dl, char *file, int count, ch
   }
 
   return run_core_loop_katcp(dl);
+}
+
+int load_from_file_katcp(struct katcp_dispatch *d, char *file)
+{
+  int fd;
+
+  if(file){
+    fd = pipe_from_file_katcp(d, file);
+    if(fd < 0){
+#ifdef DEBUG
+      fprintf(stderr, "creation of pipe from file failed\n");
+#endif
+      return -1;
+    }
+    add_client_server_katcp(d, fd, file);
+    return 0;
+  }
+  
+  return -1;
 }
 

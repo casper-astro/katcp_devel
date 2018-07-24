@@ -1,5 +1,8 @@
-/* example client to read and write registers, using borph_read and 
- * borph_write - edit main to do what you want
+/* example client intended to talk to a roach via katcp and manipulate
+ * registers, using borph_read and borph_write. Edit main to do what you want
+ *
+ * new-client-example.c is simpler, using a slightly higher-level interface
+ * and also isn't specific to reading/writing roach registers
  */
 
 #include <stdio.h>

@@ -4,22 +4,35 @@ set -e
 source functions.sh
 
 kcs_arg_check $# 1
-if [ "$1" != "k7" ] ; then
-  kcs_error "expected k7 not $1"
-  return 1
-fi
+stream=$1
 
 kcs_debug "about to run tx-stop"
 
-status=1
-if [ $# -gt 1 ] ; then
-  if kcpcmd -k -m tx-stop $2 ; then
-    status=0
-  fi
+if kcs_is_beamformer ${KATCP_MODE} ; then
+  option=${stream}
+fi
+
+case "${stream}" in
+  k7)
+    kcs_info "stopping correlator stream ${stream}"
+    ;;
+  bf0|bf1)
+    if kcs_is_beamformer ${KATCP_MODE} ; then
+      kcs_info "stopping beam stream ${stream}"
+    else
+      kcs_error "datastream ${stream} not available in this mode"
+    fi
+    ;;
+  *)
+    kcs_error "unknown data stream ${stream}"
+    ;;
+esac
+
+if kcpcmd -k -m tx-stop ${option}; then
+  status=0
 else 
-  if kcpcmd -k -m tx-stop ; then
-    status=0
-  fi 
+  kcs_warn "${stream} stop failed"
+  status=1
 fi
 
 kcs_corr_log

@@ -1,3 +1,5 @@
+#ifdef KATCP_DEPRECATED
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,7 +11,7 @@
 void destroy_type_katcp(struct katcp_type *t)
 {
   if (t != NULL){
-#ifdef DEBUG
+#if DEBUG > 1
     fprintf(stderr, "katcp_type: destroy type <%s>\n", t->t_name);
 #endif
     if (t->t_name != NULL) { free(t->t_name); t->t_name = NULL; }
@@ -24,6 +26,16 @@ void destroy_type_katcp(struct katcp_type *t)
     t->t_compare = NULL;
     t->t_parse   = NULL;
     free(t);
+  }
+}
+
+void flush_type_katcp(struct katcp_type *t)
+{
+  if (t && t->t_tree && t->t_free) {
+#ifdef DEBUG
+    fprintf(stderr, "%s: about to destroy type tree\n", __func__);
+#endif
+    destroy_avltree(t->t_tree, t->t_free);
   }
 }
 
@@ -60,51 +72,28 @@ int binary_search_type_list_katcp(struct katcp_type **ts, int t_size, char *str)
     return -1;
   }
 
-#if 0
-def DEBUG
-  fprintf(stderr, "katcp_type: bsearch for <%s>\n", str);
-#endif
-  
   low = 0;
   high = t_size - 1;
   
   while (low <= high){
     mid = low + ((high-low) / 2);
-#if 0
-    fprintf(stderr, "katcp_type: set mid %d\n", mid);
-#endif
 
     t = ts[mid];
   
     cmp = strcmp(str, t->t_name);
     if (cmp == 0){
-#if 0
-      def DEBUG
-      fprintf(stderr, "katcp_type: found <%s> @ %d\n", str, mid);
-#endif
       return mid;
     } else if (cmp < 0){
       high = mid - 1;
-#if 0
-      fprintf(stderr, "katcp_type: set high to %d low is %d\n", high, low);
-#endif
     } else if (cmp > 0){ 
       low = mid + 1;
-#if 0
-      fprintf(stderr, "katcp_type: set low to %d high is %d\n", low, high);
-#endif
     }
   }
-
-#if 0
-def DEBUG
-  fprintf(stderr, "katcp_type: bsearch return:%d\n", (-1)*(low+1));
-#endif
 
   return (-1) * (low+1) ;
 }
 
-int register_at_id_type_katcp(struct katcp_dispatch *d, int tid, char *tname, int dep, void (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(const void *, const void *), void *(*fn_parse)(struct katcp_dispatch *d, char **), char *(*fn_getkey)(void *))
+int register_at_id_type_katcp(struct katcp_dispatch *d, int tid, char *tname, int dep, void (*fn_print)(struct katcp_dispatch *, char *key, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(const void *, const void *), void *(*fn_parse)(struct katcp_dispatch *d, char **), char *(*fn_getkey)(void *))
 {
   struct katcp_shared *s;
   struct katcp_type **ts;
@@ -168,7 +157,7 @@ int register_at_id_type_katcp(struct katcp_dispatch *d, int tid, char *tname, in
   return i; 
 }
 
-int register_name_type_katcp(struct katcp_dispatch *d, char *name, int dep, void (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(const void *, const void *), void *(*fn_parse)(struct katcp_dispatch *d, char **), char *(*fn_getkey)(void *))
+int register_name_type_katcp(struct katcp_dispatch *d, char *name, int dep, void (*fn_print)(struct katcp_dispatch *, char *key, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(const void *, const void *), void *(*fn_parse)(struct katcp_dispatch *d, char **), char *(*fn_getkey)(void *))
 {
   struct katcp_shared *s;
   struct katcp_type **ts;
@@ -239,7 +228,7 @@ int deregister_type_katcp(struct katcp_dispatch *d, char *name)
   return 0;
 }
 
-int store_data_at_type_katcp(struct katcp_dispatch *d, struct katcp_type *t, int dep, char *d_name, void *d_data, void (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(const void *, const void *), void *(*fn_parse)(struct katcp_dispatch *d, char **), char *(*fn_getkey)(void *))
+int store_data_at_type_katcp(struct katcp_dispatch *d, struct katcp_type *t, int dep, char *d_name, void *d_data, void (*fn_print)(struct katcp_dispatch *, char *key, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(const void *, const void *), void *(*fn_parse)(struct katcp_dispatch *d, char **), char *(*fn_getkey)(void *))
 {
   struct avl_tree *at;
   struct avl_node *an;
@@ -248,7 +237,7 @@ int store_data_at_type_katcp(struct katcp_dispatch *d, struct katcp_type *t, int
     return -1;
   
   if (t->t_print != fn_print || t->t_free != fn_free || t->t_copy != fn_copy || t->t_compare != fn_compare || t->t_parse != fn_parse || t->t_getkey != fn_getkey){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "callbacks for data with key <%s> dont match type %s\n", d_name, t->t_name);
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "callbacks for data with key <%s> dont match type %s", d_name, t->t_name);
 #ifdef DEBUG
     fprintf(stderr, "katcp_type: callbacks for data with key <%s> dont match type %s\n", d_name, t->t_name); 
 #endif
@@ -257,7 +246,7 @@ int store_data_at_type_katcp(struct katcp_dispatch *d, struct katcp_type *t, int
 
   if (t->t_tree == NULL){
     t->t_tree = create_avltree();
-#ifdef DEBUG
+#if DEBUG >1
     fprintf(stderr, "katcp_type: create avltree for type: <%s>\n", t->t_name);
 #endif
   }
@@ -278,14 +267,14 @@ int store_data_at_type_katcp(struct katcp_dispatch *d, struct katcp_type *t, int
     return -1;
   }
 
-#ifdef DEBUG
+#if DEBUG >1
   fprintf(stderr, "katcp_type: inserted {%s} for type tree: <%s>\n", d_name, t->t_name);
 #endif
 
   return 0;
 }
 
-int store_data_type_katcp(struct katcp_dispatch *d, char *t_name, int dep, char *d_name, void *d_data, void (*fn_print)(struct katcp_dispatch *, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(const void *, const void *), void *(*fn_parse)(struct katcp_dispatch *d, char **), char *(*fn_getkey)(void *))
+int store_data_type_katcp(struct katcp_dispatch *d, char *t_name, int dep, char *d_name, void *d_data, void (*fn_print)(struct katcp_dispatch *, char *key, void *), void (*fn_free)(void *), int (*fn_copy)(void *, void *, int), int (*fn_compare)(const void *, const void *), void *(*fn_parse)(struct katcp_dispatch *d, char **), char *(*fn_getkey)(void *))
 {
   struct katcp_shared *s;
   
@@ -306,14 +295,14 @@ int store_data_type_katcp(struct katcp_dispatch *d, char *t_name, int dep, char 
   pos = binary_search_type_list_katcp(ts, size, t_name);
   
   if (pos < 0){
-#ifdef DEBUG
+#if DEBUG>1
     fprintf(stderr, "katcp_type: need to register new type for <%s> at %d which maps to %d\n", t_name, pos, (pos+1)*(-1)); 
 #endif
     /*pos returned from bsearch is pos to insert new type of searched name 
       but it needs to be decremented and flipped positive*/
     pos = register_at_id_type_katcp(d, (pos+1)*(-1), t_name, dep, fn_print, fn_free, fn_copy, fn_compare, fn_parse, fn_getkey);
     if (pos < 0){
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not create new type %s\n", t_name);
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not create new type %s", t_name);
 #ifdef DEBUG
       fprintf(stderr, "katcp_type: could not create new type: %s\n", t_name); 
 #endif
@@ -455,7 +444,8 @@ void *search_type_katcp(struct katcp_dispatch *d, struct katcp_type *t, char *ke
     }
   }
   else {
-#ifdef DEBUG
+#if 0
+    def DEBUG
     fprintf(stderr, "ktype: search found key: <%s> managing data at (%p)\n", key, data);
 #endif
     
@@ -499,7 +489,7 @@ void print_type_katcp(struct katcp_dispatch *d, struct katcp_type *t, int flags)
     //prepend_inform_katcp(d);
     append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_FIRST, "#katcp type:");
     append_string_katcp(d, KATCP_FLAG_STRING | KATCP_FLAG_LAST, t->t_name);
-#ifdef DEBUG
+#if DEBUG > 1
     fprintf(stderr, "katcp_type: type <%s> (%p) with tree (%p) print:(%p) free:(%p) copy:(%p) compare:(%p) parse:(%p)\n", t->t_name, t, t->t_tree, t->t_print, t->t_free, t->t_copy, t->t_compare, t->t_parse);
 #endif
     if (t->t_tree != NULL){
@@ -530,9 +520,6 @@ void print_types_katcp(struct katcp_dispatch *d)
 
   for (i=0; i<size; i++){
     t = ts[i];
-#ifdef DEBUG
-    fprintf(stderr, "katcp_type: [%d]\n",i);
-#endif
     print_type_katcp(d, t, 0);
     if (i+1 < size)
       append_string_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING | KATCP_FLAG_LAST, "#"); 
@@ -624,3 +611,6 @@ int main(int argc, char *argv[])
   return 0;
 } 
 #endif
+
+#endif
+

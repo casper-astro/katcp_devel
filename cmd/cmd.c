@@ -19,6 +19,7 @@
 #include "netc.h"
 #include "katcp.h"
 #include "katcl.h"
+#include "katpriv.h"
 
 #define KCPCMD_NAME "kcpcmd"
 
@@ -32,6 +33,7 @@ void usage(char *app)
   printf("usage: %s [options] command [args]\n", app);
   printf("-h                 this help\n");
   printf("-v                 increase verbosity\n");
+  printf("-V                 print version information\n");
   printf("-q                 run quietly\n");
   printf("-x                 print output in hex\n");
   printf("-a                 autodetect mode, only print nonprintable fields as hex\n");
@@ -39,10 +41,13 @@ void usage(char *app)
   printf("-k                 emit katcp log messages\n");
   printf("-s server:port     specify server:port\n");
   printf("-t seconds         set timeout\n");
+  printf("-f                 firm timeout, do not reset when receiving io\n");
   printf("-p position        only print a particular argument number\n");
+  printf("-l label           set katcp log message module label\n");
   printf("-r                 toggle printing of reply messages\n");
   printf("-i                 toggle printing of inform messages\n");
   printf("-m                 munge replies into log messages (requires -k)\n");
+  printf("-n                 suppress version information emitted on connect\n");
 
   printf("return codes:\n");
   printf("0     command completed successfully\n");
@@ -63,6 +68,13 @@ int print_arg(struct katcl_line *l, int index, int fmt)
 {
   char *ptr, *tmp;
   unsigned int want, have, safe, i, dfmt;
+  int c;
+
+  if(arg_null_katcl(l, index) > 0){
+    c = '\0';
+    fputc(c, stdout);
+    return 0;
+  }
 
   switch(fmt){
     case FMT_TEXT :
@@ -241,18 +253,24 @@ int load_arg(struct katcl_line *l, char *arg, int fmt, int flags)
 
 int main(int argc, char **argv)
 {
-  char *app, *server, *match, *parm, *tmp, *cmd, *extra;
+  char *app, *server, *match, *parm, *tmp, *cmd, *extra, *label;
   int i, j, c, fd;
-  int verbose, result, status, base, run, info, reply, display, max, prefix, timeout, fmt, pos, flags, munge, show;
+  int verbose, result, status, base, run, info, reply, display, max, prefix, timeout, fmt, pos, flags, munge, show, firm;
   struct katcl_line *l, *k;
   fd_set fsr, fsw;
-  struct timeval tv;
+  struct timeval tv, when, now;
+
+  label = getenv("KATCP_LABEL");
+  if(label == NULL){
+    label = KCPCMD_NAME;
+  }
   
   server = getenv("KATCP_SERVER");
   if(server == NULL){
     server = "localhost";
   }
   
+  firm = 0;
   info = 1;
   reply = 1;
   verbose = 1;
@@ -265,6 +283,7 @@ int main(int argc, char **argv)
   k = NULL;
   munge = 0;
   show = 1;
+  parm = NULL;
 
   while (i < argc) {
     if (argv[i][0] == '-') {
@@ -273,6 +292,22 @@ int main(int argc, char **argv)
 
         case 'h' :
           usage(app);
+          return 0;
+        case 'V' :
+          
+#ifdef VERSION
+          printf("%s version %s\n", app, VERSION);
+#else
+          printf("%s version is unknown\n", app);
+#endif
+#ifdef __DATE__
+          printf("%s compiled on %s\n", app, __DATE__);
+#endif
+#ifdef KATCP_PROTOCOL_MAJOR_VERSION
+#ifdef KATCP_PROTOCOL_MINOR_VERSION
+          printf("%s built for katcp %d.%d\n", app, KATCP_PROTOCOL_MAJOR_VERSION, KATCP_PROTOCOL_MINOR_VERSION);
+#endif
+#endif
           return 0;
 
         case 'v' : 
@@ -291,6 +326,10 @@ int main(int argc, char **argv)
           break;
         case 'r' : 
           reply = 1 - reply;
+          j++;
+          break;
+        case 'f' : 
+          firm = 1 - firm;
           j++;
           break;
         case 'n' : 
@@ -322,6 +361,7 @@ int main(int argc, char **argv)
           j++;
           break;
 
+        case 'l' :
         case 's' :
         case 't' :
         case 'p' :
@@ -337,6 +377,9 @@ int main(int argc, char **argv)
           }
 
           switch(c){
+            case 'l' :
+              label = argv[i] + j;
+              break;
             case 's' :
               server = argv[i] + j;
               break;
@@ -381,7 +424,7 @@ int main(int argc, char **argv)
 
   if(base < 0){
     if(k){
-      sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPCMD_NAME, "no command given");
+      sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "no command given");
     }
     fprintf(stderr, "%s: need a command to send (use -h for help)\n", app);
     return 2;
@@ -400,7 +443,7 @@ int main(int argc, char **argv)
   fd = net_connect(server, 0, flags);
   if(fd < 0){
     if(k){
-      sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPCMD_NAME, "unable to connect to %s", server);
+      sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "unable to connect to %s", server);
     }
     return 2;
   }
@@ -408,7 +451,7 @@ int main(int argc, char **argv)
   l = create_katcl(fd);
   if(l == NULL){
     if(k){
-      sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPCMD_NAME, "unable to create katcp parser");
+      sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "unable to create katcp parser");
     }
     fprintf(stderr, "%s: unable to create katcp parser\n", app);
     return 2;
@@ -437,7 +480,7 @@ int main(int argc, char **argv)
     flags = (i < argc) ? 0 : KATCP_FLAG_LAST;
     if(load_arg(l, tmp, fmt, flags) < 0){
       if(k){
-        sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPCMD_NAME, "unable to load argument %d", i);
+        sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "unable to load argument %d", i);
       }
       fprintf(stderr, "%s: unable to load argument %d\n", app, i);
       return 2;
@@ -455,6 +498,15 @@ int main(int argc, char **argv)
 
   /* WARNING: logic a bit intricate */
 
+  tv.tv_sec  = timeout;
+  tv.tv_usec = 0;
+
+  if(firm){
+    gettimeofday(&now, NULL);
+
+    add_time_katcp(&when, &now, &tv);
+  }
+
   for(run = 1; run;){
 
     FD_ZERO(&fsr);
@@ -468,8 +520,11 @@ int main(int argc, char **argv)
       FD_SET(fd, &fsw);
     }
 
-    tv.tv_sec  = timeout;
-    tv.tv_usec = 0;
+    if(k){
+      if(flushing_katcl(k)){ /* only write data if we have some */
+        FD_SET(STDOUT_FILENO, &fsw);
+      }
+    }
 
     result = select(fd + 1, &fsr, &fsw, NULL, &tv);
     switch(result){
@@ -480,27 +535,36 @@ int main(int argc, char **argv)
             continue; /* WARNING */
           default  :
             if(k){
-              sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPCMD_NAME, "select failed: %s", strerror(errno));
+              sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "select failed: %s", strerror(errno));
             }
             return 2;
         }
         break;
       case  0 :
         if(k){
-          sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPCMD_NAME, "request timed out after %d seconds", timeout);
+          sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "request %s timed out after %d seconds", argv[base], timeout);
         } 
         if(verbose){
-          fprintf(stderr, "%s: no io activity within %d seconds\n", app, timeout);
+          fprintf(stderr, "%s: no %s within %d seconds\n", app, firm ? "response" : "io activity", timeout);
         }
         /* could terminate cleanly here, but ... */
         return 2;
+    }
+
+    if(firm){
+      gettimeofday(&now, NULL);
+      
+      sub_time_katcp(&tv, &when, &now);
+    } else{
+      tv.tv_sec  = timeout;
+      tv.tv_usec = 0;
     }
 
     if(FD_ISSET(fd, &fsw)){
       result = write_katcl(l);
       if(result < 0){
         if(k){
-          sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPCMD_NAME, "write failed: %s", strerror(errno));
+          sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "write failed: %s", strerror(errno));
         } 
         fprintf(stderr, "%s: write failed: %s\n", app, strerror(error_katcl(l)));
       	return 2;
@@ -510,11 +574,17 @@ int main(int argc, char **argv)
       }
     }
 
+    if(k){
+      if(FD_ISSET(STDOUT_FILENO, &fsw)){
+        write_katcl(k);
+      }
+    }
+
     if(FD_ISSET(fd, &fsr)){
       result = read_katcl(l);
       if(result){
         if(k){
-          sync_message_katcl(k, KATCP_LEVEL_ERROR, KCPCMD_NAME, "read failed: %s", (result < 0) ? strerror(error_katcl(l)) : "connection terminated");
+          sync_message_katcl(k, KATCP_LEVEL_ERROR, label, "read failed: %s", (result < 0) ? strerror(error_katcl(l)) : "connection terminated");
 
         } 
         fprintf(stderr, "%s: read failed: %s\n", app, (result < 0) ? strerror(error_katcl(l)) : "connection terminated");
@@ -533,6 +603,12 @@ int main(int argc, char **argv)
               if(!strcmp(KATCP_VERSION_CONNECT_INFORM, cmd)){
                 display = 0;
               }
+              if(!strcmp(KATCP_VERSION_INFORM, cmd)){
+                display = 0;
+              }
+              if(!strcmp(KATCP_BUILD_STATE_INFORM, cmd)){
+                display = 0;
+              }
             }
 
             break;
@@ -542,7 +618,7 @@ int main(int argc, char **argv)
             if(match){
               if(strncmp(match, cmd + 1, prefix) || ((cmd[prefix + 1] != '\0') && (cmd[prefix + 1] != ' '))){
                 if(k){
-                  sync_message_katcl(k, KATCP_LEVEL_WARN, KCPCMD_NAME, "encountered unexpected reply %s", cmd);
+                  sync_message_katcl(k, KATCP_LEVEL_WARN, label, "encountered unexpected reply %s", cmd);
                 } 
                 fprintf(stderr, "%s: warning: encountered unexpected reply <%s>\n", app, cmd);
               } else {
@@ -555,13 +631,13 @@ int main(int argc, char **argv)
             break;
           case KATCP_REQUEST : 
             if(k){
-              sync_message_katcl(k, KATCP_LEVEL_WARN, KCPCMD_NAME, "encountered unanswerable request %s", cmd);
+              sync_message_katcl(k, KATCP_LEVEL_WARN, label, "encountered unanswerable request %s", cmd);
             } 
             fprintf(stderr, "%s: warning: encountered an unanswerable request <%s>\n", app, cmd);
             break;
           default :
             if(k){
-              sync_message_katcl(k, KATCP_LEVEL_WARN, KCPCMD_NAME, "read malformed message %s", cmd);
+              sync_message_katcl(k, KATCP_LEVEL_WARN, label, "read malformed message %s", cmd);
             } 
             fprintf(stderr, "%s: read malformed message <%s>\n", app, cmd);
             break;

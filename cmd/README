@@ -1,0 +1,8 @@
+
+This is a commandline tool to speak katcp to a remote server. 
+Invoke it with -h to see usage information. It is not necessary
+to specify a ? in the requests given to it
+
+Example use
+
+  $ kcpcmd -s some-roach:7147 help

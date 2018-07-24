@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sysexits.h>
+#include <signal.h>
 
 #include <sys/select.h>
 #include <sys/types.h>
@@ -19,12 +20,19 @@
 #include <katcp.h>
 #include <katpriv.h>
 
+#define TMON_SHOW_TIME             0x1
+#define TMON_SHOW_NTP              0x2
+
 #define TMON_POLL_INTERVAL        1000    /* default poll interval */
 #define TMON_POLL_MIN               50    /* minimum (in ms) between a recv followed by another send */
 
-#define TMON_MODULE_NAME         "ntp"
-#define TMON_SENSOR_NAME         ".ntp.synchronised"
-#define TMON_SENSOR_DESCRIPTION  "clock good"
+#define TMON_MODULE_NAME              "ntp"
+
+#define TMON_NTP_SENSOR_NAME          ".ntp.synchronised"
+#define TMON_NTP_SENSOR_DESCRIPTION   "local ntpd reports clock good"
+
+#define TMON_TIME_SENSOR_NAME         ".time.synchronised"
+#define TMON_TIME_SENSOR_DESCRIPTION  "system time is ok"
 
 /************************************************************/
 
@@ -121,6 +129,10 @@ struct ntp_message{
   uint16_t n_count;
   uint8_t n_data[NTP_MAX_DATA];
 } __attribute__ ((packed));
+
+/*****************************************************************************/
+
+volatile int run;
 
 /*****************************************************************************/
 
@@ -595,6 +607,31 @@ int recv_ntp_poco(struct katcp_dispatch *d, struct ntp_sensor_poco *nt)
 
 /*****************************************************************************/
 
+static void handle_signal(int s)
+{
+  switch(s){
+    case SIGHUP :
+      run = (-1);
+      break;
+    case SIGINT :
+    case SIGTERM :
+      run = 0;
+      break;
+  }
+}
+
+/*****************************************************************************/
+
+void usage(char *name)
+{
+  printf("usage: %s -p period [-T|-t] [-N|-n]\n", name);
+  printf("-p period    set the monitoring interval (in ms)\n");
+  printf("-t           enable generic time sensor\n");
+  printf("-T           disable generic time sensor\n");
+  printf("-n           enable ntp sensor\n");
+  printf("-N           disable ntp sensor\n");
+}
+
 int main(int argc, char **argv)
 {
 #define BUFFER 128
@@ -606,6 +643,11 @@ int main(int argc, char **argv)
   struct timeval delta, now, when, template;
   fd_set fsr;
   char buffer[BUFFER];
+  struct sigaction sag;
+  int show, verbose;
+  int i, j, c;
+
+  show = TMON_SHOW_TIME | TMON_SHOW_NTP;
 
   period = TMON_POLL_INTERVAL;
   previous = (-1);
@@ -623,30 +665,121 @@ int main(int argc, char **argv)
     return EX_OSERR;
   }
 
-  if(argc > 1){
-    period = atoi(argv[1]);
-    if(period <= 0){
-      period = TMON_POLL_INTERVAL;
-      log_message_katcp(d, KATCP_LEVEL_WARN, TMON_MODULE_NAME, "invalid update time %s given, using %dms", argv[1], period);
-    } 
+  i = j = 1;
+  while (i < argc) {
+    if (argv[i][0] == '-') {
+      c = argv[i][j];
+      switch (c) {
+        case 'h' :
+          usage(argv[0]);
+          return EX_OK;
+
+        case 'v' :
+          verbose++;
+          j++;
+          break;
+
+        case 'q' :
+          verbose = 0;
+          j++;
+          break;
+
+        case 't' :
+          show |= TMON_SHOW_TIME;
+          j++;
+          break;
+
+        case 'T' :
+          show &= ~TMON_SHOW_TIME;
+          j++;
+          break;
+
+        case 'n' :
+          show |= TMON_SHOW_NTP;
+          j++;
+          break;
+
+        case 'N' :
+          show &= ~TMON_SHOW_NTP;
+          j++;
+          break;
+
+        case 'p' :
+
+          j++;
+          if (argv[i][j] == '\0') {
+            j = 0;
+            i++;
+          }
+
+          if (i >= argc) {
+            fprintf(stderr, "%s: usage: option -%c needs a parameter\n", argv[0], c);
+            return EX_USAGE;
+          }
+
+          switch(c){
+            case 'p' :
+              period = atoi(argv[i] + j);
+              if(period <= 0){
+                period = TMON_POLL_INTERVAL;
+                log_message_katcp(d, KATCP_LEVEL_WARN, TMON_MODULE_NAME, "invalid update time %s given, using %dms", argv[1], period);
+              } 
+              break;
+          }
+
+          i++;
+          j = 1;
+          break;
+
+        case '-' :
+          j++;
+          break;
+
+        case '\0':
+          j = 1;
+          i++;
+          break;
+        default:
+          fprintf(stderr, "%s: usage: unknown option -%c\n", argv[0], argv[i][j]);
+          return EX_USAGE;
+      }
+    } else {
+      i++;
+    }
   }
 
   log_message_katcp(d, KATCP_LEVEL_INFO, TMON_MODULE_NAME, "about to start time monitor");
 
+  if(show == 0){
+    log_message_katcp(d, KATCP_LEVEL_WARN, TMON_MODULE_NAME, "no sensor to show");
+  }
+
+#if 0
   if(argc > 2){
     level = argv[2];
     if(name_log_level_katcp(d, level) < 0){
       log_message_katcp(d, KATCP_LEVEL_WARN, TMON_MODULE_NAME, "invalid log %s given", level);
     }
   }
+#endif
 
   log_message_katcp(d, KATCP_LEVEL_INFO, TMON_MODULE_NAME, "polling local ntp server every %dms", period);
 
-  append_string_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#sensor-list");
-  append_string_katcp(d,                    KATCP_FLAG_STRING, TMON_SENSOR_NAME);
-  append_string_katcp(d,                    KATCP_FLAG_STRING, TMON_SENSOR_DESCRIPTION);
-  append_string_katcp(d,                    KATCP_FLAG_STRING, "none");
-  append_string_katcp(d, KATCP_FLAG_LAST  | KATCP_FLAG_STRING, "boolean");
+  if(show & TMON_SHOW_NTP){
+    append_string_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#sensor-list");
+    append_string_katcp(d,                    KATCP_FLAG_STRING, TMON_NTP_SENSOR_NAME);
+    append_string_katcp(d,                    KATCP_FLAG_STRING, TMON_NTP_SENSOR_DESCRIPTION);
+    append_string_katcp(d,                    KATCP_FLAG_STRING, "none");
+    append_string_katcp(d, KATCP_FLAG_LAST  | KATCP_FLAG_STRING, "boolean");
+  }
+
+  if(show & TMON_SHOW_TIME){
+    append_string_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#sensor-list");
+    append_string_katcp(d,                    KATCP_FLAG_STRING, TMON_TIME_SENSOR_NAME);
+    append_string_katcp(d,                    KATCP_FLAG_STRING, TMON_TIME_SENSOR_DESCRIPTION);
+    append_string_katcp(d,                    KATCP_FLAG_STRING, "none");
+    append_string_katcp(d, KATCP_FLAG_LAST  | KATCP_FLAG_STRING, "boolean");
+  }
 
 
   if(period < TMON_POLL_MIN){
@@ -679,9 +812,17 @@ int main(int argc, char **argv)
   }
 #endif
 
+  sag.sa_handler = handle_signal;
+  sigemptyset(&(sag.sa_mask));
+  sag.sa_flags = SA_RESTART;
+
+  sigaction(SIGINT, &sag, NULL);
+  sigaction(SIGHUP, &sag, NULL);
+  sigaction(SIGTERM, &sag, NULL);
+
   gettimeofday(&when, NULL);
 
-  for(;;){
+  for(run = 1; run > 0; ){
     
     if(cmp_time_katcp(&now, &when) >= 0){
 #ifdef DEBUG
@@ -740,12 +881,25 @@ int main(int argc, char **argv)
     }
 
     if(current != previous){
-      append_string_katcp(d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#sensor-status");
-      append_args_katcp  (d,                    KATCP_FLAG_STRING, "%ld%03u", now.tv_sec, now.tv_usec / 1000);
-      append_string_katcp(d,                    KATCP_FLAG_STRING, "1");
-      append_string_katcp(d,                    KATCP_FLAG_STRING, TMON_SENSOR_NAME);
-      append_string_katcp(d,                    KATCP_FLAG_STRING, current ? "nominal" : "error");
-      append_unsigned_long_katcp(d, KATCP_FLAG_LAST  | KATCP_FLAG_ULONG, current);
+
+      if(show & TMON_SHOW_NTP){
+        append_string_katcp       (d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#sensor-status");
+        append_timestamp_katcp    (d,                                    0, &now);
+        append_string_katcp       (d,                    KATCP_FLAG_STRING, "1");
+        append_string_katcp       (d,                    KATCP_FLAG_STRING, TMON_NTP_SENSOR_NAME);
+        append_string_katcp       (d,                    KATCP_FLAG_STRING, current ? "nominal" : "error");
+        append_unsigned_long_katcp(d,   KATCP_FLAG_LAST | KATCP_FLAG_ULONG, current);
+      }
+
+      if(show & TMON_SHOW_TIME){
+        append_string_katcp       (d, KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "#sensor-status");
+        append_timestamp_katcp    (d,                                    0, &now);
+        append_string_katcp       (d,                    KATCP_FLAG_STRING, "1");
+        append_string_katcp       (d,                    KATCP_FLAG_STRING, TMON_TIME_SENSOR_NAME);
+        append_string_katcp       (d,                    KATCP_FLAG_STRING, current ? "nominal" : "error");
+        append_unsigned_long_katcp(d,   KATCP_FLAG_LAST | KATCP_FLAG_ULONG, current);
+      }
+
       previous = current;
     }
 

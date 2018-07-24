@@ -18,7 +18,7 @@
 #include "kcs.h"
 
 /*Statemachine Base********************************************************************************************/
-void print_integer_type_kcs(struct katcp_dispatch *d, void *data)
+void print_integer_type_kcs(struct katcp_dispatch *d, char *key, void *data)
 {
   int *o;
   o = data;
@@ -124,6 +124,8 @@ struct kcs_sm_op *pushstack_setup_statemachine_kcs(struct katcp_dispatch *d, str
   void *ptemp, *stemp;
   int num, i;
 
+  stemp = NULL;
+
   type = arg_string_katcp(d, 4);
 
   if (type == NULL || s == NULL)
@@ -131,7 +133,7 @@ struct kcs_sm_op *pushstack_setup_statemachine_kcs(struct katcp_dispatch *d, str
   
   t = find_name_type_katcp(d, type);
   if (t == NULL){
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "invalid type: %s\n", type); 
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "invalid type: %s", type); 
     return NULL;
   }
   
@@ -347,7 +349,7 @@ int get_values_dbase_katcp(struct katcp_dispatch *d, struct katcp_stack *stack, 
   struct katcp_dbase *db;
   struct katcp_tobject *temp;
   struct katcp_stack *values;
-  int count,i;
+  int count, i;
 
   db = pop_data_expecting_stack_katcp(d, stack, KATCP_TYPE_DBASE);
   if (db == NULL)
@@ -360,7 +362,7 @@ int get_values_dbase_katcp(struct katcp_dispatch *d, struct katcp_stack *stack, 
     temp = index_stack_katcp(values, i);
     push_tobject_katcp(stack, copy_tobject_katcp(temp));
   }
-
+  
   return 0;
 }
 
@@ -402,102 +404,3 @@ int init_statemachine_base_kcs(struct katcp_dispatch *d)
   return rtn;
 }
 
-#if 0
-int store_statemachine_kcs(struct katcp_dispatch *d, struct katcp_stack *stack, struct katcp_tobject *o)
-{
-  struct katcp_type *t;
-  char *key;
-
-  if (o == NULL)
-    return -1;
-
-  t = o->o_type;
-  if (t == NULL)
-    return -1;
-
-  if (t->t_getkey == NULL)
-    return -1;
-
-  key = (*t->t_getkey)(o->o_data);
-  
-#ifdef DEBUG
-  fprintf(stderr, "statemachine: about to store <%s>\n", key);
-#endif
-
-  return store_data_at_type_katcp(d, t, KATCP_DEP_BASE, key, o->o_data, t->t_print, t->t_free, t->t_copy, t->t_compare, t->t_parse, t->t_getkey); 
-}
-
-struct kcs_sm_op *store_setup_statemachine_kcs(struct katcp_dispatch *d, struct kcs_sm_state *s)
-{
-#define ARG_BASE 5
-  struct kcs_sm_op *op;
-
-  struct katcp_type *t;
-  struct katcp_tobject *o;
-  char **data, *type;
-  void *temp;
-  int num, i;
-
-  type = arg_string_katcp(d, 4);
-
-  if (type == NULL || s == NULL)
-    return NULL;
-  
-  t = find_name_type_katcp(d, type);
-  if (t == NULL){
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "invalid type: %s\n", type); 
-    return NULL;
-  }
-  
-  num = arg_count_katcp(d) - ARG_BASE;
-  
-  data = malloc(sizeof(char *) * (num + 1));
-  if (data == NULL)
-    return NULL;
-  
-  for (i=0; i<num; i++){
-    data[i] = arg_string_katcp(d, ARG_BASE + i);
-#ifdef DEBUG
-    fprintf(stderr, "statemachine: storesetup data[%d of %d]: %s\n", i+1, num, data[i]);
-#endif
-  }
-  data[num] = NULL; 
-  
-#ifdef DEBUG
-  fprintf(stderr, "statemachine: call type parse function\n");
-#endif
-  temp = (*t->t_parse)(d, data);
-  
-  free(data);
-
-  if (temp == NULL){
-#ifdef DEBUG
-    fprintf(stderr, "statemachine: type parse fn failed\n");
-#endif
-    return NULL;  
-  }
-
-  o = create_tobject_katcp(temp, t, 0);
-  if (o == NULL){
-    (*t->t_free)(temp);
-#ifdef DEBUG
-    fprintf(stderr, "statemachine: storesetup could not create tobject\n");
-#endif
-    return NULL;
-  }
-  
-  op = create_sm_op_kcs(&store_statemachine_kcs, o);
-  if (op == NULL){
-    (*t->t_free)(temp);
-    destroy_tobject_katcp(o);
-    return NULL;
-  }
-
-#ifdef DEBUG
-  fprintf(stderr, "statemachine: storesetup created op (%p)\n", op);
-#endif
-
-  return op;
-#undef ARG_BASE
-}
-#endif 

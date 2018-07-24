@@ -2,6 +2,10 @@ KATCP ?= ../katcp
 
 include ../Makefile.inc
 
+CFLAGS := $(filter-out -DDEBUG,$(CFLAGS))
+CFLAGS += -DVERSION=\"$(GITVER)\"
+
+
 INC = -I$(KATCP)
 LIB = -L$(KATCP) -lkatcp
 
