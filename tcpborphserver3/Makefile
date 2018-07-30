@@ -31,10 +31,9 @@ clean:
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@ $(INC)
 
+# Ensure that kcpfpg gets installed
 install: all
-	# Ensure that kcpfpg in installed in /usr so
-	# that upload_to_ram_and_program will work!
-	$(MAKE) -C ../fpg PREFIX=/usr $@
+	$(MAKE) -C ../fpg $@
 	$(INSTALL) $(SERVER) $(PREFIX)/sbin
 
 test-bof: bof.c 
