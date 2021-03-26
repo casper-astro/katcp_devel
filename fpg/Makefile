@@ -23,5 +23,8 @@ $(EXE): $(OBJ)
 clean:
 	$(RM) $(OBJ) core $(EXE)
 
+# Create symlink in /bin so that the upload_to_ram_and_program
+# command in tcpborphserver3 will work.
 install: all
 	$(INSTALL) $(EXE) $(PREFIX)/bin
+	ln -sf $(PREFIX)/bin/$(EXE) /bin/$(EXE)

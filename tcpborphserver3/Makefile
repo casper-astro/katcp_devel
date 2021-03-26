@@ -31,7 +31,9 @@ clean:
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@ $(INC)
 
+# Ensure that kcpfpg gets installed
 install: all
+	$(MAKE) -C ../fpg $@
 	$(INSTALL) $(SERVER) $(PREFIX)/sbin
 
 test-bof: bof.c 
