@@ -11,7 +11,14 @@
 #define PAGE_SIZE (4*1024)
 #define BLOCK_SIZE (4*1024)
 
-#define BCM2708_PERI_BASE        0xFE000000 // RPI 2-3 0x3F000000 // or for RPI 1 B+ 0x20000000
+//#define RPI_VERSION 4
+#if RPI_VERSION >= 4
+    #define BCM2708_PERI_BASE 0xFE000000
+#elif RPI_VERSION >= 2
+    #define BCM2708_PERI_BASE 0x3F000000
+#else
+    #define BCM2708_PERI_BASE 0x20000000
+#endif
 #define GPIO_BASE                (BCM2708_PERI_BASE + 0x200000) /* GPIO controller */
 
 // GPIO setup macros. Always use INP_GPIO(x) before using OUT_GPIO(x) or SET_GPIO_ALT(x,y)
