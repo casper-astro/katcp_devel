@@ -18,7 +18,7 @@ volatile unsigned *gpio;
 void tick_clk()
 {
     GPIO_SET(JTAG_TCK);
-    //nop_sleep(WAIT);
+    //nop_sleep(WAIT); // throttle jtag for fast RPIs
     GPIO_CLR(JTAG_TCK);
 }
 

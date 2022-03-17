@@ -19,7 +19,7 @@
 // 6692572 for Kintex7 160t
 #define FPGA_BIN_SIZE 6692572
 
-struct Device
+extern struct Device
 {
 	char* DeviceName; //Device name
 	int idcode:32; //Device Id Code
@@ -28,7 +28,7 @@ struct Device
 	FILE* filePtr; //Pointer to our BDSL, in case we need it
 } device_data[32]; //32 Devices
 
-struct bitFileInfo
+extern struct bitFileInfo
 {
 	int BitFile_Type;
 	char* DesignName;
